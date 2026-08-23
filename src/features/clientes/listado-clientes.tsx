@@ -36,7 +36,7 @@ export function ListadoClientes() {
   });
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Clientes</h1>
       </div>
@@ -48,32 +48,34 @@ export function ListadoClientes() {
         onChange={(e) => setBusqueda(e.target.value)}
       />
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      <div className="screen__scroll">
+        {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
-      {clientes?.map((c) => (
-        <button
-          key={c.cliente_id}
-          className="card"
-          style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-          onClick={() => navigate(`/clientes/${c.cliente_id}`)}
-        >
-          <div>
-            <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
-            {c.ultima_visita && (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                última visita {new Date(c.ultima_visita).toLocaleDateString('es-ES')}
-              </div>
-            )}
-          </div>
-          <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
-        </button>
-      ))}
+        {clientes?.map((c) => (
+          <button
+            key={c.cliente_id}
+            className="card"
+            style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            onClick={() => navigate(`/clientes/${c.cliente_id}`)}
+          >
+            <div>
+              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
+              {c.ultima_visita && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  última visita {new Date(c.ultima_visita).toLocaleDateString('es-ES')}
+                </div>
+              )}
+            </div>
+            <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
+          </button>
+        ))}
 
-      {!isLoading && clientes?.length === 0 && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
-      )}
+        {!isLoading && clientes?.length === 0 && (
+          <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
+        )}
+      </div>
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={() => navigate('/clientes/nuevo')}>
+      <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
         + nuevo cliente
       </button>
     </div>

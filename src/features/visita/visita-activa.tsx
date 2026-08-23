@@ -6,6 +6,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 
 export function VisitaActiva() {
@@ -22,6 +23,7 @@ export function VisitaActiva() {
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTexto, setNotaTexto] = useState('');
   const [grabando, setGrabando] = useState(false);
+  const guardadoNota = useAccionAsync();
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -114,20 +116,28 @@ export function VisitaActiva() {
   async function guardarNota() {
     if (!notaTexto.trim()) return;
     const capturaId = crypto.randomUUID();
-    await encolar(
-      capturaId,
-      'captura_libre',
+    await guardadoNota.ejecutar(
+      () =>
+        encolar(
+          capturaId,
+          'captura_libre',
+          {
+            visitaId: visitaId!,
+            comercialAutorId: comercial!.id,
+            tipo: 'nota',
+            contenidoTexto: notaTexto.trim(),
+            ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+          },
+          { dependeDe: visitaId }
+        ),
       {
-        visitaId: visitaId!,
-        comercialAutorId: comercial!.id,
-        tipo: 'nota',
-        contenidoTexto: notaTexto.trim(),
-        ubicacionId: modoRecorrido ? ubicacionActual : undefined,
-      },
-      { dependeDe: visitaId }
+        onExito: () => {
+          setNotaTexto('');
+          setNotaAbierta(false);
+        },
+        mensajeError: 'No se pudo guardar la nota. Inténtalo de nuevo.',
+      }
     );
-    setNotaTexto('');
-    setNotaAbierta(false);
   }
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
@@ -230,9 +240,23 @@ export function VisitaActiva() {
             placeholder="escribe la nota…"
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setNotaAbierta(false)}>cancelar</button>
-            <button className="btn btn-primary" onClick={guardarNota}>guardar</button>
+            <button
+              className="btn btn-secondary"
+              disabled={guardadoNota.cargando}
+              onClick={() => {
+                guardadoNota.limpiarError();
+                setNotaAbierta(false);
+              }}
+            >
+              cancelar
+            </button>
+            <button className="btn btn-primary" disabled={guardadoNota.cargando} onClick={guardarNota}>
+              {guardadoNota.cargando ? 'guardando…' : 'guardar'}
+            </button>
           </div>
+          {guardadoNota.error && (
+            <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
+          )}
         </div>
       )}
 
