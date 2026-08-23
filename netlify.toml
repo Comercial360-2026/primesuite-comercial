@@ -1,0 +1,25 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains"
+
+[context.production.environment]
+  VITE_SUPABASE_URL = "REEMPLAZAR_EN_NETLIFY_UI"
+  VITE_SUPABASE_ANON_KEY = "REEMPLAZAR_EN_NETLIFY_UI"
+
+[context.staging]
+  [context.staging.environment]
+    VITE_SUPABASE_URL = "REEMPLAZAR_EN_NETLIFY_UI_STAGING"
+    VITE_SUPABASE_ANON_KEY = "REEMPLAZAR_EN_NETLIFY_UI_STAGING"

@@ -1,0 +1,62 @@
+/*
+  Design System v1 — PrimeSuite Comercial
+  Fuente única de verdad de todos los valores visuales.
+  Ver 08_sistema_diseno.md — cualquier cambio de marca se hace SOLO aquí.
+  Regla no negociable: sin box-shadow, sin blur, sin degradados,
+  sin opacity sobre color salvo el estado deshabilitado ya definido.
+*/
+
+:root {
+  /* Neutros */
+  --ink-900: #161A1E;
+  --ink-700: #3D4450;
+  --ink-400: #7C8492;
+  --ink-200: #D4D8DE;
+  --ink-100: #E8EAED;
+  --surface-0: #F4F5F7;
+  --surface-1: #FFFFFF;
+
+  /* Marca corporativa (Nota de Gastos) */
+  --brand-600: #1A3654;
+  --brand-700: #13283F;
+  --brand-050: #E4E9EE;
+
+  /* Acento funcional — Oportunidad */
+  --signal-600: #EF4136;
+
+  /* Semántica de naturaleza de Hallazgo */
+  --risk-600: #6E2430;       /* Riesgo — borgoña, separado de Oportunidad */
+  --purple-600: #6E4C9E;     /* Competencia */
+  --success-600: #3A7D4F;    /* Fortaleza / semáforo verde */
+  --warning-600: #A87A12;    /* Semáforo amarillo */
+  --danger-600: #B23A3A;     /* Errores de formulario / semáforo rojo */
+
+  /* Tipografía */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+
+  /* Espaciado — escala de 4px */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radios */
+  --radius-control: 12px;
+  --radius-field: 10px;
+  --radius-chip: 999px;
+
+  /* Alturas táctiles mínimas */
+  --h-button: 52px;
+  --h-field: 48px;
+  --h-bignav: 56px;
+  --h-capture-button: 64px;
+}
