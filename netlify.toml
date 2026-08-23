@@ -15,11 +15,11 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Strict-Transport-Security = "max-age=63072000; includeSubDomains"
 
-[context.production.environment]
-  VITE_SUPABASE_URL = "REEMPLAZAR_EN_NETLIFY_UI"
-  VITE_SUPABASE_ANON_KEY = "REEMPLAZAR_EN_NETLIFY_UI"
-
-[context.staging]
-  [context.staging.environment]
-    VITE_SUPABASE_URL = "REEMPLAZAR_EN_NETLIFY_UI_STAGING"
-    VITE_SUPABASE_ANON_KEY = "REEMPLAZAR_EN_NETLIFY_UI_STAGING"
+# Las variables VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY se configuran
+# EXCLUSIVAMENTE desde Netlify UI (Site settings → Environment variables),
+# por contexto (production / staging / deploy previews). NO se declaran
+# aquí: un bloque [context.X.environment] en este fichero es configuración
+# real que Netlify aplica en build, no documentación — tenerlo aquí con
+# valores placeholder puede pisar lo que configures en la UI para ese mismo
+# contexto, y provoca errores como "Invalid supabaseUrl" si el placeholder
+# llega a usarse en vez del valor real.
