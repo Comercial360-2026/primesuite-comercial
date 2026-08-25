@@ -22,6 +22,7 @@ import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
+import { Yo } from '@/features/perfil/yo';
 
 export function AppRoutes() {
   return (
@@ -57,11 +58,15 @@ export function AppRoutes() {
           {/* Nivel 0 — Tareas */}
           <Route path="/tareas" element={<MisProximosPasos />} />
 
-          {/* Nivel 0 — Vocabulario (solo administrador_vocabulario) — V1.1 */}
+          {/* Nivel 0 — Yo — hueco real: el bottom nav apuntaba aquí desde
+              el principio del proyecto sin que la ruta existiera nunca. */}
+          <Route path="/yo" element={<Yo />} />
+
+          {/* Nivel 0 — Vocabulario — exclusivo de Dirección Comercial */}
           <Route
             path="/vocabulario"
             element={
-              <RequireRole roles={['administrador_vocabulario']}>
+              <RequireRole roles={['direccion_comercial']}>
                 <ColaVocabulario />
               </RequireRole>
             }

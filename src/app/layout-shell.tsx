@@ -2,12 +2,10 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
-// Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
-// solo se alcanza desde Hoy (ver 06_arquitectura_navegacion.md §5).
 export function LayoutShell() {
   const { visitaEnCurso } = useVisitaActivaContext();
   const { comercial } = useSesionActual();
-  const esAdministradorVocabulario = comercial?.rol === 'administrador_vocabulario';
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
 
   return (
     <div className="app-shell">
@@ -27,8 +25,8 @@ export function LayoutShell() {
         </NavLink>
         <NavLink to="/clientes">Clientes</NavLink>
         <NavLink to="/tareas">Tareas</NavLink>
-        <NavLink to={esAdministradorVocabulario ? '/vocabulario' : '/yo'}>
-          {esAdministradorVocabulario ? 'Vocabulario' : 'Yo'}
+        <NavLink to={esDireccionComercial ? '/vocabulario' : '/yo'}>
+          {esDireccionComercial ? 'Vocabulario' : 'Yo'}
         </NavLink>
       </nav>
     </div>
