@@ -14,11 +14,6 @@ const NATURALEZAS = [
 
 const TIPOS_FECHA = ['vencimiento_contrato', 'renovacion', 'auditoria', 'presupuesto', 'implantacion', 'otro'];
 
-// Pantalla de edición (no de creación): un Hallazgo nace siempre de una
-// Visita (hoy solo vía SQL directa, no hay botón "hallazgo" en Visita
-// activa — el modelo lo soporta pero el flujo crítico implementado no lo
-// genera todavía). Esta pantalla sirve para estructurar/completar después,
-// tal como se cerró en el flujo funcional.
 export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
@@ -30,6 +25,9 @@ export function DetalleHallazgo() {
   const [tipoFechaRelevante, setTipoFechaRelevante] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
 
   const { data: hallazgo, isLoading } = useQuery({
     queryKey: ['hallazgo', hallazgoId],
@@ -69,9 +67,6 @@ export function DetalleHallazgo() {
 
   async function guardar() {
     if (!hallazgoId) return;
-    // fecha_relevante y tipo_fecha_relevante van juntos o ninguno — refleja
-    // el CHECK chk_hallazgo_fecha_relevante_tipo de 01_schema.sql; validar
-    // aquí antes de enviar evita un rechazo silencioso del servidor.
     if (fechaRelevante && !tipoFechaRelevante) {
       setError('Si indicas una fecha relevante, indica también su tipo.');
       return;
@@ -91,6 +86,26 @@ export function DetalleHallazgo() {
     setGuardando(false);
     if (err) {
       setError(err.message);
+      return;
+    }
+    navigate(-1);
+  }
+
+  async function confirmarBorrado() {
+    if (!hallazgoId) return;
+    setBorrando(true);
+    setErrorBorrado(null);
+    const { error: err, count } = await supabase
+      .from('hallazgo')
+      .delete({ count: 'exact' })
+      .eq('id', hallazgoId);
+    setBorrando(false);
+    if (err) {
+      setErrorBorrado(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorBorrado('No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.');
       return;
     }
     navigate(-1);
@@ -178,6 +193,36 @@ export function DetalleHallazgo() {
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando} onClick={guardar}>
         {guardando ? 'guardando…' : 'guardar'}
       </button>
+
+      {!confirmandoBorrado ? (
+        <button
+          className="btn btn-secondary"
+          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+          onClick={() => setConfirmandoBorrado(true)}
+        >
+          borrar hallazgo
+        </button>
+      ) : (
+        <div className="card card--riesgo">
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+            ¿Seguro? Esta acción no se puede deshacer.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrando}>
+              cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ background: 'var(--risk-600)' }}
+              onClick={confirmarBorrado}
+              disabled={borrando}
+            >
+              {borrando ? 'borrando…' : 'confirmar borrado'}
+            </button>
+          </div>
+          {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { eliminarOperacion } from '@/lib/offline-queue';
 
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
@@ -26,6 +27,9 @@ export function DetalleOportunidad() {
   const [comentarioCierre, setComentarioCierre] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [borrando, setBorrando] = useState(false);
+  const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
 
   const { data: oportunidad, isLoading } = useQuery({
     queryKey: ['oportunidad', oportunidadId],
@@ -76,8 +80,6 @@ export function DetalleOportunidad() {
 
   async function guardar() {
     if (!oportunidadId) return;
-    // Refleja chk_oportunidad_motivo_cierre_obligatorio (01_schema.sql):
-    // validar en cliente evita un rechazo del servidor con mensaje críptico.
     if (esCierreNegativo && !motivoCierre) {
       setError('Indica un motivo de cierre para continuar.');
       return;
@@ -101,6 +103,23 @@ export function DetalleOportunidad() {
       setError(err.message);
       return;
     }
+    navigate(-1);
+  }
+
+  async function confirmarBorrado() {
+    if (!oportunidadId) return;
+    setBorrando(true);
+    setErrorBorrado(null);
+    const { error: err } = await supabase.rpc('eliminar_oportunidad_completa', {
+      p_oportunidad_id: oportunidadId,
+    });
+    if (err) {
+      setBorrando(false);
+      setErrorBorrado(err.message);
+      return;
+    }
+    await eliminarOperacion(oportunidadId);
+    setBorrando(false);
     navigate(-1);
   }
 
@@ -205,6 +224,36 @@ export function DetalleOportunidad() {
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando} onClick={guardar}>
         {guardando ? 'guardando…' : 'guardar'}
       </button>
+
+      {!confirmandoBorrado ? (
+        <button
+          className="btn btn-secondary"
+          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+          onClick={() => setConfirmandoBorrado(true)}
+        >
+          borrar oportunidad
+        </button>
+      ) : (
+        <div className="card card--riesgo">
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+            ¿Seguro? Se borrarán también sus soluciones asociadas y su histórico de seguimiento. Los próximos pasos vinculados no se borran, quedan sin oportunidad asociada. No se puede deshacer.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrando}>
+              cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ background: 'var(--risk-600)' }}
+              onClick={confirmarBorrado}
+              disabled={borrando}
+            >
+              {borrando ? 'borrando…' : 'confirmar borrado'}
+            </button>
+          </div>
+          {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
+        </div>
+      )}
     </div>
   );
 }

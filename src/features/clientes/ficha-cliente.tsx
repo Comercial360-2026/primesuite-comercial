@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -23,6 +24,23 @@ interface EcosistemaItem {
   naturaleza: string;
 }
 
+interface VisitaHistorial {
+  id: string;
+  fecha: string;
+  tipo_visita: string | null;
+  estado_captura: string;
+}
+
+interface PrevisualizacionBorrado {
+  num_fotos: number;
+  num_audios: number;
+  num_notas: number;
+  num_hallazgos: number;
+  num_oportunidades: number;
+  num_proximos_pasos: number;
+  rutas_storage: string[] | null;
+}
+
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
@@ -30,6 +48,12 @@ export function FichaCliente() {
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
   const iniciandoVisita = useAccionAsync();
+  const queryClient = useQueryClient();
+
+  const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
+  const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
+  const previsualizando = useAccionAsync();
+  const borrandoVisita = useAccionAsync();
 
   const { data: cliente } = useQuery({
     queryKey: ['cliente', clienteId],
@@ -101,9 +125,6 @@ export function FichaCliente() {
         .eq('cliente_id', clienteId!);
       if (error) throw error;
 
-      // La vista permite termino_id/naturaleza nulos a nivel de tipo (columnas
-      // derivadas); en la práctica nunca lo son para una fila real, pero hay
-      // que filtrarlo explícitamente para que el tipo se estreche a `string`.
       const itemsValidos = (items ?? []).filter(
         (i): i is { termino_id: string; naturaleza: string } =>
           i.termino_id !== null && i.naturaleza !== null
@@ -139,6 +160,70 @@ export function FichaCliente() {
         onExito: ({ visitaId, clienteNombre }) => {
           iniciarVisita({ id: visitaId, clienteNombre });
           navigate(`/visita/${visitaId}`);
+        },
+      }
+    );
+  }
+
+  const { data: historialVisitas } = useQuery({
+    queryKey: ['historial-visitas', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<VisitaHistorial[]> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha, tipo_visita, estado_captura')
+        .eq('cliente_id', clienteId!)
+        .order('fecha', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  async function pedirPrevisualizacion(visitaId: string) {
+    setVisitaBorrarId(visitaId);
+    setPrevisualizacion(null);
+    await previsualizando.ejecutar(async () => {
+      const { data, error } = await supabase
+        .rpc('previsualizar_borrado_visita', { p_visita_id: visitaId })
+        .single();
+      if (error) throw new Error(error.message);
+      return data as PrevisualizacionBorrado;
+    }, {
+      onExito: (data) => setPrevisualizacion(data),
+    });
+  }
+
+  function cancelarBorrado() {
+    setVisitaBorrarId(null);
+    setPrevisualizacion(null);
+    previsualizando.limpiarError();
+    borrandoVisita.limpiarError();
+  }
+
+  async function confirmarBorradoVisita() {
+    if (!visitaBorrarId) return;
+    const rutas = previsualizacion?.rutas_storage ?? [];
+
+    await borrandoVisita.ejecutar(
+      async () => {
+        const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: visitaBorrarId });
+        if (error) throw new Error(error.message);
+
+        if (rutas.length) {
+          await Promise.all([
+            supabase.storage.from('fotos-visita').remove(rutas),
+            supabase.storage.from('audios-visita').remove(rutas),
+          ]);
+        }
+      },
+      {
+        onExito: () => {
+          setVisitaBorrarId(null);
+          setPrevisualizacion(null);
+          queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['semaforo-cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['ecosistema-completo', clienteId] });
         },
       }
     );
@@ -215,6 +300,62 @@ export function FichaCliente() {
           ))}
           {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin ecosistema registrado todavía</span>}
         </div>
+
+        <div className="label">historial de visitas</div>
+        {historialVisitas?.length ? (
+          historialVisitas.map((v) => (
+            <div key={v.id} className="card" style={{ marginBottom: 8 }}>
+              {visitaBorrarId === v.id ? (
+                previsualizando.cargando || !previsualizacion ? (
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                      Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
+                      {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
+                      {previsualizacion.num_oportunidades} oportunidad(es). Todo eso se borrará también. Los{' '}
+                      {previsualizacion.num_proximos_pasos} próximo(s) paso(s) vinculados también se borrarán. No se puede deshacer.
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
+                        cancelar
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ background: 'var(--risk-600)' }}
+                        onClick={confirmarBorradoVisita}
+                        disabled={borrandoVisita.cargando}
+                      >
+                        {borrandoVisita.cargando ? 'borrando…' : 'confirmar borrado de la visita completa'}
+                      </button>
+                    </div>
+                    {borrandoVisita.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>}
+                  </div>
+                )
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--text-base)' }}>
+                      {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                      {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura}
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                    onClick={() => pedirPrevisualizacion(v.id)}
+                  >
+                    borrar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin visitas registradas</div>
+        )}
       </div>
 
       <button className="btn btn-primary" disabled={iniciandoVisita.cargando} onClick={iniciarVisitaAdHoc}>

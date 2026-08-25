@@ -1,14 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
-import { obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 
-// Pantalla de solo-una-captura: nota (con edición), foto o audio.
-// El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
-// el motor de sincronización nunca lo borra tras subir (ver sync-engine.ts),
-// así que funciona igual esté la captura ya sincronizada o no.
 export function DetalleCaptura() {
   const { capturaId } = useParams<{ capturaId: string }>();
   const navigate = useNavigate();
@@ -19,6 +15,8 @@ export function DetalleCaptura() {
   const [textoEdit, setTextoEdit] = useState('');
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
   const guardado = useAccionAsync();
+  const borrado = useAccionAsync();
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
 
   useEffect(() => {
     if (!capturaId) return;
@@ -53,11 +51,6 @@ export function DetalleCaptura() {
         };
 
         if (operacion.estado === 'completado') {
-          // Ya sincronizada con Supabase: la edición requiere UPDATE directo
-          // contra la tabla, no pasa por la cola de creación (que es solo
-          // append-only). Si la política RLS no permite UPDATE al comercial
-          // sobre sus propias capturas, este error se mostrará tal cual,
-          // sin fallo silencioso.
           const { error } = await supabase
             .from('captura_libre')
             .update({ contenido_texto: payloadNuevo.contenidoTexto })
@@ -65,9 +58,6 @@ export function DetalleCaptura() {
           if (error) throw new Error(error.message);
         }
 
-        // Se actualiza también la copia local, tanto si estaba pendiente
-        // (única fuente de verdad hasta que sincronice) como si ya estaba
-        // completada (para que la UI no dependa de una nueva lectura remota).
         await actualizarOperacion(operacion.id, { payload: payloadNuevo });
 
         return payloadNuevo;
@@ -78,6 +68,48 @@ export function DetalleCaptura() {
         },
         mensajeError:
           'No se pudo actualizar. Si la nota ya estaba sincronizada, puede que falte permiso de edición en el servidor.',
+      }
+    );
+  }
+
+  async function confirmarBorrado() {
+    if (!operacion) return;
+
+    await borrado.ejecutar(
+      async () => {
+        if (operacion.estado === 'completado') {
+          const { data: fila, error: errLectura } = await supabase
+            .from('captura_libre')
+            .select('storage_path, tipo')
+            .eq('id', operacion.id)
+            .single();
+          if (errLectura) throw new Error(errLectura.message);
+
+          if (fila?.storage_path) {
+            const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+            const { error: errStorage } = await supabase.storage.from(bucket).remove([fila.storage_path]);
+            if (errStorage) {
+              console.error('No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:', errStorage.message);
+            }
+          }
+
+          const { error: errDelete, count } = await supabase
+            .from('captura_libre')
+            .delete({ count: 'exact' })
+            .eq('id', operacion.id);
+          if (errDelete) throw new Error(errDelete.message);
+          if (!count) {
+            throw new Error(
+              'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar una captura.'
+            );
+          }
+        }
+
+        await eliminarOperacion(operacion.id);
+      },
+      {
+        onExito: () => navigate(-1),
+        mensajeError: 'No se pudo borrar la captura. Inténtalo de nuevo.',
       }
     );
   }
@@ -145,6 +177,37 @@ export function DetalleCaptura() {
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
+      )}
+
+      {!confirmandoBorrado ? (
+        <button
+          className="btn btn-secondary"
+          style={{ marginTop: 'auto', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+          onClick={() => setConfirmandoBorrado(true)}
+        >
+          borrar {payload.tipo}
+        </button>
+      ) : (
+        <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+            ¿Seguro? {payload.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento. ' : ''}
+            No se puede deshacer.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrado.cargando}>
+              cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              style={{ background: 'var(--risk-600)' }}
+              onClick={confirmarBorrado}
+              disabled={borrado.cargando}
+            >
+              {borrado.cargando ? 'borrando…' : 'confirmar borrado'}
+            </button>
+          </div>
+          {borrado.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrado.error}</div>}
+        </div>
       )}
     </div>
   );

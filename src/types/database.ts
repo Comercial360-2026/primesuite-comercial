@@ -33,6 +33,7 @@ export type Database = {
           storage_path: string | null
           storage_path_thumbnail: string | null
           tipo: string
+          titulo: string | null
           ubicacion_id: string | null
           visita_id: string
         }
@@ -54,6 +55,7 @@ export type Database = {
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo: string
+          titulo?: string | null
           ubicacion_id?: string | null
           visita_id: string
         }
@@ -75,6 +77,7 @@ export type Database = {
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo?: string
+          titulo?: string | null
           ubicacion_id?: string | null
           visita_id?: string
         }
@@ -1576,6 +1579,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      eliminar_oportunidad_completa: {
+        Args: { p_oportunidad_id: string }
+        Returns: undefined
+      }
+      eliminar_visita_completa: {
+        Args: { p_visita_id: string }
+        Returns: undefined
+      }
       fn_comercial_actual_activo: { Args: never; Returns: boolean }
       fn_consolidar_visitas_antiguas: { Args: never; Returns: undefined }
       fn_es_participante_de_visita: {
@@ -1592,6 +1603,18 @@ export type Database = {
       fn_visita_sin_participantes: {
         Args: { p_visita_id: string }
         Returns: boolean
+      }
+      previsualizar_borrado_visita: {
+        Args: { p_visita_id: string }
+        Returns: {
+          num_audios: number
+          num_fotos: number
+          num_hallazgos: number
+          num_notas: number
+          num_oportunidades: number
+          num_proximos_pasos: number
+          rutas_storage: string[]
+        }[]
       }
       resolver_termino_propuesto: {
         Args: {
