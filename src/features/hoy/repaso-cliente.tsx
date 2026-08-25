@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { EstadoError } from '@/components/ui/estado-error';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -33,7 +34,11 @@ export function RepasoCliente() {
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
 
-  const { data: cliente } = useQuery({
+  const {
+    data: cliente,
+    isError: isErrorCliente,
+    refetch: refetchCliente,
+  } = useQuery({
     queryKey: ['cliente', clienteId],
     enabled: !!clienteId,
     queryFn: async () => {
@@ -43,7 +48,11 @@ export function RepasoCliente() {
     },
   });
 
-  const { data: ecosistema } = useQuery({
+  const {
+    data: ecosistema,
+    isError: isErrorEcosistema,
+    refetch: refetchEcosistema,
+  } = useQuery({
     queryKey: ['ecosistema-actual', clienteId],
     enabled: !!clienteId,
     queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
@@ -71,7 +80,11 @@ export function RepasoCliente() {
     },
   });
 
-  const { data: oportunidad } = useQuery({
+  const {
+    data: oportunidad,
+    isError: isErrorOportunidad,
+    refetch: refetchOportunidad,
+  } = useQuery({
     queryKey: ['oportunidad-activa', clienteId],
     enabled: !!clienteId,
     queryFn: async (): Promise<OportunidadActiva | null> => {
@@ -88,7 +101,11 @@ export function RepasoCliente() {
     },
   });
 
-  const { data: proximoPaso } = useQuery({
+  const {
+    data: proximoPaso,
+    isError: isErrorProximoPaso,
+    refetch: refetchProximoPaso,
+  } = useQuery({
     queryKey: ['proximo-paso-pendiente', clienteId],
     enabled: !!clienteId,
     queryFn: async (): Promise<ProximoPasoPendiente | null> => {
@@ -126,33 +143,49 @@ export function RepasoCliente() {
 
   return (
     <div className="screen">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>{cliente?.nombre ?? '…'}</h1>
+      {isErrorCliente ? (
+        <EstadoError mensaje="No se pudo cargar el cliente." onReintentar={() => refetchCliente()} />
+      ) : (
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>{cliente?.nombre ?? '…'}</h1>
+      )}
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {ecosistema?.map((item) => (
-          <span
-            key={item.termino_id}
-            className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
-          >
-            {item.nombre}
-          </span>
-        ))}
-        {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
-      </div>
-
-      <div className="card">
-        <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
-        <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-          {oportunidad ? `${oportunidad.titulo} · ${oportunidad.prioridad}` : 'ninguna oportunidad activa'}
+      {isErrorEcosistema ? (
+        <EstadoError mensaje="No se pudo cargar el ecosistema." onReintentar={() => refetchEcosistema()} />
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {ecosistema?.map((item) => (
+            <span
+              key={item.termino_id}
+              className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
+            >
+              {item.nombre}
+            </span>
+          ))}
+          {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
         </div>
-      </div>
+      )}
 
-      <div className="card">
-        <div className="label" style={{ marginTop: 0 }}>próximo paso pendiente</div>
-        <div style={{ fontSize: 'var(--text-base)' }}>
-          {proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
+      {isErrorOportunidad ? (
+        <EstadoError mensaje="No se pudo cargar la oportunidad activa." onReintentar={() => refetchOportunidad()} />
+      ) : (
+        <div className="card">
+          <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
+          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
+            {oportunidad ? `${oportunidad.titulo} · ${oportunidad.prioridad}` : 'ninguna oportunidad activa'}
+          </div>
         </div>
-      </div>
+      )}
+
+      {isErrorProximoPaso ? (
+        <EstadoError mensaje="No se pudo cargar el próximo paso." onReintentar={() => refetchProximoPaso()} />
+      ) : (
+        <div className="card">
+          <div className="label" style={{ marginTop: 0 }}>próximo paso pendiente</div>
+          <div style={{ fontSize: 'var(--text-base)' }}>
+            {proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
+          </div>
+        </div>
+      )}
 
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={iniciarLaVisita}>
         iniciar visita →

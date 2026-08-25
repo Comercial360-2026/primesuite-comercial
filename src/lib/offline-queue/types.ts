@@ -47,6 +47,7 @@ export interface CapturaLibrePayload {
   visitaId: string;
   comercialAutorId: string;
   tipo: 'foto' | 'audio' | 'nota';
+  titulo?: string; // referencia corta para distinguir capturas en la lista; solo aplica a 'nota'
   contenidoTexto?: string; // nota, o transcripción posterior de audio
   hallazgoId?: string;
   oportunidadId?: string;

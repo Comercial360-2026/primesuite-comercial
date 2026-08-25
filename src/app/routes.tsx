@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LayoutShell } from '@/app/layout-shell';
 import { RequireRole } from '@/app/require-role';
+import { RequireSession } from '@/app/require-session';
 import { VisitaActivaProvider } from '@/hooks/use-visita-activa-context';
+import { Login } from '@/features/auth/login';
 
 // Pantallas — cada import se resuelve a un stub inicial en su carpeta de
 // feature (ver 09_arquitectura_tecnica.md §3). Se construyen en el orden del
@@ -11,6 +13,7 @@ import { VisitaActivaProvider } from '@/hooks/use-visita-activa-context';
 import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
+import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
@@ -24,7 +27,15 @@ export function AppRoutes() {
   return (
     <VisitaActivaProvider>
       <Routes>
-        <Route element={<LayoutShell />}>
+        <Route path="/login" element={<Login />} />
+
+        <Route
+          element={
+            <RequireSession>
+              <LayoutShell />
+            </RequireSession>
+          }
+        >
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
@@ -32,6 +43,7 @@ export function AppRoutes() {
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}
           <Route path="/visita/:visitaId" element={<VisitaActiva />} />
+          <Route path="/capturas/:capturaId" element={<DetalleCaptura />} />
           <Route path="/visita/:visitaId/cierre" element={<CierreVisita />} />
 
           {/* Nivel 0 — Clientes */}

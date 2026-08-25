@@ -17,7 +17,22 @@ export function useSesionActual() {
     let activo = true;
 
     async function cargar() {
-      const { data: sesion } = await supabase.auth.getSession();
+      const { data: sesion, error } = await supabase.auth.getSession();
+
+      // BUG CORREGIDO: sin conexión, la renovación en segundo plano del
+      // access token puede fallar y getSession() devolver una sesión nula
+      // aunque la sesión guardada localmente siga siendo válida — "no se
+      // pudo verificar por falta de red" no es lo mismo que "no hay
+      // sesión". Antes esto expulsaba al comercial a /login en cuanto
+      // perdía cobertura, anulando en la práctica todo el diseño
+      // offline-first de la aplicación. Ahora, sin red o ante un error de
+      // la propia llamada, se mantiene el último comercial conocido en
+      // memoria y simplemente se deja de mostrar el estado de carga.
+      if (!navigator.onLine || error) {
+        if (activo) setCargando(false);
+        return;
+      }
+
       if (!sesion.session) {
         if (activo) {
           setComercial(null);
@@ -25,11 +40,13 @@ export function useSesionActual() {
         }
         return;
       }
+
       const { data } = await supabase
         .from('comercial')
         .select('*')
         .eq('id', sesion.session.user.id)
         .single();
+
       if (activo) {
         setComercial(data ?? null);
         setCargando(false);
@@ -37,10 +54,33 @@ export function useSesionActual() {
     }
 
     cargar();
-    const { data: listener } = supabase.auth.onAuthStateChange(() => cargar());
+
+    // Solo un SIGNED_OUT explícito debe limpiar la sesión. Otros eventos
+    // (incluido un intento de refresco de token fallido) simplemente
+    // vuelven a intentar cargar, sin asumir que el comercial cerró sesión.
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        if (activo) {
+          setComercial(null);
+          setCargando(false);
+        }
+        return;
+      }
+      cargar();
+    });
+
+    // En cuanto vuelve la conexión, se reintenta verificar la sesión real
+    // contra el servidor — así el estado "mantenido por falta de red" no
+    // se queda desactualizado indefinidamente.
+    function alReconectar() {
+      cargar();
+    }
+    window.addEventListener('online', alReconectar);
+
     return () => {
       activo = false;
       listener.subscription.unsubscribe();
+      window.removeEventListener('online', alReconectar);
     };
   }, []);
 

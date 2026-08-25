@@ -46,12 +46,18 @@ export async function encolarOperacion(operacion: OperacionPendiente): Promise<v
 
 export async function actualizarOperacion(
   id: string,
-  cambios: Partial<Pick<OperacionPendiente, 'estado' | 'intentos' | 'ultimoError'>>
+  cambios: Partial<Pick<OperacionPendiente, 'estado' | 'intentos' | 'ultimoError' | 'payload'>>
 ): Promise<void> {
   const db = await getDb();
   const existente = await db.get('operaciones', id);
   if (!existente) return;
-  await db.put('operaciones', { ...existente, ...cambios });
+  // `OperacionPendiente` es una unión discriminada por `entidad` — el spread
+  // de `existente` (un miembro concreto ya conocido) con `cambios` (tipado
+  // de forma genérica contra la unión completa) hace que TypeScript no
+  // pueda verificar que el resultado sigue perteneciendo a un único
+  // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
+  // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
+  await db.put('operaciones', { ...existente, ...cambios } as unknown as OperacionPendiente);
 }
 
 export async function obtenerOperacion(id: string): Promise<OperacionPendiente | undefined> {
@@ -89,6 +95,10 @@ export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendi
   const todas = await db.getAll('operaciones');
   return todas.filter((op) => {
     if (op.entidad === 'visita') return op.id === visitaId;
+    if (op.entidad === 'oportunidad') {
+      const payload = op.payload as { visitaOrigenId?: string };
+      return payload.visitaOrigenId === visitaId;
+    }
     const payload = op.payload as { visitaId?: string };
     return payload.visitaId === visitaId;
   });

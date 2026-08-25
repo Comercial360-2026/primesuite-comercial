@@ -21,9 +21,12 @@ export function VisitaActiva() {
   const [ubicacionActual, setUbicacionActual] = useState<string | undefined>(undefined);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [notaAbierta, setNotaAbierta] = useState(false);
+  const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
   const [grabando, setGrabando] = useState(false);
   const guardadoNota = useAccionAsync();
+  const capturaFoto = useAccionAsync();
+  const capturaAudio = useAccionAsync();
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -68,45 +71,59 @@ export function VisitaActiva() {
   if (!visitaId || !comercial) return null;
 
   async function capturarFoto(archivo: File) {
-    const capturaId = crypto.randomUUID();
-    await encolar(
-      capturaId,
-      'captura_libre',
-      {
-        visitaId: visitaId!,
-        comercialAutorId: comercial!.id,
-        tipo: 'foto',
-        ubicacionId: modoRecorrido ? ubicacionActual : undefined,
-      },
-      { dependeDe: visitaId, archivoLocal: archivo }
+    await capturaFoto.ejecutar(
+      () =>
+        encolar(
+          crypto.randomUUID(),
+          'captura_libre',
+          {
+            visitaId: visitaId!,
+            comercialAutorId: comercial!.id,
+            tipo: 'foto',
+            ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+          },
+          { dependeDe: visitaId, archivoLocal: archivo }
+        ),
+      { mensajeError: 'No se pudo guardar la foto. Inténtalo de nuevo.' }
     );
   }
 
   async function iniciarODetenerAudio() {
     if (!grabando) {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-      recorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const capturaId = crypto.randomUUID();
-        await encolar(
-          capturaId,
-          'captura_libre',
-          {
-            visitaId: visitaId!,
-            comercialAutorId: comercial!.id,
-            tipo: 'audio',
-            ubicacionId: modoRecorrido ? ubicacionActual : undefined,
-          },
-          { dependeDe: visitaId, archivoLocal: blob }
-        );
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      recorder.start();
-      mediaRecorderRef.current = recorder;
-      setGrabando(true);
+      await capturaAudio.ejecutar(
+        async () => {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const recorder = new MediaRecorder(stream);
+          audioChunksRef.current = [];
+          recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+          recorder.onstop = async () => {
+            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            try {
+              await encolar(
+                crypto.randomUUID(),
+                'captura_libre',
+                {
+                  visitaId: visitaId!,
+                  comercialAutorId: comercial!.id,
+                  tipo: 'audio',
+                  ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+                },
+                { dependeDe: visitaId, archivoLocal: blob }
+              );
+            } catch {
+              // El guardado ocurre en este callback, posterior a que
+              // ejecutar() ya resolviera al iniciar la grabación — se expone
+              // el error directamente en vez de perderlo en silencio.
+              capturaAudio.establecerError('No se pudo guardar el audio grabado. Inténtalo de nuevo.');
+            }
+            stream.getTracks().forEach((t) => t.stop());
+          };
+          recorder.start();
+          mediaRecorderRef.current = recorder;
+          setGrabando(true);
+        },
+        { mensajeError: 'No se pudo acceder al micrófono. Comprueba los permisos.' }
+      );
     } else {
       mediaRecorderRef.current?.stop();
       setGrabando(false);
@@ -125,6 +142,7 @@ export function VisitaActiva() {
             visitaId: visitaId!,
             comercialAutorId: comercial!.id,
             tipo: 'nota',
+            titulo: notaTitulo.trim() || undefined,
             contenidoTexto: notaTexto.trim(),
             ubicacionId: modoRecorrido ? ubicacionActual : undefined,
           },
@@ -132,6 +150,7 @@ export function VisitaActiva() {
         ),
       {
         onExito: () => {
+          setNotaTitulo('');
           setNotaTexto('');
           setNotaAbierta(false);
         },
@@ -192,7 +211,7 @@ export function VisitaActiva() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div className="label" style={{ marginTop: 0 }}>visita en curso</div>
@@ -214,11 +233,11 @@ export function VisitaActiva() {
       />
 
       <div className="capture-grid">
-        <button className="capture-btn" onClick={() => inputFotoRef.current?.click()}>
-          foto
+        <button className="capture-btn" disabled={capturaFoto.cargando} onClick={() => inputFotoRef.current?.click()}>
+          {capturaFoto.cargando ? 'guardando…' : 'foto'}
         </button>
-        <button className="capture-btn" onClick={iniciarODetenerAudio}>
-          {grabando ? 'detener' : 'audio'}
+        <button className="capture-btn" disabled={capturaAudio.cargando && !grabando} onClick={iniciarODetenerAudio}>
+          {grabando ? 'detener' : capturaAudio.cargando ? 'guardando…' : 'audio'}
         </button>
         <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
           nota
@@ -228,8 +247,18 @@ export function VisitaActiva() {
         </button>
       </div>
 
+      {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
+      {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+
       {notaAbierta && (
         <div className="card">
+          <input
+            className="field"
+            style={{ marginBottom: 8 }}
+            value={notaTitulo}
+            onChange={(e) => setNotaTitulo(e.target.value)}
+            placeholder="título breve (opcional)"
+          />
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8 }}
@@ -260,26 +289,42 @@ export function VisitaActiva() {
         </div>
       )}
 
-      <div className="label">capturado en esta visita</div>
-      {capturas.map((c) => (
-        <div key={c.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ flex: 1, fontSize: 'var(--text-sm)' }}>
-            {(c.payload as { tipo: string }).tipo} · {c.estado}
-          </span>
-        </div>
-      ))}
-      {oportunidades.map((o) => (
-        <div
-          key={o.id}
-          className="card card--oportunidad"
-          style={{ cursor: 'pointer' }}
-          onClick={() => navigate(`/oportunidades/${o.id}`)}
-        >
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-            {(o.payload as { titulo: string }).titulo}
-          </span>
-        </div>
-      ))}
+      <div className="screen__scroll">
+        <div className="label" style={{ marginTop: 0 }}>capturado en esta visita</div>
+        {capturas.map((c) => {
+          const payload = c.payload as { tipo: string; titulo?: string; contenidoTexto?: string };
+          const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          const etiqueta =
+            payload.tipo === 'nota'
+              ? payload.titulo || payload.contenidoTexto || '(nota vacía)'
+              : payload.tipo === 'foto'
+                ? `foto · ${hora}`
+                : `audio · ${hora}`;
+          return (
+            <div
+              key={c.id}
+              className="card"
+              style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+              onClick={() => navigate(`/capturas/${c.id}`)}
+            >
+              <span style={{ fontSize: 'var(--text-sm)' }}>{etiqueta}</span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
+            </div>
+          );
+        })}
+        {oportunidades.map((o) => (
+          <div
+            key={o.id}
+            className="card card--oportunidad"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate(`/oportunidades/${o.id}`)}
+          >
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
+              {(o.payload as { titulo: string }).titulo}
+            </span>
+          </div>
+        ))}
+      </div>
 
       <button className="btn btn-secondary" onClick={() => setModoRecorrido(true)}>
         modo recorrido →

@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
-import { useAccionAsync } from '@/hooks/use-accion-async';
 
 interface OportunidadActiva {
   id: string;
@@ -29,7 +28,6 @@ export function FichaCliente() {
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
-  const iniciandoVisita = useAccionAsync();
 
   const { data: cliente } = useQuery({
     queryKey: ['cliente', clienteId],
@@ -122,26 +120,15 @@ export function FichaCliente() {
   });
 
   async function iniciarVisitaAdHoc() {
-    await iniciandoVisita.ejecutar(
-      async () => {
-        if (!cliente || !comercial) {
-          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-        }
-        const visitaId = crypto.randomUUID();
-        await encolar(visitaId, 'visita', {
-          clienteId: cliente.id,
-          comercialResponsableId: comercial.id,
-          tipoVisita: null,
-        });
-        return { visitaId, clienteNombre: cliente.nombre };
-      },
-      {
-        onExito: ({ visitaId, clienteNombre }) => {
-          iniciarVisita({ id: visitaId, clienteNombre });
-          navigate(`/visita/${visitaId}`);
-        },
-      }
-    );
+    if (!cliente || !comercial) return;
+    const visitaId = crypto.randomUUID();
+    await encolar(visitaId, 'visita', {
+      clienteId: cliente.id,
+      comercialResponsableId: comercial.id,
+      tipoVisita: null,
+    });
+    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+    navigate(`/visita/${visitaId}`);
   }
 
   return (
@@ -217,10 +204,9 @@ export function FichaCliente() {
         </div>
       </div>
 
-      <button className="btn btn-primary" disabled={iniciandoVisita.cargando} onClick={iniciarVisitaAdHoc}>
-        {iniciandoVisita.cargando ? 'iniciando…' : 'iniciar visita →'}
+      <button className="btn btn-primary" onClick={iniciarVisitaAdHoc}>
+        iniciar visita →
       </button>
-      {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
     </div>
   );
 }

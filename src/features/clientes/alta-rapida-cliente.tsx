@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -18,34 +19,47 @@ export function AltaRapidaCliente() {
   const { encolar } = useSyncQueue(undefined);
 
   const [nombre, setNombre] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const creacionCliente = useAccionAsync();
 
   async function crearYVisitar() {
-    if (!nombre.trim() || !comercial) return;
-    setGuardando(true);
-    setError(null);
+    if (!nombre.trim()) return;
 
-    const { data: cliente, error: errorCliente } = await supabase
-      .from('cliente')
-      .insert({ nombre: nombre.trim(), estado_relacion: 'borrador' })
-      .select('id, nombre')
-      .single();
+    await creacionCliente.ejecutar(
+      async () => {
+        // Defensa explícita: sin pantalla de login construida todavía,
+        // `comercial` puede no estar resuelto. Antes esto hacía que el botón
+        // no hiciera nada de forma silenciosa — ahora se muestra como un
+        // error visible, mismo patrón ya usado en OportunidadRapidaModal.
+        if (!comercial) {
+          throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
+        }
 
-    if (errorCliente || !cliente) {
-      setError(errorCliente?.message ?? 'No se pudo crear el cliente. Comprueba tu conexión.');
-      setGuardando(false);
-      return;
-    }
+        const { data: cliente, error: errorCliente } = await supabase
+          .from('cliente')
+          .insert({ nombre: nombre.trim(), estado_relacion: 'borrador' })
+          .select('id, nombre')
+          .single();
 
-    const visitaId = crypto.randomUUID();
-    await encolar(visitaId, 'visita', {
-      clienteId: cliente.id,
-      comercialResponsableId: comercial.id,
-      tipoVisita: null,
-    });
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
-    navigate(`/visita/${visitaId}`);
+        if (errorCliente || !cliente) {
+          throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente. Comprueba tu conexión.');
+        }
+
+        const visitaId = crypto.randomUUID();
+        await encolar(visitaId, 'visita', {
+          clienteId: cliente.id,
+          comercialResponsableId: comercial.id,
+          tipoVisita: null,
+        });
+
+        return { visitaId, clienteNombre: cliente.nombre };
+      },
+      {
+        onExito: ({ visitaId, clienteNombre }) => {
+          iniciarVisita({ id: visitaId, clienteNombre });
+          navigate(`/visita/${visitaId}`);
+        },
+      }
+    );
   }
 
   return (
@@ -59,13 +73,13 @@ export function AltaRapidaCliente() {
 
       <div className="label" style={{ marginTop: 0 }}>nombre</div>
       <input
-        className={`field${error ? ' field--error' : ''}`}
+        className={`field${creacionCliente.error ? ' field--error' : ''}`}
         autoFocus
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         placeholder="razón social"
       />
-      {error && <div className="field-error-text">{error}</div>}
+      {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
 
       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
         El resto de la ficha (sector, tamaño, ubicación) se completa después. Al guardar, se inicia la visita directamente.
@@ -74,10 +88,10 @@ export function AltaRapidaCliente() {
       <button
         className="btn btn-primary"
         style={{ marginTop: 'auto' }}
-        disabled={!nombre.trim() || guardando}
+        disabled={!nombre.trim() || creacionCliente.cargando}
         onClick={crearYVisitar}
       >
-        {guardando ? 'creando…' : 'guardar e iniciar visita →'}
+        {creacionCliente.cargando ? 'creando…' : 'guardar e iniciar visita →'}
       </button>
     </div>
   );

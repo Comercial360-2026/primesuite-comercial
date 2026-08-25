@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 
 const TIPOS_VISITA = ['comercial', 'demo', 'tecnica', 'seguimiento', 'relacion'] as const;
 
@@ -38,7 +39,9 @@ export function CierreVisita() {
   const { cerrarVisita } = useVisitaActivaContext();
 
   const [tipoVisita, setTipoVisita] = useState<string | null>(null);
-  const [vista, setVista] = useState<'cierre' | 'resumen'>('cierre');
+  const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
+  const [sincronizada, setSincronizada] = useState(true);
+  const consolidacion = useAccionAsync();
 
   if (!visitaId) return null;
 
@@ -56,22 +59,36 @@ export function CierreVisita() {
     return acc;
   }, {});
 
+  const capturasPendientes = capturas.filter((c) => c.estado !== 'completado');
+
   async function consolidar() {
     if (!visitaId) return;
-    if (navigator.onLine) {
-      const { error } = await supabase
-        .from('visita')
-        .update({ estado_captura: 'consolidada', tipo_visita: tipoVisita })
-        .eq('id', visitaId);
-      if (error) {
-        intentarConsolidarOffline(visitaId, tipoVisita);
+
+    await consolidacion.ejecutar(
+      async () => {
+        if (navigator.onLine) {
+          const { error } = await supabase
+            .from('visita')
+            .update({ estado_captura: 'consolidada', tipo_visita: tipoVisita })
+            .eq('id', visitaId);
+          if (error) {
+            intentarConsolidarOffline(visitaId, tipoVisita);
+            return { sincronizada: false };
+          }
+          return { sincronizada: true };
+        } else {
+          intentarConsolidarOffline(visitaId, tipoVisita);
+          return { sincronizada: false };
+        }
+      },
+      {
+        onExito: ({ sincronizada }) => {
+          setSincronizada(sincronizada);
+          setVista('resumen');
+        },
+        mensajeError: 'No se pudo cerrar la visita. Inténtalo de nuevo.',
       }
-    } else {
-      intentarConsolidarOffline(visitaId, tipoVisita);
-    }
-    // Optimista: el comercial no espera confirmación de red para terminar
-    // su flujo, coherente con "nada bloquea el avance".
-    setVista('resumen');
+    );
   }
 
   function volverAHoy() {
@@ -81,37 +98,96 @@ export function CierreVisita() {
 
   if (vista === 'resumen') {
     return (
-      <div className="screen">
+      <div className="screen screen--split">
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>resumen de la visita</h1>
 
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>resumen ejecutivo</div>
-          <div style={{ fontSize: 'var(--text-sm)', marginTop: 4 }}>
-            {fotos.length} fotos, {audios.length} audios y {notas.length} notas capturadas.
-            {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) detectada(s).`}
-          </div>
-        </div>
-
-        {oportunidades.length > 0 && (
-          <div className="card card--oportunidad">
-            <div className="label" style={{ marginTop: 0 }}>oportunidades</div>
-            {oportunidades.map((o) => (
-              <div key={o.id} style={{ fontSize: 'var(--text-sm)' }}>
-                {(o.payload as { titulo: string }).titulo}
-              </div>
-            ))}
+        {!sincronizada && (
+          <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
+              guardado localmente, pendiente de conexión
+            </div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que hagas nada más.
+            </div>
           </div>
         )}
 
-        <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={volverAHoy}>
+        <div className="screen__scroll">
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>resumen ejecutivo</div>
+            <div style={{ fontSize: 'var(--text-sm)', marginTop: 4 }}>
+              {fotos.length} fotos, {audios.length} audios y {notas.length} notas capturadas.
+              {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) detectada(s).`}
+            </div>
+          </div>
+
+          {oportunidades.length > 0 && (
+            <div className="card card--oportunidad">
+              <div className="label" style={{ marginTop: 0 }}>oportunidades</div>
+              {oportunidades.map((o) => (
+                <div key={o.id} style={{ fontSize: 'var(--text-sm)' }}>
+                  {(o.payload as { titulo: string }).titulo}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button className="btn btn-primary" onClick={volverAHoy}>
           volver a hoy
         </button>
       </div>
     );
   }
 
+  if (vista === 'confirmar') {
+    return (
+      <div className="screen screen--split">
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>¿confirmas el cierre?</h1>
+
+        <div className="screen__scroll">
+          <div className="card">
+            <div style={{ fontSize: 'var(--text-sm)' }}>
+              Se cerrará esta visita con {fotos.length} fotos, {audios.length} audios y {notas.length} notas.
+              {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) quedarán registradas.`}
+            </div>
+          </div>
+
+          {capturasPendientes.length > 0 && (
+            <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
+                {capturasPendientes.length} captura(s) todavía sin confirmar en el servidor
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable, espera unos segundos para asegurarte de que todo suba antes de cerrar.
+              </div>
+            </div>
+          )}
+
+          {consolidacion.error && <div className="field-error-text">{consolidacion.error}</div>}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn btn-secondary"
+            disabled={consolidacion.cargando}
+            onClick={() => {
+              consolidacion.limpiarError();
+              setVista('cierre');
+            }}
+          >
+            volver
+          </button>
+          <button className="btn btn-primary" disabled={consolidacion.cargando} onClick={consolidar}>
+            {consolidacion.cargando ? 'cerrando…' : 'sí, cerrar visita'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>cerrar visita</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -125,24 +201,26 @@ export function CierreVisita() {
         </div>
       </div>
 
-      <div className="label">revisar por ubicación</div>
-      {Object.entries(fotosPorUbicacion).map(([ubicacionId, cantidad]) => (
-        <div key={ubicacionId} className="card">
-          {ubicacionId === 'sin ubicación' ? 'sin ubicación' : ubicacionId} · {cantidad} foto(s) sin vincular
-        </div>
-      ))}
-
-      <div className="label">tipo de visita</div>
-      <select className="field" value={tipoVisita ?? ''} onChange={(e) => setTipoVisita(e.target.value || null)}>
-        <option value="">sin especificar</option>
-        {TIPOS_VISITA.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
+      <div className="screen__scroll">
+        <div className="label" style={{ marginTop: 0 }}>revisar por ubicación</div>
+        {Object.entries(fotosPorUbicacion).map(([ubicacionId, cantidad]) => (
+          <div key={ubicacionId} className="card">
+            {ubicacionId === 'sin ubicación' ? 'sin ubicación' : ubicacionId} · {cantidad} foto(s) sin vincular
+          </div>
         ))}
-      </select>
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={consolidar}>
+        <div className="label">tipo de visita</div>
+        <select className="field" value={tipoVisita ?? ''} onChange={(e) => setTipoVisita(e.target.value || null)}>
+          <option value="">sin especificar</option>
+          {TIPOS_VISITA.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
         consolidar visita
       </button>
     </div>

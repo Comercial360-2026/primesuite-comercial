@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { EstadoError } from '@/components/ui/estado-error';
 
 interface VisitaAgenda {
   id: string;
@@ -27,7 +28,12 @@ export function AgendaDelDia() {
   const { comercial } = useSesionActual();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
 
-  const { data: visitas, isLoading } = useQuery({
+  const {
+    data: visitas,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['visitas-hoy', comercial?.id, inicio],
     enabled: !!comercial,
     queryFn: async (): Promise<VisitaAgenda[]> => {
@@ -59,7 +65,14 @@ export function AgendaDelDia() {
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}
 
-      {!isLoading && visitas?.length === 0 && (
+      {isError && (
+        <EstadoError
+          mensaje="No se pudieron cargar las visitas de hoy."
+          onReintentar={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && visitas?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
           No hay visitas agendadas hoy. Puedes iniciar una visita no planificada desde Clientes.
         </p>

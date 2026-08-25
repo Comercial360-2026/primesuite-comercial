@@ -44,5 +44,9 @@ export function useAccionAsync() {
 
   const limpiarError = useCallback(() => setEstado((e) => ({ ...e, error: null })), []);
 
-  return { cargando: estado.cargando, error: estado.error, ejecutar, limpiarError };
+  const establecerError = useCallback((mensaje: string) => {
+    setEstado({ cargando: false, error: mensaje });
+  }, []);
+
+  return { cargando: estado.cargando, error: estado.error, ejecutar, limpiarError, establecerError };
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { EstadoError } from '@/components/ui/estado-error';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -17,7 +18,12 @@ export function ListadoClientes() {
   const navigate = useNavigate();
   const [busqueda, setBusqueda] = useState('');
 
-  const { data: clientes, isLoading } = useQuery({
+  const {
+    data: clientes,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['listado-clientes', busqueda],
     queryFn: async (): Promise<ClienteConSemaforo[]> => {
       let query = supabase
@@ -36,7 +42,7 @@ export function ListadoClientes() {
   });
 
   return (
-    <div className="screen screen--split">
+    <div className="screen">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Clientes</h1>
       </div>
@@ -48,34 +54,39 @@ export function ListadoClientes() {
         onChange={(e) => setBusqueda(e.target.value)}
       />
 
-      <div className="screen__scroll">
-        {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
-        {clientes?.map((c) => (
-          <button
-            key={c.cliente_id}
-            className="card"
-            style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            onClick={() => navigate(`/clientes/${c.cliente_id}`)}
-          >
-            <div>
-              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
-              {c.ultima_visita && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  última visita {new Date(c.ultima_visita).toLocaleDateString('es-ES')}
-                </div>
-              )}
-            </div>
-            <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
-          </button>
-        ))}
+      {isError && (
+        <EstadoError
+          mensaje="No se pudo cargar el listado de clientes."
+          onReintentar={() => refetch()}
+        />
+      )}
 
-        {!isLoading && clientes?.length === 0 && (
-          <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
-        )}
-      </div>
+      {clientes?.map((c) => (
+        <button
+          key={c.cliente_id}
+          className="card"
+          style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          onClick={() => navigate(`/clientes/${c.cliente_id}`)}
+        >
+          <div>
+            <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
+            {c.ultima_visita && (
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                última visita {new Date(c.ultima_visita).toLocaleDateString('es-ES')}
+              </div>
+            )}
+          </div>
+          <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
+        </button>
+      ))}
 
-      <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
+      {!isLoading && !isError && clientes?.length === 0 && (
+        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
+      )}
+
+      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={() => navigate('/clientes/nuevo')}>
         + nuevo cliente
       </button>
     </div>
