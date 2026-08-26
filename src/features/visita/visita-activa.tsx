@@ -327,6 +327,7 @@ export function VisitaActiva() {
           <input
             className="field"
             style={{ marginBottom: 8 }}
+            autoFocus
             value={notaTitulo}
             onChange={(e) => setNotaTitulo(e.target.value)}
             placeholder="título breve (opcional)"
@@ -335,7 +336,6 @@ export function VisitaActiva() {
             className="field"
             style={{ height: 'auto', padding: 8 }}
             rows={2}
-            autoFocus
             value={notaTexto}
             onChange={(e) => setNotaTexto(e.target.value)}
             placeholder="escribe la nota…"
