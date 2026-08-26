@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 
 // Pantalla "Yo" — mismo sitio en el bottom nav para cualquier rol, siempre.
 // El acceso a Vocabulario (antes ocupaba este mismo hueco del menú solo
@@ -10,6 +11,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 // una tarjeta más — no compite por la posición fija del menú.
 export function Yo() {
   const { comercial } = useSesionActual();
+  const { cerrarVisita } = useVisitaActivaContext();
   const navigate = useNavigate();
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +27,12 @@ export function Yo() {
       setError(err.message);
       return;
     }
+    // El logout no recarga la página (navegación de React, no un F5 real),
+    // así que el banner "visita en curso" — estado solo de memoria, ver
+    // use-visita-activa-context.tsx — sobrevive al cierre de sesión si no
+    // se limpia explícitamente aquí. Hueco real: mostraba la visita de la
+    // sesión anterior como si perteneciera a la nueva sesión.
+    cerrarVisita();
     navigate('/login', { replace: true });
   }
 

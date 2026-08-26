@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -43,10 +44,26 @@ export function CierreVisita() {
   const [sincronizada, setSincronizada] = useState(true);
   const consolidacion = useAccionAsync();
 
+  const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
+  const terminoIdsHallazgos = hallazgosParaResumen
+    .map((h) => (h.payload as { terminoId: string }).terminoId)
+    .filter((id, i, arr) => arr.indexOf(id) === i);
+
+  const { data: nombresTerminos } = useQuery({
+    queryKey: ['nombres-terminos-cierre', terminoIdsHallazgos.join(',')],
+    enabled: terminoIdsHallazgos.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('termino').select('id, nombre').in('id', terminoIdsHallazgos);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
+    },
+  });
+
   if (!visitaId) return null;
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
   const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
+  const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
   const fotos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
@@ -117,6 +134,7 @@ export function CierreVisita() {
             <div className="label" style={{ marginTop: 0 }}>resumen ejecutivo</div>
             <div style={{ fontSize: 'var(--text-sm)', marginTop: 4 }}>
               {fotos.length} fotos, {audios.length} audios y {notas.length} notas capturadas.
+              {hallazgos.length > 0 && ` ${hallazgos.length} hallazgo(s) registrado(s).`}
               {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) detectada(s).`}
             </div>
           </div>
@@ -129,6 +147,20 @@ export function CierreVisita() {
                   {(o.payload as { titulo: string }).titulo}
                 </div>
               ))}
+            </div>
+          )}
+
+          {hallazgos.length > 0 && (
+            <div className="card">
+              <div className="label" style={{ marginTop: 0 }}>hallazgos</div>
+              {hallazgos.map((h) => {
+                const payload = h.payload as { terminoId: string; naturaleza: string };
+                return (
+                  <div key={h.id} style={{ fontSize: 'var(--text-sm)' }}>
+                    {nombresTerminos?.[payload.terminoId] ?? '…'} · {payload.naturaleza.replace('_', ' ')}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -149,6 +181,7 @@ export function CierreVisita() {
           <div className="card">
             <div style={{ fontSize: 'var(--text-sm)' }}>
               Se cerrará esta visita con {fotos.length} fotos, {audios.length} audios y {notas.length} notas.
+              {hallazgos.length > 0 && ` ${hallazgos.length} hallazgo(s) quedarán registrados.`}
               {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) quedarán registradas.`}
             </div>
           </div>
@@ -198,6 +231,18 @@ export function CierreVisita() {
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{audios.length}</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>audios</div>
+        </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{notas.length}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>notas</div>
+        </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{oportunidades.length}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>oportunidades</div>
+        </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{hallazgos.length}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>hallazgos</div>
         </div>
       </div>
 
