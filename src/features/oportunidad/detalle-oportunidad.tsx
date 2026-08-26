@@ -3,21 +3,23 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion } from '@/lib/offline-queue';
+import { SelectorTermino } from '@/components/ui/selector-termino';
 
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
 const HORIZONTES = ['0-3 meses', '3-6 meses', '6-12 meses', 'mas de 12 meses', 'sin fecha definida'];
 const MOTIVOS_CIERRE = ['precio', 'competencia', 'sin presupuesto', 'proyecto cancelado', 'no encaja', 'timing', 'otro'];
 
+// 'tecnologia_motivadora' = lo que el cliente ya tiene y motivó la
+// oportunidad (p.ej. terminales de otra marca a sustituir/integrar).
+// 'solucion_propuesta' = lo que le estamos ofreciendo. Las dos coexisten
+// en la misma Oportunidad, cada término con su papel — así se resuelve el
+// caso "integrar terminales de otra marca con nuestro software" sin forzar
+// una entidad "integración" aparte: son dos términos, dos papeles, una
+// misma Oportunidad.
 interface TerminoAsociado {
   termino_id: string;
   nombre: string;
-}
-
-interface TerminoCatalogo {
-  id: string;
-  nombre: string;
-  estado_gobierno: string;
 }
 
 export function DetalleOportunidad() {
@@ -38,9 +40,9 @@ export function DetalleOportunidad() {
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
 
+  // Se muestra el selector solo para uno de los dos papeles a la vez,
+  // según qué botón "+ añadir" se pulsó.
   const [buscandoRol, setBuscandoRol] = useState<'solucion_propuesta' | 'tecnologia_motivadora' | null>(null);
-  const [textoBusqueda, setTextoBusqueda] = useState('');
-  const [asociando, setAsociando] = useState(false);
   const [errorAsociar, setErrorAsociar] = useState<string | null>(null);
 
   const { data: oportunidad, isLoading } = useQuery({
@@ -85,19 +87,6 @@ export function DetalleOportunidad() {
     queryFn: () => cargarTerminosPorRol('tecnologia_motivadora'),
   });
 
-  const { data: catalogo } = useQuery({
-    queryKey: ['catalogo-terminos'],
-    queryFn: async (): Promise<TerminoCatalogo[]> => {
-      const { data, error: err } = await supabase
-        .from('termino')
-        .select('id, nombre, estado_gobierno')
-        .neq('estado_gobierno', 'descartado')
-        .order('nombre');
-      if (err) throw err;
-      return data ?? [];
-    },
-  });
-
   useEffect(() => {
     if (!oportunidad) return;
     setTitulo(oportunidad.titulo);
@@ -113,6 +102,8 @@ export function DetalleOportunidad() {
 
   async function guardar() {
     if (!oportunidadId) return;
+    // Refleja chk_oportunidad_motivo_cierre_obligatorio (01_schema.sql):
+    // validar en cliente evita un rechazo del servidor con mensaje críptico.
     if (esCierreNegativo && !motivoCierre) {
       setError('Indica un motivo de cierre para continuar.');
       return;
@@ -139,6 +130,12 @@ export function DetalleOportunidad() {
     navigate(-1);
   }
 
+  // Borrado completo — usa la función RPC eliminar_oportunidad_completa
+  // (46_encargo_punto3_borrado.sql), que hace la cascada correcta
+  // (desvincula próximos pasos, borra soluciones asociadas y el histórico
+  // de seguimiento) dentro de una única transacción, y comprueba el
+  // permiso explícitamente antes de tocar nada — lanza una excepción clara
+  // en vez de fallar en silencio.
   async function confirmarBorrado() {
     if (!oportunidadId) return;
     setBorrando(true);
@@ -151,68 +148,36 @@ export function DetalleOportunidad() {
       setErrorBorrado(err.message);
       return;
     }
+    // BUG CORREGIDO (encontrado probando en el navegador): si esta
+    // oportunidad se creó vía Oportunidad rápida, sigue existiendo una
+    // copia local en IndexedDB (misma id, es el mecanismo estándar de la
+    // cola offline). Borrar solo la fila real en Supabase no la elimina de
+    // ahí — Visita activa seguía mostrando la tarjeta como si existiera,
+    // aunque ya no estuviera en la base de datos. No falla si la entrada
+    // local no existe (p.ej. oportunidad estructurada después, no creada
+    // en el momento de la visita).
     await eliminarOperacion(oportunidadId);
     setBorrando(false);
     navigate(-1);
   }
 
+  // Asociar un término existente del catálogo con el papel elegido
+  // ('solucion_propuesta' o 'tecnologia_motivadora'). No valida duplicados
+  // explícitamente aquí — la clave primaria compuesta de oportunidad_termino
+  // (oportunidad_id, termino_id, rol_en_oportunidad) ya lo impide a nivel de
+  // base de datos, y ese error se muestra tal cual si ocurre.
   async function asociarTermino(terminoId: string) {
     if (!oportunidadId || !buscandoRol) return;
-    setAsociando(true);
     setErrorAsociar(null);
     const { error: err } = await supabase
       .from('oportunidad_termino')
       .insert({ oportunidad_id: oportunidadId, termino_id: terminoId, rol_en_oportunidad: buscandoRol });
-    setAsociando(false);
     if (err) {
       setErrorAsociar(err.message);
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['terminos-oportunidad', oportunidadId, buscandoRol] });
-    queryClient.invalidateQueries({ queryKey: ['catalogo-terminos'] });
     setBuscandoRol(null);
-    setTextoBusqueda('');
-  }
-
-  async function proponerYAsociarTermino() {
-    if (!oportunidadId || !buscandoRol || !textoBusqueda.trim()) return;
-    setAsociando(true);
-    setErrorAsociar(null);
-
-    const { data: sesion } = await supabase.auth.getSession();
-    const comercialId = sesion.session?.user.id;
-
-    const { data: categoriaOtro, error: errCat } = await supabase
-      .from('categoria_vocabulario')
-      .select('id')
-      .order('nombre')
-      .limit(1)
-      .single();
-    if (errCat || !categoriaOtro) {
-      setAsociando(false);
-      setErrorAsociar('No se pudo determinar una categoría para el término nuevo.');
-      return;
-    }
-
-    const { data: nuevo, error: errIns } = await supabase
-      .from('termino')
-      .insert({
-        nombre: textoBusqueda.trim(),
-        categoria_id: categoriaOtro.id,
-        rol_funcional: 'ambos',
-        propuesto_por_id: comercialId,
-        fecha_propuesta: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (errIns || !nuevo) {
-      setAsociando(false);
-      setErrorAsociar(errIns?.message ?? 'No se pudo proponer el término.');
-      return;
-    }
-
-    await asociarTermino(nuevo.id);
   }
 
   async function desvincularTermino(terminoId: string, rol: 'solucion_propuesta' | 'tecnologia_motivadora') {
@@ -278,6 +243,11 @@ export function DetalleOportunidad() {
         ))}
       </select>
 
+      {/* Dos listas con papel distinto — resuelve el caso "el cliente tiene
+          terminales de otra marca (tecnología motivadora) y quiere integrar
+          nuestro software (solución propuesta)": son dos términos, cada uno
+          con su papel, en la misma Oportunidad, sin forzar una entidad
+          "integración" aparte. */}
       <div className="label">lo que el cliente ya tiene (motiva la oportunidad)</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {motivadoras?.map((t) => (
@@ -297,7 +267,7 @@ export function DetalleOportunidad() {
         <button
           type="button"
           className="chip"
-          onClick={() => { setBuscandoRol('tecnologia_motivadora'); setTextoBusqueda(''); setErrorAsociar(null); }}
+          onClick={() => { setBuscandoRol('tecnologia_motivadora'); setErrorAsociar(null); }}
         >
           + añadir
         </button>
@@ -322,66 +292,20 @@ export function DetalleOportunidad() {
         <button
           type="button"
           className="chip"
-          onClick={() => { setBuscandoRol('solucion_propuesta'); setTextoBusqueda(''); setErrorAsociar(null); }}
+          onClick={() => { setBuscandoRol('solucion_propuesta'); setErrorAsociar(null); }}
         >
           + añadir
         </button>
       </div>
 
       {buscandoRol && (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>
-            buscar término {buscandoRol === 'solucion_propuesta' ? '(solución)' : '(lo que ya tiene)'}
-          </div>
-          <input
-            className="field"
-            autoFocus
-            value={textoBusqueda}
-            onChange={(e) => setTextoBusqueda(e.target.value)}
-            placeholder="escribe para buscar…"
-          />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, maxHeight: 160, overflowY: 'auto' }}>
-            {catalogo
-              ?.filter((t) => textoBusqueda.trim() && t.nombre.toLowerCase().includes(textoBusqueda.trim().toLowerCase()))
-              .slice(0, 10)
-              .map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className="chip"
-                  disabled={asociando}
-                  onClick={() => asociarTermino(t.id)}
-                >
-                  {t.nombre}
-                  {t.estado_gobierno === 'propuesto' && (
-                    <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · pendiente de validar</span>
-                  )}
-                </button>
-              ))}
-          </div>
-          {textoBusqueda.trim() &&
-            !catalogo?.some((t) => t.nombre.toLowerCase() === textoBusqueda.trim().toLowerCase()) && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                disabled={asociando}
-                onClick={proponerYAsociarTermino}
-              >
-                {asociando ? 'proponiendo…' : `+ proponer "${textoBusqueda.trim()}" como término nuevo`}
-              </button>
-            )}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ marginTop: 8 }}
-            onClick={() => setBuscandoRol(null)}
-          >
-            cerrar
-          </button>
-          {errorAsociar && <div className="field-error-text" style={{ marginTop: 8 }}>{errorAsociar}</div>}
-        </div>
+        <SelectorTermino
+          titulo={`buscar término ${buscandoRol === 'solucion_propuesta' ? '(solución)' : '(lo que ya tiene)'}`}
+          onSeleccionar={(t) => asociarTermino(t.id)}
+          onCerrar={() => setBuscandoRol(null)}
+        />
       )}
+      {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
 
       <div className="label">descripción</div>
       <textarea

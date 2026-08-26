@@ -80,7 +80,17 @@ export function OportunidadRapidaModal({
         style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>oportunidad rápida</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>oportunidad rápida</div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
+            aria-label="cerrar"
+          >
+            ×
+          </button>
+        </div>
 
         <div className="label">título</div>
         <input

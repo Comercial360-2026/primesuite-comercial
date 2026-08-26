@@ -8,6 +8,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
+import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
 
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
@@ -20,6 +21,7 @@ export function VisitaActiva() {
   const [modoRecorrido, setModoRecorrido] = useState(false);
   const [ubicacionActual, setUbicacionActual] = useState<string | undefined>(undefined);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
+  const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
@@ -56,6 +58,27 @@ export function VisitaActiva() {
         .eq('cliente_id', visitaLocal!.clienteId);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  // Movido aquí (antes del `if (!visitaId || !comercial) return null`)
+  // deliberadamente — un hook colocado después de ese return condicional
+  // viola las reglas de Hooks de React: si `comercial` es null en algún
+  // render (p.ej. durante un cambio de sesión), este hook dejaría de
+  // ejecutarse ese render y de otro no, provocando el error real que esto
+  // corrige: "Rendered more hooks than during the previous render".
+  const hallazgosParaNombres = operaciones.filter((op) => op.entidad === 'hallazgo');
+  const terminoIdsHallazgos = hallazgosParaNombres
+    .map((h) => (h.payload as { terminoId: string }).terminoId)
+    .filter((id, i, arr) => arr.indexOf(id) === i);
+
+  const { data: nombresTerminos } = useQuery({
+    queryKey: ['nombres-terminos-hallazgos', terminoIdsHallazgos.join(',')],
+    enabled: terminoIdsHallazgos.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('termino').select('id, nombre').in('id', terminoIdsHallazgos);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
     },
   });
 
@@ -161,6 +184,7 @@ export function VisitaActiva() {
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
   const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
+  const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
 
   if (modoRecorrido) {
     return (
@@ -324,8 +348,24 @@ export function VisitaActiva() {
             </span>
           </div>
         ))}
+        {hallazgos.map((h) => {
+          const payload = h.payload as { terminoId: string; naturaleza: string };
+          return (
+            <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
+              <span style={{ fontSize: 'var(--text-sm)' }}>
+                {nombresTerminos?.[payload.terminoId] ?? '…'}
+              </span>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                {payload.naturaleza.replace('_', ' ')}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
+      <button className="btn btn-secondary" onClick={() => setHallazgoAbierto(true)}>
+        + hallazgo
+      </button>
       <button className="btn btn-secondary" onClick={() => setModoRecorrido(true)}>
         modo recorrido →
       </button>
@@ -344,6 +384,19 @@ export function VisitaActiva() {
             setOportunidadAbierta(false);
           }}
           onCerrar={() => setOportunidadAbierta(false)}
+        />
+      )}
+
+      {hallazgoAbierto && (
+        <HallazgoRapidoModal
+          visitaId={visitaId}
+          comercialId={comercial.id}
+          onGuardar={async (payload) => {
+            const hallazgoId = crypto.randomUUID();
+            await encolar(hallazgoId, 'hallazgo', payload, { dependeDe: visitaId });
+            setHallazgoAbierto(false);
+          }}
+          onCerrar={() => setHallazgoAbierto(false)}
         />
       )}
     </div>

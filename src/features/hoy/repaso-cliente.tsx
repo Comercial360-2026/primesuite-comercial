@@ -143,6 +143,9 @@ export function RepasoCliente() {
 
   return (
     <div className="screen">
+      <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', alignSelf: 'flex-start' }}>
+        ←
+      </button>
       {isErrorCliente ? (
         <EstadoError mensaje="No se pudo cargar el cliente." onReintentar={() => refetchCliente()} />
       ) : (
