@@ -130,18 +130,16 @@ export function CierreVisita() {
         )}
 
         <div className="screen__scroll">
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>resumen ejecutivo</div>
-            <div style={{ fontSize: 'var(--text-sm)', marginTop: 4 }}>
-              {fotos.length} fotos, {audios.length} audios y {notas.length} notas capturadas.
-              {hallazgos.length > 0 && ` ${hallazgos.length} hallazgo(s) registrado(s).`}
-              {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) detectada(s).`}
-            </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span className="chip">{fotos.length} fotos</span>
+            <span className="chip">{audios.length} audios</span>
+            <span className="chip">{notas.length} notas</span>
+            <span className="chip">{hallazgos.length} hallazgos</span>
+            <span className="chip">{oportunidades.length} oportunidades</span>
           </div>
 
           {oportunidades.length > 0 && (
-            <div className="card card--oportunidad">
-              <div className="label" style={{ marginTop: 0 }}>oportunidades</div>
+            <div className="card card--oportunidad" style={{ padding: '10px 16px' }}>
               {oportunidades.map((o) => (
                 <div key={o.id} style={{ fontSize: 'var(--text-sm)' }}>
                   {(o.payload as { titulo: string }).titulo}
@@ -151,8 +149,7 @@ export function CierreVisita() {
           )}
 
           {hallazgos.length > 0 && (
-            <div className="card">
-              <div className="label" style={{ marginTop: 0 }}>hallazgos</div>
+            <div className="card" style={{ padding: '10px 16px' }}>
               {hallazgos.map((h) => {
                 const payload = h.payload as { terminoId: string; naturaleza: string };
                 return (
@@ -178,12 +175,12 @@ export function CierreVisita() {
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>¿confirmas el cierre?</h1>
 
         <div className="screen__scroll">
-          <div className="card">
-            <div style={{ fontSize: 'var(--text-sm)' }}>
-              Se cerrará esta visita con {fotos.length} fotos, {audios.length} audios y {notas.length} notas.
-              {hallazgos.length > 0 && ` ${hallazgos.length} hallazgo(s) quedarán registrados.`}
-              {oportunidades.length > 0 && ` ${oportunidades.length} oportunidad(es) quedarán registradas.`}
-            </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span className="chip">{fotos.length} fotos</span>
+            <span className="chip">{audios.length} audios</span>
+            <span className="chip">{notas.length} notas</span>
+            <span className="chip">{hallazgos.length} hallazgos</span>
+            <span className="chip">{oportunidades.length} oportunidades</span>
           </div>
 
           {capturasPendientes.length > 0 && (
