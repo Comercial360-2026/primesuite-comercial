@@ -182,6 +182,25 @@ export function DetalleCaptura() {
         <audio controls src={urlMedia} style={{ width: '100%' }} />
       )}
 
+      {(payload.tipo === 'foto' || payload.tipo === 'audio') && (
+        <>
+          <input
+            className="field"
+            value={tituloEdit}
+            onChange={(e) => setTituloEdit(e.target.value)}
+            placeholder={payload.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+          />
+          <button
+            className="btn btn-primary"
+            disabled={guardado.cargando}
+            onClick={guardarEdicion}
+          >
+            {guardado.cargando ? 'guardando…' : 'guardar cambios'}
+          </button>
+          {guardado.error && <div className="field-error-text">{guardado.error}</div>}
+        </>
+      )}
+
       {payload.tipo === 'nota' && (
         <>
           <input

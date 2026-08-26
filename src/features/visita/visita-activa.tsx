@@ -7,6 +7,7 @@ import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
 import { InterlocutoresModal } from './interlocutores-modal';
@@ -28,6 +29,9 @@ export function VisitaActiva() {
   const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
   const [grabando, setGrabando] = useState(false);
+  const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
+  const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
+  const [tituloPendiente, setTituloPendiente] = useState('');
   const guardadoNota = useAccionAsync();
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
@@ -109,21 +113,59 @@ export function VisitaActiva() {
   if (!visitaId || !comercial) return null;
 
   async function capturarFoto(archivo: File) {
-    await capturaFoto.ejecutar(
-      () =>
-        encolar(
-          crypto.randomUUID(),
-          'captura_libre',
-          {
-            visitaId: visitaId!,
-            comercialAutorId: comercial!.id,
-            tipo: 'foto',
-            ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+    const archivoComprimido = await comprimirImagen(archivo);
+    setFotoPendiente(archivoComprimido);
+    setTituloPendiente('');
+  }
+
+  async function confirmarCapturaPendiente() {
+    if (fotoPendiente) {
+      await capturaFoto.ejecutar(
+        () =>
+          encolar(
+            crypto.randomUUID(),
+            'captura_libre',
+            {
+              visitaId: visitaId!,
+              comercialAutorId: comercial!.id,
+              tipo: 'foto',
+              titulo: tituloPendiente.trim() || undefined,
+              ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+            },
+            { dependeDe: visitaId, archivoLocal: fotoPendiente }
+          ),
+        {
+          mensajeError: 'No se pudo guardar la foto. Inténtalo de nuevo.',
+          onExito: () => {
+            setFotoPendiente(null);
+            setTituloPendiente('');
           },
-          { dependeDe: visitaId, archivoLocal: archivo }
-        ),
-      { mensajeError: 'No se pudo guardar la foto. Inténtalo de nuevo.' }
-    );
+        }
+      );
+    } else if (audioPendiente) {
+      await capturaAudio.ejecutar(
+        () =>
+          encolar(
+            crypto.randomUUID(),
+            'captura_libre',
+            {
+              visitaId: visitaId!,
+              comercialAutorId: comercial!.id,
+              tipo: 'audio',
+              titulo: tituloPendiente.trim() || undefined,
+              ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+            },
+            { dependeDe: visitaId, archivoLocal: audioPendiente }
+          ),
+        {
+          mensajeError: 'No se pudo guardar el audio grabado. Inténtalo de nuevo.',
+          onExito: () => {
+            setAudioPendiente(null);
+            setTituloPendiente('');
+          },
+        }
+      );
+    }
   }
 
   async function iniciarODetenerAudio() {
@@ -134,26 +176,10 @@ export function VisitaActiva() {
           const recorder = new MediaRecorder(stream);
           audioChunksRef.current = [];
           recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-          recorder.onstop = async () => {
+          recorder.onstop = () => {
             const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-            try {
-              await encolar(
-                crypto.randomUUID(),
-                'captura_libre',
-                {
-                  visitaId: visitaId!,
-                  comercialAutorId: comercial!.id,
-                  tipo: 'audio',
-                  ubicacionId: modoRecorrido ? ubicacionActual : undefined,
-                },
-                { dependeDe: visitaId, archivoLocal: blob }
-              );
-            } catch {
-              // El guardado ocurre en este callback, posterior a que
-              // ejecutar() ya resolviera al iniciar la grabación — se expone
-              // el error directamente en vez de perderlo en silencio.
-              capturaAudio.establecerError('No se pudo guardar el audio grabado. Inténtalo de nuevo.');
-            }
+            setAudioPendiente(blob);
+            setTituloPendiente('');
             stream.getTracks().forEach((t) => t.stop());
           };
           recorder.start();
@@ -331,6 +357,49 @@ export function VisitaActiva() {
           </div>
           {guardadoNota.error && (
             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
+          )}
+        </div>
+      )}
+
+      {(fotoPendiente || audioPendiente) && (
+        <div className="card">
+          {fotoPendiente && (
+            <img
+              src={URL.createObjectURL(fotoPendiente)}
+              alt="vista previa"
+              style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+            />
+          )}
+          {audioPendiente && <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />}
+          <input
+            className="field"
+            autoFocus
+            value={tituloPendiente}
+            onChange={(e) => setTituloPendiente(e.target.value)}
+            placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button
+              className="btn btn-secondary"
+              disabled={capturaFoto.cargando || capturaAudio.cargando}
+              onClick={() => {
+                setFotoPendiente(null);
+                setAudioPendiente(null);
+                setTituloPendiente('');
+              }}
+            >
+              descartar
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={capturaFoto.cargando || capturaAudio.cargando}
+              onClick={confirmarCapturaPendiente}
+            >
+              {capturaFoto.cargando || capturaAudio.cargando ? 'guardando…' : 'guardar'}
+            </button>
+          </div>
+          {(capturaFoto.error || capturaAudio.error) && (
+            <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
           )}
         </div>
       )}
