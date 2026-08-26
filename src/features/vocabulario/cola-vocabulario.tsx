@@ -65,6 +65,14 @@ export function ColaVocabulario() {
 
   const { data: propuestos, isLoading, isError } = useQuery({
     queryKey: ['terminos-propuestos'],
+    // Este término puede proponerse desde otras pantallas (Hallazgo rápido,
+    // Detalle de Oportunidad) que no saben nada de esta consulta y no
+    // pueden invalidarla — hueco real detectado: "prueba 1" se creó bien,
+    // pero la pantalla seguía mostrando la lista vieja de una visita
+    // anterior a esta pestaña. Forzar la comprobación cada vez que se
+    // entra a la pantalla es más fiable que depender de que otra pantalla
+    // recuerde avisar a esta.
+    refetchOnMount: 'always',
     queryFn: async (): Promise<TerminoPropuesto[]> => {
       const { data, error: err } = await supabase
         .from('termino')
