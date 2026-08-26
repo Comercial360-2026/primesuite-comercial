@@ -484,33 +484,42 @@ export type Database = {
       }
       interlocutor: {
         Row: {
+          activo: boolean
           actualizado_en: string
           cargo: string | null
           cliente_id: string
           creado_en: string
+          email: string | null
           id: string
           nombre: string
           relevancia: string | null
+          telefono: string | null
           tipo_influencia: string | null
         }
         Insert: {
+          activo?: boolean
           actualizado_en?: string
           cargo?: string | null
           cliente_id: string
           creado_en?: string
+          email?: string | null
           id?: string
           nombre: string
           relevancia?: string | null
+          telefono?: string | null
           tipo_influencia?: string | null
         }
         Update: {
+          activo?: boolean
           actualizado_en?: string
           cargo?: string | null
           cliente_id?: string
           creado_en?: string
+          email?: string | null
           id?: string
           nombre?: string
           relevancia?: string | null
+          telefono?: string | null
           tipo_influencia?: string | null
         }
         Relationships: [

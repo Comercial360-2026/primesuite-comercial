@@ -12,25 +12,37 @@ interface Interlocutor {
   id: string;
   nombre: string;
   cargo: string | null;
+  telefono: string | null;
+  email: string | null;
   tipo_influencia: string | null;
 }
 
 const TIPOS_INFLUENCIA = ['decisor', 'influenciador', 'tecnico', 'usuario', 'compras', 'otro'];
 
-// Baja frecuencia por visita (se marca una vez, quizá se ajusta puntualmente)
-// — de ahí que viva en un chip de cabecera, no en la cuadrícula principal
-// de capturas, a diferencia de Hallazgo. No pasa por la cola offline: ni
-// interlocutor ni visita_interlocutor están entre las 5 entidades
-// sincronizables (visita, hallazgo, captura_libre, oportunidad,
-// proximo_paso) — es una acción directa, de bajo riesgo si falla sin red
-// (se reintenta sin más, no hay archivo binario ni datos complejos que
-// perder).
+interface FormularioInterlocutor {
+  nombre: string;
+  cargo: string;
+  telefono: string;
+  email: string;
+  tipo: string;
+}
+
+const FORMULARIO_VACIO: FormularioInterlocutor = { nombre: '', cargo: '', telefono: '', email: '', tipo: '' };
+
+// Baja frecuencia por visita — de ahí que viva en un chip de cabecera, no
+// en la cuadrícula principal. No pasa por la cola offline: ni interlocutor
+// ni visita_interlocutor están entre las 5 entidades sincronizables.
+//
+// "Quitar" un interlocutor del directorio es baja lógica (activo=false),
+// no DELETE real — si ya se usó en visitas anteriores, borrar la fila
+// rompería esas referencias históricas. Mismo criterio que "descartar" en
+// el catálogo de vocabulario.
 export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: InterlocutoresModalProps) {
   const queryClient = useQueryClient();
   const [creandoNuevo, setCreandoNuevo] = useState(false);
-  const [nombreNuevo, setNombreNuevo] = useState('');
-  const [cargoNuevo, setCargoNuevo] = useState('');
-  const [tipoNuevo, setTipoNuevo] = useState('');
+  const [formNuevo, setFormNuevo] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [formEdicion, setFormEdicion] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +51,9 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
     queryFn: async (): Promise<Interlocutor[]> => {
       const { data, error: err } = await supabase
         .from('interlocutor')
-        .select('id, nombre, cargo, tipo_influencia')
+        .select('id, nombre, cargo, telefono, email, tipo_influencia')
         .eq('cliente_id', clienteId)
+        .eq('activo', true)
         .order('nombre');
       if (err) throw err;
       return data ?? [];
@@ -90,7 +103,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   }
 
   async function crearYMarcarPresente() {
-    if (!nombreNuevo.trim()) return;
+    if (!formNuevo.nombre.trim()) return;
     setGuardando(true);
     setError(null);
 
@@ -98,9 +111,11 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
       .from('interlocutor')
       .insert({
         cliente_id: clienteId,
-        nombre: nombreNuevo.trim(),
-        cargo: cargoNuevo.trim() || null,
-        tipo_influencia: tipoNuevo || null,
+        nombre: formNuevo.nombre.trim(),
+        cargo: formNuevo.cargo.trim() || null,
+        telefono: formNuevo.telefono.trim() || null,
+        email: formNuevo.email.trim() || null,
+        tipo_influencia: formNuevo.tipo || null,
       })
       .select('id')
       .single();
@@ -120,10 +135,53 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
       return;
     }
 
-    setNombreNuevo('');
-    setCargoNuevo('');
-    setTipoNuevo('');
+    setFormNuevo(FORMULARIO_VACIO);
     setCreandoNuevo(false);
+    invalidar();
+  }
+
+  function abrirEdicion(i: Interlocutor) {
+    setEditandoId(i.id);
+    setFormEdicion({
+      nombre: i.nombre,
+      cargo: i.cargo ?? '',
+      telefono: i.telefono ?? '',
+      email: i.email ?? '',
+      tipo: i.tipo_influencia ?? '',
+    });
+  }
+
+  async function guardarEdicion() {
+    if (!editandoId || !formEdicion.nombre.trim()) return;
+    setGuardando(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from('interlocutor')
+      .update({
+        nombre: formEdicion.nombre.trim(),
+        cargo: formEdicion.cargo.trim() || null,
+        telefono: formEdicion.telefono.trim() || null,
+        email: formEdicion.email.trim() || null,
+        tipo_influencia: formEdicion.tipo || null,
+      })
+      .eq('id', editandoId);
+    setGuardando(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setEditandoId(null);
+    invalidar();
+  }
+
+  async function quitarDelDirectorio(id: string) {
+    setError(null);
+    const { error: err } = await supabase.from('interlocutor').update({ activo: false }).eq('id', id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setEditandoId(null);
     invalidar();
   }
 
@@ -155,17 +213,102 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {directorio?.map((i) => {
             const presente = presentesIds?.includes(i.id) ?? false;
+
+            if (editandoId === i.id) {
+              return (
+                <div key={i.id} className="card">
+                  <input
+                    className="field"
+                    autoFocus
+                    value={formEdicion.nombre}
+                    onChange={(e) => setFormEdicion({ ...formEdicion, nombre: e.target.value })}
+                    placeholder="nombre"
+                  />
+                  <input
+                    className="field"
+                    style={{ marginTop: 6 }}
+                    value={formEdicion.cargo}
+                    onChange={(e) => setFormEdicion({ ...formEdicion, cargo: e.target.value })}
+                    placeholder="cargo (opcional)"
+                  />
+                  <input
+                    className="field"
+                    style={{ marginTop: 6 }}
+                    type="tel"
+                    value={formEdicion.telefono}
+                    onChange={(e) => setFormEdicion({ ...formEdicion, telefono: e.target.value })}
+                    placeholder="teléfono (opcional)"
+                  />
+                  <input
+                    className="field"
+                    style={{ marginTop: 6 }}
+                    type="email"
+                    value={formEdicion.email}
+                    onChange={(e) => setFormEdicion({ ...formEdicion, email: e.target.value })}
+                    placeholder="email (opcional)"
+                  />
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {TIPOS_INFLUENCIA.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`chip${formEdicion.tipo === t ? ' chip--on' : ''}`}
+                        onClick={() => setFormEdicion({ ...formEdicion, tipo: t })}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setEditandoId(null)} disabled={guardando}>
+                      cancelar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                      onClick={() => quitarDelDirectorio(i.id)}
+                      disabled={guardando}
+                    >
+                      quitar del directorio
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={!formEdicion.nombre.trim() || guardando}
+                      onClick={guardarEdicion}
+                    >
+                      {guardando ? 'guardando…' : 'guardar'}
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <button
-                key={i.id}
-                type="button"
-                className={`chip${presente ? ' chip--on' : ''}`}
-                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                onClick={() => alternarPresencia(i.id, presente)}
-              >
-                {i.nombre}
-                {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
-              </button>
+              <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  type="button"
+                  className={`chip${presente ? ' chip--on' : ''}`}
+                  style={{ textAlign: 'left', justifyContent: 'flex-start', flex: 1 }}
+                  onClick={() => alternarPresencia(i.id, presente)}
+                >
+                  <div>{i.nombre}{i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}</div>
+                  {(i.telefono || i.email) && (
+                    <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
+                      {i.telefono}{i.telefono && i.email && ' · '}{i.email}
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
+                  onClick={() => abrirEdicion(i)}
+                >
+                  editar
+                </button>
+              </div>
             );
           })}
           {!directorio?.length && (
@@ -184,37 +327,58 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
             <input
               className="field"
               autoFocus
-              value={nombreNuevo}
-              onChange={(e) => setNombreNuevo(e.target.value)}
+              value={formNuevo.nombre}
+              onChange={(e) => setFormNuevo({ ...formNuevo, nombre: e.target.value })}
               placeholder="nombre"
             />
             <input
               className="field"
               style={{ marginTop: 6 }}
-              value={cargoNuevo}
-              onChange={(e) => setCargoNuevo(e.target.value)}
+              value={formNuevo.cargo}
+              onChange={(e) => setFormNuevo({ ...formNuevo, cargo: e.target.value })}
               placeholder="cargo (opcional)"
+            />
+            <input
+              className="field"
+              style={{ marginTop: 6 }}
+              type="tel"
+              value={formNuevo.telefono}
+              onChange={(e) => setFormNuevo({ ...formNuevo, telefono: e.target.value })}
+              placeholder="teléfono (opcional)"
+            />
+            <input
+              className="field"
+              style={{ marginTop: 6 }}
+              type="email"
+              value={formNuevo.email}
+              onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
+              placeholder="email (opcional)"
             />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
               {TIPOS_INFLUENCIA.map((t) => (
                 <button
                   key={t}
                   type="button"
-                  className={`chip${tipoNuevo === t ? ' chip--on' : ''}`}
-                  onClick={() => setTipoNuevo(t)}
+                  className={`chip${formNuevo.tipo === t ? ' chip--on' : ''}`}
+                  onClick={() => setFormNuevo({ ...formNuevo, tipo: t })}
                 >
                   {t}
                 </button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setCreandoNuevo(false)} disabled={guardando}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => { setCreandoNuevo(false); setFormNuevo(FORMULARIO_VACIO); }}
+                disabled={guardando}
+              >
                 cancelar
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={!nombreNuevo.trim() || guardando}
+                disabled={!formNuevo.nombre.trim() || guardando}
                 onClick={crearYMarcarPresente}
               >
                 {guardando ? 'guardando…' : 'añadir y marcar presente'}
