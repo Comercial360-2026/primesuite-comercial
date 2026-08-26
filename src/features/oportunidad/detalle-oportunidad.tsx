@@ -206,7 +206,10 @@ export function DetalleOportunidad() {
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
+        <button
+          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
+        >
           ←
         </button>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>oportunidad</h1>

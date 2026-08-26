@@ -199,7 +199,19 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
           <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>interlocutores</div>
           <button
             type="button"
-            onClick={onCerrar}
+            onClick={() => {
+              // Si hay una edición o alta abiertas, la "×" cierra primero
+              // eso — no todo el modal de golpe. Es la misma "×" siempre
+              // visible en el mismo sitio, así que debe salir de lo más
+              // cercano primero, no saltar directo a la pantalla anterior.
+              if (editandoId) {
+                setEditandoId(null);
+              } else if (creandoNuevo) {
+                setCreandoNuevo(false);
+              } else {
+                onCerrar();
+              }
+            }}
             style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
             aria-label="cerrar"
           >

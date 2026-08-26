@@ -5,6 +5,10 @@ import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 
+// Pantalla de solo-una-captura: nota (con edición), foto o audio.
+// El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
+// el motor de sincronización nunca lo borra tras subir (ver sync-engine.ts),
+// así que funciona igual esté la captura ya sincronizada o no.
 export function DetalleCaptura() {
   const { capturaId } = useParams<{ capturaId: string }>();
   const navigate = useNavigate();
@@ -51,6 +55,11 @@ export function DetalleCaptura() {
         };
 
         if (operacion.estado === 'completado') {
+          // Ya sincronizada con Supabase: la edición requiere UPDATE directo
+          // contra la tabla, no pasa por la cola de creación (que es solo
+          // append-only). Si la política RLS no permite UPDATE al comercial
+          // sobre sus propias capturas, este error se mostrará tal cual,
+          // sin fallo silencioso.
           const { error } = await supabase
             .from('captura_libre')
             .update({ contenido_texto: payloadNuevo.contenidoTexto, titulo: payloadNuevo.titulo ?? null })
@@ -58,6 +67,9 @@ export function DetalleCaptura() {
           if (error) throw new Error(error.message);
         }
 
+        // Se actualiza también la copia local, tanto si estaba pendiente
+        // (única fuente de verdad hasta que sincronice) como si ya estaba
+        // completada (para que la UI no dependa de una nueva lectura remota).
         await actualizarOperacion(operacion.id, { payload: payloadNuevo });
 
         return payloadNuevo;
@@ -72,6 +84,13 @@ export function DetalleCaptura() {
     );
   }
 
+  // Borrado — encargo técnico punto 3: si la captura tiene binario (foto o
+  // audio) y ya está sincronizada, primero se borra el archivo real en
+  // Storage y solo después la fila de metadatos — en ese orden, para no
+  // dejar la fila borrada apuntando a un archivo que ya no se puede
+  // limpiar. El payload local (IndexedDB) nunca guarda `storage_path` (ver
+  // comentario de CapturaLibrePayload), así que hay que leerlo de Supabase
+  // antes de intentar borrar el archivo.
   async function confirmarBorrado() {
     if (!operacion) return;
 
@@ -88,7 +107,12 @@ export function DetalleCaptura() {
           if (fila?.storage_path) {
             const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
             const { error: errStorage } = await supabase.storage.from(bucket).remove([fila.storage_path]);
+            // No aborta el borrado si falla la limpieza de Storage — es
+            // preferible un archivo huérfano (riesgo ya documentado y
+            // mitigado con revisión manual) que dejar la fila sin poder
+            // borrarla nunca por un fallo puntual del bucket.
             if (errStorage) {
+              // eslint-disable-next-line no-console
               console.error('No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:', errStorage.message);
             }
           }
@@ -105,6 +129,9 @@ export function DetalleCaptura() {
           }
         }
 
+        // Se borra también (o solo, si nunca llegó a sincronizar) de la
+        // cola local — si no, seguiría apareciendo en el listado de la
+        // visita como si existiera.
         await eliminarOperacion(operacion.id);
       },
       {
@@ -132,7 +159,10 @@ export function DetalleCaptura() {
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
+        <button
+          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
+        >
           ←
         </button>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>

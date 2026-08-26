@@ -14,6 +14,11 @@ const NATURALEZAS = [
 
 const TIPOS_FECHA = ['vencimiento_contrato', 'renovacion', 'auditoria', 'presupuesto', 'implantacion', 'otro'];
 
+// Pantalla de edición (no de creación): un Hallazgo nace siempre de una
+// Visita (hoy solo vía SQL directa, no hay botón "hallazgo" en Visita
+// activa — el modelo lo soporta pero el flujo crítico implementado no lo
+// genera todavía). Esta pantalla sirve para estructurar/completar después,
+// tal como se cerró en el flujo funcional.
 export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
@@ -67,6 +72,9 @@ export function DetalleHallazgo() {
 
   async function guardar() {
     if (!hallazgoId) return;
+    // fecha_relevante y tipo_fecha_relevante van juntos o ninguno — refleja
+    // el CHECK chk_hallazgo_fecha_relevante_tipo de 01_schema.sql; validar
+    // aquí antes de enviar evita un rechazo silencioso del servidor.
     if (fechaRelevante && !tipoFechaRelevante) {
       setError('Si indicas una fecha relevante, indica también su tipo.');
       return;
@@ -91,6 +99,12 @@ export function DetalleHallazgo() {
     navigate(-1);
   }
 
+  // Borrado individual — encargo técnico punto 2/3: comprobación explícita
+  // de `count` devuelto por Supabase. Sin una política RLS que autorice el
+  // DELETE, Supabase no devuelve error — ejecuta la sentencia "con éxito"
+  // afectando a 0 filas (verificado en producción, ver
+  // adenda_punto1_delete_silencioso.md). Tratar count 0 como fallo real es
+  // la única forma de no mostrar "eliminado" cuando en realidad no lo está.
   async function confirmarBorrado() {
     if (!hallazgoId) return;
     setBorrando(true);
@@ -122,7 +136,10 @@ export function DetalleHallazgo() {
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
+        <button
+          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
+        >
           ←
         </button>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>hallazgo</h1>
