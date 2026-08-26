@@ -15,6 +15,7 @@ interface Interlocutor {
   telefono: string | null;
   email: string | null;
   tipo_influencia: string | null;
+  relevancia: string | null;
 }
 
 const TIPOS_INFLUENCIA = ['decisor', 'influenciador', 'tecnico', 'usuario', 'compras', 'otro'];
@@ -25,9 +26,10 @@ interface FormularioInterlocutor {
   telefono: string;
   email: string;
   tipo: string;
+  relevancia: string;
 }
 
-const FORMULARIO_VACIO: FormularioInterlocutor = { nombre: '', cargo: '', telefono: '', email: '', tipo: '' };
+const FORMULARIO_VACIO: FormularioInterlocutor = { nombre: '', cargo: '', telefono: '', email: '', tipo: '', relevancia: '' };
 
 // Baja frecuencia por visita — de ahí que viva en un chip de cabecera, no
 // en la cuadrícula principal. No pasa por la cola offline: ni interlocutor
@@ -51,7 +53,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
     queryFn: async (): Promise<Interlocutor[]> => {
       const { data, error: err } = await supabase
         .from('interlocutor')
-        .select('id, nombre, cargo, telefono, email, tipo_influencia')
+        .select('id, nombre, cargo, telefono, email, tipo_influencia, relevancia')
         .eq('cliente_id', clienteId)
         .eq('activo', true)
         .order('nombre');
@@ -116,6 +118,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
         telefono: formNuevo.telefono.trim() || null,
         email: formNuevo.email.trim() || null,
         tipo_influencia: formNuevo.tipo || null,
+        relevancia: formNuevo.relevancia.trim() || null,
       })
       .select('id')
       .single();
@@ -148,6 +151,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
       telefono: i.telefono ?? '',
       email: i.email ?? '',
       tipo: i.tipo_influencia ?? '',
+      relevancia: i.relevancia ?? '',
     });
   }
 
@@ -163,6 +167,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
         telefono: formEdicion.telefono.trim() || null,
         email: formEdicion.email.trim() || null,
         tipo_influencia: formEdicion.tipo || null,
+        relevancia: formEdicion.relevancia.trim() || null,
       })
       .eq('id', editandoId);
     setGuardando(false);
@@ -258,6 +263,13 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                     value={formEdicion.email}
                     onChange={(e) => setFormEdicion({ ...formEdicion, email: e.target.value })}
                     placeholder="email (opcional)"
+                  />
+                  <input
+                    className="field"
+                    style={{ marginTop: 6 }}
+                    value={formEdicion.relevancia}
+                    onChange={(e) => setFormEdicion({ ...formEdicion, relevancia: e.target.value })}
+                    placeholder="por qué importa (opcional)"
                   />
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                     {TIPOS_INFLUENCIA.map((t) => (
@@ -365,6 +377,13 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
               value={formNuevo.email}
               onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
               placeholder="email (opcional)"
+            />
+            <input
+              className="field"
+              style={{ marginTop: 6 }}
+              value={formNuevo.relevancia}
+              onChange={(e) => setFormNuevo({ ...formNuevo, relevancia: e.target.value })}
+              placeholder="por qué importa (opcional)"
             />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
               {TIPOS_INFLUENCIA.map((t) => (
