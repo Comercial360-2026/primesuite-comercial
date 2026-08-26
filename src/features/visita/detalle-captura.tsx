@@ -53,7 +53,7 @@ export function DetalleCaptura() {
         if (operacion.estado === 'completado') {
           const { error } = await supabase
             .from('captura_libre')
-            .update({ contenido_texto: payloadNuevo.contenidoTexto })
+            .update({ contenido_texto: payloadNuevo.contenidoTexto, titulo: payloadNuevo.titulo ?? null })
             .eq('id', operacion.id);
           if (error) throw new Error(error.message);
         }

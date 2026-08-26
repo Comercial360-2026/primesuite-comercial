@@ -9,6 +9,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
+import { InterlocutoresModal } from './interlocutores-modal';
 
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
@@ -22,6 +23,7 @@ export function VisitaActiva() {
   const [ubicacionActual, setUbicacionActual] = useState<string | undefined>(undefined);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
+  const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
@@ -90,6 +92,19 @@ export function VisitaActiva() {
       iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
     }
   }, [visitaId, cliente, iniciarVisita]);
+
+  const { data: numInterlocutores } = useQuery({
+    queryKey: ['interlocutores-count', visitaId],
+    enabled: !!visitaId,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('visita_interlocutor')
+        .select('*', { count: 'exact', head: true })
+        .eq('visita_id', visitaId!);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   if (!visitaId || !comercial) return null;
 
@@ -241,6 +256,13 @@ export function VisitaActiva() {
           <div className="label" style={{ marginTop: 0 }}>visita en curso</div>
           <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{cliente?.nombre ?? '…'}</div>
         </div>
+        <button
+          type="button"
+          className={`chip${numInterlocutores ? ' chip--on' : ''}`}
+          onClick={() => setInterlocutoresAbierto(true)}
+        >
+          interlocutores{numInterlocutores ? ` (${numInterlocutores})` : ''}
+        </button>
       </div>
 
       <input
@@ -397,6 +419,14 @@ export function VisitaActiva() {
             setHallazgoAbierto(false);
           }}
           onCerrar={() => setHallazgoAbierto(false)}
+        />
+      )}
+
+      {interlocutoresAbierto && visitaLocal?.clienteId && (
+        <InterlocutoresModal
+          visitaId={visitaId}
+          clienteId={visitaLocal.clienteId}
+          onCerrar={() => setInterlocutoresAbierto(false)}
         />
       )}
     </div>
