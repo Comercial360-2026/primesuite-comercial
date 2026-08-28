@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
 
@@ -17,14 +17,23 @@ interface ClienteConSemaforo {
 export function ListadoClientes() {
   const navigate = useNavigate();
   const [busqueda, setBusqueda] = useState('');
+  const queryClient = useQueryClient();
 
+  const queryKey = ['listado-clientes', busqueda];
   const {
     data: clientes,
     isLoading,
     isError,
+    isPaused,
     refetch,
   } = useQuery({
-    queryKey: ['listado-clientes', busqueda],
+    queryKey,
+    // networkMode 'online' (por defecto): si TanStack Query decide que la
+    // red no es fiable, la consulta queda "paused" en vez de pasar a
+    // isError — sin datos, sin isLoading, sin isError. Sin este caso
+    // aparte, la pantalla se queda completamente en blanco, el mismo
+    // problema de fondo que el punto 1 del encargo quería resolver, en
+    // un caso que ninguna de las tres condiciones originales cubría.
     queryFn: async (): Promise<ClienteConSemaforo[]> => {
       let query = supabase
         .from('vw_semaforo_cliente')
@@ -40,6 +49,15 @@ export function ListadoClientes() {
       return (data ?? []) as ClienteConSemaforo[];
     },
   });
+  const sinConexion = isPaused && clientes === undefined;
+  // reintentar() en vez de refetch() a secas: una consulta "paused" no
+  // siempre reacciona a un refetch() manual (depende del gestor de
+  // conexión interno de la librería) — resetQueries fuerza un intento
+  // realmente nuevo, igual que si la clave de consulta cambiase.
+  function reintentar() {
+    queryClient.resetQueries({ queryKey });
+    refetch();
+  }
 
   return (
     <div className="screen">
@@ -56,10 +74,17 @@ export function ListadoClientes() {
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
+      {sinConexion && (
+        <EstadoError
+          mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo."
+          onReintentar={reintentar}
+        />
+      )}
+
       {isError && (
         <EstadoError
           mensaje="No se pudo cargar el listado de clientes."
-          onReintentar={() => refetch()}
+          onReintentar={reintentar}
         />
       )}
 
@@ -82,7 +107,7 @@ export function ListadoClientes() {
         </button>
       ))}
 
-      {!isLoading && !isError && clientes?.length === 0 && (
+      {!isLoading && !isError && !sinConexion && clientes?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
       )}
 

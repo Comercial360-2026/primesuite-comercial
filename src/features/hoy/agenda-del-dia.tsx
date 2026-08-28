@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoError } from '@/components/ui/estado-error';
@@ -27,14 +27,17 @@ export function AgendaDelDia() {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
+  const queryClient = useQueryClient();
 
+  const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
     data: visitas,
     isLoading,
     isError,
+    isPaused,
     refetch,
   } = useQuery({
-    queryKey: ['visitas-hoy', comercial?.id, inicio],
+    queryKey,
     enabled: !!comercial,
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
@@ -47,6 +50,18 @@ export function AgendaDelDia() {
       return (data ?? []) as unknown as VisitaAgenda[];
     },
   });
+  // isPaused: TanStack Query pausa la consulta en vez de marcarla como
+  // error cuando decide que la red no es fiable (networkMode 'online' por
+  // defecto) — sin esto, la pantalla se queda en blanco, ni cargando ni
+  // error, el mismo problema de fondo que este punto quería resolver.
+  const sinConexion = isPaused && visitas === undefined;
+  // reintentar() en vez de refetch() a secas: una consulta "paused" no
+  // siempre reacciona a un refetch() manual — resetQueries fuerza un
+  // intento realmente nuevo, verificado en pruebas reales de red rota.
+  function reintentar() {
+    queryClient.resetQueries({ queryKey });
+    refetch();
+  }
 
   function abrirVisita(visita: VisitaAgenda) {
     // Si la visita ya está en_curso, se va directa a Visita activa
@@ -65,14 +80,21 @@ export function AgendaDelDia() {
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}
 
-      {isError && (
+      {sinConexion && (
         <EstadoError
-          mensaje="No se pudieron cargar las visitas de hoy."
-          onReintentar={() => refetch()}
+          mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo."
+          onReintentar={reintentar}
         />
       )}
 
-      {!isLoading && !isError && visitas?.length === 0 && (
+      {isError && (
+        <EstadoError
+          mensaje="No se pudieron cargar las visitas de hoy."
+          onReintentar={reintentar}
+        />
+      )}
+
+      {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
           No hay visitas agendadas hoy. Puedes iniciar una visita no planificada desde Clientes.
         </p>

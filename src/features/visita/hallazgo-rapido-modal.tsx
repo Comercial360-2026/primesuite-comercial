@@ -38,6 +38,7 @@ export function HallazgoRapidoModal({
   const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoSeleccionado | null>(null);
   const [naturaleza, setNaturaleza] = useState<HallazgoPayload['naturaleza']>('contexto');
   const [guardando, setGuardando] = useState(false);
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function guardar() {
@@ -51,6 +52,10 @@ export function HallazgoRapidoModal({
         terminoId: terminoSeleccionado.id,
         naturaleza,
       });
+      // El cierre del modal lo controla el padre (visita-activa.tsx), con
+      // el mismo retraso de 700ms, para que "guardado ✓" sea visible antes
+      // de desaparecer.
+      setGuardadoConExito(true);
     } catch (err) {
       setError(
         err instanceof Error
@@ -126,10 +131,10 @@ export function HallazgoRapidoModal({
         <button
           className="btn btn-primary"
           style={{ marginTop: 12 }}
-          disabled={!terminoSeleccionado || guardando}
+          disabled={!terminoSeleccionado || guardando || guardadoConExito}
           onClick={guardar}
         >
-          {guardando ? 'guardando…' : 'guardar'}
+          {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}

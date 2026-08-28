@@ -35,6 +35,7 @@ export function DetalleOportunidad() {
   const [motivoCierre, setMotivoCierre] = useState('');
   const [comentarioCierre, setComentarioCierre] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
@@ -127,7 +128,8 @@ export function DetalleOportunidad() {
       setError(err.message);
       return;
     }
-    navigate(-1);
+    setGuardadoConExito(true);
+    setTimeout(() => navigate(-1), 700);
   }
 
   // Borrado completo — usa la función RPC eliminar_oportunidad_completa
@@ -347,8 +349,8 @@ export function DetalleOportunidad() {
 
       {error && <div className="field-error-text">{error}</div>}
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando} onClick={guardar}>
-        {guardando ? 'guardando…' : 'guardar'}
+      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando || guardadoConExito} onClick={guardar}>
+        {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
       </button>
 
       {!confirmandoBorrado ? (

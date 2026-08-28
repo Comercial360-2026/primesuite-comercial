@@ -25,6 +25,7 @@ export function OportunidadRapidaModal({
   const [titulo, setTitulo] = useState('');
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');
   const [guardando, setGuardando] = useState(false);
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function guardar() {
@@ -47,6 +48,7 @@ export function OportunidadRapidaModal({
         titulo: titulo.trim(),
         prioridad,
       });
+      setGuardadoConExito(true);
     } catch (err) {
       // BUG CORREGIDO: sin este catch, cualquier excepción dentro de
       // onGuardar (fallo de IndexedDB, error de red, lo que sea) dejaba
@@ -118,10 +120,10 @@ export function OportunidadRapidaModal({
         <button
           className="btn btn-primary"
           style={{ marginTop: 12 }}
-          disabled={!titulo.trim() || guardando}
+          disabled={!titulo.trim() || guardando || guardadoConExito}
           onClick={guardar}
         >
-          guardar
+          {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}

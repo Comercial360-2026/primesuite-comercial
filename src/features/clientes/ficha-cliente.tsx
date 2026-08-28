@@ -41,6 +41,10 @@ interface PrevisualizacionBorrado {
   rutas_storage: string[] | null;
 }
 
+interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
+  num_visitas: number;
+}
+
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
@@ -54,6 +58,11 @@ export function FichaCliente() {
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
   const previsualizando = useAccionAsync();
   const borrandoVisita = useAccionAsync();
+
+  const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
+  const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
+  const previsualizandoCliente = useAccionAsync();
+  const borrandoCliente = useAccionAsync();
 
   const { data: cliente } = useQuery({
     queryKey: ['cliente', clienteId],
@@ -229,6 +238,54 @@ export function FichaCliente() {
     );
   }
 
+  async function pedirBorradoCliente() {
+    setConfirmandoBorrarCliente(true);
+    setPrevisualizacionCliente(null);
+    await previsualizandoCliente.ejecutar(async () => {
+      const { data, error } = await supabase
+        .rpc('previsualizar_borrado_cliente', { p_cliente_id: clienteId! })
+        .single();
+      if (error) throw new Error(error.message);
+      return data as PrevisualizacionBorradoCliente;
+    }, {
+      onExito: (data) => setPrevisualizacionCliente(data),
+    });
+  }
+
+  function cancelarBorradoCliente() {
+    setConfirmandoBorrarCliente(false);
+    setPrevisualizacionCliente(null);
+    previsualizandoCliente.limpiarError();
+    borrandoCliente.limpiarError();
+  }
+
+  async function confirmarBorradoCliente() {
+    const rutas = previsualizacionCliente?.rutas_storage ?? [];
+
+    await borrandoCliente.ejecutar(
+      async () => {
+        // Mismo orden obligatorio que en el borrado de una visita suelta:
+        // primero los binarios de Storage, mientras las filas de
+        // visita_participante todavía existen (la política de Storage lo
+        // exige) — eliminar_cliente_completo() las borra como parte de la
+        // cascada, así que si se hiciera al revés, fallaría sin permiso.
+        if (rutas.length) {
+          await Promise.all([
+            supabase.storage.from('fotos-visita').remove(rutas),
+            supabase.storage.from('audios-visita').remove(rutas),
+          ]);
+        }
+        const { error } = await supabase.rpc('eliminar_cliente_completo', { p_cliente_id: clienteId! });
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          navigate('/clientes');
+        },
+      }
+    );
+  }
+
   return (
     <div className="screen screen--split">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -242,7 +299,53 @@ export function FichaCliente() {
           </div>
         </div>
         {semaforo && <span className={`chip chip--${semaforo.semaforo}`}>{semaforo.semaforo}</span>}
+        {!confirmandoBorrarCliente && (
+          <button
+            className="btn btn-secondary"
+            style={{ width: 'auto', padding: '4px 10px', fontSize: 'var(--text-xs)', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+            onClick={pedirBorradoCliente}
+          >
+            borrar cliente
+          </button>
+        )}
       </div>
+
+      {confirmandoBorrarCliente && (
+        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
+                {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
+                {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
+                {previsualizacionCliente.num_oportunidades} oportunidad(es) y{' '}
+                {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s). Todo eso se borrará también,
+                para siempre. No se puede deshacer.
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                antes desde "mi espacio".
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
+                  cancelar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'var(--risk-600)' }}
+                  onClick={confirmarBorradoCliente}
+                  disabled={borrandoCliente.cargando}
+                >
+                  {borrandoCliente.cargando ? 'borrando…' : 'confirmar borrado del cliente completo'}
+                </button>
+              </div>
+              {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="screen__scroll">
         <div className="card">
@@ -334,12 +437,21 @@ export function FichaCliente() {
                 )
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 'var(--text-base)' }}>
-                      {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  <div
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '4px 0' }}
+                    onClick={() => navigate(`/visita/${v.id}/detalle`)}
+                  >
+                    <div>
+                      <div style={{ fontSize: 'var(--text-base)' }}>
+                        {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                        {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>ver contenido</span>
+                      <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
                     </div>
                   </div>
                   <button

@@ -29,6 +29,7 @@ export function DetalleHallazgo() {
   const [fechaRelevante, setFechaRelevante] = useState('');
   const [tipoFechaRelevante, setTipoFechaRelevante] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
@@ -96,7 +97,11 @@ export function DetalleHallazgo() {
       setError(err.message);
       return;
     }
-    navigate(-1);
+    setGuardadoConExito(true);
+    // Breve pausa para que "guardado ✓" sea visible de verdad antes de
+    // volver — antes saltaba a la pantalla anterior sin ninguna
+    // confirmación, ni siquiera un flash.
+    setTimeout(() => navigate(-1), 700);
   }
 
   // Borrado individual — encargo técnico punto 2/3: comprobación explícita
@@ -207,8 +212,8 @@ export function DetalleHallazgo() {
 
       {error && <div className="field-error-text">{error}</div>}
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando} onClick={guardar}>
-        {guardando ? 'guardando…' : 'guardar'}
+      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando || guardadoConExito} onClick={guardar}>
+        {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
       </button>
 
       {!confirmandoBorrado ? (

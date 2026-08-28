@@ -214,6 +214,7 @@ export type Database = {
         Row: {
           actualizado_en: string
           creado_en: string
+          creado_por: string | null
           estado_fusion: string
           estado_relacion: string
           fusionado_en_id: string | null
@@ -226,6 +227,7 @@ export type Database = {
         Insert: {
           actualizado_en?: string
           creado_en?: string
+          creado_por?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -238,6 +240,7 @@ export type Database = {
         Update: {
           actualizado_en?: string
           creado_en?: string
+          creado_por?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -965,6 +968,24 @@ export type Database = {
           },
         ]
       }
+      registro_backup_completo: {
+        Row: {
+          creado_en: string
+          creado_por: string
+          id: string
+        }
+        Insert: {
+          creado_en?: string
+          creado_por: string
+          id?: string
+        }
+        Update: {
+          creado_en?: string
+          creado_por?: string
+          id?: string
+        }
+        Relationships: []
+      }
       termino: {
         Row: {
           actualizado_en: string
@@ -1588,6 +1609,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      eliminar_cliente_completo: {
+        Args: { p_cliente_id: string }
+        Returns: undefined
+      }
       eliminar_oportunidad_completa: {
         Args: { p_oportunidad_id: string }
         Returns: undefined
@@ -1607,12 +1632,36 @@ export type Database = {
         Args: { p_visita_id: string }
         Returns: string
       }
+      fn_limpiar_backups_antiguos: { Args: never; Returns: undefined }
       fn_marcar_capturas_error: { Args: never; Returns: undefined }
+      fn_mi_espacio_total: { Args: never; Returns: number }
+      fn_mis_visitas_espacio: {
+        Args: never
+        Returns: {
+          bytes: number
+          cliente_nombre: string
+          creado_en: string
+          visita_id: string
+        }[]
+      }
       fn_rol_actual: { Args: never; Returns: string }
       fn_rol_lectura_ampliada: { Args: never; Returns: boolean }
       fn_visita_sin_participantes: {
         Args: { p_visita_id: string }
         Returns: boolean
+      }
+      previsualizar_borrado_cliente: {
+        Args: { p_cliente_id: string }
+        Returns: {
+          num_audios: number
+          num_fotos: number
+          num_hallazgos: number
+          num_notas: number
+          num_oportunidades: number
+          num_proximos_pasos: number
+          num_visitas: number
+          rutas_storage: string[]
+        }[]
       }
       previsualizar_borrado_visita: {
         Args: { p_visita_id: string }

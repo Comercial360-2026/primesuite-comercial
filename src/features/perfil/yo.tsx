@@ -1,11 +1,33 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
+const DIAS_AVISO_BACKUP = 7;
+
+// Tablas incluidas en la copia completa. Solo datos (filas), no los
+// binarios de fotos/audios — esos ya tienen su propio backup por visita
+// (ver mi-espacio.tsx / Fase B). Bajar todas las fotos de todos los
+// clientes cada semana sería enorme y lento; esto es la red de seguridad
+// para los DATOS, no para los archivos.
+const TABLAS_BACKUP = [
+  'cliente',
+  'comercial',
+  'visita',
+  'visita_participante',
+  'visita_interlocutor',
+  'interlocutor',
+  'hallazgo',
+  'captura_libre',
+  'oportunidad',
+  'oportunidad_visita_seguimiento',
+  'oportunidad_termino',
+  'proximo_paso',
+  'termino',
+] as const;
 
 function formatearMB(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(0);
@@ -20,10 +42,75 @@ export function Yo() {
   const { comercial } = useSesionActual();
   const { cerrarVisita } = useVisitaActivaContext();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [cerrando, setCerrando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportando, setExportando] = useState(false);
+  const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+
+  const { data: ultimoBackup } = useQuery({
+    queryKey: ['ultimo-backup-completo'],
+    enabled: esDireccionComercial,
+    refetchOnMount: 'always',
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('registro_backup_completo')
+        .select('creado_en')
+        .order('creado_en', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (err) throw err;
+      return data?.creado_en ?? null;
+    },
+  });
+
+  const diasDesdeBackup = ultimoBackup
+    ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
+
+  async function hacerCopiaCompleta() {
+    setExportando(true);
+    setErrorExportacion(null);
+    try {
+      const resultado: Record<string, unknown> = {};
+      for (const tabla of TABLAS_BACKUP) {
+        const { data, error: err } = await supabase.from(tabla).select('*');
+        // Si una tabla concreta falla (permiso, lo que sea), se anota el
+        // fallo dentro del propio backup en vez de abortar todo el
+        // proceso — mejor una copia con un hueco señalado que ninguna.
+        resultado[tabla] = err ? { error: err.message } : data;
+      }
+
+      const fecha = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify({ generado_en: new Date().toISOString(), tablas: resultado }, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `primesuite-backup-${fecha}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      const { error: errLog } = await supabase
+        .from('registro_backup_completo')
+        .insert({ creado_por: comercial!.id });
+      if (errLog) throw new Error(errLog.message);
+
+      queryClient.invalidateQueries({ queryKey: ['ultimo-backup-completo'] });
+    } catch (err) {
+      setErrorExportacion(
+        err instanceof Error ? `No se pudo completar la copia: ${err.message}` : 'No se pudo completar la copia.'
+      );
+    } finally {
+      setExportando(false);
+    }
+  }
 
   // Aviso de espacio de Storage — solo visible para Dirección Comercial,
   // que es quien puede actuar (subir de plan, archivar, etc.). El plan
@@ -79,11 +166,27 @@ export function Yo() {
         <div style={{ fontSize: 'var(--text-base)' }}>{comercial?.rol ?? '—'}</div>
       </div>
 
+      <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/mi-espacio')}>
+        <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>mi espacio</div>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+          ver tu cuota y el tamaño de tus visitas
+        </div>
+      </div>
+
       {esDireccionComercial && (
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/vocabulario')}>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>gestionar vocabulario</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
             revisar propuestas y organizar el catálogo
+          </div>
+        </div>
+      )}
+
+      {esDireccionComercial && (
+        <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/consumo-comerciales')}>
+          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>consumo por comercial</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            ver cuánto espacio usa cada comercial
           </div>
         </div>
       )}
@@ -101,6 +204,33 @@ export function Yo() {
                 : 'Acercándose al límite del plan gratuito de Supabase.'}
             </div>
           )}
+        </div>
+      )}
+
+      {esDireccionComercial && (
+        <div className="card" style={{ borderColor: backupPendiente ? 'var(--warning-600)' : undefined }}>
+          <div className="label" style={{ marginTop: 0 }}>copia de seguridad completa</div>
+          <div style={{ fontSize: 'var(--text-sm)', color: backupPendiente ? 'var(--warning-600)' : 'var(--ink-400)' }}>
+            {diasDesdeBackup === null
+              ? 'Todavía no has hecho ninguna copia completa.'
+              : diasDesdeBackup === 0
+                ? 'Última copia: hoy.'
+                : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
+          </div>
+          {backupPendiente && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginTop: 4 }}>
+              Supabase gratuito no hace copias automáticas — te recomendamos descargar una ahora.
+            </div>
+          )}
+          <button
+            className="btn btn-secondary"
+            style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
+            disabled={exportando}
+            onClick={hacerCopiaCompleta}
+          >
+            {exportando ? 'preparando copia…' : 'hacer copia completa ahora'}
+          </button>
+          {errorExportacion && <div className="field-error-text" style={{ marginTop: 8 }}>{errorExportacion}</div>}
         </div>
       )}
 

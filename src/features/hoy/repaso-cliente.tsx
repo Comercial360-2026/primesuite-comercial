@@ -1,5 +1,5 @@
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -33,13 +33,16 @@ export function RepasoCliente() {
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
+  const queryClient = useQueryClient();
 
+  const clienteQueryKey = ['cliente', clienteId];
   const {
     data: cliente,
     isError: isErrorCliente,
+    isPaused: isPausedCliente,
     refetch: refetchCliente,
   } = useQuery({
-    queryKey: ['cliente', clienteId],
+    queryKey: clienteQueryKey,
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await supabase.from('cliente').select('id, nombre').eq('id', clienteId!).single();
@@ -47,13 +50,26 @@ export function RepasoCliente() {
       return data;
     },
   });
+  // isPaused: ver nota en agenda-del-dia.tsx / listado-clientes.tsx —
+  // TanStack Query pausa en vez de marcar error cuando decide que la red
+  // no es fiable, y sin este caso la sección se queda en blanco.
+  const sinConexionCliente = isPausedCliente && cliente === undefined;
+  // reintentar() en vez de refetch() a secas: una consulta "paused" no
+  // siempre reacciona a un refetch() manual — resetQueries fuerza un
+  // intento realmente nuevo, verificado en pruebas reales de red rota.
+  function reintentarCliente() {
+    queryClient.resetQueries({ queryKey: clienteQueryKey });
+    refetchCliente();
+  }
 
+  const ecosistemaQueryKey = ['ecosistema-actual', clienteId];
   const {
     data: ecosistema,
     isError: isErrorEcosistema,
+    isPaused: isPausedEcosistema,
     refetch: refetchEcosistema,
   } = useQuery({
-    queryKey: ['ecosistema-actual', clienteId],
+    queryKey: ecosistemaQueryKey,
     enabled: !!clienteId,
     queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
       const { data: items, error } = await supabase
@@ -79,13 +95,20 @@ export function RepasoCliente() {
       return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
     },
   });
+  const sinConexionEcosistema = isPausedEcosistema && ecosistema === undefined;
+  function reintentarEcosistema() {
+    queryClient.resetQueries({ queryKey: ecosistemaQueryKey });
+    refetchEcosistema();
+  }
 
+  const interlocutoresQueryKey = ['interlocutores-cliente', clienteId];
   const {
     data: interlocutoresConocidos,
     isError: isErrorInterlocutores,
+    isPaused: isPausedInterlocutores,
     refetch: refetchInterlocutores,
   } = useQuery({
-    queryKey: ['interlocutores-cliente', clienteId],
+    queryKey: interlocutoresQueryKey,
     enabled: !!clienteId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -98,13 +121,20 @@ export function RepasoCliente() {
       return data;
     },
   });
+  const sinConexionInterlocutores = isPausedInterlocutores && interlocutoresConocidos === undefined;
+  function reintentarInterlocutores() {
+    queryClient.resetQueries({ queryKey: interlocutoresQueryKey });
+    refetchInterlocutores();
+  }
 
+  const oportunidadQueryKey = ['oportunidad-activa', clienteId];
   const {
     data: oportunidad,
     isError: isErrorOportunidad,
+    isPaused: isPausedOportunidad,
     refetch: refetchOportunidad,
   } = useQuery({
-    queryKey: ['oportunidad-activa', clienteId],
+    queryKey: oportunidadQueryKey,
     enabled: !!clienteId,
     queryFn: async (): Promise<OportunidadActiva | null> => {
       const { data, error } = await supabase
@@ -119,13 +149,20 @@ export function RepasoCliente() {
       return data;
     },
   });
+  const sinConexionOportunidad = isPausedOportunidad && oportunidad === undefined;
+  function reintentarOportunidad() {
+    queryClient.resetQueries({ queryKey: oportunidadQueryKey });
+    refetchOportunidad();
+  }
 
+  const proximoPasoQueryKey = ['proximo-paso-pendiente', clienteId];
   const {
     data: proximoPaso,
     isError: isErrorProximoPaso,
+    isPaused: isPausedProximoPaso,
     refetch: refetchProximoPaso,
   } = useQuery({
-    queryKey: ['proximo-paso-pendiente', clienteId],
+    queryKey: proximoPasoQueryKey,
     enabled: !!clienteId,
     queryFn: async (): Promise<ProximoPasoPendiente | null> => {
       const { data, error } = await supabase
@@ -140,6 +177,11 @@ export function RepasoCliente() {
       return data as unknown as ProximoPasoPendiente | null;
     },
   });
+  const sinConexionProximoPaso = isPausedProximoPaso && proximoPaso === undefined;
+  function reintentarProximoPaso() {
+    queryClient.resetQueries({ queryKey: proximoPasoQueryKey });
+    refetchProximoPaso();
+  }
 
   async function iniciarLaVisita() {
     if (!cliente || !comercial) return;
@@ -165,14 +207,20 @@ export function RepasoCliente() {
       <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', alignSelf: 'flex-start' }}>
         ←
       </button>
-      {isErrorCliente ? (
-        <EstadoError mensaje="No se pudo cargar el cliente." onReintentar={() => refetchCliente()} />
+      {isErrorCliente || sinConexionCliente ? (
+        <EstadoError
+          mensaje={sinConexionCliente ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el cliente.'}
+          onReintentar={reintentarCliente}
+        />
       ) : (
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>{cliente?.nombre ?? '…'}</h1>
       )}
 
-      {isErrorInterlocutores ? (
-        <EstadoError mensaje="No se pudo cargar los interlocutores conocidos." onReintentar={() => refetchInterlocutores()} />
+      {isErrorInterlocutores || sinConexionInterlocutores ? (
+        <EstadoError
+          mensaje={sinConexionInterlocutores ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar los interlocutores conocidos.'}
+          onReintentar={reintentarInterlocutores}
+        />
       ) : (
         interlocutoresConocidos?.length ? (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -185,8 +233,11 @@ export function RepasoCliente() {
         ) : null
       )}
 
-      {isErrorEcosistema ? (
-        <EstadoError mensaje="No se pudo cargar el ecosistema." onReintentar={() => refetchEcosistema()} />
+      {isErrorEcosistema || sinConexionEcosistema ? (
+        <EstadoError
+          mensaje={sinConexionEcosistema ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el ecosistema.'}
+          onReintentar={reintentarEcosistema}
+        />
       ) : (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {ecosistema?.map((item) => (
@@ -201,8 +252,11 @@ export function RepasoCliente() {
         </div>
       )}
 
-      {isErrorOportunidad ? (
-        <EstadoError mensaje="No se pudo cargar la oportunidad activa." onReintentar={() => refetchOportunidad()} />
+      {isErrorOportunidad || sinConexionOportunidad ? (
+        <EstadoError
+          mensaje={sinConexionOportunidad ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar la oportunidad activa.'}
+          onReintentar={reintentarOportunidad}
+        />
       ) : (
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
@@ -212,8 +266,11 @@ export function RepasoCliente() {
         </div>
       )}
 
-      {isErrorProximoPaso ? (
-        <EstadoError mensaje="No se pudo cargar el próximo paso." onReintentar={() => refetchProximoPaso()} />
+      {isErrorProximoPaso || sinConexionProximoPaso ? (
+        <EstadoError
+          mensaje={sinConexionProximoPaso ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el próximo paso.'}
+          onReintentar={reintentarProximoPaso}
+        />
       ) : (
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>próximo paso pendiente</div>

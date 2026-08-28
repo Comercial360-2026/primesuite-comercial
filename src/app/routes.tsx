@@ -13,6 +13,7 @@ import { Login } from '@/features/auth/login';
 import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
+import { DetalleVisitaCerrada } from '@/features/visita/detalle-visita-cerrada';
 import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
@@ -23,6 +24,8 @@ import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
 import { Yo } from '@/features/perfil/yo';
+import { MiEspacio } from '@/features/perfil/mi-espacio';
+import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
 
 export function AppRoutes() {
   return (
@@ -44,6 +47,7 @@ export function AppRoutes() {
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}
           <Route path="/visita/:visitaId" element={<VisitaActiva />} />
+          <Route path="/visita/:visitaId/detalle" element={<DetalleVisitaCerrada />} />
           <Route path="/capturas/:capturaId" element={<DetalleCaptura />} />
           <Route path="/visita/:visitaId/cierre" element={<CierreVisita />} />
 
@@ -61,6 +65,17 @@ export function AppRoutes() {
           {/* Nivel 0 — Yo — hueco real: el bottom nav apuntaba aquí desde
               el principio del proyecto sin que la ruta existiera nunca. */}
           <Route path="/yo" element={<Yo />} />
+          <Route path="/mi-espacio" element={<MiEspacio />} />
+
+          {/* Nivel 0 — Consumo por comercial — exclusivo de Dirección Comercial */}
+          <Route
+            path="/consumo-comerciales"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <ConsumoComerciales />
+              </RequireRole>
+            }
+          />
 
           {/* Nivel 0 — Vocabulario — exclusivo de Dirección Comercial */}
           <Route

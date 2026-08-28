@@ -20,6 +20,7 @@ export function DetalleCaptura() {
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
   const guardado = useAccionAsync();
   const borrado = useAccionAsync();
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
 
   useEffect(() => {
@@ -77,6 +78,11 @@ export function DetalleCaptura() {
       {
         onExito: (payloadNuevo) => {
           setOperacion((prev) => (prev ? { ...prev, payload: payloadNuevo } : prev));
+          setGuardadoConExito(true);
+          // Breve pausa para que el mensaje "guardado ✓" sea visible de
+          // verdad antes de volver — un flash demasiado rápido no sirve
+          // como confirmación, sobre todo sin poder fiarse del color.
+          setTimeout(() => navigate(-1), 700);
         },
         mensajeError:
           'No se pudo actualizar. Si la nota ya estaba sincronizada, puede que falte permiso de edición en el servidor.',
@@ -192,10 +198,10 @@ export function DetalleCaptura() {
           />
           <button
             className="btn btn-primary"
-            disabled={guardado.cargando}
+            disabled={guardado.cargando || guardadoConExito}
             onClick={guardarEdicion}
           >
-            {guardado.cargando ? 'guardando…' : 'guardar cambios'}
+            {guardadoConExito ? 'guardado ✓' : guardado.cargando ? 'guardando…' : 'guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
@@ -219,10 +225,10 @@ export function DetalleCaptura() {
           />
           <button
             className="btn btn-primary"
-            disabled={guardado.cargando || !textoEdit.trim()}
+            disabled={guardado.cargando || guardadoConExito || !textoEdit.trim()}
             onClick={guardarEdicion}
           >
-            {guardado.cargando ? 'guardando…' : 'guardar cambios'}
+            {guardadoConExito ? 'guardado ✓' : guardado.cargando ? 'guardando…' : 'guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>

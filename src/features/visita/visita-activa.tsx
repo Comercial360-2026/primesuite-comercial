@@ -33,6 +33,7 @@ export function VisitaActiva() {
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
   const [tituloPendiente, setTituloPendiente] = useState('');
   const guardadoNota = useAccionAsync();
+  const [guardadoNotaConExito, setGuardadoNotaConExito] = useState(false);
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
 
@@ -214,9 +215,13 @@ export function VisitaActiva() {
         ),
       {
         onExito: () => {
-          setNotaTitulo('');
-          setNotaTexto('');
-          setNotaAbierta(false);
+          setGuardadoNotaConExito(true);
+          setTimeout(() => {
+            setNotaTitulo('');
+            setNotaTexto('');
+            setNotaAbierta(false);
+            setGuardadoNotaConExito(false);
+          }, 700);
         },
         mensajeError: 'No se pudo guardar la nota. Inténtalo de nuevo.',
       }
@@ -278,9 +283,14 @@ export function VisitaActiva() {
   return (
     <div className="screen screen--split">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div className="label" style={{ marginTop: 0 }}>visita en curso</div>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{cliente?.nombre ?? '…'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => navigate('/')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
+            ←
+          </button>
+          <div>
+            <div className="label" style={{ marginTop: 0 }}>visita en curso</div>
+            <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{cliente?.nombre ?? '…'}</div>
+          </div>
         </div>
         <button
           type="button"
@@ -351,8 +361,8 @@ export function VisitaActiva() {
             >
               cancelar
             </button>
-            <button className="btn btn-primary" disabled={guardadoNota.cargando} onClick={guardarNota}>
-              {guardadoNota.cargando ? 'guardando…' : 'guardar'}
+            <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
+              {guardadoNotaConExito ? 'guardado ✓' : guardadoNota.cargando ? 'guardando…' : 'guardar'}
             </button>
           </div>
           {guardadoNota.error && (
@@ -405,53 +415,122 @@ export function VisitaActiva() {
       )}
 
       <div className="screen__scroll">
-        <div className="label" style={{ marginTop: 0 }}>capturado en esta visita</div>
-        {capturas.map((c) => {
-          const payload = c.payload as { tipo: string; titulo?: string; contenidoTexto?: string };
-          const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-          const etiqueta =
-            payload.tipo === 'nota'
-              ? payload.titulo || payload.contenidoTexto || '(nota vacía)'
-              : payload.tipo === 'foto'
-                ? `foto · ${hora}`
-                : `audio · ${hora}`;
-          return (
-            <div
-              key={c.id}
-              className="card"
-              style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-              onClick={() => navigate(`/capturas/${c.id}`)}
-            >
-              <span style={{ fontSize: 'var(--text-sm)' }}>{etiqueta}</span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
+        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota').length > 0 && (
+          <>
+            <div className="label" style={{ marginTop: 0 }}>
+              notas ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota').length})
             </div>
-          );
-        })}
-        {oportunidades.map((o) => (
-          <div
-            key={o.id}
-            className="card card--oportunidad"
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigate(`/oportunidades/${o.id}`)}
-          >
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-              {(o.payload as { titulo: string }).titulo}
-            </span>
+            {capturas
+              .filter((c) => (c.payload as { tipo: string }).tipo === 'nota')
+              .map((c) => {
+                const payload = c.payload as { titulo?: string; contenidoTexto?: string };
+                return (
+                  <div
+                    key={c.id}
+                    className="card"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                    onClick={() => navigate(`/capturas/${c.id}`)}
+                  >
+                    <span style={{ fontSize: 'var(--text-sm)' }}>
+                      {payload.titulo || payload.contenidoTexto || '(nota vacía)'}
+                    </span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
+                  </div>
+                );
+              })}
+          </>
+        )}
+
+        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto').length > 0 && (
+          <>
+            <div className="label">
+              fotos ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto').length})
+            </div>
+            {capturas
+              .filter((c) => (c.payload as { tipo: string }).tipo === 'foto')
+              .map((c) => {
+                const payload = c.payload as { titulo?: string };
+                const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div
+                    key={c.id}
+                    className="card"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                    onClick={() => navigate(`/capturas/${c.id}`)}
+                  >
+                    <span style={{ fontSize: 'var(--text-sm)' }}>{payload.titulo ? `${payload.titulo} · ${hora}` : `foto · ${hora}`}</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
+                  </div>
+                );
+              })}
+          </>
+        )}
+
+        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio').length > 0 && (
+          <>
+            <div className="label">
+              audios ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio').length})
+            </div>
+            {capturas
+              .filter((c) => (c.payload as { tipo: string }).tipo === 'audio')
+              .map((c) => {
+                const payload = c.payload as { titulo?: string };
+                const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <div
+                    key={c.id}
+                    className="card"
+                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                    onClick={() => navigate(`/capturas/${c.id}`)}
+                  >
+                    <span style={{ fontSize: 'var(--text-sm)' }}>{payload.titulo ? `${payload.titulo} · ${hora}` : `audio · ${hora}`}</span>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
+                  </div>
+                );
+              })}
+          </>
+        )}
+
+        {hallazgos.length > 0 && (
+          <>
+            <div className="label">hallazgos ({hallazgos.length})</div>
+            {hallazgos.map((h) => {
+              const payload = h.payload as { terminoId: string; naturaleza: string };
+              return (
+                <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
+                  <span style={{ fontSize: 'var(--text-sm)' }}>{nombresTerminos?.[payload.terminoId] ?? '…'}</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                    {payload.naturaleza.replace('_', ' ')}
+                  </span>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {oportunidades.length > 0 && (
+          <>
+            <div className="label">oportunidades ({oportunidades.length})</div>
+            {oportunidades.map((o) => (
+              <div
+                key={o.id}
+                className="card card--oportunidad"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/oportunidades/${o.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
+                  {(o.payload as { titulo: string }).titulo}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {!capturas.length && !hallazgos.length && !oportunidades.length && (
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+            Nada capturado todavía en esta visita.
           </div>
-        ))}
-        {hallazgos.map((h) => {
-          const payload = h.payload as { terminoId: string; naturaleza: string };
-          return (
-            <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
-              <span style={{ fontSize: 'var(--text-sm)' }}>
-                {nombresTerminos?.[payload.terminoId] ?? '…'}
-              </span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                {payload.naturaleza.replace('_', ' ')}
-              </span>
-            </div>
-          );
-        })}
+        )}
       </div>
 
       <button className="btn btn-secondary" onClick={() => setHallazgoAbierto(true)}>
@@ -472,7 +551,10 @@ export function VisitaActiva() {
           onGuardar={async (payload) => {
             const oportunidadId = crypto.randomUUID();
             await encolar(oportunidadId, 'oportunidad', payload, { dependeDe: visitaId });
-            setOportunidadAbierta(false);
+            // Retraso para que "guardado ✓" del modal sea visible antes de
+            // que desaparezca — sin esto, la confirmación pasa demasiado
+            // rápido para notarla.
+            setTimeout(() => setOportunidadAbierta(false), 700);
           }}
           onCerrar={() => setOportunidadAbierta(false)}
         />
@@ -485,7 +567,7 @@ export function VisitaActiva() {
           onGuardar={async (payload) => {
             const hallazgoId = crypto.randomUUID();
             await encolar(hallazgoId, 'hallazgo', payload, { dependeDe: visitaId });
-            setHallazgoAbierto(false);
+            setTimeout(() => setHallazgoAbierto(false), 700);
           }}
           onCerrar={() => setHallazgoAbierto(false)}
         />

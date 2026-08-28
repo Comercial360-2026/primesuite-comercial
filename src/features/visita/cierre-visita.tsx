@@ -218,7 +218,12 @@ export function CierreVisita() {
 
   return (
     <div className="screen screen--split">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>cerrar visita</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button onClick={() => navigate(`/visita/${visitaId}`)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
+          ←
+        </button>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>cerrar visita</h1>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div className="card" style={{ textAlign: 'center' }}>
