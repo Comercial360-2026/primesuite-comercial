@@ -4,13 +4,44 @@ import type { Database } from '@/types/database';
 
 type Comercial = Database['public']['Tables']['comercial']['Row'];
 
+const CLAVE_CACHE = 'primesuite-comercial-cache';
+
+function leerComercialCacheado(): Comercial | null {
+  try {
+    const bruto = localStorage.getItem(CLAVE_CACHE);
+    return bruto ? (JSON.parse(bruto) as Comercial) : null;
+  } catch {
+    return null;
+  }
+}
+
+function guardarComercialCacheado(comercial: Comercial | null) {
+  try {
+    if (comercial) {
+      localStorage.setItem(CLAVE_CACHE, JSON.stringify(comercial));
+    } else {
+      localStorage.removeItem(CLAVE_CACHE);
+    }
+  } catch {
+    // localStorage no disponible (modo privado, etc.) — no es crítico,
+    // simplemente no sobrevive a un recargado sin red en ese caso.
+  }
+}
+
 // Lee el registro `comercial` correspondiente al usuario autenticado en
 // Supabase Auth (comercial.id === auth.users.id, ver 02_auth_rls.sql §1).
 // Se resuelve una sola vez por sesión y se mantiene en memoria — las
 // políticas RLS ya validan el rol en cada consulta, esto es solo para que
 // la UI (bottom nav, RequireRole) sepa qué mostrar sin re-consultar.
 export function useSesionActual() {
-  const [comercial, setComercial] = useState<Comercial | null>(null);
+  // BUG CORREGIDO: el estado en memoria (useState) no sobrevive a un
+  // recargado completo de la página — si eso pasa sin conexión (frecuente
+  // al activar modo avión, o si el móvil mata la pestaña), el comercial
+  // volvía a null en el arranque y no había red para recuperarlo, expulsando
+  // a /login pese a tener una sesión guardada válida. Se hidrata el estado
+  // inicial desde una copia en localStorage, actualizada en cada carga con
+  // éxito, para que el arranque en frío sin red no se quede sin nada.
+  const [comercial, setComercial] = useState<Comercial | null>(() => leerComercialCacheado());
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -19,15 +50,11 @@ export function useSesionActual() {
     async function cargar() {
       const { data: sesion, error } = await supabase.auth.getSession();
 
-      // BUG CORREGIDO: sin conexión, la renovación en segundo plano del
-      // access token puede fallar y getSession() devolver una sesión nula
-      // aunque la sesión guardada localmente siga siendo válida — "no se
-      // pudo verificar por falta de red" no es lo mismo que "no hay
-      // sesión". Antes esto expulsaba al comercial a /login en cuanto
-      // perdía cobertura, anulando en la práctica todo el diseño
-      // offline-first de la aplicación. Ahora, sin red o ante un error de
-      // la propia llamada, se mantiene el último comercial conocido en
-      // memoria y simplemente se deja de mostrar el estado de carga.
+      // Sin red o error de la propia llamada: se mantiene el último
+      // comercial conocido (ya hidratado desde localStorage al arrancar,
+      // o el que ya hubiera en memoria si esto ocurre a mitad de sesión)
+      // y simplemente se deja de mostrar el estado de carga. "No se pudo
+      // verificar por falta de red" no es lo mismo que "no hay sesión".
       if (!navigator.onLine || error) {
         if (activo) setCargando(false);
         return;
@@ -38,6 +65,7 @@ export function useSesionActual() {
           setComercial(null);
           setCargando(false);
         }
+        guardarComercialCacheado(null);
         return;
       }
 
@@ -51,6 +79,7 @@ export function useSesionActual() {
         setComercial(data ?? null);
         setCargando(false);
       }
+      guardarComercialCacheado(data ?? null);
     }
 
     cargar();
@@ -64,6 +93,7 @@ export function useSesionActual() {
           setComercial(null);
           setCargando(false);
         }
+        guardarComercialCacheado(null);
         return;
       }
       cargar();

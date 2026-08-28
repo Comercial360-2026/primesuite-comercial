@@ -22,17 +22,34 @@ export function Login() {
   async function iniciarSesion() {
     if (!email.trim() || !password) return;
 
+    // Sin conexión, ni siquiera lo intenta contra el servidor — un intento
+    // fallido por falta de red no debe mostrarse igual que una contraseña
+    // incorrecta, o el comercial pierde tiempo revisando algo que está bien.
+    if (!navigator.onLine) {
+      acceso.establecerError('Sin conexión. Conéctate a internet para iniciar sesión.');
+      return;
+    }
+
     await acceso.ejecutar(
       async () => {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
-        if (error) throw new Error(error.message);
+        if (error) throw error;
       },
       {
         onExito: () => navigate(destino, { replace: true }),
-        mensajeError: 'Correo o contraseña incorrectos.',
+        mensajeError: (err) => {
+          // "Failed to fetch" y variantes son el propio navegador
+          // informando de que la petición nunca llegó a salir — red caída
+          // a mitad del intento, no una credencial rechazada por el servidor.
+          const mensaje = err instanceof Error ? err.message : '';
+          if (/failed to fetch|network|Load failed/i.test(mensaje)) {
+            return 'Sin conexión. Conéctate a internet para iniciar sesión.';
+          }
+          return 'Correo o contraseña incorrectos.';
+        },
       }
     );
   }

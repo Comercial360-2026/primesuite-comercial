@@ -25,7 +25,7 @@ export function useAccionAsync() {
 
   const ejecutar = useCallback(async <T,>(
     accion: () => Promise<T>,
-    opciones?: { onExito?: (resultado: T) => void; mensajeError?: string }
+    opciones?: { onExito?: (resultado: T) => void; mensajeError?: string | ((err: unknown) => string) }
   ): Promise<T | undefined> => {
     setEstado({ cargando: true, error: null });
     try {
@@ -35,8 +35,10 @@ export function useAccionAsync() {
       return resultado;
     } catch (err) {
       const mensaje =
-        opciones?.mensajeError ??
-        (err instanceof Error ? err.message : 'No se pudo completar la acción. Inténtalo de nuevo.');
+        typeof opciones?.mensajeError === 'function'
+          ? opciones.mensajeError(err)
+          : (opciones?.mensajeError ??
+            (err instanceof Error ? err.message : 'No se pudo completar la acción. Inténtalo de nuevo.'));
       setEstado({ cargando: false, error: mensaje });
       return undefined;
     }
