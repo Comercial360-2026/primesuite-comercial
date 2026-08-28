@@ -1623,9 +1623,18 @@ export type Database = {
       }
       fn_comercial_actual_activo: { Args: never; Returns: boolean }
       fn_consolidar_visitas_antiguas: { Args: never; Returns: undefined }
+      fn_cuota_comercial_bytes: { Args: never; Returns: number }
       fn_es_participante_de_visita: {
         Args: { p_comercial_id?: string; p_visita_id: string }
         Returns: boolean
+      }
+      fn_espacio_por_comercial: {
+        Args: never
+        Returns: {
+          bytes: number
+          comercial_id: string
+          nombre: string
+        }[]
       }
       fn_espacio_storage_usado: { Args: never; Returns: number }
       fn_estado_captura_visita: {
