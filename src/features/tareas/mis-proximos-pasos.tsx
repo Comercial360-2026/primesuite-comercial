@@ -94,14 +94,14 @@ export function MisProximosPasos() {
           className={`chip${filtro === 'pendiente' ? ' chip--on' : ''}`}
           onClick={() => setFiltro('pendiente')}
         >
-          pendientes
+          Pendientes
         </button>
         <button
           type="button"
           className={`chip${filtro === 'completado' ? ' chip--on' : ''}`}
           onClick={() => setFiltro('completado')}
         >
-          completados
+          Completados
         </button>
       </div>
 
@@ -141,10 +141,7 @@ export function MisProximosPasos() {
                 }}
               />
             )}
-            <div
-              style={{ flex: 1, cursor: p.oportunidad_id ? 'pointer' : 'default' }}
-              onClick={() => p.oportunidad_id && navigate(`/oportunidades/${p.oportunidad_id}`)}
-            >
+            <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/proximos-pasos/${p.id}`)}>
               <div style={{ fontSize: 'var(--text-base)' }}>
                 {p.descripcion}
                 {guardandoEsta && (

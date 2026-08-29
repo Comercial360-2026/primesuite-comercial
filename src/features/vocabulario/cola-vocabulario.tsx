@@ -31,14 +31,14 @@ interface CategoriaConTerminos {
   terminos: TerminoDelCatalogo[];
 }
 
-// Resuelve las propuestas de vocabulario semiabierto (pestaña "pendientes")
+// Resuelve las propuestas de vocabulario semiabierto (pestaña "Pendientes")
 // y permite gestionar el catálogo completo (pestaña "catálogo completo"):
 // crear/renombrar/borrar categorías, y añadir/mover/renombrar/quitar
 // términos. Todo restringido a direccion_comercial vía RLS — ver
 // 02_auth_rls.sql y 49_fix_termino_insert_direccion.sql.
 //
 // "Quitar" un término NO es un DELETE real — reutiliza el mecanismo ya
-// existente de "descartar" (estado_gobierno = 'descartado'), para no
+// existente de "Descartar" (estado_gobierno = 'descartado'), para no
 // romper referencias históricas en hallazgo/oportunidad_termino que ya
 // puedan apuntar a ese término. Un DELETE real solo se usa para categorías
 // vacías, donde no hay ese riesgo.
@@ -48,7 +48,7 @@ export function ColaVocabulario() {
 
   const [vista, setVista] = useState<'pendientes' | 'catalogo'>('pendientes');
 
-  // --- estado de la pestaña "pendientes" ---
+  // --- estado de la pestaña "Pendientes" ---
   const [fusionandoId, setFusionandoId] = useState<string | null>(null);
   const [textoBusquedaFusion, setTextoBusquedaFusion] = useState('');
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
@@ -299,14 +299,14 @@ export function ColaVocabulario() {
           className={`chip${vista === 'pendientes' ? ' chip--on' : ''}`}
           onClick={() => setVista('pendientes')}
         >
-          pendientes{propuestos?.length ? ` (${propuestos.length})` : ''}
+          Pendientes{propuestos?.length ? ` (${propuestos.length})` : ''}
         </button>
         <button
           type="button"
           className={`chip${vista === 'catalogo' ? ' chip--on' : ''}`}
           onClick={() => setVista('catalogo')}
         >
-          catálogo completo
+          Catálogo completo
         </button>
       </div>
 
@@ -373,7 +373,7 @@ export function ColaVocabulario() {
                     style={{ marginTop: 8 }}
                     onClick={() => { setFusionandoId(null); setTextoBusquedaFusion(''); }}
                   >
-                    cancelar
+                    Cancelar
                   </button>
                 </div>
               ) : (
@@ -385,7 +385,7 @@ export function ColaVocabulario() {
                     disabled={procesandoId === t.id}
                     onClick={() => resolver(t.id, 'incorporar')}
                   >
-                    {procesandoId === t.id ? '…' : 'incorporar tal cual'}
+                    {procesandoId === t.id ? '…' : 'Incorporar tal cual'}
                   </button>
                   <button
                     type="button"
@@ -394,7 +394,7 @@ export function ColaVocabulario() {
                     disabled={procesandoId === t.id}
                     onClick={() => { setFusionandoId(t.id); setTextoBusquedaFusion(''); }}
                   >
-                    fusionar con existente
+                    Fusionar con existente
                   </button>
                   <button
                     type="button"
@@ -403,7 +403,7 @@ export function ColaVocabulario() {
                     disabled={procesandoId === t.id}
                     onClick={() => resolver(t.id, 'descartar')}
                   >
-                    descartar
+                    Descartar
                   </button>
                 </div>
               )}
@@ -416,7 +416,7 @@ export function ColaVocabulario() {
 
           {!creandoCategoria ? (
             <button type="button" className="btn btn-secondary" onClick={() => setCreandoCategoria(true)}>
-              + nueva categoría
+              + Nueva categoría
             </button>
           ) : (
             <div className="card">
@@ -429,10 +429,10 @@ export function ColaVocabulario() {
               />
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreandoCategoria(false); setNuevaCategoriaTexto(''); }}>
-                  cancelar
+                  Cancelar
                 </button>
                 <button type="button" className="btn btn-primary" onClick={crearCategoria}>
-                  crear
+                  Crear
                 </button>
               </div>
             </div>
@@ -452,7 +452,7 @@ export function ColaVocabulario() {
                     style={{ flex: 1 }}
                   />
                   <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 10px' }} onClick={() => setRenombrandoCategoriaId(null)}>
-                    cancelar
+                    Cancelar
                   </button>
                   <button
                     type="button"
@@ -460,7 +460,7 @@ export function ColaVocabulario() {
                     style={{ width: 'auto', padding: '0 10px' }}
                     onClick={() => renombrarCategoria(cat.categoria_id)}
                   >
-                    guardar
+                    Guardar
                   </button>
                 </div>
               ) : (
@@ -483,7 +483,7 @@ export function ColaVocabulario() {
                       style={{ width: 'auto', padding: '0 10px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
                       onClick={() => borrarCategoria(cat.categoria_id, cat.terminos.length > 0)}
                     >
-                      borrar
+                      Borrar
                     </button>
                   </div>
                 </div>
@@ -502,10 +502,10 @@ export function ColaVocabulario() {
                           style={{ flex: 1 }}
                         />
                         <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => setRenombrandoTerminoId(null)}>
-                          cancelar
+                          Cancelar
                         </button>
                         <button type="button" className="btn btn-primary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => renombrarTermino(t.id)}>
-                          guardar
+                          Guardar
                         </button>
                       </div>
                     ) : moviendoTerminoId === t.id ? (
@@ -524,7 +524,7 @@ export function ColaVocabulario() {
                             </button>
                           ))}
                         <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => setMoviendoTerminoId(null)}>
-                          cancelar
+                          Cancelar
                         </button>
                       </div>
                     ) : (
@@ -550,7 +550,7 @@ export function ColaVocabulario() {
                             style={{ width: 'auto', padding: '0 8px', fontSize: 12 }}
                             onClick={() => setMoviendoTerminoId(t.id)}
                           >
-                            mover
+                            Mover
                           </button>
                           <button
                             type="button"
@@ -558,7 +558,7 @@ export function ColaVocabulario() {
                             style={{ width: 'auto', padding: '0 8px', fontSize: 12, color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
                             onClick={() => quitarTermino(t.id)}
                           >
-                            quitar
+                            Quitar
                           </button>
                         </div>
                       </div>
@@ -586,7 +586,7 @@ export function ColaVocabulario() {
                   style={{ width: 'auto', padding: '0 12px' }}
                   onClick={() => crearTerminoDirecto(cat.categoria_id)}
                 >
-                  añadir
+                  Añadir
                 </button>
               </div>
             </div>

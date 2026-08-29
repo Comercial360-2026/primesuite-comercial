@@ -8,7 +8,8 @@ export type EntidadSincronizable =
   | 'hallazgo'
   | 'captura_libre'
   | 'oportunidad'
-  | 'proximo_paso';
+  | 'proximo_paso'
+  | 'ubicacion';
 
 export type EstadoOperacion = 'pendiente' | 'subiendo' | 'completado' | 'error';
 
@@ -79,12 +80,32 @@ export interface ProximoPasoPayload {
   fechaObjetivo?: string;
 }
 
+// A diferencia de las demás entidades, una ubicación no pertenece a una
+// visita concreta — pertenece al cliente, y se reutiliza en todas las
+// visitas futuras a ese mismo cliente. Por eso no lleva visitaId ni
+// dependeDe: el cliente ya existe sincronizado en Supabase en el momento
+// en que se puede crear una ubicación (el alta de cliente es una acción
+// directa, no pasa por esta cola — ver alta-rapida-cliente.tsx).
+//
+// Tampoco lleva comercialAutorId: la tabla `ubicacion` no tiene columna de
+// autor (confirmado contra el esquema real el 28/8/2026 — es un catálogo
+// compartido del cliente, no un dato personal de quien lo crea), y su
+// política RLS (`pol_ubicacion_write`) autoriza por `fn_comercial_actual_activo()`,
+// no por autoría. Incluir ese campo aquí causaba un error real de
+// PostgREST ("Could not find the 'comercial_autor_id' column") detectado
+// probando en directo, no solo mirando la pantalla.
+export interface UbicacionPayload {
+  clienteId: string;
+  nombre: string;
+}
+
 export type PayloadPorEntidad = {
   visita: VisitaPayload;
   hallazgo: HallazgoPayload;
   captura_libre: CapturaLibrePayload;
   oportunidad: OportunidadPayload;
   proximo_paso: ProximoPasoPayload;
+  ubicacion: UbicacionPayload;
 };
 
 // Unión discriminada explícita (no genérica) por entidad: permite que

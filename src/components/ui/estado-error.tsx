@@ -22,7 +22,7 @@ export function EstadoError({
         style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
         onClick={onReintentar}
       >
-        reintentar
+        Reintentar
       </button>
     </div>
   );

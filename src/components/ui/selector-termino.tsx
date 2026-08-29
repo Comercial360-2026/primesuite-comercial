@@ -131,7 +131,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
               disabled={proponiendo}
               onClick={proponerYSeleccionar}
             >
-              {proponiendo ? 'proponiendo…' : `+ proponer "${textoBusqueda.trim()}" como término nuevo`}
+              {proponiendo ? 'Proponiendo…' : `+ Proponer "${textoBusqueda.trim()}" como término nuevo`}
             </button>
           )}
         </>
@@ -170,7 +170,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
 
       {onCerrar && (
         <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onCerrar}>
-          cerrar
+          Cerrar
         </button>
       )}
       {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}

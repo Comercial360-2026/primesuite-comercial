@@ -22,14 +22,6 @@ export function Login() {
   async function iniciarSesion() {
     if (!email.trim() || !password) return;
 
-    // Sin conexión, ni siquiera lo intenta contra el servidor — un intento
-    // fallido por falta de red no debe mostrarse igual que una contraseña
-    // incorrecta, o el comercial pierde tiempo revisando algo que está bien.
-    if (!navigator.onLine) {
-      acceso.establecerError('Sin conexión. Conéctate a internet para iniciar sesión.');
-      return;
-    }
-
     await acceso.ejecutar(
       async () => {
         const { error } = await supabase.auth.signInWithPassword({
@@ -41,11 +33,16 @@ export function Login() {
       {
         onExito: () => navigate(destino, { replace: true }),
         mensajeError: (err) => {
-          // "Failed to fetch" y variantes son el propio navegador
-          // informando de que la petición nunca llegó a salir — red caída
-          // a mitad del intento, no una credencial rechazada por el servidor.
-          const mensaje = err instanceof Error ? err.message : '';
-          if (/failed to fetch|network|Load failed/i.test(mensaje)) {
+          // No nos fiamos de navigator.onLine (poco fiable en Safari de
+          // iPhone: puede decir "sí hay red" en pleno modo avión) ni del
+          // texto del error (cambia entre navegadores). En su lugar:
+          // un error de Supabase con "status" es una respuesta real del
+          // servidor (credenciales rechazadas de verdad). Sin "status",
+          // la petición nunca llegó a salir — es un fallo de red, no de
+          // credenciales.
+          const tieneRespuestaDelServidor =
+            !!err && typeof err === 'object' && 'status' in err && typeof (err as { status?: unknown }).status === 'number';
+          if (!tieneRespuestaDelServidor) {
             return 'Sin conexión. Conéctate a internet para iniciar sesión.';
           }
           return 'Correo o contraseña incorrectos.';
@@ -93,7 +90,7 @@ export function Login() {
         disabled={!email.trim() || !password || acceso.cargando}
         onClick={iniciarSesion}
       >
-        {acceso.cargando ? 'entrando…' : 'entrar'}
+        {acceso.cargando ? 'Entrando…' : 'Entrar'}
       </button>
     </div>
   );

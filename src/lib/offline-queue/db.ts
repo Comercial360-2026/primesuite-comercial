@@ -103,3 +103,19 @@ export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendi
     return payload.visitaId === visitaId;
   });
 }
+
+// `ubicacion` es la única entidad que vive a nivel de CLIENTE, no de visita
+// (se reutiliza en todas las visitas futuras a ese cliente) — por eso no
+// encaja en obtenerPorVisita y necesita su propio filtro, usando el índice
+// `by-entidad` para no recorrer toda la cola local.
+export async function obtenerUbicacionesPorCliente(
+  clienteId: string
+): Promise<OperacionPendiente<'ubicacion'>[]> {
+  const db = await getDb();
+  const todas = (await db.getAllFromIndex(
+    'operaciones',
+    'by-entidad',
+    'ubicacion'
+  )) as OperacionPendiente<'ubicacion'>[];
+  return todas.filter((op) => op.payload.clienteId === clienteId);
+}

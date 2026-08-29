@@ -213,7 +213,7 @@ export function DetalleHallazgo() {
       {error && <div className="field-error-text">{error}</div>}
 
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando || guardadoConExito} onClick={guardar}>
-        {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
+        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (
@@ -222,7 +222,7 @@ export function DetalleHallazgo() {
           style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
           onClick={() => setConfirmandoBorrado(true)}
         >
-          borrar hallazgo
+          Borrar hallazgo
         </button>
       ) : (
         <div className="card card--riesgo">
@@ -239,7 +239,7 @@ export function DetalleHallazgo() {
               onClick={confirmarBorrado}
               disabled={borrando}
             >
-              {borrando ? 'borrando…' : 'confirmar borrado'}
+              {borrando ? 'Borrando…' : 'Confirmar borrado'}
             </button>
           </div>
           {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}

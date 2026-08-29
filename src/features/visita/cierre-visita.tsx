@@ -59,11 +59,31 @@ export function CierreVisita() {
     },
   });
 
+  const fotosParaNombres = operaciones.filter((op) => op.entidad === 'captura_libre');
+  const ubicacionIdsFotos = fotosParaNombres
+    .map((c) => (c.payload as { ubicacionId?: string }).ubicacionId)
+    .filter((id): id is string => !!id)
+    .filter((id, i, arr) => arr.indexOf(id) === i);
+
+  // Sin esto, "revisar por ubicación" mostraba el UUID en bruto en vez del
+  // nombre — invisible mientras no existían ubicaciones reales, pero un
+  // fallo real en cuanto se empezó a usar Modo Recorrido de verdad.
+  const { data: nombresUbicaciones } = useQuery({
+    queryKey: ['nombres-ubicaciones-cierre', ubicacionIdsFotos.join(',')],
+    enabled: ubicacionIdsFotos.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('ubicacion').select('id, nombre').in('id', ubicacionIdsFotos);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((u) => [u.id, u.nombre]));
+    },
+  });
+
   if (!visitaId) return null;
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
   const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
   const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
+  const pasos = operaciones.filter((op) => op.entidad === 'proximo_paso');
   const fotos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
@@ -89,8 +109,11 @@ export function CierreVisita() {
             .update({ estado_captura: 'consolidada', tipo_visita: tipoVisita })
             .eq('id', visitaId);
           if (error) {
-            intentarConsolidarOffline(visitaId, tipoVisita);
-            return { sincronizada: false };
+            // Con conexión presente, un error de Supabase es un fallo real
+            // (RLS, validación, servidor) — no desconexión. Se lanza para
+            // que useAccionAsync lo trate como error recuperable visible,
+            // en vez de disfrazarlo de "pendiente de conexión".
+            throw error;
           }
           return { sincronizada: true };
         } else {
@@ -118,7 +141,13 @@ export function CierreVisita() {
       <div className="screen screen--split">
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>resumen de la visita</h1>
 
-        {!sincronizada && (
+        {sincronizada ? (
+          <div className="card" style={{ borderColor: 'var(--success-600)' }}>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
+              ✓ visita consolidada correctamente
+            </div>
+          </div>
+        ) : (
           <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
               guardado localmente, pendiente de conexión
@@ -136,6 +165,7 @@ export function CierreVisita() {
             <span className="chip">{notas.length} notas</span>
             <span className="chip">{hallazgos.length} hallazgos</span>
             <span className="chip">{oportunidades.length} oportunidades</span>
+            <span className="chip">{pasos.length} próximos pasos</span>
           </div>
 
           {oportunidades.length > 0 && (
@@ -160,10 +190,24 @@ export function CierreVisita() {
               })}
             </div>
           )}
+
+          {pasos.length > 0 && (
+            <div className="card" style={{ padding: '10px 16px' }}>
+              {pasos.map((p) => {
+                const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
+                return (
+                  <div key={p.id} style={{ fontSize: 'var(--text-sm)' }}>
+                    {payload.descripcion}
+                    {payload.fechaObjetivo && ` · ${new Date(payload.fechaObjetivo).toLocaleDateString('es-ES')}`}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <button className="btn btn-primary" onClick={volverAHoy}>
-          volver a hoy
+          Volver a hoy
         </button>
       </div>
     );
@@ -181,6 +225,7 @@ export function CierreVisita() {
             <span className="chip">{notas.length} notas</span>
             <span className="chip">{hallazgos.length} hallazgos</span>
             <span className="chip">{oportunidades.length} oportunidades</span>
+            <span className="chip">{pasos.length} próximos pasos</span>
           </div>
 
           {capturasPendientes.length > 0 && (
@@ -209,7 +254,7 @@ export function CierreVisita() {
             volver
           </button>
           <button className="btn btn-primary" disabled={consolidacion.cargando} onClick={consolidar}>
-            {consolidacion.cargando ? 'cerrando…' : 'sí, cerrar visita'}
+            {consolidacion.cargando ? 'Cerrando…' : 'Sí, cerrar visita'}
           </button>
         </div>
       </div>
@@ -246,13 +291,19 @@ export function CierreVisita() {
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{hallazgos.length}</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>hallazgos</div>
         </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{pasos.length}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>próximos pasos</div>
+        </div>
       </div>
 
       <div className="screen__scroll">
         <div className="label" style={{ marginTop: 0 }}>revisar por ubicación</div>
         {Object.entries(fotosPorUbicacion).map(([ubicacionId, cantidad]) => (
           <div key={ubicacionId} className="card">
-            {ubicacionId === 'sin ubicación' ? 'sin ubicación' : ubicacionId} · {cantidad} foto(s) sin vincular
+            {ubicacionId === 'sin ubicación' ? 'sin ubicación' : (nombresUbicaciones?.[ubicacionId] ?? '…')}
+            {' · '}
+            {cantidad} foto(s)
           </div>
         ))}
 
@@ -268,7 +319,7 @@ export function CierreVisita() {
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
-        consolidar visita
+        Consolidar visita
       </button>
     </div>
   );

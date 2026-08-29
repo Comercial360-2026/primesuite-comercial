@@ -201,7 +201,7 @@ export function DetalleCaptura() {
             disabled={guardado.cargando || guardadoConExito}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? 'guardado ✓' : guardado.cargando ? 'guardando…' : 'guardar cambios'}
+            {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
@@ -228,7 +228,7 @@ export function DetalleCaptura() {
             disabled={guardado.cargando || guardadoConExito || !textoEdit.trim()}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? 'guardado ✓' : guardado.cargando ? 'guardando…' : 'guardar cambios'}
+            {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
@@ -240,7 +240,7 @@ export function DetalleCaptura() {
           style={{ marginTop: 'auto', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
           onClick={() => setConfirmandoBorrado(true)}
         >
-          borrar {payload.tipo}
+          Borrar {payload.tipo}
         </button>
       ) : (
         <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
@@ -250,7 +250,7 @@ export function DetalleCaptura() {
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrado.cargando}>
-              cancelar
+              Cancelar
             </button>
             <button
               className="btn btn-primary"
@@ -258,7 +258,7 @@ export function DetalleCaptura() {
               onClick={confirmarBorrado}
               disabled={borrado.cargando}
             >
-              {borrado.cargando ? 'borrando…' : 'confirmar borrado'}
+              {borrado.cargando ? 'Borrando…' : 'Confirmar borrado'}
             </button>
           </div>
           {borrado.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrado.error}</div>}

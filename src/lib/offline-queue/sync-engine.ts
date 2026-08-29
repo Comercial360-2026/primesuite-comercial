@@ -72,6 +72,7 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
       case 'hallazgo':
       case 'oportunidad':
       case 'proximo_paso':
+      case 'ubicacion':
         await sincronizarInsertSimple(operacion.entidad, operacion);
         break;
       case 'captura_libre':
@@ -111,7 +112,7 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
 // problema de doble escritura atómica que sí tiene Visita (§1 de
 // 10_rpc_functions.sql), así que no necesitan pasar por una RPC.
 async function sincronizarInsertSimple(
-  tabla: 'hallazgo' | 'oportunidad' | 'proximo_paso',
+  tabla: 'hallazgo' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
   operacion: OperacionPendiente
 ): Promise<void> {
   const fila = aPayloadSnakeCase(operacion);

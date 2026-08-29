@@ -91,7 +91,7 @@ export function AltaRapidaCliente() {
         disabled={!nombre.trim() || creacionCliente.cargando}
         onClick={crearYVisitar}
       >
-        {creacionCliente.cargando ? 'creando…' : 'guardar e iniciar visita →'}
+        {creacionCliente.cargando ? 'Creando…' : 'Guardar e iniciar visita →'}
       </button>
     </div>
   );

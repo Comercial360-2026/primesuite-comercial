@@ -7,10 +7,88 @@ import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useUbicacionesCliente } from '@/hooks/use-ubicaciones-cliente';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
+import { PasoRapidoModal } from './paso-rapido-modal';
 import { InterlocutoresModal } from './interlocutores-modal';
+import { SelectorUbicacion } from './selector-ubicacion';
+import { EditorCaptura } from './editor-captura';
+import type { OperacionPendiente } from '@/lib/offline-queue/types';
+
+interface FotosPorUbicacionProps {
+  capturas: OperacionPendiente[];
+  nombresUbicaciones: Record<string, string>;
+  ubicacionActivaId?: string;
+  onTocarFoto: (capturaId: string) => void;
+}
+
+// Mismo agrupado en las dos pantallas donde se ven fotos de la visita (Modo
+// Recorrido y la vista normal de Visita Activa) — antes solo existía dentro
+// de Modo Recorrido, así que al volver a la vista normal las fotos volvían
+// a aparecer todas juntas sin agrupar, incluidas las tomadas fuera de
+// cualquier ubicación con el botón "foto" normal, sin ninguna marca que
+// avisara de que no tenían ubicación asignada. Encontrado en pruebas reales
+// con datos reales (ARCELOR), no en local.
+function FotosPorUbicacion({ capturas, nombresUbicaciones, ubicacionActivaId, onTocarFoto }: FotosPorUbicacionProps) {
+  const fotosVisita = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
+  if (fotosVisita.length === 0) return null;
+
+  const grupos = new Map<string, typeof fotosVisita>();
+  for (const f of fotosVisita) {
+    const clave = (f.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave)!.push(f);
+  }
+
+  const claveActiva = ubicacionActivaId ?? 'sin-ubicacion';
+  const clavesOrdenadas = [
+    ...(grupos.has(claveActiva) ? [claveActiva] : []),
+    ...Array.from(grupos.keys()).filter((k) => k !== claveActiva && k !== 'sin-ubicacion'),
+    ...(grupos.has('sin-ubicacion') && claveActiva !== 'sin-ubicacion' ? ['sin-ubicacion'] : []),
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="label" style={{ marginTop: 0 }}>
+        fotos ({fotosVisita.length})
+      </div>
+      {clavesOrdenadas.map((clave) => {
+        const items = grupos.get(clave)!;
+        const nombre = clave === 'sin-ubicacion' ? 'sin ubicación' : nombresUbicaciones[clave] ?? '…';
+        return (
+          <div key={clave}>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 4 }}>
+              {nombre} ({items.length})
+            </div>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              {[...items].reverse().map((f) => {
+                const blob = f.archivoLocal as Blob | undefined;
+                const payload = f.payload as { titulo?: string };
+                return blob ? (
+                  <img
+                    key={f.id}
+                    src={URL.createObjectURL(blob)}
+                    alt={payload.titulo ?? 'foto'}
+                    onClick={() => onTocarFoto(f.id)}
+                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+                  />
+                ) : (
+                  <div
+                    key={f.id}
+                    onClick={() => onTocarFoto(f.id)}
+                    style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
@@ -21,9 +99,12 @@ export function VisitaActiva() {
   const { operaciones, encolar } = useSyncQueue(visitaId);
 
   const [modoRecorrido, setModoRecorrido] = useState(false);
-  const [ubicacionActual, setUbicacionActual] = useState<string | undefined>(undefined);
+  const [ubicacionActual, setUbicacionActual] = useState<{ id: string; nombre: string } | undefined>(undefined);
+  const [selectorUbicacionAbierto, setSelectorUbicacionAbierto] = useState(false);
+  const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
+  const [pasoAbierto, setPasoAbierto] = useState(false);
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTitulo, setNotaTitulo] = useState('');
@@ -55,18 +136,6 @@ export function VisitaActiva() {
     },
   });
 
-  const { data: ubicaciones } = useQuery({
-    queryKey: ['ubicaciones', visitaLocal?.clienteId],
-    enabled: !!visitaLocal?.clienteId && modoRecorrido,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ubicacion')
-        .select('id, nombre')
-        .eq('cliente_id', visitaLocal!.clienteId);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
 
   // Movido aquí (antes del `if (!visitaId || !comercial) return null`)
   // deliberadamente — un hook colocado después de ese return condicional
@@ -131,7 +200,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'foto',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+              ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
             },
             { dependeDe: visitaId, archivoLocal: fotoPendiente }
           ),
@@ -154,7 +223,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'audio',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+              ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
             },
             { dependeDe: visitaId, archivoLocal: audioPendiente }
           ),
@@ -209,7 +278,7 @@ export function VisitaActiva() {
             tipo: 'nota',
             titulo: notaTitulo.trim() || undefined,
             contenidoTexto: notaTexto.trim(),
-            ubicacionId: modoRecorrido ? ubicacionActual : undefined,
+            ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
           },
           { dependeDe: visitaId }
         ),
@@ -231,27 +300,52 @@ export function VisitaActiva() {
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
   const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
   const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
+  const pasos = operaciones.filter((op) => op.entidad === 'proximo_paso');
+
+  // Para las cabeceras "Nave 1 (3)" del agrupado de miniaturas en Modo
+  // Recorrido — sin esto, cada grupo solo tendría el id en bruto.
+  const { ubicaciones: ubicacionesCliente } = useUbicacionesCliente(visitaLocal?.clienteId, comercial.id);
+  const nombresUbicacionesVisita = Object.fromEntries(ubicacionesCliente.map((u) => [u.id, u.nombre]));
 
   if (modoRecorrido) {
     return (
       <div className="screen">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <select
-            className="chip"
-            value={ubicacionActual ?? ''}
-            onChange={(e) => setUbicacionActual(e.target.value || undefined)}
-          >
-            <option value="">sin ubicación ▾</option>
-            {ubicaciones?.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              className={`chip${ubicacionActual ? ' chip--on' : ''}`}
+              onClick={() => setSelectorUbicacionAbierto((v) => !v)}
+            >
+              {ubicacionActual?.nombre ?? 'Sin ubicación'} ▾
+            </button>
+            {ubicacionActual && (
+              <button
+                type="button"
+                onClick={() => setUbicacionActual(undefined)}
+                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
+              >
+                quitar
+              </button>
+            )}
+          </div>
           <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={() => setModoRecorrido(false)}>
-            salir
+            Salir
           </button>
         </div>
+
+        {selectorUbicacionAbierto && visitaLocal?.clienteId && (
+          <SelectorUbicacion
+            clienteId={visitaLocal.clienteId}
+            comercialId={comercial.id}
+            titulo="ubicación de las fotos"
+            onSeleccionar={(u) => {
+              setUbicacionActual(u);
+              setSelectorUbicacionAbierto(false);
+            }}
+            onCerrar={() => setSelectorUbicacionAbierto(false)}
+          />
+        )}
 
         <input
           ref={inputFotoRef}
@@ -266,16 +360,70 @@ export function VisitaActiva() {
           }}
         />
 
-        <div
-          style={{ flex: 1, minHeight: 220, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}
-          onClick={() => inputFotoRef.current?.click()}
-        >
-          toca para disparar
-        </div>
+        {fotoPendiente ? (
+          // Mismo bloque de confirmación que en captura normal (vista previa +
+          // comentario opcional + guardar/descartar) — antes SOLO existía fuera
+          // de este return anticipado de Modo Recorrido, así que una foto
+          // tomada aquí quedaba "atascada" en memoria sin ninguna pantalla que
+          // la mostrara: no se guardaba, no aparecía en el contador, y la
+          // única forma de recuperarla era salir del modo por completo. Fallo
+          // real, encontrado inyectando una foto de prueba y viendo que no
+          // pasaba nada — no una carencia de diseño menor.
+          <div className="card">
+            <img
+              src={URL.createObjectURL(fotoPendiente)}
+              alt="vista previa"
+              style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+            />
+            <input
+              className="field"
+              autoFocus
+              value={tituloPendiente}
+              onChange={(e) => setTituloPendiente(e.target.value)}
+              placeholder="qué es esta foto (opcional)"
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={capturaFoto.cargando}
+                onClick={() => {
+                  setFotoPendiente(null);
+                  setTituloPendiente('');
+                }}
+              >
+                Descartar
+              </button>
+              <button className="btn btn-primary" disabled={capturaFoto.cargando} onClick={confirmarCapturaPendiente}>
+                {capturaFoto.cargando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+            {capturaFoto.error && <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error}</div>}
+          </div>
+        ) : (
+          <div
+            style={{ flex: 1, minHeight: 220, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}
+            onClick={() => inputFotoRef.current?.click()}
+          >
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
+            Toca para disparar
+          </div>
+        )}
 
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
           {capturas.filter((c) => c.entidad === 'captura_libre').length} capturas en esta visita
         </div>
+
+        <FotosPorUbicacion
+          capturas={capturas}
+          nombresUbicaciones={nombresUbicacionesVisita}
+          ubicacionActivaId={ubicacionActual?.id}
+          onTocarFoto={setCapturaEditandoId}
+        />
+
+        {capturaEditandoId && <EditorCaptura capturaId={capturaEditandoId} onCerrar={() => setCapturaEditandoId(null)} />}
       </div>
     );
   }
@@ -316,16 +464,16 @@ export function VisitaActiva() {
 
       <div className="capture-grid">
         <button className="capture-btn" disabled={capturaFoto.cargando} onClick={() => inputFotoRef.current?.click()}>
-          {capturaFoto.cargando ? 'guardando…' : 'foto'}
+          {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
         </button>
         <button className="capture-btn" disabled={capturaAudio.cargando && !grabando} onClick={iniciarODetenerAudio}>
-          {grabando ? 'detener' : capturaAudio.cargando ? 'guardando…' : 'audio'}
+          {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
         </button>
         <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
-          nota
+          Nota
         </button>
         <button className="capture-btn capture-btn--oportunidad" onClick={() => setOportunidadAbierta(true)}>
-          oportunidad
+          Oportunidad
         </button>
       </div>
 
@@ -362,7 +510,7 @@ export function VisitaActiva() {
               cancelar
             </button>
             <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-              {guardadoNotaConExito ? 'guardado ✓' : guardadoNota.cargando ? 'guardando…' : 'guardar'}
+              {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
           {guardadoNota.error && (
@@ -398,14 +546,14 @@ export function VisitaActiva() {
                 setTituloPendiente('');
               }}
             >
-              descartar
+              Descartar
             </button>
             <button
               className="btn btn-primary"
               disabled={capturaFoto.cargando || capturaAudio.cargando}
               onClick={confirmarCapturaPendiente}
             >
-              {capturaFoto.cargando || capturaAudio.cargando ? 'guardando…' : 'guardar'}
+              {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
           {(capturaFoto.error || capturaAudio.error) && (
@@ -441,30 +589,11 @@ export function VisitaActiva() {
           </>
         )}
 
-        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto').length > 0 && (
-          <>
-            <div className="label">
-              fotos ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto').length})
-            </div>
-            {capturas
-              .filter((c) => (c.payload as { tipo: string }).tipo === 'foto')
-              .map((c) => {
-                const payload = c.payload as { titulo?: string };
-                const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <div
-                    key={c.id}
-                    className="card"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-                    onClick={() => navigate(`/capturas/${c.id}`)}
-                  >
-                    <span style={{ fontSize: 'var(--text-sm)' }}>{payload.titulo ? `${payload.titulo} · ${hora}` : `foto · ${hora}`}</span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
-                  </div>
-                );
-              })}
-          </>
-        )}
+        <FotosPorUbicacion
+          capturas={capturas}
+          nombresUbicaciones={nombresUbicacionesVisita}
+          onTocarFoto={(capturaId) => navigate(`/capturas/${capturaId}`)}
+        />
 
         {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio').length > 0 && (
           <>
@@ -526,21 +655,72 @@ export function VisitaActiva() {
           </>
         )}
 
-        {!capturas.length && !hallazgos.length && !oportunidades.length && (
+        {pasos.length > 0 && (
+          <>
+            <div className="label">próximos pasos ({pasos.length})</div>
+            {pasos.map((p) => {
+              const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
+              // OJO: p.estado es el estado de SINCRONIZACIÓN de la cola
+              // offline (pendiente/subiendo/completado/error) — no tiene
+              // nada que ver con el estado de NEGOCIO del próximo paso
+              // (pendiente/completado, si el comercial ya lo hizo). Ambos
+              // usan la palabra "completado" con significados distintos,
+              // así que aquí se traduce explícitamente para no confundir
+              // "ya se guardó en el servidor" con "ya está hecho".
+              const etiquetaSync: Record<string, string> = {
+                pendiente: 'guardando localmente…',
+                subiendo: 'sincronizando…',
+                completado: 'guardado en el servidor',
+                error: 'error al sincronizar',
+              };
+              return (
+                <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 'var(--text-sm)' }}>{payload.descripcion}</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                    {payload.fechaObjetivo
+                      ? new Date(payload.fechaObjetivo).toLocaleDateString('es-ES')
+                      : 'sin fecha objetivo'}
+                    {' · '}
+                    {etiquetaSync[p.estado] ?? p.estado}
+                  </span>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {!capturas.length && !hallazgos.length && !oportunidades.length && !pasos.length && (
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
             Nada capturado todavía en esta visita.
           </div>
         )}
       </div>
 
-      <button className="btn btn-secondary" onClick={() => setHallazgoAbierto(true)}>
-        + hallazgo
-      </button>
-      <button className="btn btn-secondary" onClick={() => setModoRecorrido(true)}>
-        modo recorrido →
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          className="btn btn-secondary"
+          style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-600)', borderColor: 'var(--brand-600)' }}
+          onClick={() => setModoRecorrido(true)}
+        >
+          Iniciar recorrido
+        </button>
+        <button
+          className="btn btn-secondary"
+          style={{ fontSize: 'var(--text-sm)' }}
+          onClick={() => setHallazgoAbierto(true)}
+        >
+          Hallazgo
+        </button>
+        <button
+          className="btn btn-secondary"
+          style={{ fontSize: 'var(--text-sm)' }}
+          onClick={() => setPasoAbierto(true)}
+        >
+          Próximo paso
+        </button>
+      </div>
       <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
-        cerrar visita
+        Cerrar visita
       </button>
 
       {oportunidadAbierta && (
@@ -570,6 +750,19 @@ export function VisitaActiva() {
             setTimeout(() => setHallazgoAbierto(false), 700);
           }}
           onCerrar={() => setHallazgoAbierto(false)}
+        />
+      )}
+
+      {pasoAbierto && (
+        <PasoRapidoModal
+          visitaId={visitaId}
+          comercialId={comercial.id}
+          onGuardar={async (payload) => {
+            const pasoId = crypto.randomUUID();
+            await encolar(pasoId, 'proximo_paso', payload, { dependeDe: visitaId });
+            setTimeout(() => setPasoAbierto(false), 700);
+          }}
+          onCerrar={() => setPasoAbierto(false)}
         />
       )}
 

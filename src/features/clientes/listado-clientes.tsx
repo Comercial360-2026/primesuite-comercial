@@ -112,7 +112,7 @@ export function ListadoClientes() {
       )}
 
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={() => navigate('/clientes/nuevo')}>
-        + nuevo cliente
+        + Nuevo cliente
       </button>
     </div>
   );

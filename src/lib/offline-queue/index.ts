@@ -4,6 +4,7 @@ export {
   obtenerOperacion,
   obtenerPendientes,
   obtenerPorVisita,
+  obtenerUbicacionesPorCliente,
   contarPendientesPorEntidad,
   eliminarOperacion,
 } from './db';
@@ -17,4 +18,5 @@ export type {
   CapturaLibrePayload,
   OportunidadPayload,
   ProximoPasoPayload,
+  UbicacionPayload,
 } from './types';

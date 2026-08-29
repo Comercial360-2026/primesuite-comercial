@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -14,7 +15,7 @@ interface DetalleVisita {
   estado_captura: string;
   resumen_texto: string | null;
   cliente_nombre: string;
-  fotos: Array<{ id: string; titulo: string | null; url: string | null }>;
+  fotos: Array<{ id: string; titulo: string | null; url: string | null; ubicacion_nombre: string | null }>;
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
   hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; termino_nombre: string }>;
@@ -24,10 +25,40 @@ interface DetalleVisita {
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10; // 10 min, de sobra para repasar la pantalla.
 
+type EstadoBackup = 'inactivo' | 'generando' | 'error' | { url: string; tamanoBytes: number };
+
+function formatearMB(bytes: number) {
+  return (bytes / (1024 * 1024)).toFixed(1);
+}
+
 export function DetalleVisitaCerrada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Antes, para descargar el informe en PDF de una visita había que saber
+  // (sin que nada lo indicara) que el botón vivía en Yo → Mi espacio, dos
+  // pantallas fuera de donde de verdad se está mirando la visita. Movido
+  // aquí, al detalle de la visita misma — el sitio donde alguien iría a
+  // buscarlo. Mismo patrón que mi-espacio.tsx: nunca window.open() tras un
+  // await (el navegador ya no lo trata como gesto directo del usuario y
+  // bloquea el popup en silencio, verificado), se muestra un enlace real
+  // que el comercial pulsa él mismo.
+  const [estadoBackup, setEstadoBackup] = useState<EstadoBackup>('inactivo');
+
+  async function descargarInforme() {
+    if (!visitaId) return;
+    setEstadoBackup('generando');
+    try {
+      const { data, error } = await supabase.functions.invoke('generar-backup-visita', {
+        body: { visitaId },
+      });
+      if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
+      setEstadoBackup({ url: data.url, tamanoBytes: data.tamanoBytes ?? 0 });
+    } catch {
+      setEstadoBackup('error');
+    }
+  }
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -43,7 +74,7 @@ export function DetalleVisitaCerrada() {
             .single(),
           supabase
             .from('captura_libre')
-            .select('id, tipo, titulo, contenido_texto, storage_path')
+            .select('id, tipo, titulo, contenido_texto, storage_path, ubicacion:ubicacion_id(nombre)')
             .eq('visita_id', visitaId!)
             .order('creado_en', { ascending: true }),
           supabase
@@ -74,11 +105,12 @@ export function DetalleVisitaCerrada() {
 
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
-          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null };
+          const ubicacion_nombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre ?? null;
+          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre };
           const { data: firmada } = await supabase.storage
             .from('fotos-visita')
             .createSignedUrl(f.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null };
+          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null, ubicacion_nombre };
         })
       );
       const audios = await Promise.all(
@@ -125,7 +157,7 @@ export function DetalleVisitaCerrada() {
         <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
           ←
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{data?.cliente_nombre ?? 'visita'}</div>
           {data && (
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
@@ -135,6 +167,34 @@ export function DetalleVisitaCerrada() {
           )}
         </div>
       </div>
+
+      {data && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {typeof estadoBackup === 'object' ? (
+            <a
+              href={estadoBackup.url}
+              className="btn btn-primary"
+              style={{ width: 'auto', padding: '0 16px', display: 'inline-block', textAlign: 'center' }}
+            >
+              Descargar informe ({formatearMB(estadoBackup.tamanoBytes)} MB)
+            </a>
+          ) : (
+            <button
+              className="btn btn-secondary"
+              style={{ width: 'auto', padding: '0 16px' }}
+              disabled={estadoBackup === 'generando'}
+              onClick={descargarInforme}
+            >
+              {estadoBackup === 'generando' ? 'Generando informe…' : 'Descargar informe (PDF)'}
+            </button>
+          )}
+          {estadoBackup === 'error' && (
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--risk-600)' }}>
+              No se pudo generar. Inténtalo de nuevo.
+            </span>
+          )}
+        </div>
+      )}
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
@@ -175,11 +235,18 @@ export function DetalleVisitaCerrada() {
                   f.url ? (
                     <div key={f.id}>
                       <img src={f.url} alt={f.titulo ?? 'foto'} style={{ width: '100%', borderRadius: 10, display: 'block' }} />
-                      {f.titulo && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{f.titulo}</div>}
+                      {(f.titulo || f.ubicacion_nombre) && (
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                          {f.titulo}
+                          {f.titulo && f.ubicacion_nombre && ' · '}
+                          {f.ubicacion_nombre}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div key={f.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
                       {f.titulo ?? 'foto no disponible'}
+                      {f.ubicacion_nombre && ` · ${f.ubicacion_nombre}`}
                     </div>
                   )
                 )}

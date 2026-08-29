@@ -18,10 +18,12 @@ import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
+import { GestionUbicacionesCliente } from '@/features/clientes/gestion-ubicaciones-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
+import { DetalleProximoPaso } from '@/features/tareas/detalle-proximo-paso';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
 import { Yo } from '@/features/perfil/yo';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
@@ -43,6 +45,7 @@ export function AppRoutes() {
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
+          <Route path="/clientes/:clienteId/ubicaciones" element={<GestionUbicacionesCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}
@@ -58,6 +61,7 @@ export function AppRoutes() {
           {/* Nivel 2 — Detalle, múltiples puntos de entrada, misma pantalla */}
           <Route path="/hallazgos/:hallazgoId" element={<DetalleHallazgo />} />
           <Route path="/oportunidades/:oportunidadId" element={<DetalleOportunidad />} />
+          <Route path="/proximos-pasos/:pasoId" element={<DetalleProximoPaso />} />
 
           {/* Nivel 0 — Tareas */}
           <Route path="/tareas" element={<MisProximosPasos />} />

@@ -222,7 +222,9 @@ export function RepasoCliente() {
           onReintentar={reintentarInterlocutores}
         />
       ) : (
-        interlocutoresConocidos?.length ? (
+        interlocutoresConocidos === undefined ? (
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
+        ) : interlocutoresConocidos.length ? (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {interlocutoresConocidos.map((i) => (
               <span key={i.id} className="chip" style={{ fontSize: 'var(--text-xs)' }}>
@@ -238,9 +240,11 @@ export function RepasoCliente() {
           mensaje={sinConexionEcosistema ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el ecosistema.'}
           onReintentar={reintentarEcosistema}
         />
+      ) : ecosistema === undefined ? (
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
       ) : (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema?.map((item) => (
+          {ecosistema.map((item) => (
             <span
               key={item.termino_id}
               className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
@@ -248,7 +252,7 @@ export function RepasoCliente() {
               {item.nombre}
             </span>
           ))}
-          {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
+          {!ecosistema.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
         </div>
       )}
 
@@ -261,7 +265,7 @@ export function RepasoCliente() {
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {oportunidad ? `${oportunidad.titulo} · ${oportunidad.prioridad}` : 'ninguna oportunidad activa'}
+            {oportunidad === undefined ? 'Cargando…' : oportunidad ? `${oportunidad.titulo} · ${oportunidad.prioridad}` : 'ninguna oportunidad activa'}
           </div>
         </div>
       )}
@@ -275,13 +279,13 @@ export function RepasoCliente() {
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>próximo paso pendiente</div>
           <div style={{ fontSize: 'var(--text-base)' }}>
-            {proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
+            {proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
           </div>
         </div>
       )}
 
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={iniciarLaVisita}>
-        iniciar visita →
+        Iniciar visita →
       </button>
     </div>
   );

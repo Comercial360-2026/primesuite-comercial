@@ -27,6 +27,7 @@ const TABLAS_BACKUP = [
   'oportunidad_termino',
   'proximo_paso',
   'termino',
+  'ubicacion',
 ] as const;
 
 function formatearMB(bytes: number) {
@@ -228,7 +229,7 @@ export function Yo() {
             disabled={exportando}
             onClick={hacerCopiaCompleta}
           >
-            {exportando ? 'preparando copia…' : 'hacer copia completa ahora'}
+            {exportando ? 'Preparando copia…' : 'Hacer copia completa ahora'}
           </button>
           {errorExportacion && <div className="field-error-text" style={{ marginTop: 8 }}>{errorExportacion}</div>}
         </div>
@@ -242,7 +243,7 @@ export function Yo() {
         disabled={cerrando}
         onClick={cerrarSesion}
       >
-        {cerrando ? 'cerrando sesión…' : 'cerrar sesión'}
+        {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
       </button>
     </div>
   );

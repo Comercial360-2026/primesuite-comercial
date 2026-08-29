@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     await Promise.all([
       admin
         .from('captura_libre')
-        .select('id, tipo, titulo, contenido_texto, storage_path, creado_en')
+        .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, ubicacion:ubicacion_id(nombre)')
         .eq('visita_id', visitaId)
         .order('creado_en', { ascending: true }),
       admin
@@ -278,8 +278,10 @@ Deno.serve(async (req) => {
         nuevaPaginaSiHaceFalta(h + 20);
         pagina.drawImage(imagen, { x: MARGEN, y: y - h, width: w, height: h });
         y -= h + 8;
-        if (f.titulo) {
-          escribirParrafo(f.titulo, 9);
+        const ubicacionNombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre;
+        const pie = [f.titulo, ubicacionNombre].filter(Boolean).join(' · ');
+        if (pie) {
+          escribirParrafo(pie, 9);
         }
       } catch {
         // Formato no soportado por pdf-lib (no-JPEG) — la foto sigue en el zip igualmente.

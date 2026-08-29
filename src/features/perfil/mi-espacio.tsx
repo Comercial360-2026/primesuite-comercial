@@ -37,7 +37,7 @@ export function MiEspacio() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [estadoBackup, setEstadoBackup] = useState<
-    Record<string, 'generando' | 'error' | { url: string; tamanoBytes: number } | undefined>
+    Record<string, 'Generando' | 'error' | { url: string; tamanoBytes: number } | undefined>
   >({});
   const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
@@ -88,13 +88,17 @@ export function MiEspacio() {
           setVisitaBorrarId(null);
           setPrevisualizacion(null);
           queryClient.invalidateQueries({ queryKey: espacioQueryKey });
+          // Misma "última visita" que se ve en la lista de Clientes puede
+          // cambiar al borrar una visita — mismo hueco corregido en
+          // ficha-cliente.tsx a la vez.
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
         },
       }
     );
   }
 
   async function descargarCopia(visitaId: string) {
-    setEstadoBackup((prev) => ({ ...prev, [visitaId]: 'generando' }));
+    setEstadoBackup((prev) => ({ ...prev, [visitaId]: 'Generando' }));
     try {
       const { data, error } = await supabase.functions.invoke('generar-backup-visita', {
         body: { visitaId },
@@ -180,7 +184,7 @@ export function MiEspacio() {
             Sin conexión. Comprueba tu red e inténtalo de nuevo.
           </div>
           <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={reintentar}>
-            reintentar
+            Reintentar
           </button>
         </div>
       )}
@@ -205,7 +209,7 @@ export function MiEspacio() {
             <div key={v.visita_id} className="card" style={{ borderColor: 'var(--risk-600)' }}>
               {previsualizando.cargando || !previsualizacion ? (
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-                  calculando qué se va a borrar…
+                  Calculando qué se va a borrar…
                 </div>
               ) : (
                 <div>
@@ -222,7 +226,7 @@ export function MiEspacio() {
                   )}
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                     <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
-                      cancelar
+                      Cancelar
                     </button>
                     {listo ? (
                       <a
@@ -230,15 +234,15 @@ export function MiEspacio() {
                         className="btn btn-secondary"
                         style={{ display: 'inline-flex', alignItems: 'center' }}
                       >
-                        descargar zip ({formatearMB(listo.tamanoBytes)} MB)
+                        Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
                       </a>
                     ) : (
                       <button
                         className="btn btn-secondary"
-                        disabled={estado === 'generando'}
+                        disabled={estado === 'Generando'}
                         onClick={() => descargarCopia(v.visita_id)}
                       >
-                        {estado === 'generando' ? 'generando copia…' : 'descargar copia primero'}
+                        {estado === 'Generando' ? 'Generando copia…' : 'Descargar copia primero'}
                       </button>
                     )}
                     <button
@@ -247,7 +251,7 @@ export function MiEspacio() {
                       onClick={confirmarBorrado}
                       disabled={borrandoVisita.cargando}
                     >
-                      {borrandoVisita.cargando ? 'borrando…' : 'confirmar borrado de la visita completa'}
+                      {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
                     </button>
                   </div>
                   {borrandoVisita.error && (
@@ -285,19 +289,19 @@ export function MiEspacio() {
                   style={{ width: 'auto', padding: '0 16px', display: 'inline-block', textAlign: 'center' }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  descargar zip ({formatearMB(listo.tamanoBytes)} MB)
+                  Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
                 </a>
               ) : (
                 <button
                   className="btn btn-secondary"
                   style={{ width: 'auto', padding: '0 16px' }}
-                  disabled={estado === 'generando'}
+                  disabled={estado === 'Generando'}
                   onClick={(e) => {
                     e.stopPropagation();
                     descargarCopia(v.visita_id);
                   }}
                 >
-                  {estado === 'generando' ? 'generando copia…' : 'descargar copia'}
+                  {estado === 'Generando' ? 'Generando copia…' : 'Descargar copia'}
                 </button>
               )}
               <button
@@ -308,7 +312,7 @@ export function MiEspacio() {
                   pedirBorrado(v.visita_id);
                 }}
               >
-                borrar
+                Borrar
               </button>
             </div>
             {estado === 'error' && (

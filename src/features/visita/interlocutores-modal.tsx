@@ -218,7 +218,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
               }
             }}
             style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="cerrar"
+            aria-label="Cerrar"
           >
             ×
           </button>
@@ -302,7 +302,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                       disabled={!formEdicion.nombre.trim() || guardando}
                       onClick={guardarEdicion}
                     >
-                      {guardando ? 'guardando…' : 'guardar'}
+                      {guardando ? 'Guardando…' : 'Guardar'}
                     </button>
                   </div>
                 </div>
@@ -330,7 +330,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                   style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
                   onClick={() => abrirEdicion(i)}
                 >
-                  editar
+                  Editar
                 </button>
               </div>
             );
@@ -344,7 +344,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
 
         {!creandoNuevo ? (
           <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => setCreandoNuevo(true)}>
-            + nuevo interlocutor
+            + Nuevo interlocutor
           </button>
         ) : (
           <div style={{ marginTop: 10 }}>
@@ -412,7 +412,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                 disabled={!formNuevo.nombre.trim() || guardando}
                 onClick={crearYMarcarPresente}
               >
-                {guardando ? 'guardando…' : 'añadir y marcar presente'}
+                {guardando ? 'Guardando…' : 'Añadir y marcar presente'}
               </button>
             </div>
           </div>

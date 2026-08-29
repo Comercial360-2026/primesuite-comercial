@@ -350,7 +350,7 @@ export function DetalleOportunidad() {
       {error && <div className="field-error-text">{error}</div>}
 
       <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando || guardadoConExito} onClick={guardar}>
-        {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
+        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (
@@ -359,7 +359,7 @@ export function DetalleOportunidad() {
           style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
           onClick={() => setConfirmandoBorrado(true)}
         >
-          borrar oportunidad
+          Borrar oportunidad
         </button>
       ) : (
         <div className="card card--riesgo">
@@ -376,7 +376,7 @@ export function DetalleOportunidad() {
               onClick={confirmarBorrado}
               disabled={borrando}
             >
-              {borrando ? 'borrando…' : 'confirmar borrado'}
+              {borrando ? 'Borrando…' : 'Confirmar borrado'}
             </button>
           </div>
           {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}

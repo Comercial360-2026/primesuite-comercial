@@ -6,6 +6,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 
 interface OportunidadActiva {
   id: string;
@@ -43,6 +44,7 @@ interface PrevisualizacionBorrado {
 
 interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
   num_visitas: number;
+  num_ubicaciones: number;
 }
 
 export function FichaCliente() {
@@ -58,6 +60,7 @@ export function FichaCliente() {
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
   const previsualizando = useAccionAsync();
   const borrandoVisita = useAccionAsync();
+  const { estadoDe, descargar } = useDescargarInforme();
 
   const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
   const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
@@ -233,6 +236,10 @@ export function FichaCliente() {
           queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
           queryClient.invalidateQueries({ queryKey: ['semaforo-cliente', clienteId] });
           queryClient.invalidateQueries({ queryKey: ['ecosistema-completo', clienteId] });
+          // La "última visita" que se ve en la lista de Clientes puede
+          // cambiar al borrar una visita — mismo hueco que el borrado de
+          // cliente completo, corregido a la vez.
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
         },
       }
     );
@@ -280,6 +287,11 @@ export function FichaCliente() {
       },
       {
         onExito: () => {
+          // Sin esto, "Clientes" seguía mostrando el cliente ya borrado
+          // hasta que la caché de 60s caducaba sola o el usuario refrescaba
+          // a mano — mismo patrón que ya se cubría al borrar una visita
+          // suelta, pero que faltaba aquí.
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
           navigate('/clientes');
         },
       }
@@ -305,7 +317,7 @@ export function FichaCliente() {
             style={{ width: 'auto', padding: '4px 10px', fontSize: 'var(--text-xs)', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
             onClick={pedirBorradoCliente}
           >
-            borrar cliente
+            Borrar cliente
           </button>
         )}
       </div>
@@ -320,8 +332,9 @@ export function FichaCliente() {
                 Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
                 {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
                 {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
-                {previsualizacionCliente.num_oportunidades} oportunidad(es) y{' '}
-                {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s). Todo eso se borrará también,
+                {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
+                {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
+                {previsualizacionCliente.num_ubicaciones} ubicación(es). Todo eso se borrará también,
                 para siempre. No se puede deshacer.
               </div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
@@ -330,7 +343,7 @@ export function FichaCliente() {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
-                  cancelar
+                  Cancelar
                 </button>
                 <button
                   className="btn btn-primary"
@@ -338,7 +351,7 @@ export function FichaCliente() {
                   onClick={confirmarBorradoCliente}
                   disabled={borrandoCliente.cargando}
                 >
-                  {borrandoCliente.cargando ? 'borrando…' : 'confirmar borrado del cliente completo'}
+                  {borrandoCliente.cargando ? 'Borrando…' : 'Confirmar borrado del cliente completo'}
                 </button>
               </div>
               {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
@@ -382,6 +395,14 @@ export function FichaCliente() {
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin próximos pasos pendientes</div>
           )}
 
+          <div
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}
+            onClick={() => navigate(`/clientes/${clienteId}/ubicaciones`)}
+          >
+            <span className="label" style={{ marginTop: 0, marginBottom: 0 }}>ubicaciones</span>
+            <span style={{ fontSize: 'var(--text-sm)' }}>ver ›</span>
+          </div>
+
           <div style={{ borderTop: '1px solid var(--ink-100)', margin: '12px 0' }} />
           <div className="label" style={{ marginTop: 0 }}>última actividad</div>
           <div style={{ fontSize: 'var(--text-base)' }}>
@@ -421,7 +442,7 @@ export function FichaCliente() {
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                       <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
-                        cancelar
+                        Cancelar
                       </button>
                       <button
                         className="btn btn-primary"
@@ -429,7 +450,7 @@ export function FichaCliente() {
                         onClick={confirmarBorradoVisita}
                         disabled={borrandoVisita.cargando}
                       >
-                        {borrandoVisita.cargando ? 'borrando…' : 'confirmar borrado de la visita completa'}
+                        {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
                       </button>
                     </div>
                     {borrandoVisita.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>}
@@ -454,13 +475,20 @@ export function FichaCliente() {
                       <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
                     </div>
                   </div>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                    onClick={() => pedirPrevisualizacion(v.id)}
-                  >
-                    borrar
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <BotonDescargarInforme
+                      estado={estadoDe(v.id)}
+                      onDescargar={() => descargar(v.id)}
+                      compacto
+                    />
+                    <button
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                      onClick={() => pedirPrevisualizacion(v.id)}
+                    >
+                      Borrar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -471,7 +499,7 @@ export function FichaCliente() {
       </div>
 
       <button className="btn btn-primary" disabled={iniciandoVisita.cargando} onClick={iniciarVisitaAdHoc}>
-        {iniciandoVisita.cargando ? 'iniciando…' : 'iniciar visita →'}
+        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
     </div>

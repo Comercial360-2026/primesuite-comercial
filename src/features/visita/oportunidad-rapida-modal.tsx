@@ -123,7 +123,7 @@ export function OportunidadRapidaModal({
           disabled={!titulo.trim() || guardando || guardadoConExito}
           onClick={guardar}
         >
-          {guardadoConExito ? 'guardado ✓' : guardando ? 'guardando…' : 'guardar'}
+          {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
