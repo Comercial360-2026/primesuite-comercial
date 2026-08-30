@@ -194,18 +194,21 @@ export function AgendaDelDia() {
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
-  // La pantalla Hoy se organiza en secciones plegables. Una visita ya
-  // 'en_curso' no es "pendiente de empezar": sale fija arriba, no dentro de
-  // una franja. El resto se reparte por franja según su hora (o "sin hora"
-  // si el comercial no la fijó al planificar).
+  // La pantalla Hoy se organiza en secciones plegables por el ciclo de vida
+  // de la visita: en curso (arriba, ya empezada) → pendientes por franja
+  // (agendadas para hoy sin empezar) → hechas hoy (consolidadas, solo para
+  // descargar el informe o borrar un error). Una consolidada no cuenta como
+  // "Visita de tarde" pendiente.
   const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
-  const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura !== 'en_curso') ?? [];
+  const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
+  const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
   const hoyManana = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'manana');
   const hoyTarde = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'tarde');
   const hoySinHora = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'sin_hora');
   const proximas = proximasFiltradas ?? [];
   const proximasVisibles = proximas.slice(0, 5);
-  const sinNadaHoy = hoyEnCurso.length === 0 && hoyPendientes.length === 0;
+  const sinNadaHoy =
+    hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
   // La sección de la franja en curso (mañana antes de las 14:00, tarde
   // después) se abre sola al entrar; el resto arranca cerrado. Al salir y
   // volver se recalcula — no recuerda los despliegues hechos a mano.
@@ -462,6 +465,9 @@ export function AgendaDelDia() {
           </SeccionColapsable>
           <SeccionColapsable titulo="Sin hora" cantidad={hoySinHora.length}>
             {hoySinHora.map((visita) => renderVisita(visita, false))}
+          </SeccionColapsable>
+          <SeccionColapsable titulo="Hechas hoy" cantidad={hoyHechas.length}>
+            {hoyHechas.map((visita) => renderVisita(visita, false))}
           </SeccionColapsable>
           <SeccionColapsable titulo="Próximas" cantidad={proximas.length}>
             {proximasVisibles.map((visita) => renderVisita(visita, true))}
