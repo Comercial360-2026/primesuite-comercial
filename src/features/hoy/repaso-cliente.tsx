@@ -6,6 +6,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
+import { AvisoTardando } from '@/components/ui/aviso-tardando';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -299,6 +300,7 @@ export function RepasoCliente() {
         {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
+      <AvisoTardando visible={iniciandoVisita.tardando} />
     </div>
   );
 }

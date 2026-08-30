@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { AvisoTardando } from '@/components/ui/aviso-tardando';
 
 // Pantalla mínima de autenticación — pieza que faltaba desde el inicio del
 // proyecto (ver nota histórica en main.tsx: "SOLO DESARROLLO — no hay
@@ -92,6 +93,7 @@ export function Login() {
       >
         {acceso.cargando ? 'Entrando…' : 'Entrar'}
       </button>
+      <AvisoTardando visible={acceso.tardando} />
     </div>
   );
 }

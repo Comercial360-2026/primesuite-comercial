@@ -6,6 +6,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { AvisoTardando } from '@/components/ui/aviso-tardando';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -190,6 +191,7 @@ export function AltaRapidaCliente() {
       >
         {creacionCliente.cargando ? 'Creando…' : 'Guardar e iniciar visita →'}
       </button>
+      <AvisoTardando visible={creacionCliente.tardando} />
     </div>
   );
 }

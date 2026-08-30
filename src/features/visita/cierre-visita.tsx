@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { AvisoTardando } from '@/components/ui/aviso-tardando';
 
 const TIPOS_VISITA = ['comercial', 'demo', 'tecnica', 'seguimiento', 'relacion'] as const;
 
@@ -257,6 +258,7 @@ export function CierreVisita() {
             {consolidacion.cargando ? 'Cerrando…' : 'Sí, cerrar visita'}
           </button>
         </div>
+        <AvisoTardando visible={consolidacion.tardando} />
       </div>
     );
   }
