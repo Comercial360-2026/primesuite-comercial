@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
+import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 
 // Pantalla de solo lectura para repasar una visita ya cerrada — hasta hoy
 // no existía ninguna: /visita/:id siempre abría VisitaActiva (pensada para
@@ -25,40 +25,16 @@ interface DetalleVisita {
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10; // 10 min, de sobra para repasar la pantalla.
 
-type EstadoBackup = 'inactivo' | 'generando' | 'error' | { url: string; tamanoBytes: number };
-
-function formatearMB(bytes: number) {
-  return (bytes / (1024 * 1024)).toFixed(1);
-}
-
 export function DetalleVisitaCerrada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Antes, para descargar el informe en PDF de una visita había que saber
-  // (sin que nada lo indicara) que el botón vivía en Yo → Mi espacio, dos
-  // pantallas fuera de donde de verdad se está mirando la visita. Movido
-  // aquí, al detalle de la visita misma — el sitio donde alguien iría a
-  // buscarlo. Mismo patrón que mi-espacio.tsx: nunca window.open() tras un
-  // await (el navegador ya no lo trata como gesto directo del usuario y
-  // bloquea el popup en silencio, verificado), se muestra un enlace real
-  // que el comercial pulsa él mismo.
-  const [estadoBackup, setEstadoBackup] = useState<EstadoBackup>('inactivo');
-
-  async function descargarInforme() {
-    if (!visitaId) return;
-    setEstadoBackup('generando');
-    try {
-      const { data, error } = await supabase.functions.invoke('generar-backup-visita', {
-        body: { visitaId },
-      });
-      if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
-      setEstadoBackup({ url: data.url, tamanoBytes: data.tamanoBytes ?? 0 });
-    } catch {
-      setEstadoBackup('error');
-    }
-  }
+  // Descargar el informe en PDF de la visita, desde el sitio donde alguien
+  // iría a buscarlo. Misma lógica y mismo botón que en Hoy, la ficha de
+  // cliente y Mi espacio — centralizados en use-descargar-informe.tsx para
+  // que una corrección llegue a los cuatro sitios a la vez.
+  const { estadoDe, descargar } = useDescargarInforme();
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -168,31 +144,9 @@ export function DetalleVisitaCerrada() {
         </div>
       </div>
 
-      {data && (
+      {data && visitaId && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          {typeof estadoBackup === 'object' ? (
-            <a
-              href={estadoBackup.url}
-              className="btn btn-primary"
-              style={{ width: 'auto', padding: '0 16px', display: 'inline-block', textAlign: 'center' }}
-            >
-              Descargar informe ({formatearMB(estadoBackup.tamanoBytes)} MB)
-            </a>
-          ) : (
-            <button
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0 16px' }}
-              disabled={estadoBackup === 'generando'}
-              onClick={descargarInforme}
-            >
-              {estadoBackup === 'generando' ? 'Generando informe…' : 'Descargar informe (PDF)'}
-            </button>
-          )}
-          {estadoBackup === 'error' && (
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--risk-600)' }}>
-              No se pudo generar. Inténtalo de nuevo.
-            </span>
-          )}
+          <BotonDescargarInforme estado={estadoDe(visitaId)} onDescargar={() => descargar(visitaId)} />
         </div>
       )}
 

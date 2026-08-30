@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -36,9 +37,11 @@ function formatearFecha(iso: string) {
 export function MiEspacio() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [estadoBackup, setEstadoBackup] = useState<
-    Record<string, 'Generando' | 'error' | { url: string; tamanoBytes: number } | undefined>
-  >({});
+  // Descarga de copia de una visita: misma lógica centralizada que usan Hoy,
+  // la ficha de cliente y el detalle de la visita (use-descargar-informe.tsx).
+  // Aquí el botón mantiene su texto propio ("copia"/"zip") porque el contexto
+  // es la gestión de espacio, no "ver el informe".
+  const { estadoDe, descargar } = useDescargarInforme();
   const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
   const previsualizando = useAccionAsync();
@@ -95,23 +98,6 @@ export function MiEspacio() {
         },
       }
     );
-  }
-
-  async function descargarCopia(visitaId: string) {
-    setEstadoBackup((prev) => ({ ...prev, [visitaId]: 'Generando' }));
-    try {
-      const { data, error } = await supabase.functions.invoke('generar-backup-visita', {
-        body: { visitaId },
-      });
-      if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
-      // Nunca window.open() aquí: tras un await, el navegador ya no lo
-      // considera un gesto directo del usuario y bloquea el popup en
-      // silencio (verificado — no abría nada). En su lugar, mostramos un
-      // enlace real que el comercial pulsa él mismo.
-      setEstadoBackup((prev) => ({ ...prev, [visitaId]: { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 } }));
-    } catch {
-      setEstadoBackup((prev) => ({ ...prev, [visitaId]: 'error' }));
-    }
   }
 
   const espacioQueryKey = ['mis-visitas-espacio'];
@@ -200,7 +186,7 @@ export function MiEspacio() {
       )}
 
       {visitas?.map((v) => {
-        const estado = estadoBackup[v.visita_id];
+        const estado = estadoDe(v.visita_id);
         const listo = typeof estado === 'object' ? estado : null;
         const enConfirmacionBorrado = visitaBorrarId === v.visita_id;
 
@@ -239,10 +225,10 @@ export function MiEspacio() {
                     ) : (
                       <button
                         className="btn btn-secondary"
-                        disabled={estado === 'Generando'}
-                        onClick={() => descargarCopia(v.visita_id)}
+                        disabled={estado === 'generando'}
+                        onClick={() => descargar(v.visita_id)}
                       >
-                        {estado === 'Generando' ? 'Generando copia…' : 'Descargar copia primero'}
+                        {estado === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
                       </button>
                     )}
                     <button
@@ -295,13 +281,13 @@ export function MiEspacio() {
                 <button
                   className="btn btn-secondary"
                   style={{ width: 'auto', padding: '0 16px' }}
-                  disabled={estado === 'Generando'}
+                  disabled={estado === 'generando'}
                   onClick={(e) => {
                     e.stopPropagation();
-                    descargarCopia(v.visita_id);
+                    descargar(v.visita_id);
                   }}
                 >
-                  {estado === 'Generando' ? 'Generando copia…' : 'Descargar copia'}
+                  {estado === 'generando' ? 'Generando copia…' : 'Descargar copia'}
                 </button>
               )}
               <button
