@@ -25,6 +25,7 @@ import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
 import { DetalleProximoPaso } from '@/features/tareas/detalle-proximo-paso';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
+import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignacion';
 import { Yo } from '@/features/perfil/yo';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
@@ -87,6 +88,17 @@ export function AppRoutes() {
             element={
               <RequireRole roles={['direccion_comercial']}>
                 <ColaVocabulario />
+              </RequireRole>
+            }
+          />
+
+          {/* Solicitudes de reasignación — exclusivo de Dirección Comercial,
+              mismo criterio que Vocabulario: es quien resuelve la cola. */}
+          <Route
+            path="/solicitudes-reasignacion"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <SolicitudesReasignacion />
               </RequireRole>
             }
           />

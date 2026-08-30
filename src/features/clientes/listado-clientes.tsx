@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoError } from '@/components/ui/estado-error';
 
 interface ClienteConSemaforo {
@@ -16,7 +17,16 @@ interface ClienteConSemaforo {
 // para "verde/amarillo/rojo", coherente con el resto del proyecto.
 export function ListadoClientes() {
   const navigate = useNavigate();
+  const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
+  // Decisión de producto (29/8/2026): un comercial normal ve siempre solo
+  // lo suyo, sin posibilidad de cambiarlo — el interruptor "Todos" es
+  // exclusivo de Dirección Comercial. No es una restricción de permisos
+  // (a nivel de base de datos sigue siendo visible para todos, igual que
+  // siempre), es una decisión de qué mostrar en esta pantalla en concreto.
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  const [soloMiosElegido, setSoloMios] = useState(true);
+  const soloMios = esDireccionComercial ? soloMiosElegido : true;
   const queryClient = useQueryClient();
 
   const queryKey = ['listado-clientes', busqueda];
@@ -49,6 +59,38 @@ export function ListadoClientes() {
       return (data ?? []) as ClienteConSemaforo[];
     },
   });
+
+  // El "quién lo creó" no vive en vw_semaforo_cliente (ni en la vista de la
+  // que depende, vw_cliente_resuelto) — se trae aparte de `cliente` y se
+  // cruza aquí, en vez de tocar esas vistas SQL ya cerradas y usadas en
+  // más sitios. Todo comercial ve todos los clientes por diseño (no hay
+  // "cartera" en el modelo, confirmado el 24/8); esto es solo un filtro
+  // visual para encontrar los propios más rápido — cualquiera puede seguir
+  // viendo y trabajando el cliente de otro si hace falta.
+  const idsClientes = clientes?.map((c) => c.cliente_id) ?? [];
+  const { data: autores } = useQuery({
+    queryKey: ['autores-clientes', idsClientes.join(',')],
+    enabled: idsClientes.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('cliente').select('id, creado_por').in('id', idsClientes);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.creado_por as string]));
+    },
+  });
+
+  const { data: nombresComerciales } = useQuery({
+    queryKey: ['nombres-comerciales'],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('comercial').select('id, nombre');
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
+  const clientesFiltrados = clientes?.filter(
+    (c) => !soloMios || autores?.[c.cliente_id] === comercial?.id
+  );
+
   const sinConexion = isPaused && clientes === undefined;
   // reintentar() en vez de refetch() a secas: una consulta "paused" no
   // siempre reacciona a un refetch() manual (depende del gestor de
@@ -72,6 +114,25 @@ export function ListadoClientes() {
         onChange={(e) => setBusqueda(e.target.value)}
       />
 
+      {esDireccionComercial && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            className={`chip${!soloMios ? ' chip--on' : ''}`}
+            onClick={() => setSoloMios(false)}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            className={`chip${soloMios ? ' chip--on' : ''}`}
+            onClick={() => setSoloMios(true)}
+          >
+            Solo míos
+          </button>
+        </div>
+      )}
+
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
       {sinConexion && (
@@ -88,26 +149,30 @@ export function ListadoClientes() {
         />
       )}
 
-      {clientes?.map((c) => (
-        <button
-          key={c.cliente_id}
-          className="card"
-          style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-          onClick={() => navigate(`/clientes/${c.cliente_id}`)}
-        >
-          <div>
-            <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
-            {c.ultima_visita && (
+      {clientesFiltrados?.map((c) => {
+        const autorId = autores?.[c.cliente_id];
+        const esMio = autorId === comercial?.id;
+        return (
+          <button
+            key={c.cliente_id}
+            className="card"
+            style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            onClick={() => navigate(`/clientes/${c.cliente_id}`)}
+          >
+            <div>
+              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                última visita {new Date(c.ultima_visita).toLocaleDateString('es-ES')}
+                {c.ultima_visita && `última visita ${new Date(c.ultima_visita).toLocaleDateString('es-ES')}`}
+                {c.ultima_visita && !esMio && autorId && ' · '}
+                {!esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`}
               </div>
-            )}
-          </div>
-          <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
-        </button>
-      ))}
+            </div>
+            <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
+          </button>
+        );
+      })}
 
-      {!isLoading && !isError && !sinConexion && clientes?.length === 0 && (
+      {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
       )}
 

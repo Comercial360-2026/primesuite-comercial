@@ -36,7 +36,7 @@ export function AltaRapidaCliente() {
 
         const { data: cliente, error: errorCliente } = await supabase
           .from('cliente')
-          .insert({ nombre: nombre.trim(), estado_relacion: 'borrador' })
+          .insert({ nombre: nombre.trim(), estado_relacion: 'borrador', creado_por: comercial.id })
           .select('id, nombre')
           .single();
 

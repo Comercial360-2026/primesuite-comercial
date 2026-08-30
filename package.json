@@ -12,6 +12,7 @@
     "gen:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > src/types/database.ts"
   },
   "dependencies": {
+    "@sentry/react": "^8.42.0",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.55.0",
     "idb": "^8.0.0",

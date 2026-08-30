@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import * as Sentry from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from '@/app/routes';
@@ -7,6 +8,19 @@ import { iniciarMotorSincronizacion } from '@/lib/offline-queue';
 import { supabase } from '@/lib/supabase-client';
 import '@/styles/tokens.css';
 import '@/styles/components.css';
+
+// Sin esto, un fallo real en el móvil de un comercial era invisible salvo
+// que alguien mirase la consola del navegador en el instante exacto en
+// que ocurría (auditoría del 24/8, punto 5 — observabilidad). Se
+// inicializa lo primero de todo, antes que cualquier otra cosa, para
+// capturar hasta los fallos más tempranos del arranque. Si no hay DSN
+// configurado (por ejemplo, en local sin la variable puesta), Sentry se
+// queda simplemente inactivo — no rompe nada.
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+  });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,10 +49,18 @@ if (import.meta.env.DEV) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <Sentry.ErrorBoundary
+      fallback={
+        <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
+          <p>Algo ha fallado. Recarga la página — si sigue pasando, avisa a Dirección Comercial.</p>
+        </div>
+      }
+    >
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </Sentry.ErrorBoundary>
   </React.StrictMode>
 );

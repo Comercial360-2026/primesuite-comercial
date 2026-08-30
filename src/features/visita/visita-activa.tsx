@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -13,6 +14,7 @@ import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
 import { PasoRapidoModal } from './paso-rapido-modal';
 import { InterlocutoresModal } from './interlocutores-modal';
+import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -106,6 +108,7 @@ export function VisitaActiva() {
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
   const [pasoAbierto, setPasoAbierto] = useState(false);
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
+  const [participantesAbierto, setParticipantesAbierto] = useState(false);
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
@@ -182,10 +185,33 @@ export function VisitaActiva() {
 
   if (!visitaId || !comercial) return null;
 
+  // Límite de seguridad, por debajo del límite real del servidor (15 MB)
+  // — con margen, para que el aviso llegue aquí y no como un fallo opaco
+  // de Storage más adelante. La compresión ya deja casi todas las fotos
+  // muy por debajo de esto; este límite solo salta si comprimirImagen()
+  // tuvo que rendirse y devolver el archivo original sin comprimir (por
+  // ejemplo, un formato que el navegador no sabe decodificar).
+  const LIMITE_FOTO_BYTES = 12 * 1024 * 1024;
+
   async function capturarFoto(archivo: File) {
     const archivoComprimido = await comprimirImagen(archivo);
-    setFotoPendiente(archivoComprimido);
-    setTituloPendiente('');
+    if (archivoComprimido.size > LIMITE_FOTO_BYTES) {
+      flushSync(() => setFotoPendiente(null));
+      capturaFoto.establecerError(
+        'Esta foto pesa demasiado incluso comprimida. Prueba a hacerla de nuevo con la cámara en menor calidad, si tu móvil lo permite.'
+      );
+      return;
+    }
+    capturaFoto.limpiarError();
+    // Al volver de la cámara nativa del móvil (sobre todo en iOS), React
+    // puede actualizar este estado sin que la pantalla llegue a
+    // repintarse sola — se quedaba invisible hasta la siguiente
+    // interacción (p.ej. "Salir"), donde de golpe aparecía la última
+    // foto tomada. flushSync obliga a repintar ya, en el mismo instante.
+    flushSync(() => {
+      setFotoPendiente(archivoComprimido);
+      setTituloPendiente('');
+    });
   }
 
   async function confirmarCapturaPendiente() {
@@ -238,6 +264,13 @@ export function VisitaActiva() {
     }
   }
 
+  const timeoutAudioRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sin este límite, la grabación seguía indefinidamente hasta que el
+  // comercial se acordaba de tocar "Detener" — con riesgo real de perder
+  // el audio entero si el archivo crecía demasiado antes de subir. 10
+  // minutos es de sobra para una nota de voz de campo; se detiene sola.
+  const DURACION_MAXIMA_AUDIO_MS = 10 * 60 * 1000;
+
   async function iniciarODetenerAudio() {
     if (!grabando) {
       await capturaAudio.ejecutar(
@@ -248,19 +281,36 @@ export function VisitaActiva() {
           recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
           recorder.onstop = () => {
             const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-            setAudioPendiente(blob);
-            setTituloPendiente('');
+            flushSync(() => {
+              setAudioPendiente(blob);
+              setTituloPendiente('');
+            });
             stream.getTracks().forEach((t) => t.stop());
+            if (timeoutAudioRef.current) {
+              clearTimeout(timeoutAudioRef.current);
+              timeoutAudioRef.current = null;
+            }
           };
           recorder.start();
           mediaRecorderRef.current = recorder;
           setGrabando(true);
+          timeoutAudioRef.current = setTimeout(() => {
+            if (mediaRecorderRef.current?.state === 'recording') {
+              mediaRecorderRef.current.stop();
+              setGrabando(false);
+              capturaAudio.establecerError('Grabación detenida automáticamente a los 10 minutos. Se ha guardado hasta ese punto.');
+            }
+          }, DURACION_MAXIMA_AUDIO_MS);
         },
         { mensajeError: 'No se pudo acceder al micrófono. Comprueba los permisos.' }
       );
     } else {
       mediaRecorderRef.current?.stop();
       setGrabando(false);
+      if (timeoutAudioRef.current) {
+        clearTimeout(timeoutAudioRef.current);
+        timeoutAudioRef.current = null;
+      }
     }
   }
 
@@ -301,6 +351,71 @@ export function VisitaActiva() {
   const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
   const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
   const pasos = operaciones.filter((op) => op.entidad === 'proximo_paso');
+
+  // Lo que hay en `operaciones` es SOLO la cola local de este dispositivo
+  // (por diseño, para que la visita siga funcionando sin conexión) — nunca
+  // incluye lo que un compañero haya capturado desde el suyo. Sin esto, dos
+  // comerciales trabajando la misma visita a la vez no se veían el uno al
+  // otro hasta cerrarla y consultar el detalle aparte. Se pide directo a
+  // Supabase, excluyendo lo mío (eso ya está cubierto por la cola local),
+  // y se refresca cada 20s mientras la pantalla está abierta.
+  const { data: deCompaneros } = useQuery({
+    queryKey: ['capturas-companeros', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
+        supabase
+          .from('captura_libre')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en')
+          .eq('visita_id', visitaId!)
+          .neq('comercial_autor_id', comercial!.id),
+        supabase
+          .from('hallazgo')
+          .select('id, naturaleza, comercial_autor_id, termino:termino_id(nombre)')
+          .eq('visita_id', visitaId!)
+          .neq('comercial_autor_id', comercial!.id),
+        supabase
+          .from('proximo_paso')
+          .select('id, descripcion, fecha_objetivo, comercial_responsable_id')
+          .eq('visita_id', visitaId!)
+          .neq('comercial_responsable_id', comercial!.id),
+        supabase
+          .from('oportunidad')
+          .select('id, titulo, etapa, comercial_autor_id')
+          .eq('visita_origen_id', visitaId!)
+          .neq('comercial_autor_id', comercial!.id),
+      ]);
+      return {
+        capturas: capturasRes.data ?? [],
+        hallazgos: hallazgosRes.data ?? [],
+        pasos: pasosRes.data ?? [],
+        oportunidades: oportunidadesRes.data ?? [],
+      };
+    },
+  });
+  const notasCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'nota') ?? [];
+  const audiosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'audio') ?? [];
+  const hallazgosCompaneros = deCompaneros?.hallazgos ?? [];
+  const pasosCompaneros = deCompaneros?.pasos ?? [];
+  const oportunidadesCompaneros = deCompaneros?.oportunidades ?? [];
+
+  const hayCompaneros =
+    notasCompaneros.length +
+      audiosCompaneros.length +
+      hallazgosCompaneros.length +
+      pasosCompaneros.length +
+      oportunidadesCompaneros.length >
+    0;
+  const { data: nombresComerciales } = useQuery({
+    queryKey: ['nombres-comerciales'],
+    enabled: hayCompaneros,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('comercial').select('id, nombre');
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
 
   // Para las cabeceras "Nave 1 (3)" del agrupado de miniaturas en Modo
   // Recorrido — sin esto, cada grupo solo tendría el id en bruto.
@@ -412,6 +527,10 @@ export function VisitaActiva() {
           </div>
         )}
 
+        {!fotoPendiente && capturaFoto.error && (
+          <div className="field-error-text">{capturaFoto.error}</div>
+        )}
+
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
           {capturas.filter((c) => c.entidad === 'captura_libre').length} capturas en esta visita
         </div>
@@ -445,7 +564,15 @@ export function VisitaActiva() {
           className={`chip${numInterlocutores ? ' chip--on' : ''}`}
           onClick={() => setInterlocutoresAbierto(true)}
         >
-          interlocutores{numInterlocutores ? ` (${numInterlocutores})` : ''}
+          Interlocutores{numInterlocutores ? ` (${numInterlocutores})` : ''}
+        </button>
+        <button
+          type="button"
+          className="chip"
+          style={{ marginLeft: 6 }}
+          onClick={() => setParticipantesAbierto(true)}
+        >
+          Participantes
         </button>
       </div>
 
@@ -507,7 +634,7 @@ export function VisitaActiva() {
                 setNotaAbierta(false);
               }}
             >
-              cancelar
+              Cancelar
             </button>
             <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
               {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
@@ -589,6 +716,25 @@ export function VisitaActiva() {
           </>
         )}
 
+        {notasCompaneros.length > 0 && (
+          <>
+            <div className="label">de compañeros ({notasCompaneros.length})</div>
+            {notasCompaneros.map((c) => (
+              <div
+                key={c.id}
+                className="card"
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                onClick={() => navigate(`/capturas/${c.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)' }}>{c.titulo || c.contenido_texto || '(nota vacía)'}</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
         <FotosPorUbicacion
           capturas={capturas}
           nombresUbicaciones={nombresUbicacionesVisita}
@@ -620,6 +766,25 @@ export function VisitaActiva() {
           </>
         )}
 
+        {audiosCompaneros.length > 0 && (
+          <>
+            <div className="label">de compañeros ({audiosCompaneros.length})</div>
+            {audiosCompaneros.map((c) => (
+              <div
+                key={c.id}
+                className="card"
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                onClick={() => navigate(`/capturas/${c.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)' }}>{c.titulo || 'audio'}</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
         {hallazgos.length > 0 && (
           <>
             <div className="label">hallazgos ({hallazgos.length})</div>
@@ -637,6 +802,43 @@ export function VisitaActiva() {
           </>
         )}
 
+        {hallazgosCompaneros.length > 0 && (
+          <>
+            <div className="label">de compañeros ({hallazgosCompaneros.length})</div>
+            {hallazgosCompaneros.map((h) => (
+              <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
+                <span style={{ fontSize: 'var(--text-sm)' }}>
+                  {(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                  {h.naturaleza.replace('_', ' ')} · de {nombresComerciales?.[h.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {oportunidadesCompaneros.length > 0 && (
+          <>
+            <div className="label">de compañeros ({oportunidadesCompaneros.length})</div>
+            {oportunidadesCompaneros.map((o) => (
+              <div
+                key={o.id}
+                className="card card--oportunidad"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/oportunidades/${o.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
+                  {o.titulo}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                  de {nombresComerciales?.[o.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
         {oportunidades.length > 0 && (
           <>
             <div className="label">oportunidades ({oportunidades.length})</div>
@@ -649,6 +851,22 @@ export function VisitaActiva() {
               >
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
                   {(o.payload as { titulo: string }).titulo}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {pasosCompaneros.length > 0 && (
+          <>
+            <div className="label">de compañeros ({pasosCompaneros.length})</div>
+            {pasosCompaneros.map((p) => (
+              <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 'var(--text-sm)' }}>{p.descripcion}</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  {p.fecha_objetivo ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES') : 'sin fecha objetivo'}
+                  {' · de '}
+                  {nombresComerciales?.[p.comercial_responsable_id] ?? '…'}
                 </span>
               </div>
             ))}
@@ -689,7 +907,11 @@ export function VisitaActiva() {
           </>
         )}
 
-        {!capturas.length && !hallazgos.length && !oportunidades.length && !pasos.length && (
+        {!capturas.length &&
+          !hallazgos.length &&
+          !oportunidades.length &&
+          !pasos.length &&
+          !hayCompaneros && (
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
             Nada capturado todavía en esta visita.
           </div>
@@ -772,6 +994,9 @@ export function VisitaActiva() {
           clienteId={visitaLocal.clienteId}
           onCerrar={() => setInterlocutoresAbierto(false)}
         />
+      )}
+      {participantesAbierto && visitaId && (
+        <ParticipantesModal visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
       )}
     </div>
   );

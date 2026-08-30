@@ -986,6 +986,124 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitud_reasignacion: {
+        Row: {
+          comercial_asignado_id: string | null
+          comercial_solicitante_id: string
+          creado_en: string
+          estado: string
+          id: string
+          nota: string | null
+          resuelto_en: string | null
+          visita_id: string
+        }
+        Insert: {
+          comercial_asignado_id?: string | null
+          comercial_solicitante_id: string
+          creado_en?: string
+          estado?: string
+          id?: string
+          nota?: string | null
+          resuelto_en?: string | null
+          visita_id: string
+        }
+        Update: {
+          comercial_asignado_id?: string | null
+          comercial_solicitante_id?: string
+          creado_en?: string
+          estado?: string
+          id?: string
+          nota?: string | null
+          resuelto_en?: string | null
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
+            columns: ["comercial_asignado_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
+            columns: ["comercial_asignado_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
+            columns: ["comercial_asignado_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
+            columns: ["comercial_asignado_id"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
+            columns: ["comercial_asignado_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
+            columns: ["comercial_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
+            columns: ["comercial_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
+            columns: ["comercial_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
+            columns: ["comercial_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
+            columns: ["comercial_solicitante_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_reasignacion_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "vw_resumen_visita"
+            referencedColumns: ["visita_id"]
+          },
+        ]
+      }
       termino: {
         Row: {
           actualizado_en: string

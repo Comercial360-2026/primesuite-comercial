@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { obtenerOperacionesConError } from '@/lib/offline-queue';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
 const DIAS_AVISO_BACKUP = 7;
@@ -50,6 +51,40 @@ export function Yo() {
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+
+  const { data: numSolicitudesPendientes } = useQuery({
+    queryKey: ['num-solicitudes-reasignacion-pendientes'],
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { count, error: err } = await supabase
+        .from('solicitud_reasignacion')
+        .select('id', { count: 'exact', head: true })
+        .eq('estado', 'pendiente');
+      if (err) throw err;
+      return count ?? 0;
+    },
+  });
+
+  // Visible para cualquier comercial, no solo Dirección Comercial: es la
+  // cola local de SU PROPIO dispositivo, no un dato compartido. Antes, un
+  // fallo permanente (5 intentos agotados, o heredado de un padre que
+  // falló) era invisible salvo mirando IndexedDB con herramientas de
+  // desarrollador — ninguna pantalla lo mostraba nunca.
+  const { data: operacionesConError, refetch: refetchErrores } = useQuery({
+    queryKey: ['operaciones-con-error'],
+    refetchOnMount: 'always',
+    refetchInterval: 60_000,
+    queryFn: obtenerOperacionesConError,
+  });
+
+  const ETIQUETA_ENTIDAD: Record<string, string> = {
+    visita: 'visita',
+    hallazgo: 'hallazgo',
+    captura_libre: 'captura',
+    oportunidad: 'oportunidad',
+    proximo_paso: 'próximo paso',
+    ubicacion: 'ubicación',
+  };
 
   const { data: ultimoBackup } = useQuery({
     queryKey: ['ultimo-backup-completo'],
@@ -174,11 +209,50 @@ export function Yo() {
         </div>
       </div>
 
+      {operacionesConError && operacionesConError.length > 0 && (
+        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+          <div className="label" style={{ marginTop: 0, color: 'var(--risk-600)' }}>
+            {operacionesConError.length} elemento(s) sin sincronizar
+          </div>
+          <div style={{ fontSize: 'var(--text-sm)' }}>
+            {Object.entries(
+              operacionesConError.reduce<Record<string, number>>((acc, op) => {
+                acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
+                return acc;
+              }, {})
+            )
+              .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
+              .join(', ')}
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+            No se han podido guardar en el servidor. Comprueba tu conexión — el sistema lo sigue intentando solo.
+          </div>
+          <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={() => refetchErrores()}>
+            Comprobar de nuevo
+          </button>
+        </div>
+      )}
+
       {esDireccionComercial && (
         <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/vocabulario')}>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>gestionar vocabulario</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
             revisar propuestas y organizar el catálogo
+          </div>
+        </div>
+      )}
+
+      {esDireccionComercial && (
+        <div
+          className="card"
+          style={{ cursor: 'pointer', borderColor: numSolicitudesPendientes ? 'var(--risk-600)' : undefined }}
+          onClick={() => navigate('/solicitudes-reasignacion')}
+        >
+          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
+            solicitudes de ayuda{numSolicitudesPendientes ? ` (${numSolicitudesPendientes})` : ''}
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            comerciales que necesitan que alguien les sustituya en una visita
           </div>
         </div>
       )}

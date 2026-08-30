@@ -116,7 +116,7 @@ export function DetalleProximoPaso() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
         <button
           onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
           style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}

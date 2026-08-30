@@ -184,14 +184,18 @@ export function DetalleOportunidad() {
 
   async function desvincularTermino(terminoId: string, rol: 'solucion_propuesta' | 'tecnologia_motivadora') {
     if (!oportunidadId) return;
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('oportunidad_termino')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('oportunidad_id', oportunidadId)
       .eq('termino_id', terminoId)
       .eq('rol_en_oportunidad', rol);
     if (err) {
       setErrorAsociar(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorAsociar('No se ha podido quitar el término (0 filas afectadas). Puede que no tengas permiso.');
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['terminos-oportunidad', oportunidadId, rol] });

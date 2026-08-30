@@ -83,13 +83,17 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   async function alternarPresencia(interlocutorId: string, presente: boolean) {
     setError(null);
     if (presente) {
-      const { error: err } = await supabase
+      const { error: err, count } = await supabase
         .from('visita_interlocutor')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('visita_id', visitaId)
         .eq('interlocutor_id', interlocutorId);
       if (err) {
         setError(err.message);
+        return;
+      }
+      if (!count) {
+        setError('No se ha podido quitar (0 filas afectadas). Puede que no tengas permiso.');
         return;
       }
     } else {

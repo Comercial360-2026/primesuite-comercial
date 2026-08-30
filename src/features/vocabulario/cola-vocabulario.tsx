@@ -217,9 +217,16 @@ export function ColaVocabulario() {
       return;
     }
     setErrorCatalogo(null);
-    const { error: err } = await supabase.from('categoria_vocabulario').delete().eq('id', id);
+    const { error: err, count } = await supabase
+      .from('categoria_vocabulario')
+      .delete({ count: 'exact' })
+      .eq('id', id);
     if (err) {
       setErrorCatalogo(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorCatalogo('No se ha podido borrar la categoría (0 filas afectadas). Puede que no tengas permiso.');
       return;
     }
     invalidarCatalogo();

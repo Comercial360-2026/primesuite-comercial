@@ -57,6 +57,22 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
   // ciclo sin marcar error, es una espera normal, no un fallo.
   if (operacion.dependeDe) {
     const dependencia = await obtenerOperacion(operacion.dependeDe);
+    if (dependencia && dependencia.estado === 'error' && dependencia.intentos >= MAX_INTENTOS) {
+      // Antes, si el padre (normalmente una visita) fallaba de forma
+      // permanente, sus hijos (fotos, hallazgos, próximos pasos...) se
+      // quedaban en 'pendiente' esperando para siempre — el motor seguía
+      // reintentando el padre cada minuto sin límite, y los hijos nunca
+      // llegaban ni a intentar su propia subida ni a marcar su propio
+      // error. Sin ningún aviso visible, la cola quedaba bloqueada de
+      // verdad, no solo lenta. Ahora el fallo del padre se propaga: el
+      // hijo pasa a 'error' también, con un mensaje que explica por qué,
+      // en vez de esperar eternamente a algo que ya no va a completarse.
+      await actualizarOperacion(operacion.id, {
+        estado: 'error',
+        ultimoError: 'No se pudo sincronizar porque depende de otro elemento que falló de forma permanente (revísalo primero).',
+      });
+      return;
+    }
     if (dependencia && dependencia.estado !== 'completado') {
       return;
     }

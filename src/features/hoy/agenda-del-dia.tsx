@@ -40,6 +40,12 @@ export function AgendaDelDia() {
   const { comercial } = useSesionActual();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
   const queryClient = useQueryClient();
+  // Decisión de producto (29/8/2026): mismo criterio que en Clientes — un
+  // comercial normal ve siempre solo sus propias visitas de hoy, sin poder
+  // cambiarlo; el interruptor "Todos" es exclusivo de Dirección Comercial.
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  const [soloMiasElegido, setSoloMias] = useState(true);
+  const soloMias = esDireccionComercial ? soloMiasElegido : true;
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -62,6 +68,64 @@ export function AgendaDelDia() {
       return (data ?? []) as unknown as VisitaAgenda[];
     },
   });
+
+  // Igual que en Clientes: "Hoy" mostraba las visitas de TODO el equipo sin
+  // distinguir de quién eran — encontrado probando multiparticipante, no
+  // era intencionado dejarlo así solo aquí y arreglarlo solo en Clientes.
+  // El responsable vive en visita_participante (rol 'responsable'), no en
+  // la propia tabla `visita` — ver crear-visita-con-responsable.ts.
+  const idsVisitas = visitas?.map((v) => v.id) ?? [];
+  const { data: responsables } = useQuery({
+    queryKey: ['responsables-visitas-hoy', idsVisitas.join(',')],
+    enabled: idsVisitas.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('visita_id, comercial_id')
+        .eq('rol', 'responsable')
+        .in('visita_id', idsVisitas);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((p) => [p.visita_id, p.comercial_id]));
+    },
+  });
+
+  // Aparte del mapa de responsables (para la etiqueta "de [nombre]"), hace
+  // falta saber TODOS los participantes de cada visita para el filtro
+  // "Solo mías" — si solo mirara el responsable, alguien añadido como
+  // participante (no responsable) nunca vería la visita como suya, aunque
+  // ya esté trabajando en ella. Encontrado probando la solicitud de ayuda
+  // recién construida: Dirección Comercial se asignaba a sí mismo y la
+  // visita seguía sin aparecer en su "Solo mías".
+  const { data: participantesPorVisita } = useQuery({
+    queryKey: ['participantes-visitas-hoy', idsVisitas.join(',')],
+    enabled: idsVisitas.length > 0,
+    queryFn: async (): Promise<Record<string, string[]>> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('visita_id, comercial_id')
+        .in('visita_id', idsVisitas);
+      if (error) throw error;
+      const mapa: Record<string, string[]> = {};
+      for (const p of data ?? []) {
+        (mapa[p.visita_id] ??= []).push(p.comercial_id);
+      }
+      return mapa;
+    },
+  });
+
+  const { data: nombresComerciales } = useQuery({
+    queryKey: ['nombres-comerciales'],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('comercial').select('id, nombre');
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
+  const visitasFiltradas = visitas?.filter(
+    (v) => !soloMias || (comercial && participantesPorVisita?.[v.id]?.includes(comercial.id))
+  );
+
   // isPaused: TanStack Query pausa la consulta en vez de marcarla como
   // error cuando decide que la red no es fiable (networkMode 'online' por
   // defecto) — sin esto, la pantalla se queda en blanco, ni cargando ni
@@ -147,6 +211,17 @@ export function AgendaDelDia() {
     <div className="screen">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hoy</h1>
 
+      {esDireccionComercial && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
+            Todos
+          </button>
+          <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
+            Solo mías
+          </button>
+        </div>
+      )}
+
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}
 
       {sinConexion && (
@@ -163,13 +238,13 @@ export function AgendaDelDia() {
         />
       )}
 
-      {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
+      {!isLoading && !isError && !sinConexion && visitasFiltradas?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          No hay visitas agendadas hoy. Puedes iniciar una visita no planificada desde Clientes.
+          {soloMias ? 'No tienes visitas agendadas hoy.' : 'No hay visitas agendadas hoy.'} Puedes iniciar una visita no planificada desde Clientes.
         </p>
       )}
 
-      {visitas?.map((visita) =>
+      {visitasFiltradas?.map((visita) =>
         visitaBorrarId === visita.id ? (
           <div key={visita.id} className="card">
             {previsualizando.cargando || !previsualizacion ? (
@@ -213,6 +288,11 @@ export function AgendaDelDia() {
                 <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
                   en curso
                 </span>
+              )}
+              {responsables?.[visita.id] && responsables[visita.id] !== comercial?.id && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                  de {nombresComerciales?.[responsables[visita.id]] ?? '…'}
+                </div>
               )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>

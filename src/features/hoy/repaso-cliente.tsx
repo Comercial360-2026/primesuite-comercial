@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 
 interface EcosistemaItem {
@@ -32,6 +33,7 @@ export function RepasoCliente() {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
+  const iniciandoVisita = useAccionAsync();
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
 
@@ -184,22 +186,31 @@ export function RepasoCliente() {
   }
 
   async function iniciarLaVisita() {
-    if (!cliente || !comercial) return;
-
-    let visitaId = visitaIdAgendada;
-    if (!visitaId) {
-      // Visita no agendada: se genera el id en cliente y se encola —
-      // funciona igual con o sin red (ver lib/offline-queue).
-      visitaId = crypto.randomUUID();
-      await encolar(visitaId, 'visita', {
-        clienteId: cliente.id,
-        comercialResponsableId: comercial.id,
-        tipoVisita: null,
-      });
-    }
-
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
-    navigate(`/visita/${visitaId}`);
+    await iniciandoVisita.ejecutar(
+      async () => {
+        if (!cliente || !comercial) {
+          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
+        }
+        let visitaId = visitaIdAgendada;
+        if (!visitaId) {
+          // Visita no agendada: se genera el id en cliente y se encola —
+          // funciona igual con o sin red (ver lib/offline-queue).
+          visitaId = crypto.randomUUID();
+          await encolar(visitaId, 'visita', {
+            clienteId: cliente.id,
+            comercialResponsableId: comercial.id,
+            tipoVisita: null,
+          });
+        }
+        return { visitaId, clienteNombre: cliente.nombre };
+      },
+      {
+        onExito: ({ visitaId, clienteNombre }) => {
+          iniciarVisita({ id: visitaId, clienteNombre });
+          navigate(`/visita/${visitaId}`);
+        },
+      }
+    );
   }
 
   return (
@@ -284,9 +295,10 @@ export function RepasoCliente() {
         </div>
       )}
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={iniciarLaVisita}>
-        Iniciar visita →
+      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={iniciarLaVisita} disabled={iniciandoVisita.cargando}>
+        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
       </button>
+      {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
     </div>
   );
 }

@@ -3,6 +3,7 @@ export {
   actualizarOperacion,
   obtenerOperacion,
   obtenerPendientes,
+  obtenerOperacionesConError,
   obtenerPorVisita,
   obtenerUbicacionesPorCliente,
   contarPendientesPorEntidad,

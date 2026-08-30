@@ -41,7 +41,21 @@ function getDb() {
 
 export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
   const db = await getDb();
-  await db.put('operaciones', operacion);
+  try {
+    await db.put('operaciones', operacion);
+  } catch (err) {
+    // QuotaExceededError no se propagaba con ningún mensaje útil — llegaba
+    // tal cual del navegador ("The quota has been exceeded.", en inglés,
+    // sin decir qué hacer). Detectado por `.name` en vez de `instanceof
+    // Error` porque DOMException no se comporta igual en todos los
+    // navegadores frente a ese chequeo.
+    if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+      throw new Error(
+        'Tu móvil se ha quedado sin espacio libre para guardar esto. Borra fotos o vídeos que no necesites y vuelve a intentarlo.'
+      );
+    }
+    throw err;
+  }
 }
 
 export async function actualizarOperacion(
@@ -73,6 +87,17 @@ export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
   const db = await getDb();
   const todas = await db.getAllFromIndex('operaciones', 'by-creado-en');
   return todas.filter((op) => op.estado === 'pendiente' || op.estado === 'error');
+}
+
+// Para el aviso global en Yo — "N elementos no se han podido sincronizar".
+// Antes de esto, un fallo permanente (5 intentos agotados, o ahora también
+// propagado desde un padre que falló) era invisible salvo que alguien
+// mirase la cola local con las herramientas de desarrollador; nunca llegaba
+// a ninguna pantalla que el comercial fuera a ver por su cuenta.
+export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]> {
+  const db = await getDb();
+  const todas = await db.getAllFromIndex('operaciones', 'by-estado', 'error');
+  return todas;
 }
 
 export async function contarPendientesPorEntidad(

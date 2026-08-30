@@ -14,10 +14,10 @@ const NATURALEZAS = [
 
 const TIPOS_FECHA = ['vencimiento_contrato', 'renovacion', 'auditoria', 'presupuesto', 'implantacion', 'otro'];
 
-// Pantalla de edición (no de creación): un Hallazgo nace siempre de una
-// Visita (hoy solo vía SQL directa, no hay botón "hallazgo" en Visita
-// activa — el modelo lo soporta pero el flujo crítico implementado no lo
-// genera todavía). Esta pantalla sirve para estructurar/completar después,
+// Pantalla de edición (no de creación): el Hallazgo se crea con captura
+// mínima (término + naturaleza) desde el botón "Hallazgo" en Visita Activa
+// (ver hallazgo-rapido-modal.tsx). Esta pantalla sirve para
+// estructurar/completar después (nota, ubicación, fecha relevante),
 // tal como se cerró en el flujo funcional.
 export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
