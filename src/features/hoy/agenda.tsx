@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoError } from '@/components/ui/estado-error';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
 
 // Pantalla de planificación: todo lo que está agendado (agendada), pasado y
@@ -136,10 +137,17 @@ export function Agenda() {
     navigate(`/visita/${v.id}/planificada`);
   }
 
-  function fila(v: VisitaAgenda, conFranja: boolean) {
-    const franja: Franja = franjaDe(v.fecha, v.hora_definida, v.franja);
+  function fila(v: VisitaAgenda, conFecha: boolean) {
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
+    // En los días la fila va bajo una cabecera de franja, así que solo
+    // enseña la hora (o "sin hora fija"). En "Atrasadas" no hay cabecera de
+    // día, así que enseña la fecha.
+    const cuando = conFecha
+      ? new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+      : v.hora_definida
+        ? new Date(v.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+        : 'sin hora fija';
     return (
       <div
         key={v.id}
@@ -150,11 +158,7 @@ export function Agenda() {
         <div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{v.cliente?.nombre ?? 'Cliente'}</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {conFranja
-              ? v.hora_definida
-                ? `${new Date(v.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${etiquetaFranja(franja)}`
-                : etiquetaFranja(franja)
-              : new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+            {cuando}
             {v.tipo_visita ? ` · ${v.tipo_visita}` : ''}
             {deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}
           </div>
@@ -197,21 +201,40 @@ export function Agenda() {
         </p>
       )}
 
+      {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado de
+          inicio para que no empuje hacia abajo los días que sí vas a mirar. */}
       {atrasadas.length > 0 && (
-        <>
-          <div className="label" style={{ color: 'var(--warning-600)', marginTop: 0 }}>
-            atrasadas ({atrasadas.length})
-          </div>
-          {atrasadas.map((v) => fila(v, false))}
-        </>
+        <SeccionColapsable titulo="Atrasadas" cantidad={atrasadas.length}>
+          {atrasadas.map((v) => fila(v, true))}
+        </SeccionColapsable>
       )}
 
-      {dias.map((dia) => (
-        <div key={claveDia(dia.fecha)}>
-          <div className="label">{etiquetaDia(dia.fecha)}</div>
-          {dia.visitas.map((v) => fila(v, true))}
-        </div>
-      ))}
+      {dias.map((dia) => {
+        const porFranja: Record<Franja, VisitaAgenda[]> = { manana: [], tarde: [], sin_hora: [] };
+        for (const v of dia.visitas) porFranja[franjaDe(v.fecha, v.hora_definida, v.franja)].push(v);
+        return (
+          <div key={claveDia(dia.fecha)}>
+            <div className="label">{etiquetaDia(dia.fecha)}</div>
+            {(['manana', 'tarde', 'sin_hora'] as Franja[]).map((fr) =>
+              porFranja[fr].length === 0 ? null : (
+                <div key={fr}>
+                  <div
+                    style={{
+                      fontSize: 'var(--text-xs)',
+                      color: 'var(--ink-400)',
+                      margin: '6px 0 4px',
+                      paddingLeft: 4,
+                    }}
+                  >
+                    {etiquetaFranja(fr)}
+                  </div>
+                  {porFranja[fr].map((v) => fila(v, false))}
+                </div>
+              )
+            )}
+          </div>
+        );
+      })}
 
       <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
         + Planificar visita (desde un cliente)
