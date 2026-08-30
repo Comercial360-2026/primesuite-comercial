@@ -1,9 +1,15 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 // Cabecera plegable "Título (N)" para la pantalla Hoy: un toque despliega la
 // lista, otro la contrae. Con 0 elementos se muestra en gris y no se puede
-// abrir — la estructura (Mañana / Tarde / Sin hora / Próximas) es fija cada
-// día aunque alguna sección esté vacía.
+// abrir — la estructura (En curso / Mañana / Tarde / Sin hora / Próximas) es
+// fija cada día aunque alguna sección esté vacía.
+//
+// `defaultAbierta` puede llegar en `false` y pasar a `true` cuando las
+// consultas terminan de cargar (p. ej. "En curso" no sabe cuántas hay hasta
+// que resuelve el filtro "solo mías"). Mientras el usuario no toque la
+// sección a mano, ésta sigue a `defaultAbierta`; en cuanto la toca, deja de
+// seguirlo. Al desmontar (salir de Hoy y volver) se reinicia.
 
 interface Props {
   titulo: string;
@@ -14,7 +20,17 @@ interface Props {
 
 export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, children }: Props) {
   const [abierta, setAbierta] = useState(defaultAbierta);
+  const tocadoPorUsuario = useRef(false);
   const vacia = cantidad === 0;
+
+  useEffect(() => {
+    if (!tocadoPorUsuario.current) setAbierta(defaultAbierta);
+  }, [defaultAbierta]);
+
+  const alternar = () => {
+    tocadoPorUsuario.current = true;
+    setAbierta((v) => !v);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -23,14 +39,14 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, ch
         role="button"
         tabIndex={vacia ? -1 : 0}
         aria-expanded={abierta}
-        onClick={vacia ? undefined : () => setAbierta((v) => !v)}
+        onClick={vacia ? undefined : alternar}
         onKeyDown={
           vacia
             ? undefined
             : (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setAbierta((v) => !v);
+                  alternar();
                 }
               }
         }

@@ -430,11 +430,22 @@ export function AgendaDelDia() {
         </p>
       )}
 
-      {/* Visita en curso — fija arriba, fuera de las franjas: ya está empezada. */}
-      {hoyEnCurso.map((visita) => renderVisita(visita, false))}
-
-      {!isLoading && !isError && !sinConexion && (
+      {/* Se espera a tener datos (visitas !== undefined) antes de montar las
+          secciones: SeccionColapsable fija su estado abierto/cerrado en el
+          primer render, y con la lista aún vacía "En curso" y la franja en
+          curso arrancarían cerradas por error. */}
+      {visitas && !isError && !sinConexion && (
         <>
+          {/* En curso arriba del todo, abierta si hay alguna: una visita ya
+              empezada no está "pendiente", va en su propia sección y no en
+              la franja, para no contarla dos veces. */}
+          <SeccionColapsable
+            titulo="En curso"
+            cantidad={hoyEnCurso.length}
+            defaultAbierta={hoyEnCurso.length > 0}
+          >
+            {hoyEnCurso.map((visita) => renderVisita(visita, false))}
+          </SeccionColapsable>
           <SeccionColapsable
             titulo="Visitas de mañana"
             cantidad={hoyManana.length}
