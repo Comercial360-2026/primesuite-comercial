@@ -10,6 +10,12 @@
 --
 -- RLS no puede comparar contra la fila antigua (WITH CHECK solo ve la nueva),
 -- así que el control se hace con un trigger BEFORE UPDATE.
+--
+-- Solo bloquea a un usuario autenticado de la app que NO sea Dirección
+-- Comercial (fn_rol_actual() devuelve su rol). Si fn_rol_actual() es null
+-- —SQL Editor como postgres, service_role, tareas de backend— se deja pasar:
+-- la amenaza es un comercial normal llamando a PostgREST directamente, no el
+-- mantenimiento con credenciales de administrador.
 
 create or replace function public.fn_guard_fusion_cliente()
 returns trigger
@@ -20,7 +26,8 @@ as $$
 begin
   if (new.estado_fusion is distinct from old.estado_fusion
       or new.fusionado_en_id is distinct from old.fusionado_en_id)
-     and coalesce(public.fn_rol_actual(), '') <> 'direccion_comercial' then
+     and public.fn_rol_actual() is not null
+     and public.fn_rol_actual() <> 'direccion_comercial' then
     raise exception 'Solo Dirección Comercial puede fusionar o separar clientes';
   end if;
   return new;
