@@ -89,6 +89,26 @@ export function AgendaDelDia() {
     },
   });
 
+  // Planificadas para una fecha que ya pasó y nadie las hizo. Sin esto se
+  // quedaban 'agendada' con fecha vieja y desaparecían de todas las listas
+  // (Hoy filtra por hoy, Próximas por futuro): invisibles. Van arriba del
+  // todo para que se resuelvan (empezar, reprogramar o cancelar).
+  const { data: visitasAtrasadas } = useQuery({
+    queryKey: ['visitas-atrasadas', comercial?.id, inicio],
+    enabled: !!comercial,
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .lt('fecha', inicio)
+        .eq('estado_captura', 'agendada')
+        .order('fecha', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as VisitaAgenda[];
+    },
+  });
+
   // Igual que en Clientes: "Hoy" mostraba las visitas de TODO el equipo sin
   // distinguir de quién eran — encontrado probando multiparticipante, no
   // era intencionado dejarlo así solo aquí y arreglarlo solo en Clientes.
@@ -98,6 +118,7 @@ export function AgendaDelDia() {
   const idsVisitas = [
     ...(visitas?.map((v) => v.id) ?? []),
     ...(visitasProximas?.map((v) => v.id) ?? []),
+    ...(visitasAtrasadas?.map((v) => v.id) ?? []),
   ];
   const { data: responsables } = useQuery({
     queryKey: ['responsables-visitas-hoy', idsVisitas.join(',')],
@@ -151,6 +172,7 @@ export function AgendaDelDia() {
 
   const visitasFiltradas = visitas?.filter((v) => esMia(v.id));
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
+  const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean) {
     if (visitaBorrarId === visita.id) {
@@ -219,18 +241,18 @@ export function AgendaDelDia() {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-          {visita.estado_captura !== 'agendada' && (
+        {visita.estado_captura !== 'agendada' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
             <BotonDescargarInforme estado={estadoDe(visita.id)} onDescargar={() => descargar(visita.id)} compacto />
-          )}
-          <button
-            type="button"
-            onClick={() => void pedirBorrado(visita.id)}
-            style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4 }}
-          >
-            {visita.estado_captura === 'agendada' ? 'Cancelar' : 'Borrar'}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => void pedirBorrado(visita.id)}
+              style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4 }}
+            >
+              Borrar
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -248,13 +270,26 @@ export function AgendaDelDia() {
     refetch();
   }
 
+  const esDeHoy = (f: string) => {
+    const t = new Date(f).getTime();
+    return t >= new Date(inicio).getTime() && t <= new Date(fin).getTime();
+  };
+
   function abrirVisita(visita: VisitaAgenda) {
-    // Si la visita ya está en_curso, se va directa a Visita activa
-    // (retomar); si aún no se ha iniciado, primero pasa por el Repaso
-    // rápido de cliente, coherente con la arquitectura de navegación.
+    // en_curso → retomar en Visita activa.
     if (visita.estado_captura === 'en_curso') {
       navigate(`/visita/${visita.id}`);
-    } else if (visita.cliente) {
+      return;
+    }
+    // Planificada para OTRO día (atrasada o futura) → pantalla de gestión,
+    // no el repaso: el repaso invita a empezarla ya y no es lo que quieres
+    // con una visita para dentro de una semana.
+    if (visita.estado_captura === 'agendada' && !esDeHoy(visita.fecha)) {
+      navigate(`/visita/${visita.id}/planificada`);
+      return;
+    }
+    // Planificada para hoy, o improvisada → repaso rápido antes de entrar.
+    if (visita.cliente) {
       navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`);
     }
   }
@@ -329,6 +364,15 @@ export function AgendaDelDia() {
             Solo mías
           </button>
         </div>
+      )}
+
+      {atrasadasFiltradas && atrasadasFiltradas.length > 0 && (
+        <>
+          <div className="label" style={{ color: 'var(--warning-600)', marginTop: 0 }}>
+            atrasadas ({atrasadasFiltradas.length}) — planificadas para una fecha que ya pasó
+          </div>
+          {atrasadasFiltradas.map((visita) => renderVisita(visita, true))}
+        </>
       )}
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}

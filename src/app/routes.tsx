@@ -14,6 +14,7 @@ import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
 import { DetalleVisitaCerrada } from '@/features/visita/detalle-visita-cerrada';
+import { DetalleVisitaPlanificada } from '@/features/visita/detalle-visita-planificada';
 import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
@@ -52,6 +53,7 @@ export function AppRoutes() {
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}
           <Route path="/visita/:visitaId" element={<VisitaActiva />} />
+          <Route path="/visita/:visitaId/planificada" element={<DetalleVisitaPlanificada />} />
           <Route path="/visita/:visitaId/detalle" element={<DetalleVisitaCerrada />} />
           <Route path="/capturas/:capturaId" element={<DetalleCaptura />} />
           <Route path="/visita/:visitaId/cierre" element={<CierreVisita />} />

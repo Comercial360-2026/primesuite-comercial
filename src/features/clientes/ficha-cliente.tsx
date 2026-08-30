@@ -249,6 +249,12 @@ export function FichaCliente() {
     },
   });
 
+  // Aviso suave si ya hay una visita planificada (hoy o futura) con este
+  // cliente — para no acumular planes duplicados sin querer. No bloquea.
+  const visitaYaPlanificada = historialVisitas?.find(
+    (v) => v.estado_captura === 'agendada' && new Date(v.fecha).getTime() >= new Date().setHours(0, 0, 0, 0)
+  );
+
   async function pedirPrevisualizacion(visitaId: string) {
     setVisitaBorrarId(visitaId);
     setPrevisualizacion(null);
@@ -517,35 +523,45 @@ export function FichaCliente() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div
                     style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '4px 0' }}
-                    onClick={() => navigate(`/visita/${v.id}/detalle`)}
+                    onClick={() =>
+                      navigate(
+                        v.estado_captura === 'agendada'
+                          ? `/visita/${v.id}/planificada`
+                          : `/visita/${v.id}/detalle`
+                      )
+                    }
                   >
                     <div>
                       <div style={{ fontSize: 'var(--text-base)' }}>
                         {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </div>
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                        {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura}
+                        {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura === 'agendada' ? 'planificada' : v.estado_captura}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>ver contenido</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>
+                        {v.estado_captura === 'agendada' ? 'gestionar' : 'ver contenido'}
+                      </span>
                       <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <BotonDescargarInforme
-                      estado={estadoDe(v.id)}
-                      onDescargar={() => descargar(v.id)}
-                      compacto
-                    />
-                    <button
-                      className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                      onClick={() => pedirPrevisualizacion(v.id)}
-                    >
-                      Borrar
-                    </button>
-                  </div>
+                  {v.estado_captura !== 'agendada' && (
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                      <BotonDescargarInforme
+                        estado={estadoDe(v.id)}
+                        onDescargar={() => descargar(v.id)}
+                        compacto
+                      />
+                      <button
+                        className="btn btn-secondary"
+                        style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                        onClick={() => pedirPrevisualizacion(v.id)}
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -568,6 +584,13 @@ export function FichaCliente() {
 
       {planificando ? (
         <div className="card">
+          {visitaYaPlanificada && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 8 }}>
+              Ya tienes una visita planificada con este cliente el{' '}
+              {new Date(visitaYaPlanificada.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}. Puedes
+              planificar otra igualmente.
+            </div>
+          )}
           <div className="label" style={{ marginTop: 0 }}>fecha de la visita</div>
           <input
             type="date"
