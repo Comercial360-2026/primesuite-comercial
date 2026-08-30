@@ -114,12 +114,14 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, comercialResponsableId, tipoVisita } = operacion.payload;
+  const { clienteId, comercialResponsableId, tipoVisita, fecha, agendada } = operacion.payload;
   const { error } = await crearVisitaConResponsable({
     pVisitaId: operacion.id,
     pClienteId: clienteId,
     pComercialId: comercialResponsableId,
     pTipoVisita: tipoVisita,
+    pFecha: fecha ?? null,
+    pEstadoCaptura: agendada ? 'agendada' : null,
   });
   if (error) throw new Error(error);
 }

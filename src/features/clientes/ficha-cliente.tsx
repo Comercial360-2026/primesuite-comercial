@@ -67,6 +67,63 @@ export function FichaCliente() {
   const previsualizandoCliente = useAccionAsync();
   const borrandoCliente = useAccionAsync();
 
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  const [planificando, setPlanificando] = useState(false);
+  const [fechaPlan, setFechaPlan] = useState('');
+  const [comercialPlan, setComercialPlan] = useState('');
+  const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
+  const planificacion = useAccionAsync();
+  const hoyISO = new Date().toISOString().slice(0, 10);
+
+  // Solo Dirección Comercial puede planificar una visita para otro comercial;
+  // el resto planifica siempre para sí mismo, así que ni se pide la lista.
+  const { data: comercialesActivos } = useQuery({
+    queryKey: ['comerciales-activos'],
+    enabled: esDireccionComercial && planificando,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('comercial')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  async function planificarVisita() {
+    await planificacion.ejecutar(
+      async () => {
+        if (!cliente || !comercial) {
+          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
+        }
+        if (!fechaPlan) throw new Error('Elige una fecha para la visita.');
+        const responsableId = esDireccionComercial && comercialPlan ? comercialPlan : comercial.id;
+        const visitaId = crypto.randomUUID();
+        await encolar(visitaId, 'visita', {
+          clienteId: cliente.id,
+          comercialResponsableId: responsableId,
+          tipoVisita: null,
+          // La hora concreta no importa: "Hoy" filtra por día. 09:00 local
+          // para que caiga con seguridad dentro del día elegido.
+          fecha: new Date(`${fechaPlan}T09:00:00`).toISOString(),
+          agendada: true,
+        });
+        return fechaPlan;
+      },
+      {
+        onExito: (fecha) => {
+          setPlanificadaPara(fecha);
+          setPlanificando(false);
+          setFechaPlan('');
+          setComercialPlan('');
+          queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['visitas-hoy'] });
+        },
+      }
+    );
+  }
+
   const { data: cliente } = useQuery({
     queryKey: ['cliente', clienteId],
     enabled: !!clienteId,
@@ -498,8 +555,82 @@ export function FichaCliente() {
         )}
       </div>
 
+      {planificadaPara && !planificando && (
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+          Visita planificada para el{' '}
+          {new Date(`${planificadaPara}T09:00:00`).toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long',
+          })}
+          . Aparecerá en «Hoy» ese día.
+        </div>
+      )}
+
+      {planificando ? (
+        <div className="card">
+          <div className="label" style={{ marginTop: 0 }}>fecha de la visita</div>
+          <input
+            type="date"
+            className="field"
+            min={hoyISO}
+            value={fechaPlan}
+            onChange={(e) => setFechaPlan(e.target.value)}
+          />
+          {esDireccionComercial && (
+            <>
+              <div className="label">para</div>
+              <select
+                className="field"
+                value={comercialPlan}
+                onChange={(e) => setComercialPlan(e.target.value)}
+              >
+                <option value="">yo ({comercial?.nombre ?? '—'})</option>
+                {comercialesActivos
+                  ?.filter((c) => c.id !== comercial?.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            </>
+          )}
+          {planificacion.error && <div className="field-error-text" style={{ marginTop: 8 }}>{planificacion.error}</div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button
+              className="btn btn-secondary"
+              disabled={planificacion.cargando}
+              onClick={() => {
+                setPlanificando(false);
+                planificacion.limpiarError();
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={planificacion.cargando || !fechaPlan}
+              onClick={planificarVisita}
+            >
+              {planificacion.cargando ? 'Planificando…' : 'Planificar'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="btn btn-secondary"
+          disabled={iniciandoVisita.cargando}
+          onClick={() => {
+            setPlanificadaPara(null);
+            setPlanificando(true);
+          }}
+        >
+          Planificar visita para otro día
+        </button>
+      )}
+
       <button className="btn btn-primary" disabled={iniciandoVisita.cargando} onClick={iniciarVisitaAdHoc}>
-        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
+        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita ahora →'}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
     </div>

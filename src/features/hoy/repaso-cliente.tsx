@@ -202,6 +202,17 @@ export function RepasoCliente() {
             comercialResponsableId: comercial.id,
             tipoVisita: null,
           });
+        } else {
+          // Visita ya planificada: al empezarla de verdad pasa de 'agendada'
+          // a 'en_curso'. El filtro es por estado para no re-lanzar visitas
+          // que ya se estaban capturando o ya se cerraron. Requiere red — una
+          // visita agendada solo existe en el servidor, nunca en la cola local.
+          const { error: errEstado } = await supabase
+            .from('visita')
+            .update({ estado_captura: 'en_curso' })
+            .eq('id', visitaId)
+            .eq('estado_captura', 'agendada');
+          if (errEstado) throw new Error(errEstado.message);
         }
         return { visitaId, clienteNombre: cliente.nombre };
       },

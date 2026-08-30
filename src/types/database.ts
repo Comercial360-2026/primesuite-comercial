@@ -1707,6 +1707,8 @@ export type Database = {
           p_comercial_id: string
           p_tipo_visita?: string
           p_visita_id: string
+          p_fecha?: string
+          p_estado_captura?: string
         }
         Returns: {
           actualizado_en: string

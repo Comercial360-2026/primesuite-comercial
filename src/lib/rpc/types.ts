@@ -9,6 +9,10 @@ export interface CrearVisitaConResponsableArgs {
   pClienteId: string;
   pComercialId: string;
   pTipoVisita?: string | null;
+  // Para planificar una visita a fecha futura (ver migración 69). Sin estos,
+  // la visita nace 'en_curso' con fecha = now(), como siempre.
+  pFecha?: string | null;
+  pEstadoCaptura?: 'agendada' | 'en_curso' | null;
 }
 
 export interface VisitaRow {
@@ -17,7 +21,7 @@ export interface VisitaRow {
   fecha: string;
   resumen: string | null;
   tipo_visita: string | null;
-  estado_captura: 'en_curso' | 'consolidada';
+  estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   resumen_texto: string | null;
   resumen_origen: 'reglas' | 'ia';
   creado_en: string;

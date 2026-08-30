@@ -25,6 +25,10 @@ export interface VisitaPayload {
   clienteId: string;
   comercialResponsableId: string;
   tipoVisita: 'comercial' | 'demo' | 'tecnica' | 'seguimiento' | 'relacion' | null;
+  // Solo para visitas planificadas a fecha futura (ver migración 69). Sin
+  // estos, la visita nace 'en_curso' con fecha = now(), como siempre.
+  fecha?: string; // ISO
+  agendada?: boolean;
 }
 
 export interface HallazgoPayload {

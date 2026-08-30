@@ -21,7 +21,7 @@ interface VisitaAgenda {
   id: string;
   fecha: string;
   tipo_visita: string | null;
-  estado_captura: 'en_curso' | 'consolidada';
+  estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
 }
 
@@ -287,6 +287,11 @@ export function AgendaDelDia() {
               {visita.estado_captura === 'en_curso' && (
                 <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
                   en curso
+                </span>
+              )}
+              {visita.estado_captura === 'agendada' && (
+                <span className="chip" style={{ marginLeft: 6, marginTop: 6 }}>
+                  planificada
                 </span>
               )}
               {responsables?.[visita.id] && responsables[visita.id] !== comercial?.id && (
