@@ -53,6 +53,26 @@ export function Agenda() {
   const [soloMiasElegido, setSoloMias] = useState(false);
   const soloMias = esDireccionComercial ? soloMiasElegido : true;
 
+  // "+ Planificar visita": buscador de cliente en línea. null = cerrado (solo
+  // el botón); string = abierto con ese texto. Al elegir cliente se salta a
+  // su ficha con el formulario de planificar ya abierto (?planificar=1).
+  const [buscarCliente, setBuscarCliente] = useState<string | null>(null);
+  const terminoBuscar = (buscarCliente ?? '').trim();
+  const { data: clientesEncontrados, isFetching: buscandoClientes } = useQuery({
+    queryKey: ['agenda-planificar-buscar', terminoBuscar],
+    enabled: terminoBuscar.length >= 2,
+    queryFn: async (): Promise<Array<{ id: string; nombre: string }>> => {
+      const { data, error } = await supabase
+        .from('vw_semaforo_cliente')
+        .select('cliente_id, cliente_nombre')
+        .ilike('cliente_nombre', `%${terminoBuscar}%`)
+        .order('cliente_nombre')
+        .limit(8);
+      if (error) throw error;
+      return (data ?? []).map((c) => ({ id: c.cliente_id as string, nombre: c.cliente_nombre as string }));
+    },
+  });
+
   const { data: visitas, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['agenda-planificadas', comercial?.id],
     enabled: !!comercial,
@@ -236,9 +256,59 @@ export function Agenda() {
         );
       })}
 
-      <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
-        + Planificar visita (desde un cliente)
-      </button>
+      {buscarCliente === null ? (
+        <button className="btn btn-secondary" onClick={() => setBuscarCliente('')}>
+          + Planificar visita
+        </button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="label" style={{ marginTop: 0 }}>planificar visita — busca el cliente</div>
+          <input
+            className="field"
+            autoFocus
+            placeholder="nombre del cliente"
+            value={buscarCliente}
+            onChange={(e) => setBuscarCliente(e.target.value)}
+          />
+          {terminoBuscar.length >= 2 && (
+            <>
+              {buscandoClientes && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>
+              )}
+              {!buscandoClientes && clientesEncontrados?.length === 0 && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  Sin resultados. Si es un cliente nuevo, créalo primero en Clientes.
+                </div>
+              )}
+              {clientesEncontrados?.map((c) => (
+                <div
+                  key={c.id}
+                  className="card"
+                  style={{ cursor: 'pointer', padding: '10px 12px' }}
+                  onClick={() => navigate(`/clientes/${c.id}?planificar=1`)}
+                >
+                  {c.nombre}
+                </div>
+              ))}
+            </>
+          )}
+          <button
+            type="button"
+            style={{
+              border: 'none',
+              background: 'none',
+              color: 'var(--ink-400)',
+              fontSize: 'var(--text-sm)',
+              cursor: 'pointer',
+              alignSelf: 'flex-start',
+              padding: 0,
+            }}
+            onClick={() => setBuscarCliente(null)}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
