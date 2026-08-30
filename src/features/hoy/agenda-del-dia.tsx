@@ -6,6 +6,8 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { EstadoError } from '@/components/ui/estado-error';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { franjaDe } from '@/lib/franja-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
@@ -20,6 +22,7 @@ interface PrevisualizacionBorrado {
 interface VisitaAgenda {
   id: string;
   fecha: string;
+  hora_definida: boolean;
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
@@ -60,7 +63,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gte('fecha', inicio)
         .lte('fecha', fin)
         .order('fecha', { ascending: true });
@@ -80,7 +83,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gt('fecha', fin)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true })
@@ -101,7 +104,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .lt('fecha', inicio)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: false })
@@ -175,6 +178,19 @@ export function AgendaDelDia() {
   const visitasFiltradas = visitas?.filter((v) => esMia(v.id));
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
+
+  // La pantalla Hoy se organiza en secciones plegables. Una visita ya
+  // 'en_curso' no es "pendiente de empezar": sale fija arriba, no dentro de
+  // una franja. El resto se reparte por franja según su hora (o "sin hora"
+  // si el comercial no la fijó al planificar).
+  const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
+  const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura !== 'en_curso') ?? [];
+  const hoyManana = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'manana');
+  const hoyTarde = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'tarde');
+  const hoySinHora = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'sin_hora');
+  const proximas = proximasFiltradas ?? [];
+  const proximasVisibles = proximas.slice(0, 5);
+  const sinNadaHoy = hoyEnCurso.length === 0 && hoyPendientes.length === 0;
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean) {
     if (visitaBorrarId === visita.id) {
@@ -397,22 +413,46 @@ export function AgendaDelDia() {
         />
       )}
 
-      {!isLoading && !isError && !sinConexion && visitasFiltradas?.length === 0 && (
+      {!isLoading && !isError && !sinConexion && sinNadaHoy && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          {soloMias ? 'No tienes visitas agendadas hoy.' : 'No hay visitas agendadas hoy.'} Puedes iniciar una visita no planificada desde Clientes.
+          {soloMias ? 'No tienes visitas para hoy.' : 'No hay visitas para hoy.'}
         </p>
       )}
 
-      {visitasFiltradas?.map((visita) => renderVisita(visita, false))}
+      {/* Visita en curso — fija arriba, fuera de las franjas: ya está empezada. */}
+      {hoyEnCurso.map((visita) => renderVisita(visita, false))}
+
+      {!isLoading && !isError && !sinConexion && (
+        <>
+          <SeccionColapsable titulo="Visitas de mañana" cantidad={hoyManana.length}>
+            {hoyManana.map((visita) => renderVisita(visita, false))}
+          </SeccionColapsable>
+          <SeccionColapsable titulo="Visitas de tarde" cantidad={hoyTarde.length}>
+            {hoyTarde.map((visita) => renderVisita(visita, false))}
+          </SeccionColapsable>
+          <SeccionColapsable titulo="Sin hora" cantidad={hoySinHora.length}>
+            {hoySinHora.map((visita) => renderVisita(visita, false))}
+          </SeccionColapsable>
+          <SeccionColapsable titulo="Próximas" cantidad={proximas.length}>
+            {proximasVisibles.map((visita) => renderVisita(visita, true))}
+            {proximas.length > proximasVisibles.length && (
+              <div
+                style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', cursor: 'pointer', paddingLeft: 4 }}
+                onClick={() => navigate('/agenda')}
+              >
+                y {proximas.length - proximasVisibles.length} más — ver todas en Agenda →
+              </div>
+            )}
+          </SeccionColapsable>
+        </>
+      )}
 
       <div
         className="card"
         style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
         onClick={() => navigate('/agenda')}
       >
-        <span style={{ fontSize: 'var(--text-sm)' }}>
-          Ver agenda{proximasFiltradas ? ` · ${proximasFiltradas.length} planificada${proximasFiltradas.length === 1 ? '' : 's'}` : ''}
-        </span>
+        <span style={{ fontSize: 'var(--text-sm)' }}>Ver agenda completa</span>
         <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
       </div>
 
