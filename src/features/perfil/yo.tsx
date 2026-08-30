@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError } from '@/lib/offline-queue';
+import { claveDuplicado } from '@/lib/nombres-cliente';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
 const DIAS_AVISO_BACKUP = 7;
@@ -62,6 +63,26 @@ export function Yo() {
         .eq('estado', 'pendiente');
       if (err) throw err;
       return count ?? 0;
+    },
+  });
+
+  // Nº de grupos de fichas de cliente duplicadas (mismo criterio de
+  // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
+  // tarjeta — que Dirección Comercial vea que hay algo que revisar sin
+  // tener que entrar.
+  const { data: numGruposDuplicados } = useQuery({
+    queryKey: ['num-grupos-duplicados'],
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase.from('cliente').select('nombre, estado_fusion');
+      if (err) throw err;
+      const cuenta: Record<string, number> = {};
+      for (const c of data ?? []) {
+        if (c.estado_fusion !== 'activo') continue;
+        const k = claveDuplicado(c.nombre);
+        cuenta[k] = (cuenta[k] ?? 0) + 1;
+      }
+      return Object.values(cuenta).filter((n) => n >= 2).length;
     },
   });
 
@@ -262,6 +283,22 @@ export function Yo() {
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>consumo por comercial</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
             ver cuánto espacio usa cada comercial
+          </div>
+        </div>
+      )}
+
+      {esDireccionComercial && !!numGruposDuplicados && (
+        <div
+          className="card"
+          style={{ cursor: 'pointer', borderColor: 'var(--warning-600)' }}
+          onClick={() => navigate('/deduplicacion')}
+        >
+          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
+            clientes duplicados ({numGruposDuplicados})
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            {numGruposDuplicados === 1 ? 'un grupo de fichas' : `${numGruposDuplicados} grupos de fichas`} del mismo
+            cliente — revisar y juntar
           </div>
         </div>
       )}

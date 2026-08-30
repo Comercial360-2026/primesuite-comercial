@@ -20,6 +20,7 @@ import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
 import { GestionUbicacionesCliente } from '@/features/clientes/gestion-ubicaciones-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
+import { Deduplicacion } from '@/features/clientes/deduplicacion';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
@@ -99,6 +100,17 @@ export function AppRoutes() {
             element={
               <RequireRole roles={['direccion_comercial']}>
                 <SolicitudesReasignacion />
+              </RequireRole>
+            }
+          />
+
+          {/* Deduplicación de clientes — exclusivo de Dirección Comercial:
+              fusionar dos fichas es una acción de administración irreversible. */}
+          <Route
+            path="/deduplicacion"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <Deduplicacion />
               </RequireRole>
             }
           />

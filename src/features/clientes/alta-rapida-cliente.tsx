@@ -7,6 +7,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { normalizarNombre } from '@/lib/nombres-cliente';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -14,18 +15,6 @@ import { AvisoTardando } from '@/components/ui/aviso-tardando';
 // nuevo sin cobertura fallará hoy. Es una limitación real, no simulada;
 // señalada aquí en vez de ampliar la infraestructura offline sin que se
 // haya pedido explícitamente.
-
-// Igual, sin acentos y con los espacios colapsados: así "panaderia rueda"
-// encuentra "Panadería  Rueda". Se hace en el cliente para no depender de
-// la extensión `unaccent` en la base de datos.
-function normalizar(s: string) {
-  return s
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ');
-}
 
 export function AltaRapidaCliente() {
   const navigate = useNavigate();
@@ -51,11 +40,11 @@ export function AltaRapidaCliente() {
     },
   });
 
-  const nombreNorm = normalizar(nombre);
+  const nombreNorm = normalizarNombre(nombre);
   const coincidencias = useMemo(() => {
     if (nombreNorm.length < 3 || !clientesExistentes) return [];
     return clientesExistentes
-      .map((c) => ({ ...c, norm: normalizar(c.nombre) }))
+      .map((c) => ({ ...c, norm: normalizarNombre(c.nombre) }))
       .filter((c) => c.norm.includes(nombreNorm))
       .sort((a, b) => {
         const rango = (x: { norm: string }) =>
