@@ -18,6 +18,7 @@ interface VisitaPlan {
   id: string;
   fecha: string;
   hora_definida: boolean;
+  franja: string | null;
   tipo_visita: string | null;
   estado_captura: string;
   cliente_id: string;
@@ -50,6 +51,7 @@ export function DetalleVisitaPlanificada() {
   const [reprogramando, setReprogramando] = useState(false);
   const [fechaNueva, setFechaNueva] = useState('');
   const [horaNueva, setHoraNueva] = useState('');
+  const [franjaNueva, setFranjaNueva] = useState<'' | 'manana' | 'tarde'>('');
   const [confirmando, setConfirmando] = useState<null | 'cancelar' | 'empezar'>(null);
   const reprogramar = useAccionAsync();
   const cancelar = useAccionAsync();
@@ -62,7 +64,7 @@ export function DetalleVisitaPlanificada() {
     queryFn: async (): Promise<VisitaPlan> => {
       const { data: fila, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .eq('id', visitaId!)
         .single();
       if (error) throw error;
@@ -71,6 +73,7 @@ export function DetalleVisitaPlanificada() {
         id: fila.id,
         fecha: fila.fecha,
         hora_definida: fila.hora_definida,
+        franja: fila.franja,
         tipo_visita: fila.tipo_visita,
         estado_captura: fila.estado_captura,
         cliente_id: cli?.id ?? '',
@@ -94,6 +97,7 @@ export function DetalleVisitaPlanificada() {
           .update({
             fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
             hora_definida: !!horaNueva,
+            franja: horaNueva ? null : franjaNueva || null,
           })
           .eq('id', visitaId!)
           .eq('estado_captura', 'agendada');
@@ -104,6 +108,7 @@ export function DetalleVisitaPlanificada() {
           setReprogramando(false);
           setFechaNueva('');
           setHoraNueva('');
+          setFranjaNueva('');
           invalidarListas();
           refetch();
         },
@@ -139,7 +144,7 @@ export function DetalleVisitaPlanificada() {
   const fechaVisita = data ? new Date(data.fecha) : null;
   const esHoy = fechaVisita ? esMismoDia(fechaVisita, new Date()) : false;
   const esPasada = fechaVisita ? fechaVisita.getTime() < new Date().setHours(0, 0, 0, 0) : false;
-  const franja = data ? franjaDe(data.fecha, data.hora_definida) : null;
+  const franja = data ? franjaDe(data.fecha, data.hora_definida, data.franja) : null;
   const horaTexto =
     data && data.hora_definida
       ? fechaVisita!.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
@@ -180,7 +185,11 @@ export function DetalleVisitaPlanificada() {
               })}
             </div>
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-              {horaTexto ? `${horaTexto} (${etiquetaFranja(franja!)})` : 'sin hora fija'}
+              {horaTexto
+                ? `${horaTexto} (${etiquetaFranja(franja!)})`
+                : franja === 'sin_hora'
+                  ? 'sin hora fija'
+                  : `${etiquetaFranja(franja!)} (sin hora fija)`}
             </div>
             {esPasada && (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500, marginTop: 4 }}>
@@ -240,6 +249,27 @@ export function DetalleVisitaPlanificada() {
                 value={horaNueva}
                 onChange={(e) => setHoraNueva(e.target.value)}
               />
+              {!horaNueva && (
+                <>
+                  <div className="label">sin hora concreta, ¿cuándo?</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {([
+                      ['manana', 'Mañana'],
+                      ['tarde', 'Tarde'],
+                      ['', 'Sin hora fija'],
+                    ] as const).map(([val, txt]) => (
+                      <button
+                        key={val || 'sin'}
+                        type="button"
+                        className={`chip${franjaNueva === val ? ' chip--on' : ''}`}
+                        onClick={() => setFranjaNueva(val)}
+                      >
+                        {txt}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {reprogramar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{reprogramar.error}</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button
@@ -271,6 +301,9 @@ export function DetalleVisitaPlanificada() {
                 setFechaNueva(fechaLocalISO(new Date(data.fecha)));
                 setHoraNueva(
                   data.hora_definida ? new Date(data.fecha).toTimeString().slice(0, 5) : ''
+                );
+                setFranjaNueva(
+                  data.franja === 'manana' || data.franja === 'tarde' ? data.franja : ''
                 );
                 setReprogramando(true);
               }}

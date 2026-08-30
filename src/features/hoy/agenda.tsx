@@ -18,6 +18,7 @@ interface VisitaAgenda {
   id: string;
   fecha: string;
   hora_definida: boolean;
+  franja: string | null;
   tipo_visita: string | null;
   cliente: { id: string; nombre: string } | null;
 }
@@ -58,7 +59,7 @@ export function Agenda() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, tipo_visita, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, tipo_visita, cliente:cliente_id(id, nombre)')
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true });
       if (error) throw error;
@@ -123,8 +124,8 @@ export function Agenda() {
     const listaDias = [...porDia.values()].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
     for (const dia of listaDias) {
       dia.visitas.sort((a, b) => {
-        const fa = franjaDe(a.fecha, a.hora_definida);
-        const fb = franjaDe(b.fecha, b.hora_definida);
+        const fa = franjaDe(a.fecha, a.hora_definida, a.franja);
+        const fb = franjaDe(b.fecha, b.hora_definida, b.franja);
         return ordenFranja[fa] - ordenFranja[fb] || a.fecha.localeCompare(b.fecha);
       });
     }
@@ -136,7 +137,7 @@ export function Agenda() {
   }
 
   function fila(v: VisitaAgenda, conFranja: boolean) {
-    const franja: Franja = franjaDe(v.fecha, v.hora_definida);
+    const franja: Franja = franjaDe(v.fecha, v.hora_definida, v.franja);
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
     return (
@@ -152,7 +153,7 @@ export function Agenda() {
             {conFranja
               ? v.hora_definida
                 ? `${new Date(v.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} · ${etiquetaFranja(franja)}`
-                : 'sin hora'
+                : etiquetaFranja(franja)
               : new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
             {v.tipo_visita ? ` · ${v.tipo_visita}` : ''}
             {deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}

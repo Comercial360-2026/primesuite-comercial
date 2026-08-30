@@ -76,6 +76,9 @@ export function FichaCliente() {
   const planificarRef = useRef<HTMLDivElement>(null);
   const [fechaPlan, setFechaPlan] = useState('');
   const [horaPlan, setHoraPlan] = useState('');
+  // Solo se usa cuando no hay hora: '' = sin hora fija, 'manana' | 'tarde' =
+  // franja sin hora concreta.
+  const [franjaPlan, setFranjaPlan] = useState<'' | 'manana' | 'tarde'>('');
   const [comercialPlan, setComercialPlan] = useState('');
   const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
   const planificacion = useAccionAsync();
@@ -122,10 +125,13 @@ export function FichaCliente() {
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
+        // La RPC no conoce `hora_definida` ni `franja`: si no hay hora, un
+        // UPDATE posterior marca hora_definida=false y guarda la franja
+        // elegida (o null = "sin hora").
         if (!horaPlan) {
           const { error: errHora } = await supabase
             .from('visita')
-            .update({ hora_definida: false })
+            .update({ hora_definida: false, franja: franjaPlan || null })
             .eq('id', visitaId);
           if (errHora) throw new Error(errHora.message);
         }
@@ -137,6 +143,7 @@ export function FichaCliente() {
           setPlanificando(false);
           setFechaPlan('');
           setHoraPlan('');
+          setFranjaPlan('');
           setComercialPlan('');
           for (const k of [
             ['historial-visitas', clienteId],
@@ -642,9 +649,27 @@ export function FichaCliente() {
             value={horaPlan}
             onChange={(e) => setHoraPlan(e.target.value)}
           />
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            Si la dejas en blanco, la visita se planifica "sin hora fija".
-          </div>
+          {!horaPlan && (
+            <>
+              <div className="label">sin hora concreta, ¿cuándo?</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([
+                  ['manana', 'Mañana'],
+                  ['tarde', 'Tarde'],
+                  ['', 'Sin hora fija'],
+                ] as const).map(([val, txt]) => (
+                  <button
+                    key={val || 'sin'}
+                    type="button"
+                    className={`chip${franjaPlan === val ? ' chip--on' : ''}`}
+                    onClick={() => setFranjaPlan(val)}
+                  >
+                    {txt}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           {esDireccionComercial && (
             <>
               <div className="label">para</div>

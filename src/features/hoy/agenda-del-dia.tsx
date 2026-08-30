@@ -7,7 +7,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { EstadoError } from '@/components/ui/estado-error';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
-import { franjaDe } from '@/lib/franja-visita';
+import { franjaDe, franjaActual, etiquetaFranja } from '@/lib/franja-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
@@ -23,6 +23,7 @@ interface VisitaAgenda {
   id: string;
   fecha: string;
   hora_definida: boolean;
+  franja: string | null;
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
@@ -36,6 +37,20 @@ function rangoDeHoy() {
   const fin = new Date();
   fin.setHours(23, 59, 59, 999);
   return { inicio: inicio.toISOString(), fin: fin.toISOString() };
+}
+
+// Texto de "cuándo" de una visita. Con hora → "09:00"; sin hora pero con
+// franja → "mañana" / "tarde"; sin nada → "sin hora". conDia antepone el día
+// (para la lista de Próximas, que mezcla fechas).
+function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
+  const d = new Date(v.fecha);
+  const dia = conDia
+    ? d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+    : '';
+  const hora = v.hora_definida
+    ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    : etiquetaFranja(franjaDe(v.fecha, v.hora_definida, v.franja));
+  return dia ? `${dia} · ${hora}` : hora;
 }
 
 export function AgendaDelDia() {
@@ -63,7 +78,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gte('fecha', inicio)
         .lte('fecha', fin)
         .order('fecha', { ascending: true });
@@ -83,7 +98,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gt('fecha', fin)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true })
@@ -104,7 +119,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .lt('fecha', inicio)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: false })
@@ -185,12 +200,16 @@ export function AgendaDelDia() {
   // si el comercial no la fijó al planificar).
   const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura !== 'en_curso') ?? [];
-  const hoyManana = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'manana');
-  const hoyTarde = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'tarde');
-  const hoySinHora = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida) === 'sin_hora');
+  const hoyManana = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'manana');
+  const hoyTarde = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'tarde');
+  const hoySinHora = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'sin_hora');
   const proximas = proximasFiltradas ?? [];
   const proximasVisibles = proximas.slice(0, 5);
   const sinNadaHoy = hoyEnCurso.length === 0 && hoyPendientes.length === 0;
+  // La sección de la franja en curso (mañana antes de las 14:00, tarde
+  // después) se abre sola al entrar; el resto arranca cerrado. Al salir y
+  // volver se recalcula — no recuerda los despliegues hechos a mano.
+  const ahoraFranja = franjaActual();
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean) {
     if (visitaBorrarId === visita.id) {
@@ -229,15 +248,7 @@ export function AgendaDelDia() {
       <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {mostrarDia
-              ? new Date(visita.fecha).toLocaleString('es-ES', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : new Date(visita.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            {cuandoTexto(visita, mostrarDia)}
           </div>
           <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
             {visita.cliente?.nombre ?? 'Cliente'}
@@ -424,10 +435,18 @@ export function AgendaDelDia() {
 
       {!isLoading && !isError && !sinConexion && (
         <>
-          <SeccionColapsable titulo="Visitas de mañana" cantidad={hoyManana.length}>
+          <SeccionColapsable
+            titulo="Visitas de mañana"
+            cantidad={hoyManana.length}
+            defaultAbierta={ahoraFranja === 'manana'}
+          >
             {hoyManana.map((visita) => renderVisita(visita, false))}
           </SeccionColapsable>
-          <SeccionColapsable titulo="Visitas de tarde" cantidad={hoyTarde.length}>
+          <SeccionColapsable
+            titulo="Visitas de tarde"
+            cantidad={hoyTarde.length}
+            defaultAbierta={ahoraFranja === 'tarde'}
+          >
             {hoyTarde.map((visita) => renderVisita(visita, false))}
           </SeccionColapsable>
           <SeccionColapsable titulo="Sin hora" cantidad={hoySinHora.length}>
