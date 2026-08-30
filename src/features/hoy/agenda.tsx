@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoError } from '@/components/ui/estado-error';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
 
 // Pantalla de planificación: todo lo que está agendado (agendada), pasado y
@@ -52,6 +53,10 @@ export function Agenda() {
   // normal solo ve lo suyo y no puede cambiarlo.
   const [soloMiasElegido, setSoloMias] = useState(false);
   const soloMias = esDireccionComercial ? soloMiasElegido : true;
+
+  // Lista (por defecto) o rejilla de mes. La lista es mejor para "qué toca
+  // ahora"; el mes, para ver de un vistazo cómo viene la planificación.
+  const [vista, setVista] = useState<'lista' | 'mes'>('lista');
 
   // "+ Planificar visita": buscador de cliente en línea. null = cerrado (solo
   // el botón); string = abierto con ese texto. Al elegir cliente se salta a
@@ -127,7 +132,7 @@ export function Agenda() {
     },
   });
 
-  const { atrasadas, dias } = useMemo(() => {
+  const { atrasadas, dias, mias } = useMemo(() => {
     const hoy0 = inicioDeHoy().getTime();
     const mias = (visitas ?? []).filter(
       (v) => !soloMias || (!!comercial && !!participantes?.[v.id]?.includes(comercial.id))
@@ -150,7 +155,7 @@ export function Agenda() {
         return ordenFranja[fa] - ordenFranja[fb] || a.fecha.localeCompare(b.fecha);
       });
     }
-    return { atrasadas: atr, dias: listaDias };
+    return { atrasadas: atr, dias: listaDias, mias };
   }, [visitas, participantes, soloMias, comercial]);
 
   function abrir(v: VisitaAgenda) {
@@ -199,6 +204,15 @@ export function Agenda() {
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Agenda</h1>
       </div>
 
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" className={`chip${vista === 'lista' ? ' chip--on' : ''}`} onClick={() => setVista('lista')}>
+          Lista
+        </button>
+        <button type="button" className={`chip${vista === 'mes' ? ' chip--on' : ''}`} onClick={() => setVista('mes')}>
+          Mes
+        </button>
+      </div>
+
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
@@ -215,7 +229,11 @@ export function Agenda() {
         <EstadoError mensaje="No se pudo cargar la agenda." onReintentar={() => refetch()} />
       )}
 
-      {vacio && (
+      {!isLoading && !isError && vista === 'mes' && (
+        <CalendarioMes visitas={mias} renderVisita={(v) => fila(v, false)} />
+      )}
+
+      {vista === 'lista' && vacio && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
           No hay visitas planificadas. Planifica una desde la ficha de un cliente.
         </p>
@@ -223,13 +241,13 @@ export function Agenda() {
 
       {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado de
           inicio para que no empuje hacia abajo los días que sí vas a mirar. */}
-      {atrasadas.length > 0 && (
+      {vista === 'lista' && atrasadas.length > 0 && (
         <SeccionColapsable titulo="Atrasadas" cantidad={atrasadas.length}>
           {atrasadas.map((v) => fila(v, true))}
         </SeccionColapsable>
       )}
 
-      {dias.map((dia) => {
+      {vista === 'lista' && dias.map((dia) => {
         const porFranja: Record<Franja, VisitaAgenda[]> = { manana: [], tarde: [], sin_hora: [] };
         for (const v of dia.visitas) porFranja[franjaDe(v.fecha, v.hora_definida, v.franja)].push(v);
         return (
