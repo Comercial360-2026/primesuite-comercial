@@ -25,16 +25,19 @@ export function AltaRapidaCliente() {
   const [nombre, setNombre] = useState('');
   const creacionCliente = useAccionAsync();
 
-  // Todos los nombres de cliente que existen. La visibilidad de `cliente` no
-  // está restringida por comercial (no hay "cartera" en el modelo, confirmado
-  // el 24/8), así que esto también avisa de un duplicado que creó otro
-  // compañero. Se traen una vez y se cruzan en el cliente: la coincidencia
-  // ignora acentos sin SQL nuevo y no hay una consulta por cada tecla.
+  // Nombres de los clientes activos. La visibilidad de `cliente` no está
+  // restringida por comercial (no hay "cartera" en el modelo, confirmado el
+  // 24/8), así que esto también avisa de un duplicado que creó otro
+  // compañero. Se excluyen los ya fusionados: son fichas muertas y ofrecer
+  // "iniciar visita" sobre ellas llevaría a un cliente que ya no existe.
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<Array<{ id: string; nombre: string }>> => {
-      const { data, error } = await supabase.from('cliente').select('id, nombre');
+      const { data, error } = await supabase
+        .from('cliente')
+        .select('id, nombre')
+        .eq('estado_fusion', 'activo');
       if (error) throw error;
       return data ?? [];
     },
