@@ -63,11 +63,26 @@ export function AltaRapidaCliente() {
     },
   };
 
+  // Defensa explícita: sin pantalla de login construida todavía, `comercial`
+  // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
+  // de forma silenciosa — ahora se muestra como un error visible, mismo
+  // patrón ya usado en OportunidadRapidaModal.
+  async function crearCliente(): Promise<{ id: string; nombre: string }> {
+    if (!comercial) {
+      throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
+    }
+    const { data: cliente, error: errorCliente } = await supabase
+      .from('cliente')
+      .insert({ nombre: nombre.trim(), estado_relacion: 'borrador', creado_por: comercial.id })
+      .select('id, nombre')
+      .single();
+    if (errorCliente || !cliente) {
+      throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente. Comprueba tu conexión.');
+    }
+    return cliente;
+  }
+
   async function encolarVisita(clienteId: string, clienteNombre: string) {
-    // Defensa explícita: sin pantalla de login construida todavía, `comercial`
-    // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
-    // de forma silenciosa — ahora se muestra como un error visible, mismo
-    // patrón ya usado en OportunidadRapidaModal.
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
@@ -80,26 +95,31 @@ export function AltaRapidaCliente() {
     return { visitaId, clienteNombre };
   }
 
+  // "Estoy delante del cliente": crea la ficha y entra directo en captura.
   async function crearYVisitar() {
-    if (!nombre.trim()) return;
-
+    if (!nombre.trim() || creacionCliente.cargando) return;
     await creacionCliente.ejecutar(async () => {
-      if (!comercial) {
-        throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
-      }
-
-      const { data: cliente, error: errorCliente } = await supabase
-        .from('cliente')
-        .insert({ nombre: nombre.trim(), estado_relacion: 'borrador', creado_por: comercial.id })
-        .select('id, nombre')
-        .single();
-
-      if (errorCliente || !cliente) {
-        throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente. Comprueba tu conexión.');
-      }
-
+      const cliente = await crearCliente();
       return encolarVisita(cliente.id, cliente.nombre);
     }, alIniciarVisita);
+  }
+
+  // "Lo visito otro día": crea la ficha y abre en ella el formulario de
+  // planificar (?planificar=1) — reutiliza toda la lógica que ya vive en
+  // FichaCliente, sin duplicarla aquí.
+  async function crearYPlanificar() {
+    if (!nombre.trim() || creacionCliente.cargando) return;
+    await creacionCliente.ejecutar(crearCliente, {
+      onExito: (cliente) => navigate(`/clientes/${cliente.id}?planificar=1`),
+    });
+  }
+
+  // "Aún no sé cuándo": solo crea la ficha.
+  async function crearSinVisita() {
+    if (!nombre.trim() || creacionCliente.cargando) return;
+    await creacionCliente.ejecutar(crearCliente, {
+      onExito: (cliente) => navigate(`/clientes/${cliente.id}`),
+    });
   }
 
   // Tocar un cliente ya existente: en vez de crear un duplicado, se arranca
@@ -169,17 +189,40 @@ export function AltaRapidaCliente() {
       )}
 
       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-        El resto de la ficha (sector, tamaño, ubicación) se completa después. Al guardar, se inicia la visita directamente.
+        El resto de la ficha (sector, tamaño, ubicación) se completa después.
       </p>
 
-      <button
-        className="btn btn-primary"
-        style={{ marginTop: 'auto' }}
-        disabled={!nombre.trim() || creacionCliente.cargando}
-        onClick={crearYVisitar}
-      >
-        {creacionCliente.cargando ? 'Creando…' : 'Guardar e iniciar visita →'}
-      </button>
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button
+          className="btn btn-primary"
+          disabled={!nombre.trim() || creacionCliente.cargando}
+          onClick={crearYVisitar}
+        >
+          {creacionCliente.cargando ? 'Creando…' : 'Guardar e iniciar visita ahora →'}
+        </button>
+        <button
+          className="btn btn-secondary"
+          disabled={!nombre.trim() || creacionCliente.cargando}
+          onClick={crearYPlanificar}
+        >
+          Guardar y planificar visita
+        </button>
+        <button
+          type="button"
+          disabled={!nombre.trim() || creacionCliente.cargando}
+          onClick={crearSinVisita}
+          style={{
+            border: 'none',
+            background: 'none',
+            color: 'var(--ink-400)',
+            fontSize: 'var(--text-sm)',
+            cursor: 'pointer',
+            padding: 4,
+          }}
+        >
+          Guardar sin visita
+        </button>
+      </div>
       <AvisoTardando visible={creacionCliente.tardando} />
     </div>
   );

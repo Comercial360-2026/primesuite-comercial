@@ -76,6 +76,7 @@ export function AgendaDelDia() {
   const { data: visitasProximas } = useQuery({
     queryKey: ['visitas-proximas', comercial?.id, fin],
     enabled: !!comercial,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
@@ -96,6 +97,7 @@ export function AgendaDelDia() {
   const { data: visitasAtrasadas } = useQuery({
     queryKey: ['visitas-atrasadas', comercial?.id, inicio],
     enabled: !!comercial,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')

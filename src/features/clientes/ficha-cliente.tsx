@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -7,6 +7,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
+import { crearVisitaConResponsable } from '@/lib/rpc';
 
 interface OportunidadActiva {
   id: string;
@@ -68,7 +69,11 @@ export function FichaCliente() {
   const borrandoCliente = useAccionAsync();
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [planificando, setPlanificando] = useState(false);
+  // ?planificar=1 → se llega aquí desde "Nuevo cliente" con la intención de
+  // planificar una visita: el formulario se abre solo.
+  const [searchParams] = useSearchParams();
+  const [planificando, setPlanificando] = useState(searchParams.get('planificar') === '1');
+  const planificarRef = useRef<HTMLDivElement>(null);
   const [fechaPlan, setFechaPlan] = useState('');
   const [comercialPlan, setComercialPlan] = useState('');
   const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
@@ -99,16 +104,21 @@ export function FichaCliente() {
         }
         if (!fechaPlan) throw new Error('Elige una fecha para la visita.');
         const responsableId = esDireccionComercial && comercialPlan ? comercialPlan : comercial.id;
-        const visitaId = crypto.randomUUID();
-        await encolar(visitaId, 'visita', {
-          clienteId: cliente.id,
-          comercialResponsableId: responsableId,
-          tipoVisita: null,
+        // Llamada directa, NO por la cola offline: planificar una visita para
+        // otro día se hace organizando, con conexión. Si fuera por la cola,
+        // la visita tardaría en llegar al servidor y no aparecería en "Hoy"
+        // hasta que algo volviera a pedir la lista — daba sensación de que
+        // no se guardaba.
+        const { error } = await crearVisitaConResponsable({
+          pVisitaId: crypto.randomUUID(),
+          pClienteId: cliente.id,
+          pComercialId: responsableId,
           // La hora concreta no importa: "Hoy" filtra por día. 09:00 local
           // para que caiga con seguridad dentro del día elegido.
-          fecha: new Date(`${fechaPlan}T09:00:00`).toISOString(),
-          agendada: true,
+          pFecha: new Date(`${fechaPlan}T09:00:00`).toISOString(),
+          pEstadoCaptura: 'agendada',
         });
+        if (error) throw new Error(error);
         return fechaPlan;
       },
       {
@@ -117,8 +127,15 @@ export function FichaCliente() {
           setPlanificando(false);
           setFechaPlan('');
           setComercialPlan('');
-          queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
-          queryClient.invalidateQueries({ queryKey: ['visitas-hoy'] });
+          for (const k of [
+            ['historial-visitas', clienteId],
+            ['visitas-hoy'],
+            ['visitas-proximas'],
+            ['visitas-atrasadas'],
+            ['num-grupos-duplicados'],
+          ]) {
+            queryClient.invalidateQueries({ queryKey: k });
+          }
         },
       }
     );
@@ -254,6 +271,14 @@ export function FichaCliente() {
   const visitaYaPlanificada = historialVisitas?.find(
     (v) => v.estado_captura === 'agendada' && new Date(v.fecha).getTime() >= new Date().setHours(0, 0, 0, 0)
   );
+
+  // Al llegar con ?planificar=1 el formulario ya está abierto, pero vive al
+  // final de la pantalla — se acerca a la vista para que se vea.
+  useEffect(() => {
+    if (planificando && searchParams.get('planificar') === '1') {
+      planificarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [planificando, searchParams]);
 
   async function pedirPrevisualizacion(visitaId: string) {
     setVisitaBorrarId(visitaId);
@@ -583,7 +608,7 @@ export function FichaCliente() {
       )}
 
       {planificando ? (
-        <div className="card">
+        <div className="card" ref={planificarRef}>
           {visitaYaPlanificada && (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 8 }}>
               Ya tienes una visita planificada con este cliente el{' '}
