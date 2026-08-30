@@ -1311,6 +1311,7 @@ export type Database = {
           creado_en: string
           estado_captura: string
           fecha: string
+          hora_definida: boolean
           id: string
           resumen: string | null
           resumen_origen: string | null
@@ -1323,6 +1324,7 @@ export type Database = {
           creado_en?: string
           estado_captura?: string
           fecha?: string
+          hora_definida?: boolean
           id?: string
           resumen?: string | null
           resumen_origen?: string | null
@@ -1335,6 +1337,7 @@ export type Database = {
           creado_en?: string
           estado_captura?: string
           fecha?: string
+          hora_definida?: boolean
           id?: string
           resumen?: string | null
           resumen_origen?: string | null

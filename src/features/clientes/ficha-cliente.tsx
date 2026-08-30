@@ -75,6 +75,7 @@ export function FichaCliente() {
   const [planificando, setPlanificando] = useState(searchParams.get('planificar') === '1');
   const planificarRef = useRef<HTMLDivElement>(null);
   const [fechaPlan, setFechaPlan] = useState('');
+  const [horaPlan, setHoraPlan] = useState('');
   const [comercialPlan, setComercialPlan] = useState('');
   const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
   const planificacion = useAccionAsync();
@@ -109,16 +110,25 @@ export function FichaCliente() {
         // la visita tardaría en llegar al servidor y no aparecería en "Hoy"
         // hasta que algo volviera a pedir la lista — daba sensación de que
         // no se guardaba.
+        const visitaId = crypto.randomUUID();
         const { error } = await crearVisitaConResponsable({
-          pVisitaId: crypto.randomUUID(),
+          pVisitaId: visitaId,
           pClienteId: cliente.id,
           pComercialId: responsableId,
-          // La hora concreta no importa: "Hoy" filtra por día. 09:00 local
-          // para que caiga con seguridad dentro del día elegido.
-          pFecha: new Date(`${fechaPlan}T09:00:00`).toISOString(),
+          // `fecha` siempre lleva hora (para ordenar). Si el comercial no
+          // metió una, se usa 09:00 de relleno y se marca hora_definida=false
+          // — la agenda la mostrará como "sin hora".
+          pFecha: new Date(`${fechaPlan}T${horaPlan || '09:00'}:00`).toISOString(),
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
+        if (!horaPlan) {
+          const { error: errHora } = await supabase
+            .from('visita')
+            .update({ hora_definida: false })
+            .eq('id', visitaId);
+          if (errHora) throw new Error(errHora.message);
+        }
         return fechaPlan;
       },
       {
@@ -126,6 +136,7 @@ export function FichaCliente() {
           setPlanificadaPara(fecha);
           setPlanificando(false);
           setFechaPlan('');
+          setHoraPlan('');
           setComercialPlan('');
           for (const k of [
             ['historial-visitas', clienteId],
@@ -624,6 +635,16 @@ export function FichaCliente() {
             value={fechaPlan}
             onChange={(e) => setFechaPlan(e.target.value)}
           />
+          <div className="label">hora (opcional)</div>
+          <input
+            type="time"
+            className="field"
+            value={horaPlan}
+            onChange={(e) => setHoraPlan(e.target.value)}
+          />
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            Si la dejas en blanco, la visita se planifica "sin hora fija".
+          </div>
           {esDireccionComercial && (
             <>
               <div className="label">para</div>

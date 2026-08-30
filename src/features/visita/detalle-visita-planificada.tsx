@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
+import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
 // verla, reprogramarla, cancelarla o empezarla. Es a donde llevan las
@@ -16,6 +17,7 @@ import { EstadoError } from '@/components/ui/estado-error';
 interface VisitaPlan {
   id: string;
   fecha: string;
+  hora_definida: boolean;
   tipo_visita: string | null;
   estado_captura: string;
   cliente_id: string;
@@ -26,6 +28,11 @@ function esMismoDia(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
   );
+}
+
+// YYYY-MM-DD en hora local (para prefijar un <input type="date">).
+function fechaLocalISO(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const CLAVES_LISTAS = [
@@ -42,6 +49,7 @@ export function DetalleVisitaPlanificada() {
 
   const [reprogramando, setReprogramando] = useState(false);
   const [fechaNueva, setFechaNueva] = useState('');
+  const [horaNueva, setHoraNueva] = useState('');
   const [confirmando, setConfirmando] = useState<null | 'cancelar' | 'empezar'>(null);
   const reprogramar = useAccionAsync();
   const cancelar = useAccionAsync();
@@ -54,7 +62,7 @@ export function DetalleVisitaPlanificada() {
     queryFn: async (): Promise<VisitaPlan> => {
       const { data: fila, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .eq('id', visitaId!)
         .single();
       if (error) throw error;
@@ -62,6 +70,7 @@ export function DetalleVisitaPlanificada() {
       return {
         id: fila.id,
         fecha: fila.fecha,
+        hora_definida: fila.hora_definida,
         tipo_visita: fila.tipo_visita,
         estado_captura: fila.estado_captura,
         cliente_id: cli?.id ?? '',
@@ -82,7 +91,10 @@ export function DetalleVisitaPlanificada() {
       async () => {
         const { error } = await supabase
           .from('visita')
-          .update({ fecha: new Date(`${fechaNueva}T09:00:00`).toISOString() })
+          .update({
+            fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
+            hora_definida: !!horaNueva,
+          })
           .eq('id', visitaId!)
           .eq('estado_captura', 'agendada');
         if (error) throw new Error(error.message);
@@ -91,6 +103,7 @@ export function DetalleVisitaPlanificada() {
         onExito: () => {
           setReprogramando(false);
           setFechaNueva('');
+          setHoraNueva('');
           invalidarListas();
           refetch();
         },
@@ -126,6 +139,11 @@ export function DetalleVisitaPlanificada() {
   const fechaVisita = data ? new Date(data.fecha) : null;
   const esHoy = fechaVisita ? esMismoDia(fechaVisita, new Date()) : false;
   const esPasada = fechaVisita ? fechaVisita.getTime() < new Date().setHours(0, 0, 0, 0) : false;
+  const franja = data ? franjaDe(data.fecha, data.hora_definida) : null;
+  const horaTexto =
+    data && data.hora_definida
+      ? fechaVisita!.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      : null;
 
   return (
     <div className="screen">
@@ -160,6 +178,9 @@ export function DetalleVisitaPlanificada() {
                 month: 'long',
                 year: 'numeric',
               })}
+            </div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+              {horaTexto ? `${horaTexto} (${etiquetaFranja(franja!)})` : 'sin hora fija'}
             </div>
             {esPasada && (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500, marginTop: 4 }}>
@@ -212,6 +233,13 @@ export function DetalleVisitaPlanificada() {
                 value={fechaNueva}
                 onChange={(e) => setFechaNueva(e.target.value)}
               />
+              <div className="label">hora (opcional)</div>
+              <input
+                type="time"
+                className="field"
+                value={horaNueva}
+                onChange={(e) => setHoraNueva(e.target.value)}
+              />
               {reprogramar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{reprogramar.error}</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button
@@ -238,6 +266,12 @@ export function DetalleVisitaPlanificada() {
               className="btn btn-secondary"
               onClick={() => {
                 setConfirmando(null);
+                // Prefijar con la fecha/hora actuales para que reprogramar sea
+                // un ajuste, no volver a empezar de cero.
+                setFechaNueva(fechaLocalISO(new Date(data.fecha)));
+                setHoraNueva(
+                  data.hora_definida ? new Date(data.fecha).toTimeString().slice(0, 5) : ''
+                );
                 setReprogramando(true);
               }}
             >
