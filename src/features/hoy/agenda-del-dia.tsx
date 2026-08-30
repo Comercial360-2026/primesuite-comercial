@@ -369,12 +369,16 @@ export function AgendaDelDia() {
       )}
 
       {atrasadasFiltradas && atrasadasFiltradas.length > 0 && (
-        <>
-          <div className="label" style={{ color: 'var(--warning-600)', marginTop: 0 }}>
-            atrasadas ({atrasadasFiltradas.length}) — planificadas para una fecha que ya pasó
+        <div
+          className="card"
+          style={{ cursor: 'pointer', borderColor: 'var(--warning-600)' }}
+          onClick={() => navigate('/agenda')}
+        >
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
+            {atrasadasFiltradas.length} visita{atrasadasFiltradas.length === 1 ? '' : 's'} atrasada
+            {atrasadasFiltradas.length === 1 ? '' : 's'} — revisar en Agenda →
           </div>
-          {atrasadasFiltradas.map((visita) => renderVisita(visita, true))}
-        </>
+        </div>
       )}
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}
@@ -401,14 +405,16 @@ export function AgendaDelDia() {
 
       {visitasFiltradas?.map((visita) => renderVisita(visita, false))}
 
-      {proximasFiltradas && proximasFiltradas.length > 0 && (
-        <>
-          <div className="label" style={{ marginTop: 12 }}>
-            próximas visitas ({proximasFiltradas.length})
-          </div>
-          {proximasFiltradas.map((visita) => renderVisita(visita, true))}
-        </>
-      )}
+      <div
+        className="card"
+        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
+        onClick={() => navigate('/agenda')}
+      >
+        <span style={{ fontSize: 'var(--text-sm)' }}>
+          Ver agenda{proximasFiltradas ? ` · ${proximasFiltradas.length} planificada${proximasFiltradas.length === 1 ? '' : 's'}` : ''}
+        </span>
+        <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
+      </div>
 
       <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
         + Visita no agendada

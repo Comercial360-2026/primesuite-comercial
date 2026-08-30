@@ -11,6 +11,7 @@ import { Login } from '@/features/auth/login';
 // después el resto — coherente con el plan de implementación cerrado.
 
 import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
+import { Agenda } from '@/features/hoy/agenda';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
 import { DetalleVisitaCerrada } from '@/features/visita/detalle-visita-cerrada';
@@ -47,6 +48,7 @@ export function AppRoutes() {
         >
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
+          <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
           <Route path="/clientes/:clienteId/ubicaciones" element={<GestionUbicacionesCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />
