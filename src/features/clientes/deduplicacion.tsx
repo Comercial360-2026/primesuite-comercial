@@ -188,7 +188,7 @@ export function Deduplicacion() {
                     alignItems: 'flex-start',
                     gap: 10,
                     padding: '8px 0',
-                    borderTop: '1px solid var(--linea, #e5e5e5)',
+                    borderTop: '1px solid var(--ink-100)',
                     cursor: bloqueado ? 'default' : 'pointer',
                     opacity: bloqueado ? 0.6 : 1,
                   }}

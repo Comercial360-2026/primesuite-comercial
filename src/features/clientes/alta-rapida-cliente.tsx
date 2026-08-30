@@ -7,7 +7,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
-import { normalizarNombre } from '@/lib/nombres-cliente';
+import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -41,18 +41,23 @@ export function AltaRapidaCliente() {
   });
 
   const nombreNorm = normalizarNombre(nombre);
+  const nombreClave = claveDuplicado(nombre);
   const coincidencias = useMemo(() => {
     if (nombreNorm.length < 3 || !clientesExistentes) return [];
     return clientesExistentes
-      .map((c) => ({ ...c, norm: normalizarNombre(c.nombre) }))
-      .filter((c) => c.norm.includes(nombreNorm))
+      .map((c) => ({ ...c, norm: normalizarNombre(c.nombre), clave: claveDuplicado(c.nombre) }))
+      // El nombre existente contiene lo tecleado (escribiendo aún), o ambos
+      // comparten la misma clave sin coletilla jurídica — este segundo caso
+      // es el que se escapaba: "BIMBO S.L." teniendo ya "Bimbo" no avisaba,
+      // que es justo lo que luego hay que arreglar en Deduplicación.
+      .filter((c) => c.norm.includes(nombreNorm) || (!!nombreClave && c.clave === nombreClave))
       .sort((a, b) => {
-        const rango = (x: { norm: string }) =>
-          x.norm === nombreNorm ? 0 : x.norm.startsWith(nombreNorm) ? 1 : 2;
+        const rango = (x: { norm: string; clave: string }) =>
+          x.norm === nombreNorm ? 0 : x.clave === nombreClave ? 1 : x.norm.startsWith(nombreNorm) ? 2 : 3;
         return rango(a) - rango(b) || a.nombre.localeCompare(b.nombre, 'es');
       })
       .slice(0, 4);
-  }, [nombreNorm, clientesExistentes]);
+  }, [nombreNorm, nombreClave, clientesExistentes]);
 
   const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
 

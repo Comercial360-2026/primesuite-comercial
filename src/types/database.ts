@@ -1711,10 +1711,10 @@ export type Database = {
         Args: {
           p_cliente_id: string
           p_comercial_id: string
+          p_estado_captura?: string
+          p_fecha?: string
           p_tipo_visita?: string
           p_visita_id: string
-          p_fecha?: string
-          p_estado_captura?: string
         }
         Returns: {
           actualizado_en: string
@@ -1722,6 +1722,8 @@ export type Database = {
           creado_en: string
           estado_captura: string
           fecha: string
+          franja: string | null
+          hora_definida: boolean
           id: string
           resumen: string | null
           resumen_origen: string | null

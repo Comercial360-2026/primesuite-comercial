@@ -6,3 +6,6 @@ dist/
 .vite/
 supabase/.temp/
 tsconfig.tsbuildinfo
+
+# graphify knowledge graph (regenerated locally)
+graphify-out/
