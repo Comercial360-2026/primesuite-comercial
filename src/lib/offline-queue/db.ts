@@ -34,15 +34,51 @@ function getDb() {
         store.createIndex('by-entidad', 'entidad');
         store.createIndex('by-creado-en', 'creadoEn');
       },
+      terminated() {
+        // Safari en iPhone (y otros navegadores bajo presión de memoria, o
+        // al pasar la app a segundo plano) cierran la conexión IndexedDB
+        // por su cuenta. La promesa cacheada seguía resolviendo a ese
+        // handle muerto y toda operación posterior fallaba con "Failed to
+        // execute 'transaction' on 'IDBDatabase': The database connection
+        // is closing." — encolar al pulsar "Iniciar visita", guardar una
+        // captura, etc. Al invalidar la promesa aquí, la siguiente llamada
+        // reabre la conexión.
+        dbPromise = null;
+      },
     });
   }
   return dbPromise;
 }
 
-export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
-  const db = await getDb();
+// Devuelve true si el error es el navegador cerrando la conexión IndexedDB
+// por su cuenta. `terminated` (arriba) cubre el caso en que el cierre ya ha
+// terminado, pero si la operación se lanza justo mientras la conexión se
+// está cerrando, se recibe este DOMException antes de que `terminated`
+// llegue a dispararse — hay que detectarlo también aquí.
+function esConexionCerrada(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === 'InvalidStateError' || err.name === 'AbortError') &&
+    /clos(ing|ed)/i.test(err.message)
+  );
+}
+
+// Toda operación contra IndexedDB pasa por aquí: si falla porque la conexión
+// se cerró, se descarta el handle muerto, se reabre y se reintenta UNA vez.
+// Si el segundo intento también falla, se propaga el error.
+async function conDb<T>(fn: (db: IDBPDatabase<ColaOfflineDB>) => Promise<T>): Promise<T> {
   try {
-    await db.put('operaciones', operacion);
+    return await fn(await getDb());
+  } catch (err) {
+    if (!esConexionCerrada(err)) throw err;
+    dbPromise = null;
+    return fn(await getDb());
+  }
+}
+
+export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
+  try {
+    await conDb((db) => db.put('operaciones', operacion));
   } catch (err) {
     // QuotaExceededError no se propagaba con ningún mensaje útil — llegaba
     // tal cual del navegador ("The quota has been exceeded.", en inglés,
@@ -62,21 +98,21 @@ export async function actualizarOperacion(
   id: string,
   cambios: Partial<Pick<OperacionPendiente, 'estado' | 'intentos' | 'ultimoError' | 'payload'>>
 ): Promise<void> {
-  const db = await getDb();
-  const existente = await db.get('operaciones', id);
-  if (!existente) return;
-  // `OperacionPendiente` es una unión discriminada por `entidad` — el spread
-  // de `existente` (un miembro concreto ya conocido) con `cambios` (tipado
-  // de forma genérica contra la unión completa) hace que TypeScript no
-  // pueda verificar que el resultado sigue perteneciendo a un único
-  // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
-  // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
-  await db.put('operaciones', { ...existente, ...cambios } as unknown as OperacionPendiente);
+  await conDb(async (db) => {
+    const existente = await db.get('operaciones', id);
+    if (!existente) return;
+    // `OperacionPendiente` es una unión discriminada por `entidad` — el spread
+    // de `existente` (un miembro concreto ya conocido) con `cambios` (tipado
+    // de forma genérica contra la unión completa) hace que TypeScript no
+    // pueda verificar que el resultado sigue perteneciendo a un único
+    // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
+    // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
+    await db.put('operaciones', { ...existente, ...cambios } as unknown as OperacionPendiente);
+  });
 }
 
 export async function obtenerOperacion(id: string): Promise<OperacionPendiente | undefined> {
-  const db = await getDb();
-  return db.get('operaciones', id);
+  return conDb((db) => db.get('operaciones', id));
 }
 
 // Cola ordenada por antigüedad — es lo que garantiza que una `visita` se
@@ -84,8 +120,7 @@ export async function obtenerOperacion(id: string): Promise<OperacionPendiente |
 // se hayan encolado en el orden en que ocurrieron (que es el caso natural:
 // no se puede capturar nada sin haber iniciado la visita primero).
 export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
-  const db = await getDb();
-  const todas = await db.getAllFromIndex('operaciones', 'by-creado-en');
+  const todas = await conDb((db) => db.getAllFromIndex('operaciones', 'by-creado-en'));
   return todas.filter((op) => op.estado === 'pendiente' || op.estado === 'error');
 }
 
@@ -95,29 +130,24 @@ export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
 // mirase la cola local con las herramientas de desarrollador; nunca llegaba
 // a ninguna pantalla que el comercial fuera a ver por su cuenta.
 export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]> {
-  const db = await getDb();
-  const todas = await db.getAllFromIndex('operaciones', 'by-estado', 'error');
-  return todas;
+  return conDb((db) => db.getAllFromIndex('operaciones', 'by-estado', 'error'));
 }
 
 export async function contarPendientesPorEntidad(
   entidad: EntidadSincronizable
 ): Promise<number> {
-  const db = await getDb();
-  const todas = await db.getAllFromIndex('operaciones', 'by-entidad', entidad);
+  const todas = await conDb((db) => db.getAllFromIndex('operaciones', 'by-entidad', entidad));
   return todas.filter((op) => op.estado !== 'completado').length;
 }
 
 export async function eliminarOperacion(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete('operaciones', id);
+  await conDb((db) => db.delete('operaciones', id));
 }
 
 // Usado por la UI (badges de estado_subida en Cierre de visita, etc.) para
 // leer en tiempo real qué hay todavía sin subir de una visita concreta.
 export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendiente[]> {
-  const db = await getDb();
-  const todas = await db.getAll('operaciones');
+  const todas = await conDb((db) => db.getAll('operaciones'));
   return todas.filter((op) => {
     if (op.entidad === 'visita') return op.id === visitaId;
     if (op.entidad === 'oportunidad') {
@@ -136,11 +166,8 @@ export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendi
 export async function obtenerUbicacionesPorCliente(
   clienteId: string
 ): Promise<OperacionPendiente<'ubicacion'>[]> {
-  const db = await getDb();
-  const todas = (await db.getAllFromIndex(
-    'operaciones',
-    'by-entidad',
-    'ubicacion'
+  const todas = (await conDb((db) =>
+    db.getAllFromIndex('operaciones', 'by-entidad', 'ubicacion')
   )) as OperacionPendiente<'ubicacion'>[];
   return todas.filter((op) => op.payload.clienteId === clienteId);
 }
