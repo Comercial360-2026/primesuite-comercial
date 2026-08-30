@@ -69,12 +69,36 @@ export function AgendaDelDia() {
     },
   });
 
+  // Visitas planificadas para días futuros. Sin esto, planificar una visita
+  // para la semana que viene era un agujero: no se veía en ninguna parte
+  // hasta que llegaba el día. Solo 'agendada' (las que ya se empezaron o
+  // cerraron no son "próximas") y solo hacia delante.
+  const { data: visitasProximas } = useQuery({
+    queryKey: ['visitas-proximas', comercial?.id, fin],
+    enabled: !!comercial,
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .gt('fecha', fin)
+        .eq('estado_captura', 'agendada')
+        .order('fecha', { ascending: true })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as VisitaAgenda[];
+    },
+  });
+
   // Igual que en Clientes: "Hoy" mostraba las visitas de TODO el equipo sin
   // distinguir de quién eran — encontrado probando multiparticipante, no
   // era intencionado dejarlo así solo aquí y arreglarlo solo en Clientes.
   // El responsable vive en visita_participante (rol 'responsable'), no en
   // la propia tabla `visita` — ver crear-visita-con-responsable.ts.
-  const idsVisitas = visitas?.map((v) => v.id) ?? [];
+  // Se piden participantes para las de hoy Y las próximas de una vez.
+  const idsVisitas = [
+    ...(visitas?.map((v) => v.id) ?? []),
+    ...(visitasProximas?.map((v) => v.id) ?? []),
+  ];
   const { data: responsables } = useQuery({
     queryKey: ['responsables-visitas-hoy', idsVisitas.join(',')],
     enabled: idsVisitas.length > 0,
@@ -122,9 +146,94 @@ export function AgendaDelDia() {
     },
   });
 
-  const visitasFiltradas = visitas?.filter(
-    (v) => !soloMias || (comercial && participantesPorVisita?.[v.id]?.includes(comercial.id))
-  );
+  const esMia = (id: string) =>
+    !soloMias || (!!comercial && !!participantesPorVisita?.[id]?.includes(comercial.id));
+
+  const visitasFiltradas = visitas?.filter((v) => esMia(v.id));
+  const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
+
+  function renderVisita(visita: VisitaAgenda, mostrarDia: boolean) {
+    if (visitaBorrarId === visita.id) {
+      return (
+        <div key={visita.id} className="card">
+          {previsualizando.cargando || !previsualizacion ? (
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
+                {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
+                {previsualizacion.num_oportunidades} oportunidad(es) y {previsualizacion.num_proximos_pasos} próximo(s)
+                paso(s). Todo eso se borrará también. No se puede deshacer.
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrando.cargando}>
+                  Cancelar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: 'var(--risk-600)' }}
+                  onClick={confirmarBorrado}
+                  disabled={borrando.cargando}
+                >
+                  {borrando.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
+                </button>
+              </div>
+              {borrando.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrando.error}</div>}
+            </>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            {mostrarDia
+              ? new Date(visita.fecha).toLocaleString('es-ES', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : new Date(visita.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
+            {visita.cliente?.nombre ?? 'Cliente'}
+          </div>
+          {visita.tipo_visita && <span className="chip" style={{ marginTop: 6 }}>{visita.tipo_visita}</span>}
+          {visita.estado_captura === 'en_curso' && (
+            <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
+              en curso
+            </span>
+          )}
+          {visita.estado_captura === 'agendada' && (
+            <span className="chip" style={{ marginLeft: 6, marginTop: 6 }}>
+              planificada
+            </span>
+          )}
+          {responsables?.[visita.id] && responsables[visita.id] !== comercial?.id && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              de {nombresComerciales?.[responsables[visita.id]] ?? '…'}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+          {visita.estado_captura !== 'agendada' && (
+            <BotonDescargarInforme estado={estadoDe(visita.id)} onDescargar={() => descargar(visita.id)} compacto />
+          )}
+          <button
+            type="button"
+            onClick={() => void pedirBorrado(visita.id)}
+            style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4 }}
+          >
+            {visita.estado_captura === 'agendada' ? 'Cancelar' : 'Borrar'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // isPaused: TanStack Query pausa la consulta en vez de marcarla como
   // error cuando decide que la red no es fiable (networkMode 'online' por
@@ -244,74 +353,15 @@ export function AgendaDelDia() {
         </p>
       )}
 
-      {visitasFiltradas?.map((visita) =>
-        visitaBorrarId === visita.id ? (
-          <div key={visita.id} className="card">
-            {previsualizando.cargando || !previsualizacion ? (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-            ) : (
-              <>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                  Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
-                  {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
-                  {previsualizacion.num_oportunidades} oportunidad(es) y {previsualizacion.num_proximos_pasos} próximo(s)
-                  paso(s). Todo eso se borrará también. No se puede deshacer.
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrando.cargando}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    style={{ background: 'var(--risk-600)' }}
-                    onClick={confirmarBorrado}
-                    disabled={borrando.cargando}
-                  >
-                    {borrando.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
-                  </button>
-                </div>
-                {borrando.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrando.error}</div>}
-              </>
-            )}
+      {visitasFiltradas?.map((visita) => renderVisita(visita, false))}
+
+      {proximasFiltradas && proximasFiltradas.length > 0 && (
+        <>
+          <div className="label" style={{ marginTop: 12 }}>
+            próximas visitas ({proximasFiltradas.length})
           </div>
-        ) : (
-          <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                {new Date(visita.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
-                {visita.cliente?.nombre ?? 'Cliente'}
-              </div>
-              {visita.tipo_visita && <span className="chip" style={{ marginTop: 6 }}>{visita.tipo_visita}</span>}
-              {visita.estado_captura === 'en_curso' && (
-                <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
-                  en curso
-                </span>
-              )}
-              {visita.estado_captura === 'agendada' && (
-                <span className="chip" style={{ marginLeft: 6, marginTop: 6 }}>
-                  planificada
-                </span>
-              )}
-              {responsables?.[visita.id] && responsables[visita.id] !== comercial?.id && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-                  de {nombresComerciales?.[responsables[visita.id]] ?? '…'}
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-              <BotonDescargarInforme estado={estadoDe(visita.id)} onDescargar={() => descargar(visita.id)} compacto />
-              <button
-                type="button"
-                onClick={() => void pedirBorrado(visita.id)}
-                style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4 }}
-              >
-                Borrar
-              </button>
-            </div>
-          </div>
-        )
+          {proximasFiltradas.map((visita) => renderVisita(visita, true))}
+        </>
       )}
 
       <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
