@@ -8,6 +8,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
+import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -24,6 +25,13 @@ export function AltaRapidaCliente() {
 
   const [nombre, setNombre] = useState('');
   const creacionCliente = useAccionAsync();
+
+  // Ventana "¿A qué vas?" antes de arrancar la visita — obligatoria. Guarda
+  // qué visita se va a arrancar: sobre el cliente nuevo que se está creando,
+  // o sobre uno existente que ha salido como coincidencia.
+  const [objetivoModal, setObjetivoModal] = useState<
+    null | { modo: 'nuevo' } | { modo: 'existente'; clienteId: string; clienteNombre: string }
+  >(null);
 
   // Nombres de los clientes activos. La visibilidad de `cliente` no está
   // restringida por comercial (no hay "cartera" en el modelo, confirmado el
@@ -64,13 +72,6 @@ export function AltaRapidaCliente() {
 
   const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
 
-  const alIniciarVisita = {
-    onExito: ({ visitaId, clienteNombre }: { visitaId: string; clienteNombre: string }) => {
-      iniciarVisita({ id: visitaId, clienteNombre });
-      navigate(`/visita/${visitaId}`);
-    },
-  };
-
   // Defensa explícita: sin pantalla de login construida todavía, `comercial`
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
   // de forma silenciosa — ahora se muestra como un error visible, mismo
@@ -105,7 +106,12 @@ export function AltaRapidaCliente() {
     return { id: clienteId, nombre: nombreLimpio, enCola: true };
   }
 
-  async function encolarVisita(clienteId: string, clienteNombre: string, dependeDe?: string) {
+  async function encolarVisita(
+    clienteId: string,
+    clienteNombre: string,
+    objetivo: string,
+    dependeDe?: string
+  ) {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
@@ -113,20 +119,36 @@ export function AltaRapidaCliente() {
     await encolar(
       visitaId,
       'visita',
-      { clienteId, comercialResponsableId: comercial.id, tipoVisita: null },
+      { clienteId, comercialResponsableId: comercial.id, tipoVisita: null, objetivo },
       dependeDe ? { dependeDe } : undefined
     );
     return { visitaId, clienteNombre };
   }
 
-  // "Estoy delante del cliente": crea la ficha y entra directo en captura.
-  // Si el cliente se encoló (sin red), la visita depende de él.
-  async function crearYVisitar() {
-    if (!nombre.trim() || creacionCliente.cargando) return;
-    await creacionCliente.ejecutar(async () => {
+  // "Estoy delante del cliente": la ventana "¿A qué vas?" recoge el objetivo
+  // (obligatorio) y, al confirmar, se crea la ficha y se entra directo en
+  // captura. Si el cliente se encoló (sin red), la visita depende de él.
+  async function arrancarConObjetivo(objetivo: string) {
+    if (!objetivoModal || !comercial) return;
+    let visitaId: string;
+    let clienteNombre: string;
+    if (objetivoModal.modo === 'nuevo') {
       const cliente = await crearCliente();
-      return encolarVisita(cliente.id, cliente.nombre, cliente.enCola ? cliente.id : undefined);
-    }, alIniciarVisita);
+      const r = await encolarVisita(
+        cliente.id,
+        cliente.nombre,
+        objetivo,
+        cliente.enCola ? cliente.id : undefined
+      );
+      visitaId = r.visitaId;
+      clienteNombre = r.clienteNombre;
+    } else {
+      const r = await encolarVisita(objetivoModal.clienteId, objetivoModal.clienteNombre, objetivo);
+      visitaId = r.visitaId;
+      clienteNombre = r.clienteNombre;
+    }
+    iniciarVisita({ id: visitaId, clienteNombre });
+    navigate(`/visita/${visitaId}`);
   }
 
   // "Lo visito otro día": crea la ficha y abre en ella el formulario de
@@ -161,11 +183,11 @@ export function AltaRapidaCliente() {
   }
 
   // Tocar un cliente ya existente: en vez de crear un duplicado, se arranca
-  // la visita directamente sobre ese cliente. Es lo que se quería casi
-  // siempre al llegar aquí con un nombre que ya está.
-  async function visitarExistente(clienteId: string, clienteNombre: string) {
+  // la visita directamente sobre ese cliente. Abre la ventana "¿A qué vas?"
+  // (el arranque real lo hace arrancarConObjetivo al confirmar).
+  function visitarExistente(clienteId: string, clienteNombre: string) {
     if (creacionCliente.cargando) return;
-    await creacionCliente.ejecutar(() => encolarVisita(clienteId, clienteNombre), alIniciarVisita);
+    setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
   }
 
   return (
@@ -234,9 +256,9 @@ export function AltaRapidaCliente() {
         <button
           className="btn btn-primary"
           disabled={!nombre.trim() || creacionCliente.cargando}
-          onClick={crearYVisitar}
+          onClick={() => setObjetivoModal({ modo: 'nuevo' })}
         >
-          {creacionCliente.cargando ? 'Creando…' : 'Guardar e iniciar visita ahora →'}
+          Guardar e iniciar visita ahora →
         </button>
         <button
           className="btn btn-secondary"
@@ -262,6 +284,16 @@ export function AltaRapidaCliente() {
         </button>
       </div>
       <AvisoTardando visible={creacionCliente.tardando} />
+
+      {objetivoModal && (
+        <ObjetivoVisitaModal
+          clienteNombre={
+            objetivoModal.modo === 'existente' ? objetivoModal.clienteNombre : nombre.trim() || undefined
+          }
+          onConfirmar={arrancarConObjetivo}
+          onCerrar={() => setObjetivoModal(null)}
+        />
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 
 interface OportunidadActiva {
   id: string;
@@ -55,8 +56,11 @@ export function FichaCliente() {
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
-  const iniciandoVisita = useAccionAsync();
   const queryClient = useQueryClient();
+
+  // Ventana "¿A qué vas?" antes de arrancar una visita sobre la marcha — el
+  // objetivo es obligatorio también aquí, igual que al planificar.
+  const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
 
   const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
@@ -256,27 +260,23 @@ export function FichaCliente() {
     },
   });
 
-  async function iniciarVisitaAdHoc() {
-    await iniciandoVisita.ejecutar(
-      async () => {
-        if (!cliente || !comercial) {
-          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-        }
-        const visitaId = crypto.randomUUID();
-        await encolar(visitaId, 'visita', {
-          clienteId: cliente.id,
-          comercialResponsableId: comercial.id,
-          tipoVisita: null,
-        });
-        return { visitaId, clienteNombre: cliente.nombre };
-      },
-      {
-        onExito: ({ visitaId, clienteNombre }) => {
-          iniciarVisita({ id: visitaId, clienteNombre });
-          navigate(`/visita/${visitaId}`);
-        },
-      }
-    );
+  // La lanza la ventana "¿A qué vas?" (ObjetivoVisitaModal) — de ahí llega
+  // el `objetivo`, ya validado como no vacío. Lanza en caso de fallo para
+  // que la propia ventana muestre el error; si va bien, navega y la ventana
+  // se desmonta con la pantalla.
+  async function iniciarVisitaAdHoc(objetivo: string) {
+    if (!cliente || !comercial) {
+      throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
+    }
+    const visitaId = crypto.randomUUID();
+    await encolar(visitaId, 'visita', {
+      clienteId: cliente.id,
+      comercialResponsableId: comercial.id,
+      tipoVisita: null,
+      objetivo,
+    });
+    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+    navigate(`/visita/${visitaId}`);
   }
 
   const { data: historialVisitas } = useQuery({
@@ -735,7 +735,6 @@ export function FichaCliente() {
       ) : (
         <button
           className="btn btn-secondary"
-          disabled={iniciandoVisita.cargando}
           onClick={() => {
             setPlanificadaPara(null);
             setPlanificando(true);
@@ -745,10 +744,17 @@ export function FichaCliente() {
         </button>
       )}
 
-      <button className="btn btn-primary" disabled={iniciandoVisita.cargando} onClick={iniciarVisitaAdHoc}>
-        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita ahora →'}
+      <button className="btn btn-primary" onClick={() => setObjetivoAdHocAbierto(true)}>
+        Iniciar visita ahora →
       </button>
-      {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
+
+      {objetivoAdHocAbierto && (
+        <ObjetivoVisitaModal
+          clienteNombre={cliente?.nombre}
+          onConfirmar={iniciarVisitaAdHoc}
+          onCerrar={() => setObjetivoAdHocAbierto(false)}
+        />
+      )}
     </div>
   );
 }

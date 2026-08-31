@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -7,6 +8,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -37,6 +39,9 @@ export function RepasoCliente() {
   const iniciandoVisita = useAccionAsync();
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
+
+  // Ventana "¿A qué vas?" para la visita sin planificar (obligatoria).
+  const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
 
   // Si venimos de una visita ya planificada, traemos su objetivo para
   // recordar "a qué vengo" antes de entrar.
@@ -202,35 +207,24 @@ export function RepasoCliente() {
     refetchProximoPaso();
   }
 
-  async function iniciarLaVisita() {
+  // Visita YA planificada: al empezarla de verdad pasa de 'agendada' a
+  // 'en_curso'. El objetivo ya se fijó al planificarla, así que no se
+  // vuelve a preguntar. El filtro es por estado para no re-lanzar visitas
+  // que ya se estaban capturando o ya se cerraron. Requiere red — una
+  // visita agendada solo existe en el servidor, nunca en la cola local.
+  async function iniciarVisitaPlanificada() {
     await iniciandoVisita.ejecutar(
       async () => {
-        if (!cliente || !comercial) {
+        if (!cliente || !comercial || !visitaIdAgendada) {
           throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
         }
-        let visitaId = visitaIdAgendada;
-        if (!visitaId) {
-          // Visita no agendada: se genera el id en cliente y se encola —
-          // funciona igual con o sin red (ver lib/offline-queue).
-          visitaId = crypto.randomUUID();
-          await encolar(visitaId, 'visita', {
-            clienteId: cliente.id,
-            comercialResponsableId: comercial.id,
-            tipoVisita: null,
-          });
-        } else {
-          // Visita ya planificada: al empezarla de verdad pasa de 'agendada'
-          // a 'en_curso'. El filtro es por estado para no re-lanzar visitas
-          // que ya se estaban capturando o ya se cerraron. Requiere red — una
-          // visita agendada solo existe en el servidor, nunca en la cola local.
-          const { error: errEstado } = await supabase
-            .from('visita')
-            .update({ estado_captura: 'en_curso' })
-            .eq('id', visitaId)
-            .eq('estado_captura', 'agendada');
-          if (errEstado) throw new Error(errEstado.message);
-        }
-        return { visitaId, clienteNombre: cliente.nombre };
+        const { error: errEstado } = await supabase
+          .from('visita')
+          .update({ estado_captura: 'en_curso' })
+          .eq('id', visitaIdAgendada)
+          .eq('estado_captura', 'agendada');
+        if (errEstado) throw new Error(errEstado.message);
+        return { visitaId: visitaIdAgendada, clienteNombre: cliente.nombre };
       },
       {
         onExito: ({ visitaId, clienteNombre }) => {
@@ -239,6 +233,24 @@ export function RepasoCliente() {
         },
       }
     );
+  }
+
+  // Visita SIN planificar: la lanza la ventana "¿A qué vas?" con el objetivo
+  // ya escrito. Se encola (funciona con o sin red, ver lib/offline-queue).
+  // Lanza en caso de fallo para que la ventana muestre el error.
+  async function iniciarVisitaConObjetivo(objetivo: string) {
+    if (!cliente || !comercial) {
+      throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
+    }
+    const visitaId = crypto.randomUUID();
+    await encolar(visitaId, 'visita', {
+      clienteId: cliente.id,
+      comercialResponsableId: comercial.id,
+      tipoVisita: null,
+      objetivo,
+    });
+    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+    navigate(`/visita/${visitaId}`);
   }
 
   return (
@@ -334,11 +346,24 @@ export function RepasoCliente() {
         </div>
       )}
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={iniciarLaVisita} disabled={iniciandoVisita.cargando}>
+      <button
+        className="btn btn-primary"
+        style={{ marginTop: 'auto' }}
+        onClick={visitaIdAgendada ? iniciarVisitaPlanificada : () => setObjetivoModalAbierto(true)}
+        disabled={iniciandoVisita.cargando}
+      >
         {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
       <AvisoTardando visible={iniciandoVisita.tardando} />
+
+      {objetivoModalAbierto && (
+        <ObjetivoVisitaModal
+          clienteNombre={cliente?.nombre}
+          onConfirmar={iniciarVisitaConObjetivo}
+          onCerrar={() => setObjetivoModalAbierto(false)}
+        />
+      )}
     </div>
   );
 }

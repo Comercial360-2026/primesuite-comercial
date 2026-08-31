@@ -35,6 +35,11 @@ export interface VisitaPayload {
   clienteId: string;
   comercialResponsableId: string;
   tipoVisita: 'comercial' | 'demo' | 'tecnica' | 'seguimiento' | 'relacion' | null;
+  // Objetivo de la visita, en palabras del comercial. Obligatorio en la UI
+  // al arrancar (ventana "¿A qué vas?" o formulario de planificar), pero
+  // opcional en el tipo porque la RPC no lo conoce: se aplica con un UPDATE
+  // posterior en sincronizarVisita, mismo patrón que `franja`.
+  objetivo?: string;
   // Solo para visitas planificadas a fecha futura (ver migración 69). Sin
   // estos, la visita nace 'en_curso' con fecha = now(), como siempre.
   fecha?: string; // ISO

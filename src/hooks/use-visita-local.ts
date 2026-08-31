@@ -5,6 +5,11 @@ import { supabase } from '@/lib/supabase-client';
 
 interface VisitaLocalMinima {
   clienteId: string;
+  // Objetivo tal como se guardó en la cola al arrancar la visita. Solo
+  // disponible mientras la visita sigue local (aún no sincronizada); en
+  // cuanto está en el servidor se lee de ahí. Se usa en Visita Activa para
+  // mostrar el objetivo en esos primeros segundos.
+  objetivo?: string;
 }
 
 // BUG CORREGIDO (reportado en validación funcional real): la visita puede
@@ -29,7 +34,7 @@ export function useVisitaLocal(visitaId: string | undefined) {
       const op = await obtenerOperacion(visitaId!);
       if (op?.entidad === 'visita') {
         const payload = op.payload as VisitaPayload;
-        if (!cancelado) setDatos({ clienteId: payload.clienteId });
+        if (!cancelado) setDatos({ clienteId: payload.clienteId, objetivo: payload.objetivo });
         return;
       }
 

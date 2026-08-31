@@ -115,7 +115,7 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, comercialResponsableId, tipoVisita, fecha, agendada } = operacion.payload;
+  const { clienteId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
   const { error } = await crearVisitaConResponsable({
     pVisitaId: operacion.id,
     pClienteId: clienteId,
@@ -125,6 +125,16 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
     pEstadoCaptura: agendada ? 'agendada' : null,
   });
   if (error) throw new Error(error);
+  // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front
+  // al planificar desde la ficha. Si falla, se lanza para reintentar toda
+  // la operación (la visita ya existe; el UPDATE es idempotente).
+  if (objetivo?.trim()) {
+    const { error: errObjetivo } = await supabase
+      .from('visita')
+      .update({ objetivo: objetivo.trim() })
+      .eq('id', operacion.id);
+    if (errObjetivo) throw new Error(errObjetivo.message);
+  }
 }
 
 // Hallazgo, Oportunidad y Próximo paso son INSERT directos — no tienen el

@@ -193,16 +193,19 @@ export function VisitaActiva() {
     },
   });
 
-  // Objetivo de la visita: se fija al planificar (ver ficha-cliente /
-  // paso-rapido-modal) y aquí el comercial puede matizarlo si al llegar la
-  // realidad no coincide con lo previsto. maybeSingle: una visita ad-hoc
-  // iniciada sin conexión todavía no tiene fila en el servidor — en ese
-  // caso `visitaServidor` es null y no se muestra el editor (el objetivo
-  // de una visita improvisada no estaba planificado de antemano).
+  // Objetivo de la visita: se fija SIEMPRE al arrancarla (formulario de
+  // planificar, o ventana "¿A qué vas?" para la visita sobre la marcha) y
+  // aquí el comercial puede matizarlo si la realidad no coincide con lo
+  // previsto. maybeSingle: una visita recién arrancada sin conexión todavía
+  // no tiene fila en el servidor — en esos primeros segundos el objetivo se
+  // lee de la cola local (visitaLocal.objetivo) y el campo es de solo
+  // lectura hasta que sincroniza. refetchInterval sondea hasta que la fila
+  // aparece y entonces se para.
   const objetivoQueryKey = ['visita-objetivo', visitaId];
   const { data: visitaServidor } = useQuery({
     queryKey: objetivoQueryKey,
     enabled: !!visitaId,
+    refetchInterval: (query) => (query.state.data == null ? 4000 : false),
     queryFn: async (): Promise<{ objetivo: string | null } | null> => {
       const { data, error } = await supabase
         .from('visita')
@@ -213,13 +216,17 @@ export function VisitaActiva() {
       return data;
     },
   });
+  // Objetivo efectivo: el del servidor si ya está, si no el que viajó en la
+  // cola al arrancar. Solo es editable cuando existe en el servidor.
+  const objetivoActual = visitaServidor?.objetivo ?? visitaLocal?.objetivo ?? null;
+  const objetivoEditable = !!visitaServidor;
   const [objetivoBorrador, setObjetivoBorrador] = useState<string | null>(null);
   const guardadoObjetivo = useAccionAsync();
   useEffect(() => {
-    if (visitaServidor && objetivoBorrador === null) {
-      setObjetivoBorrador(visitaServidor.objetivo ?? '');
+    if (objetivoActual != null && objetivoBorrador === null) {
+      setObjetivoBorrador(objetivoActual);
     }
-  }, [visitaServidor, objetivoBorrador]);
+  }, [objetivoActual, objetivoBorrador]);
 
   if (!visitaId || !comercial) return null;
 
@@ -398,9 +405,11 @@ export function VisitaActiva() {
     await guardadoObjetivo.ejecutar(
       async () => {
         const nuevo = (objetivoBorrador ?? '').trim();
+        // El objetivo es obligatorio: no se permite dejarlo en blanco.
+        if (!nuevo) throw new Error('El objetivo de la visita no puede quedar vacío.');
         const { error, count } = await supabase
           .from('visita')
-          .update({ objetivo: nuevo || null }, { count: 'exact' })
+          .update({ objetivo: nuevo }, { count: 'exact' })
           .eq('id', visitaId!);
         if (error) throw new Error(error.message);
         if (!count) {
@@ -651,18 +660,24 @@ export function VisitaActiva() {
         </button>
       </div>
 
-      {visitaServidor && (
+      {objetivoActual != null && (
         <div>
           <div className="label" style={{ marginTop: 0 }}>objetivo de la visita</div>
           <textarea
             className="field"
-            style={{ height: 'auto', padding: 8 }}
+            style={{ height: 'auto', padding: 8, opacity: objetivoEditable ? 1 : 0.7 }}
             rows={2}
+            readOnly={!objetivoEditable}
             value={objetivoBorrador ?? ''}
             onChange={(e) => setObjetivoBorrador(e.target.value)}
             placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
           />
-          {(objetivoBorrador ?? '') !== (visitaServidor.objetivo ?? '') && (
+          {!objetivoEditable && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              La visita se está guardando. Podrás editar el objetivo en un momento.
+            </div>
+          )}
+          {objetivoEditable && (objetivoBorrador ?? '') !== (objetivoActual ?? '') && (
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <button
                 className="btn btn-secondary"
@@ -670,7 +685,7 @@ export function VisitaActiva() {
                 disabled={guardadoObjetivo.cargando}
                 onClick={() => {
                   guardadoObjetivo.limpiarError();
-                  setObjetivoBorrador(visitaServidor.objetivo ?? '');
+                  setObjetivoBorrador(objetivoActual ?? '');
                 }}
               >
                 Deshacer
@@ -678,7 +693,7 @@ export function VisitaActiva() {
               <button
                 className="btn btn-primary"
                 style={{ fontSize: 'var(--text-sm)' }}
-                disabled={guardadoObjetivo.cargando}
+                disabled={guardadoObjetivo.cargando || !(objetivoBorrador ?? '').trim()}
                 onClick={guardarObjetivo}
               >
                 {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar objetivo'}
