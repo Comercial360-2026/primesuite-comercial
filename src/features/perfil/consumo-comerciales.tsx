@@ -125,10 +125,7 @@ export function ConsumoComerciales() {
         const color = porcentaje < 70 ? 'var(--ink-400)' : porcentaje < 90 ? 'var(--warning-600)' : 'var(--risk-600)';
         const esYo = c.comercial_id === comercial?.id;
         const ultimo = avisos?.[c.comercial_id];
-        const pendiente = ultimo && !ultimo.atendido_en;
-        const vistoReciente =
-          ultimo?.atendido_en &&
-          Date.now() - new Date(ultimo.atendido_en).getTime() < 7 * 24 * 60 * 60 * 1000;
+        const pendiente = !!ultimo && !ultimo.atendido_en;
         return (
           <div key={c.comercial_id} className="card" style={{ borderColor: porcentaje >= 90 ? color : undefined }}>
             <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{c.nombre}</div>
@@ -137,26 +134,30 @@ export function ConsumoComerciales() {
                 ? `${formatearMB(c.bytes)} MB de ${formatearMB(cuotaBytes)} MB (${porcentaje.toFixed(0)}%)`
                 : `${formatearMB(c.bytes)} MB usados`}
             </div>
-            {!esYo &&
-              (pendiente ? (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                  Avisado el {new Date(ultimo!.creado_en).toLocaleDateString('es-ES')} — pendiente de que lo mire
-                </div>
-              ) : vistoReciente ? (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                  Lo miró el {new Date(ultimo!.atendido_en!).toLocaleDateString('es-ES')}
-                </div>
-              ) : (
+            {!esYo && (
+              <>
+                {ultimo && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                    {pendiente
+                      ? `Avisado el ${new Date(ultimo.creado_en).toLocaleDateString('es-ES')} — aún no lo ha mirado`
+                      : `Lo miró el ${new Date(ultimo.atendido_en!).toLocaleDateString('es-ES')}`}
+                  </div>
+                )}
                 <button
                   type="button"
                   className="btn btn-secondary"
                   style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-                  disabled={pidiendo === c.comercial_id}
+                  disabled={pendiente || pidiendo === c.comercial_id}
                   onClick={() => pedirLiberar(c.comercial_id)}
                 >
-                  {pidiendo === c.comercial_id ? 'Enviando…' : 'Pedir que libere espacio'}
+                  {pendiente
+                    ? 'Ya avisado'
+                    : pidiendo === c.comercial_id
+                      ? 'Enviando…'
+                      : 'Pedir que libere espacio'}
                 </button>
-              ))}
+              </>
+            )}
           </div>
         );
       })}
