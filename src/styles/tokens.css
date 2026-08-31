@@ -59,4 +59,25 @@
   --h-field: 48px;
   --h-bignav: 56px;
   --h-capture-button: 64px;
+
+  /* Filas — sistema de listas agrupadas (SeccionLista + FilaNavegable).
+     Todo el aspecto de las filas de toda la app se controla desde aquí:
+     cambiar el alto, el separador o el color del icono/chevron se hace SOLO
+     en este bloque, nunca fila a fila. Ver 08_sistema_diseno.md §"Sistema
+     de filas". */
+  --fila-min-h: 52px;                       /* alto táctil mínimo de una fila */
+  --fila-pad-x: var(--space-4);             /* 16px — margen lateral del contenido */
+  --fila-pad-y: var(--space-3);             /* 12px — aire arriba/abajo cuando hay subtítulo */
+  --fila-separador: 1px solid var(--ink-100); /* línea fina entre filas de una sección */
+  --fila-activa-bg: var(--surface-0);       /* fondo al pulsar / al pasar el ratón */
+  --fila-icono: var(--ink-400);             /* color del icono de la izquierda */
+  --fila-chevron: var(--ink-200);           /* color de la flecha ">" de la derecha */
+  --seccion-cabecera: var(--ink-400);       /* color del título gris de cada sección */
+
+  /* Tono de una fila (valor / subtítulo / icono destacados). Sin fondo de
+     color: solo tiñe texto e icono, coherente con la regla "sin degradados,
+     sin opacity sobre color". neutral = sin tono. */
+  --fila-tono-aviso: var(--warning-600);
+  --fila-tono-riesgo: var(--danger-600);
+  --fila-tono-ok: var(--success-600);
 }
