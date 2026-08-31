@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx",
     "typecheck": "tsc --noEmit",
-    "gen:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > src/types/database.ts"
+    "gen:types": "supabase gen types typescript --linked --schema public > src/types/database.ts.tmp && mv src/types/database.ts.tmp src/types/database.ts"
   },
   "dependencies": {
     "@sentry/react": "^8.42.0",
