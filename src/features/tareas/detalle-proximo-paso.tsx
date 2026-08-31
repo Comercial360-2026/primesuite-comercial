@@ -101,7 +101,10 @@ export function DetalleProximoPaso() {
   // hora) y aparece en la Agenda. No marca el paso como hecho — eso lo
   // decide el comercial con el botón que sale después.
   async function planificarVisita(clienteId: string) {
-    if (!comercial || !fechaObjetivo || planificando || visitaPlanificada) return;
+    // La descripción del paso es el objetivo de la visita — obligatorio, así
+    // que no se planifica si está vacía (el botón de guardar del paso ya lo
+    // exige, pero esto cubre el caso de haberla borrado sin guardar).
+    if (!comercial || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada) return;
     setPlanificando(true);
     setErrorPlan(null);
     try {
@@ -118,7 +121,7 @@ export function DetalleProximoPaso() {
       // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
       const { error: errParche } = await supabase
         .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim() || null })
+        .update({ hora_definida: false, objetivo: descripcion.trim() })
         .eq('id', nuevaId);
       if (errParche) throw new Error(errParche.message);
       setVisitaPlanificada(true);
@@ -226,7 +229,7 @@ export function DetalleProximoPaso() {
               </div>
               <button
                 className="btn btn-secondary"
-                disabled={planificando}
+                disabled={planificando || !descripcion.trim()}
                 onClick={() => planificarVisita(cliente.id)}
               >
                 {planificando ? 'Planificando…' : 'Planificar visita para esta fecha'}

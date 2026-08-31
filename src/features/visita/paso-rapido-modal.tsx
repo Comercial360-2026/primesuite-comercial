@@ -59,7 +59,7 @@ export function PasoRapidoModal({
           fechaObjetivo: fechaObjetivo || undefined,
         });
       } else {
-        if (!fechaVisita) return;
+        if (!fechaVisita || !objetivoVisita.trim()) return;
         await onPlanificarVisita({
           fecha: fechaVisita,
           hora: horaVisita,
@@ -83,7 +83,9 @@ export function PasoRapidoModal({
   }
 
   const puedeGuardar =
-    modo === 'tarea' ? !!descripcion.trim() : !!fechaVisita;
+    modo === 'tarea'
+      ? !!descripcion.trim()
+      : !!fechaVisita && !!objetivoVisita.trim();
 
   return (
     <div
@@ -172,7 +174,7 @@ export function PasoRapidoModal({
               value={fechaVisita}
               onChange={(e) => setFechaVisita(e.target.value)}
             />
-            <div className="label">objetivo (opcional)</div>
+            <div className="label">objetivo</div>
             <textarea
               className="field"
               style={{ height: 'auto', padding: 8 }}

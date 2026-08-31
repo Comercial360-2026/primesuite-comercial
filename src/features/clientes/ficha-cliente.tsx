@@ -113,6 +113,7 @@ export function FichaCliente() {
           throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
         }
         if (!fechaPlan) throw new Error('Elige una fecha para la visita.');
+        if (!objetivoPlan.trim()) throw new Error('Escribe el objetivo de la visita.');
         const responsableId = esDireccionComercial && comercialPlan ? comercialPlan : comercial.id;
         // Llamada directa, NO por la cola offline: planificar una visita para
         // otro día se hace organizando, con conexión. Si fuera por la cola,
@@ -133,13 +134,12 @@ export function FichaCliente() {
         if (error) throw new Error(error);
         // La RPC no conoce `hora_definida`, `franja` ni `objetivo`: un UPDATE
         // posterior los fija — hora/franja solo si no hay hora concreta, el
-        // objetivo siempre que se haya escrito.
+        // objetivo siempre (es obligatorio, ya validado arriba).
         const parche: {
           objetivo?: string;
           hora_definida?: boolean;
           franja?: string | null;
-        } = {};
-        if (objetivoPlan.trim()) parche.objetivo = objetivoPlan.trim();
+        } = { objetivo: objetivoPlan.trim() };
         if (!horaPlan) {
           parche.hora_definida = false;
           parche.franja = franjaPlan || null;
@@ -655,7 +655,7 @@ export function FichaCliente() {
             value={fechaPlan}
             onChange={(e) => setFechaPlan(e.target.value)}
           />
-          <div className="label">objetivo (opcional)</div>
+          <div className="label">objetivo</div>
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8 }}
@@ -725,7 +725,7 @@ export function FichaCliente() {
             </button>
             <button
               className="btn btn-primary"
-              disabled={planificacion.cargando || !fechaPlan}
+              disabled={planificacion.cargando || !fechaPlan || !objetivoPlan.trim()}
               onClick={planificarVisita}
             >
               {planificacion.cargando ? 'Planificando…' : 'Planificar'}
