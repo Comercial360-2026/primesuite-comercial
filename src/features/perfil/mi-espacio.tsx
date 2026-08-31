@@ -131,6 +131,8 @@ export function MiEspacio() {
   // quién lo pidió para dejar una línea visible mientras estás aquí.
   const { aviso: avisoLiberar, marcarAtendido } = useAvisoLiberar();
   const [pidioLiberar, setPidioLiberar] = useState<string | null>(null);
+  // Para liberar espacio interesa ver primero lo viejo (o lo que más pesa).
+  const [orden, setOrden] = useState<'antiguas' | 'tamano'>('antiguas');
   useEffect(() => {
     if (avisoLiberar) {
       setPidioLiberar(avisoLiberar.pedidoPorNombre);
@@ -215,7 +217,30 @@ export function MiEspacio() {
         <div style={{ color: 'var(--ink-400)' }}>Todavía no tienes visitas.</div>
       )}
 
-      {visitas?.map((v) => {
+      {!!visitas?.length && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            className={`chip${orden === 'antiguas' ? ' chip--on' : ''}`}
+            onClick={() => setOrden('antiguas')}
+          >
+            Más antiguas primero
+          </button>
+          <button
+            type="button"
+            className={`chip${orden === 'tamano' ? ' chip--on' : ''}`}
+            onClick={() => setOrden('tamano')}
+          >
+            Las que más ocupan
+          </button>
+        </div>
+      )}
+
+      {[...(visitas ?? [])]
+        .sort((a, b) =>
+          orden === 'tamano' ? b.bytes - a.bytes : a.creado_en.localeCompare(b.creado_en)
+        )
+        .map((v) => {
         const estado = estadoDe(v.visita_id);
         const listo = typeof estado === 'object' ? estado : null;
         const enConfirmacionBorrado = visitaBorrarId === v.visita_id;
