@@ -104,9 +104,14 @@ interface CapturasPorUbicacionProps {
   onTocarCaptura: (id: string) => void;
 }
 
-// Resumen de Modo Recorrido: TODO lo capturado (fotos, audios, notas,
-// hallazgos, oportunidades) agrupado por zona, con la zona activa primero.
-// Es lo que hace útil el recorrido — "todo lo de esta puerta junto".
+// Contenido de Modo Recorrido, en dos cajones de primer nivel:
+//  - Las ZONAS del recorrido (Puerta principal, Barrera…), con TODO lo de
+//    cada una junto (foto, audio, nota, hallazgo, oportunidad). Zona activa
+//    primero.
+//  - "General de la visita": lo capturado hablando con el cliente, sin
+//    recorrido. No es un descarte — es una fase real de la visita. Va como
+//    una sección plegada al final, para no mezclarse con las zonas pero
+//    tenerla a un toque sin salir del recorrido.
 function CapturasPorUbicacion({
   capturas,
   hallazgos,
@@ -116,46 +121,123 @@ function CapturasPorUbicacion({
   ubicacionActivaId,
   onTocarCaptura,
 }: CapturasPorUbicacionProps) {
+  const [generalAbierta, setGeneralAbierta] = useState(false);
+
   const claveDe = (op: OperacionPendiente) =>
     (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
+  const tipoDe = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
 
   const claves = new Set<string>();
   [...capturas, ...hallazgos, ...oportunidades].forEach((op) => claves.add(claveDe(op)));
   if (claves.size === 0) return null;
 
-  const claveActiva = ubicacionActivaId ?? 'sin-ubicacion';
-  const ordenadas = [
-    ...(claves.has(claveActiva) ? [claveActiva] : []),
-    ...[...claves].filter((k) => k !== claveActiva && k !== 'sin-ubicacion').sort(),
-    ...(claves.has('sin-ubicacion') && claveActiva !== 'sin-ubicacion' ? ['sin-ubicacion'] : []),
-  ];
-
   const tag = (t: string) => (
     <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginRight: 6 }}>{t}</span>
   );
 
+  const contenidoDe = (clave: string) => {
+    const fotos = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'foto');
+    const audios = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'audio');
+    const notas = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'nota');
+    const hz = hallazgos.filter((h) => claveDe(h) === clave);
+    const op = oportunidades.filter((o) => claveDe(o) === clave);
+    const total = fotos.length + audios.length + notas.length + hz.length + op.length;
+    const resumen = [
+      fotos.length && `${fotos.length} foto${fotos.length > 1 ? 's' : ''}`,
+      audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
+      notas.length && `${notas.length} nota${notas.length > 1 ? 's' : ''}`,
+      hz.length && `${hz.length} hallazgo${hz.length > 1 ? 's' : ''}`,
+      op.length && `${op.length} oportunidad${op.length > 1 ? 'es' : ''}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return { fotos, audios, notas, hz, op, total, resumen };
+  };
+
+  const renderItems = (c: ReturnType<typeof contenidoDe>) => (
+    <>
+      {c.fotos.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          {[...c.fotos].reverse().map((f) => {
+            const blob = f.archivoLocal as Blob | undefined;
+            const titulo = (f.payload as { titulo?: string }).titulo;
+            return blob ? (
+              <img
+                key={f.id}
+                src={URL.createObjectURL(blob)}
+                alt={titulo ?? 'foto'}
+                onClick={() => onTocarCaptura(f.id)}
+                style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+              />
+            ) : (
+              <div
+                key={f.id}
+                onClick={() => onTocarCaptura(f.id)}
+                style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+              />
+            );
+          })}
+        </div>
+      )}
+      {c.audios.map((a) => (
+        <div
+          key={a.id}
+          onClick={() => onTocarCaptura(a.id)}
+          style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
+        >
+          {tag('audio')}
+          {(a.payload as { titulo?: string }).titulo || 'sin título'}
+        </div>
+      ))}
+      {c.notas.map((n) => {
+        const p = n.payload as { titulo?: string; contenidoTexto?: string };
+        return (
+          <div
+            key={n.id}
+            onClick={() => onTocarCaptura(n.id)}
+            style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
+          >
+            {tag('nota')}
+            {p.titulo || p.contenidoTexto || '(nota vacía)'}
+          </div>
+        );
+      })}
+      {c.hz.map((h) => {
+        const p = h.payload as { terminoId: string; naturaleza: string };
+        return (
+          <div key={h.id} style={{ fontSize: 'var(--text-sm)', padding: '4px 0' }}>
+            {tag('hallazgo')}
+            {nombresTerminos?.[p.terminoId] ?? '…'}
+            <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginLeft: 6 }}>
+              {p.naturaleza.replace('_', ' ')}
+            </span>
+          </div>
+        );
+      })}
+      {c.op.map((o) => (
+        <div
+          key={o.id}
+          style={{ fontSize: 'var(--text-sm)', padding: '4px 0', color: 'var(--signal-600)', fontWeight: 500 }}
+        >
+          {tag('oportunidad')}
+          {(o.payload as { titulo: string }).titulo}
+        </div>
+      ))}
+    </>
+  );
+
+  const claveActiva = ubicacionActivaId ?? null;
+  const zonas = [
+    ...(claveActiva && claves.has(claveActiva) ? [claveActiva] : []),
+    ...[...claves].filter((k) => k !== claveActiva && k !== 'sin-ubicacion').sort(),
+  ];
+  const general = claves.has('sin-ubicacion') ? contenidoDe('sin-ubicacion') : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {ordenadas.map((clave) => {
-        const tipo = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
-        const fotos = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'foto');
-        const audios = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'audio');
-        const notas = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'nota');
-        const hz = hallazgos.filter((h) => claveDe(h) === clave);
-        const op = oportunidades.filter((o) => claveDe(o) === clave);
-        if (fotos.length + audios.length + notas.length + hz.length + op.length === 0) return null;
-
-        const nombre = clave === 'sin-ubicacion' ? 'sin zona' : nombresUbicaciones[clave] ?? '…';
-        const resumen = [
-          fotos.length && `${fotos.length} foto${fotos.length > 1 ? 's' : ''}`,
-          audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
-          notas.length && `${notas.length} nota${notas.length > 1 ? 's' : ''}`,
-          hz.length && `${hz.length} hallazgo${hz.length > 1 ? 's' : ''}`,
-          op.length && `${op.length} oportunidad${op.length > 1 ? 'es' : ''}`,
-        ]
-          .filter(Boolean)
-          .join(' · ');
-
+      {zonas.map((clave) => {
+        const c = contenidoDe(clave);
+        if (c.total === 0) return null;
         return (
           <div
             key={clave}
@@ -164,80 +246,37 @@ function CapturasPorUbicacion({
               paddingLeft: 8,
             }}
           >
-            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{nombre}</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>{resumen}</div>
-
-            {fotos.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                {[...fotos].reverse().map((f) => {
-                  const blob = f.archivoLocal as Blob | undefined;
-                  const titulo = (f.payload as { titulo?: string }).titulo;
-                  return blob ? (
-                    <img
-                      key={f.id}
-                      src={URL.createObjectURL(blob)}
-                      alt={titulo ?? 'foto'}
-                      onClick={() => onTocarCaptura(f.id)}
-                      style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-                    />
-                  ) : (
-                    <div
-                      key={f.id}
-                      onClick={() => onTocarCaptura(f.id)}
-                      style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {audios.map((a) => (
-              <div
-                key={a.id}
-                onClick={() => onTocarCaptura(a.id)}
-                style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
-              >
-                {tag('audio')}
-                {(a.payload as { titulo?: string }).titulo || 'sin título'}
-              </div>
-            ))}
-            {notas.map((n) => {
-              const p = n.payload as { titulo?: string; contenidoTexto?: string };
-              return (
-                <div
-                  key={n.id}
-                  onClick={() => onTocarCaptura(n.id)}
-                  style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
-                >
-                  {tag('nota')}
-                  {p.titulo || p.contenidoTexto || '(nota vacía)'}
-                </div>
-              );
-            })}
-            {hz.map((h) => {
-              const p = h.payload as { terminoId: string; naturaleza: string };
-              return (
-                <div key={h.id} style={{ fontSize: 'var(--text-sm)', padding: '4px 0' }}>
-                  {tag('hallazgo')}
-                  {nombresTerminos?.[p.terminoId] ?? '…'}
-                  <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginLeft: 6 }}>
-                    {p.naturaleza.replace('_', ' ')}
-                  </span>
-                </div>
-              );
-            })}
-            {op.map((o) => (
-              <div
-                key={o.id}
-                style={{ fontSize: 'var(--text-sm)', padding: '4px 0', color: 'var(--signal-600)', fontWeight: 500 }}
-              >
-                {tag('oportunidad')}
-                {(o.payload as { titulo: string }).titulo}
-              </div>
-            ))}
+            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{nombresUbicaciones[clave] ?? '…'}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>{c.resumen}</div>
+            {renderItems(c)}
           </div>
         );
       })}
+
+      {general && general.total > 0 && (
+        <div style={{ borderTop: '1px solid var(--ink-200)', paddingTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => setGeneralAbierta((v) => !v)}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 6,
+              border: 'none',
+              background: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{generalAbierta ? '▾' : '▸'}</span>
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>General de la visita</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>· {general.resumen}</span>
+          </button>
+          {generalAbierta && <div style={{ marginTop: 6 }}>{renderItems(general)}</div>}
+        </div>
+      )}
     </div>
   );
 }
