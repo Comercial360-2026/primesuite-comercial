@@ -214,7 +214,7 @@ export function AltaRapidaCliente() {
         <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>nuevo cliente</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Nuevo cliente</h1>
       </div>
 
       <div className="label" style={{ marginTop: 0 }}>nombre</div>

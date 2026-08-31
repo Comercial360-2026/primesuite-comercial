@@ -162,7 +162,7 @@ export function DetalleProximoPaso() {
           <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
             ←
           </button>
-          <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>próximo paso</h1>
+          <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Próximo paso</h1>
         </div>
         <div className="field-error-text">No se pudo cargar este próximo paso.</div>
       </div>
@@ -181,7 +181,7 @@ export function DetalleProximoPaso() {
         >
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>próximo paso</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Próximo paso</h1>
       </div>
 
       {clienteNombre && (

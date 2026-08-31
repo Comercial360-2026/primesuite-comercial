@@ -163,7 +163,7 @@ export function MiEspacio() {
         <button onClick={() => navigate('/yo')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>mi espacio</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Mi espacio</h1>
       </div>
 
       {pidioLiberar && (

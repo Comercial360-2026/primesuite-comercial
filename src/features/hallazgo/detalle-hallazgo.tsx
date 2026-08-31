@@ -147,7 +147,7 @@ export function DetalleHallazgo() {
         >
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>hallazgo</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hallazgo</h1>
       </div>
 
       <div className="card">

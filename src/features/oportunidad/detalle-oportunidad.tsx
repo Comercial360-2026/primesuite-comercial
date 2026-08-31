@@ -218,7 +218,7 @@ export function DetalleOportunidad() {
         >
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>oportunidad</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Oportunidad</h1>
       </div>
 
       <div className="label" style={{ marginTop: 0 }}>título</div>

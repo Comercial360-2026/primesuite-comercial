@@ -131,7 +131,7 @@ export function GestionUbicacionesCliente() {
         <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>ubicaciones</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Ubicaciones</h1>
       </div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         se usan para etiquetar fotos por dónde se tomaron (naves, oficinas…) en Modo Recorrido

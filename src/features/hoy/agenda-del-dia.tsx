@@ -414,11 +414,8 @@ export function AgendaDelDia() {
           <SeccionColapsable titulo="Próximas visitas" cantidad={proximas.length}>
             {proximasVisibles.map((visita) => renderVisita(visita, true))}
             {proximas.length > proximasVisibles.length && (
-              <div
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', cursor: 'pointer', paddingLeft: 4 }}
-                onClick={() => navigate('/agenda')}
-              >
-                y {proximas.length - proximasVisibles.length} más — ver todas en Agenda →
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingLeft: 4 }}>
+                y {proximas.length - proximasVisibles.length} más
               </div>
             )}
           </SeccionColapsable>

@@ -297,7 +297,7 @@ export function ColaVocabulario() {
         <button onClick={() => navigate('/yo')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>vocabulario</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Vocabulario</h1>
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>

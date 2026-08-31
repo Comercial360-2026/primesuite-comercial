@@ -86,7 +86,7 @@ export function MisProximosPasos() {
 
   return (
     <div className="screen">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>mis próximos pasos</h1>
+      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Mis próximos pasos</h1>
 
       <div style={{ display: 'flex', gap: 6 }}>
         <button

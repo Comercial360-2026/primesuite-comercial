@@ -213,7 +213,7 @@ export function Yo() {
 
   return (
     <div className="screen screen--split">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>yo</h1>
+      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Yo</h1>
 
       <div className="screen__scroll">
       <div className="card">

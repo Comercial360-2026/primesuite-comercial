@@ -171,7 +171,7 @@ export function CierreVisita() {
   if (vista === 'resumen') {
     return (
       <div className="screen screen--split">
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>resumen de la visita</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Resumen de la visita</h1>
 
         {sincronizada ? (
           <div className="card" style={{ borderColor: 'var(--success-600)' }}>
@@ -255,7 +255,7 @@ export function CierreVisita() {
   if (vista === 'confirmar') {
     return (
       <div className="screen screen--split">
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>¿confirmas el cierre?</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>¿Confirmas el cierre?</h1>
 
         <div className="screen__scroll">
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -307,7 +307,7 @@ export function CierreVisita() {
         <button onClick={() => navigate(`/visita/${visitaId}`)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
           ←
         </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>cerrar visita</h1>
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Cerrar visita</h1>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
