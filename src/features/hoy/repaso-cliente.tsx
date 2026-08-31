@@ -264,10 +264,11 @@ export function RepasoCliente() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', alignSelf: 'flex-start' }}>
         ←
       </button>
+      <div className="screen__scroll">
       {isErrorCliente || sinConexionCliente ? (
         <EstadoError
           mensaje={sinConexionCliente ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el cliente.'}
@@ -356,9 +357,10 @@ export function RepasoCliente() {
         </div>
       )}
 
+      </div>
+
       <button
         className="btn btn-primary"
-        style={{ marginTop: 'auto' }}
         onClick={visitaIdAgendada ? iniciarVisitaPlanificada : pedirIniciarVisitaAdHoc}
         disabled={iniciandoVisita.cargando}
       >

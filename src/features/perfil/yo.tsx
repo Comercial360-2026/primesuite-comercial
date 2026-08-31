@@ -212,9 +212,10 @@ export function Yo() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>yo</h1>
 
+      <div className="screen__scroll">
       <div className="card">
         <div className="label" style={{ marginTop: 0 }}>nombre</div>
         <div style={{ fontSize: 'var(--text-base)' }}>{comercial?.nombre ?? '—'}</div>
@@ -346,16 +347,19 @@ export function Yo() {
         </div>
       )}
 
-      {error && <div className="field-error-text">{error}</div>}
+      </div>
 
-      <button
-        className="btn btn-secondary"
-        style={{ marginTop: 'auto', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-        disabled={cerrando}
-        onClick={cerrarSesion}
-      >
-        {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
-      </button>
+      <div style={{ borderTop: '1px solid var(--ink-200)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {error && <div className="field-error-text">{error}</div>}
+        <button
+          className="btn btn-secondary"
+          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+          disabled={cerrando}
+          onClick={cerrarSesion}
+        >
+          {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
+        </button>
+      </div>
     </div>
   );
 }

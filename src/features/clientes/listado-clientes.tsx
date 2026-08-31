@@ -102,7 +102,7 @@ export function ListadoClientes() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Clientes</h1>
       </div>
@@ -133,6 +133,7 @@ export function ListadoClientes() {
         </div>
       )}
 
+      <div className="screen__scroll">
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
       {sinConexion && (
@@ -175,8 +176,9 @@ export function ListadoClientes() {
       {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
       )}
+      </div>
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} onClick={() => navigate('/clientes/nuevo')}>
+      <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
         + Nuevo cliente
       </button>
     </div>
