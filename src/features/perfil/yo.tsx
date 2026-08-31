@@ -6,6 +6,8 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
 const DIAS_AVISO_BACKUP = 7;
@@ -32,6 +34,11 @@ const TABLAS_BACKUP = [
   'ubicacion',
 ] as const;
 
+const ETIQUETA_ROL: Record<string, string> = {
+  comercial: 'Comercial',
+  direccion_comercial: 'Dirección comercial',
+};
+
 function formatearMB(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(0);
 }
@@ -40,7 +47,16 @@ function formatearMB(bytes: number) {
 // El acceso a Vocabulario (antes ocupaba este mismo hueco del menú solo
 // para direccion_comercial, quitándole a ese rol su propio acceso a "Yo" y
 // por tanto al cierre de sesión) vive ahora dentro de esta pantalla, como
-// una tarjeta más — no compite por la posición fija del menú.
+// una fila más — no compite por la posición fija del menú.
+//
+// Distribución (ver 08_sistema_diseno.md §"Sistema de filas"):
+//   · cabecera de identidad (nombre + rol), sin sección
+//   · aviso rojo "N sin sincronizar" si lo hay — destaca, no es una fila
+//   · SeccionLista "Almacenamiento": Mi espacio + (dir. comercial) las
+//     tarjetas de medidor de espacio y copia de seguridad, que llevan su
+//     propio contenido rico y no encajan en una fila
+//   · SeccionLista "Dirección comercial": accesos exclusivos de ese rol
+//   · SeccionLista suelta: Cerrar sesión (fila roja, al final)
 export function Yo() {
   const { comercial } = useSesionActual();
   const { cerrarVisita } = useVisitaActivaContext();
@@ -52,6 +68,7 @@ export function Yo() {
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
 
   const { data: numSolicitudesPendientes } = useQuery({
     queryKey: ['num-solicitudes-reasignacion-pendientes'],
@@ -68,8 +85,8 @@ export function Yo() {
 
   // Nº de grupos de fichas de cliente duplicadas (mismo criterio de
   // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
-  // tarjeta — que Dirección Comercial vea que hay algo que revisar sin
-  // tener que entrar.
+  // fila — que Dirección Comercial vea que hay algo que revisar sin tener
+  // que entrar.
   const { data: numGruposDuplicados } = useQuery({
     queryKey: ['num-grupos-duplicados'],
     enabled: esDireccionComercial,
@@ -211,154 +228,151 @@ export function Yo() {
     navigate('/login', { replace: true });
   }
 
+  const numErrores = operacionesConError?.length ?? 0;
+
   return (
-    <div className="screen screen--split">
+    <div className="screen">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Yo</h1>
 
-      <div className="screen__scroll">
-      <div className="card">
-        <div className="label" style={{ marginTop: 0 }}>nombre</div>
-        <div style={{ fontSize: 'var(--text-base)' }}>{comercial?.nombre ?? '—'}</div>
-
-        <div className="label">rol</div>
-        <div style={{ fontSize: 'var(--text-base)' }}>{comercial?.rol ?? '—'}</div>
-      </div>
-
-      <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/mi-espacio')}>
-        <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>mi espacio</div>
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-          ver tu cuota y el tamaño de tus visitas
+      <div className="lista-agrupada">
+        <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{comercial?.nombre ?? '—'}</div>
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 2 }}>{etiquetaRol}</div>
         </div>
-      </div>
 
-      {operacionesConError && operacionesConError.length > 0 && (
-        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
-          <div className="label" style={{ marginTop: 0, color: 'var(--risk-600)' }}>
-            {operacionesConError.length} elemento(s) sin sincronizar
-          </div>
-          <div style={{ fontSize: 'var(--text-sm)' }}>
-            {Object.entries(
-              operacionesConError.reduce<Record<string, number>>((acc, op) => {
-                acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
-                return acc;
-              }, {})
-            )
-              .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
-              .join(', ')}
-          </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-            No se han podido guardar en el servidor. Comprueba tu conexión — el sistema lo sigue intentando solo.
-          </div>
-          <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={() => refetchErrores()}>
-            Comprobar de nuevo
-          </button>
-        </div>
-      )}
-
-      {esDireccionComercial && (
-        <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/vocabulario')}>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>gestionar vocabulario</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            revisar propuestas y organizar el catálogo
-          </div>
-        </div>
-      )}
-
-      {esDireccionComercial && (
-        <div
-          className="card"
-          style={{ cursor: 'pointer', borderColor: numSolicitudesPendientes ? 'var(--risk-600)' : undefined }}
-          onClick={() => navigate('/solicitudes-reasignacion')}
-        >
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            solicitudes de ayuda{numSolicitudesPendientes ? ` (${numSolicitudesPendientes})` : ''}
-          </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            comerciales que necesitan que alguien les sustituya en una visita
-          </div>
-        </div>
-      )}
-
-      {esDireccionComercial && (
-        <div className="card" style={{ cursor: 'pointer' }} onClick={() => navigate('/consumo-comerciales')}>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>consumo por comercial</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            ver cuánto espacio usa cada comercial
-          </div>
-        </div>
-      )}
-
-      {esDireccionComercial && !!numGruposDuplicados && (
-        <div
-          className="card"
-          style={{ cursor: 'pointer', borderColor: 'var(--warning-600)' }}
-          onClick={() => navigate('/deduplicacion')}
-        >
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            clientes duplicados ({numGruposDuplicados})
-          </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {numGruposDuplicados === 1 ? 'un grupo de fichas' : `${numGruposDuplicados} grupos de fichas`} del mismo
-            cliente — revisar y juntar
-          </div>
-        </div>
-      )}
-
-      {esDireccionComercial && bytesUsados != null && (
-        <div className="card" style={{ borderColor: colorAviso }}>
-          <div className="label" style={{ marginTop: 0 }}>espacio de almacenamiento</div>
-          <div style={{ fontSize: 'var(--text-base)', color: colorAviso }}>
-            {formatearMB(bytesUsados)} MB de 1024 MB usados ({porcentajeUsado!.toFixed(0)}%)
-          </div>
-          {porcentajeUsado! >= 70 && (
-            <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 4 }}>
-              {porcentajeUsado! >= 90
-                ? 'Crítico — actúa pronto o los comerciales no podrán subir fotos ni audios.'
-                : 'Acercándose al límite del plan gratuito de Supabase.'}
+        {numErrores > 0 && (
+          <div className="card card--riesgo">
+            <div className="label" style={{ marginTop: 0, color: 'var(--risk-600)' }}>
+              {numErrores} elemento{numErrores > 1 ? 's' : ''} sin sincronizar
             </div>
-          )}
-        </div>
-      )}
-
-      {esDireccionComercial && (
-        <div className="card" style={{ borderColor: backupPendiente ? 'var(--warning-600)' : undefined }}>
-          <div className="label" style={{ marginTop: 0 }}>copia de seguridad completa</div>
-          <div style={{ fontSize: 'var(--text-sm)', color: backupPendiente ? 'var(--warning-600)' : 'var(--ink-400)' }}>
-            {diasDesdeBackup === null
-              ? 'Todavía no has hecho ninguna copia completa.'
-              : diasDesdeBackup === 0
-                ? 'Última copia: hoy.'
-                : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
-          </div>
-          {backupPendiente && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginTop: 4 }}>
-              Supabase gratuito no hace copias automáticas — te recomendamos descargar una ahora.
+            <div style={{ fontSize: 'var(--text-sm)' }}>
+              {Object.entries(
+                operacionesConError!.reduce<Record<string, number>>((acc, op) => {
+                  acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
+                  return acc;
+                }, {})
+              )
+                .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
+                .join(', ')}
             </div>
-          )}
-          <button
-            className="btn btn-secondary"
-            style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-            disabled={exportando}
-            onClick={hacerCopiaCompleta}
-          >
-            {exportando ? 'Preparando copia…' : 'Hacer copia completa ahora'}
-          </button>
-          {errorExportacion && <div className="field-error-text" style={{ marginTop: 8 }}>{errorExportacion}</div>}
-        </div>
-      )}
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              No se han podido guardar en el servidor. Comprueba tu conexión — el sistema lo sigue intentando solo.
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
+              onClick={() => refetchErrores()}
+            >
+              Comprobar de nuevo
+            </button>
+          </div>
+        )}
 
-      </div>
+        <SeccionLista titulo="Almacenamiento">
+          <FilaNavegable
+            icono="almacenamiento"
+            titulo="Mi espacio"
+            subtitulo="Ver tu cuota y el tamaño de tus visitas"
+            to="/mi-espacio"
+          />
+        </SeccionLista>
 
-      <div style={{ borderTop: '1px solid var(--ink-200)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {error && <div className="field-error-text">{error}</div>}
-        <button
-          className="btn btn-secondary"
-          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-          disabled={cerrando}
-          onClick={cerrarSesion}
-        >
-          {cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
-        </button>
+        {esDireccionComercial && bytesUsados != null && (
+          <div className="card" style={{ borderColor: colorAviso }}>
+            <div className="label" style={{ marginTop: 0 }}>Espacio de almacenamiento</div>
+            <div style={{ fontSize: 'var(--text-base)', color: colorAviso }}>
+              {formatearMB(bytesUsados)} MB de 1024 MB usados ({porcentajeUsado!.toFixed(0)}%)
+            </div>
+            {porcentajeUsado! >= 70 && (
+              <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 4 }}>
+                {porcentajeUsado! >= 90
+                  ? 'Crítico — actúa pronto o los comerciales no podrán subir fotos ni audios.'
+                  : 'Acercándose al límite del plan gratuito de Supabase.'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {esDireccionComercial && (
+          <div className="card" style={{ borderColor: backupPendiente ? 'var(--warning-600)' : undefined }}>
+            <div className="label" style={{ marginTop: 0 }}>Copia de seguridad completa</div>
+            <div style={{ fontSize: 'var(--text-sm)', color: backupPendiente ? 'var(--warning-600)' : 'var(--ink-400)' }}>
+              {diasDesdeBackup === null
+                ? 'Todavía no has hecho ninguna copia completa.'
+                : diasDesdeBackup === 0
+                  ? 'Última copia: hoy.'
+                  : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
+            </div>
+            {backupPendiente && (
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginTop: 4 }}>
+                Supabase gratuito no hace copias automáticas — te recomendamos descargar una ahora.
+              </div>
+            )}
+            <button
+              className="btn btn-secondary"
+              style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
+              disabled={exportando}
+              onClick={hacerCopiaCompleta}
+            >
+              {exportando ? 'Preparando copia…' : 'Hacer copia completa ahora'}
+            </button>
+            {errorExportacion && <div className="field-error-text" style={{ marginTop: 8 }}>{errorExportacion}</div>}
+          </div>
+        )}
+
+        {esDireccionComercial && (
+          <SeccionLista titulo="Dirección comercial">
+            <FilaNavegable
+              icono="vocabulario"
+              titulo="Gestionar vocabulario"
+              subtitulo="Revisar propuestas y organizar el catálogo"
+              to="/vocabulario"
+            />
+            <FilaNavegable
+              icono="solicitudes"
+              titulo="Solicitudes de ayuda"
+              subtitulo="Comerciales que necesitan que alguien les sustituya en una visita"
+              badge={numSolicitudesPendientes || undefined}
+              tono={numSolicitudesPendientes ? 'aviso' : 'neutral'}
+              to="/solicitudes-reasignacion"
+            />
+            <FilaNavegable
+              icono="consumo"
+              titulo="Consumo por comercial"
+              subtitulo="Ver cuánto espacio usa cada comercial"
+              to="/consumo-comerciales"
+            />
+            {!!numGruposDuplicados && (
+              <FilaNavegable
+                icono="duplicados"
+                titulo="Clientes duplicados"
+                subtitulo={
+                  numGruposDuplicados === 1
+                    ? 'Un grupo de fichas del mismo cliente — revisar y juntar'
+                    : `${numGruposDuplicados} grupos de fichas del mismo cliente — revisar y juntar`
+                }
+                badge={numGruposDuplicados}
+                tono="aviso"
+                to="/deduplicacion"
+              />
+            )}
+          </SeccionLista>
+        )}
+
+        <SeccionLista>
+          <FilaNavegable
+            icono="salir"
+            titulo={cerrando ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            tono="riesgo"
+            disabled={cerrando}
+            onClick={cerrarSesion}
+          />
+        </SeccionLista>
+        {error && (
+          <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
