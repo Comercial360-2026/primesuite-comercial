@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
@@ -6,6 +6,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
+import { IconoDescargar, IconoBorrar } from '@/components/ui/iconos';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -28,21 +29,40 @@ interface PrevisualizacionBorrado {
   rutas_storage: string[] | null;
 }
 
+// Cuántas "más antiguas" se resumen en la pista de liberar espacio.
+const N_ANTIGUAS = 5;
+
 function formatearMB(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
+// Fecha corta ("31 ago") — en las filas compactas el año casi nunca aporta
+// y ocupa sitio; la lista va ordenada, el contexto lo da el orden.
 function formatearFecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
+
+// Caja de un botón de acción de fila (⬇ / 🗑). Misma para <button> y <a>.
+const cajaIcono: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 40,
+  height: 40,
+  flexShrink: 0,
+  boxSizing: 'border-box',
+  border: '1px solid var(--ink-200)',
+  borderRadius: 'var(--radius-field)',
+  background: 'var(--surface-1)',
+  color: 'var(--ink-700)',
+  cursor: 'pointer',
+};
 
 export function MiEspacio() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Descarga de copia de una visita: misma lógica centralizada que usan Hoy,
   // la ficha de cliente y el detalle de la visita (use-descargar-informe.tsx).
-  // Aquí el botón mantiene su texto propio ("copia"/"zip") porque el contexto
-  // es la gestión de espacio, no "ver el informe".
   const { estadoDe, descargar } = useDescargarInforme();
   const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
@@ -150,12 +170,29 @@ export function MiEspacio() {
           : estado?.nivel === 'bloqueo'
             ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%). No se pueden subir fotos ni audios hasta que se libere.`
             : null;
+  // Color de estado — mismos umbrales que el resto de la app: gris cuando
+  // hay holgura, ámbar en aviso (>=85%), rojo en crítico/bloqueo (>=95%).
+  // Todo por token: otra paleta = tokens.css, esta pantalla no se toca.
   const colorAviso =
     estado?.nivel === 'critico_equipo' || estado?.nivel === 'bloqueo'
       ? 'var(--risk-600)'
       : estado?.nivel === 'aviso_mio' || estado?.nivel === 'aviso_equipo'
         ? 'var(--warning-600)'
         : 'var(--ink-400)';
+  // Cuando vas sobrado, una línea tranquila en vez de nada.
+  const textoEstado =
+    mensajeEspacio ??
+    (estado && estado.nivel === 'ok' && estado.pctMio < 70 ? 'Vas sobrado de espacio.' : null);
+
+  const visitasOrdenadas = [...(visitas ?? [])].sort((a, b) =>
+    orden === 'tamano' ? b.bytes - a.bytes : a.creado_en.localeCompare(b.creado_en)
+  );
+  // Pista de "qué liberar": las N más antiguas, siempre por fecha
+  // independientemente del orden elegido para la lista.
+  const masAntiguas = [...(visitas ?? [])]
+    .sort((a, b) => a.creado_en.localeCompare(b.creado_en))
+    .slice(0, N_ANTIGUAS);
+  const bytesMasAntiguas = masAntiguas.reduce((s, v) => s + v.bytes, 0);
 
   return (
     <div className="screen">
@@ -168,36 +205,45 @@ export function MiEspacio() {
 
       {pidioLiberar && (
         <div
-          className="card"
-          style={{ borderColor: 'var(--risk-600)', fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}
+          className="card card--riesgo"
+          style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}
         >
           {pidioLiberar} te ha pedido que liberes espacio. Descarga copia de las visitas antiguas que
           quieras conservar y bórralas.
         </div>
       )}
 
-      <div className="card" style={{ borderColor: mensajeEspacio ? colorAviso : undefined }}>
-        <div className="label" style={{ marginTop: 0 }}>tu espacio</div>
-        <div style={{ fontSize: 'var(--text-base)', color: colorAviso }}>
-          {estado
-            ? `${formatearMB(estado.miUso)} MB de ${formatearMB(estado.cuotaBase)} MB (${estado.pctMio.toFixed(0)}%)`
-            : '…'}
+      {/* Resumen: barra fina + una línea. Antes era una tarjeta con una
+          etiqueta por métrica y ocupaba media pantalla. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 'var(--text-sm)' }}>
+          <span style={{ color: 'var(--ink-700)' }}>Tu almacenamiento</span>
+          <span style={{ color: colorAviso, fontWeight: 500 }}>{estado ? `${estado.pctMio.toFixed(0)}%` : '…'}</span>
         </div>
-        <div className="label">espacio del equipo</div>
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-          {estado
-            ? `${formatearMB(estado.usadoTotal)} MB de ${formatearMB(estado.presupuesto)} MB (${estado.pctEquipo.toFixed(0)}%)`
-            : '…'}
+        <div style={{ height: 4, borderRadius: 'var(--radius-chip)', background: 'var(--ink-100)', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${Math.min(estado?.pctMio ?? 0, 100)}%`,
+              background: colorAviso,
+              borderRadius: 'var(--radius-chip)',
+            }}
+          />
         </div>
-        {mensajeEspacio && (
-          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 6 }}>{mensajeEspacio}</div>
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+          {estado
+            ? `${formatearMB(estado.miUso)} de ${formatearMB(estado.cuotaBase)} MB · equipo al ${estado.pctEquipo.toFixed(0)}%`
+            : 'Calculando…'}
+        </div>
+        {textoEstado && (
+          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 2 }}>{textoEstado}</div>
         )}
       </div>
 
       {isLoading && <div style={{ color: 'var(--ink-400)' }}>Cargando…</div>}
 
       {sinConexion && (
-        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+        <div className="card card--riesgo">
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
             Sin conexión. Comprueba tu red e inténtalo de nuevo.
           </div>
@@ -208,13 +254,21 @@ export function MiEspacio() {
       )}
 
       {isError && (
-        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+        <div className="card card--riesgo">
           No se pudo cargar tu espacio. Comprueba tu conexión e inténtalo de nuevo.
         </div>
       )}
 
       {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
         <div style={{ color: 'var(--ink-400)' }}>Todavía no tienes visitas.</div>
+      )}
+
+      {!!visitas?.length && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+          {visitas.length} {visitas.length === 1 ? 'visita' : 'visitas'}
+          {masAntiguas.length >= 2 &&
+            ` · las ${masAntiguas.length} más antiguas ocupan ${formatearMB(bytesMasAntiguas)} MB`}
+        </div>
       )}
 
       {!!visitas?.length && (
@@ -236,18 +290,13 @@ export function MiEspacio() {
         </div>
       )}
 
-      {[...(visitas ?? [])]
-        .sort((a, b) =>
-          orden === 'tamano' ? b.bytes - a.bytes : a.creado_en.localeCompare(b.creado_en)
-        )
-        .map((v) => {
-        const estado = estadoDe(v.visita_id);
-        const listo = typeof estado === 'object' ? estado : null;
-        const enConfirmacionBorrado = visitaBorrarId === v.visita_id;
+      {visitasOrdenadas.map((v) => {
+        const estadoDescarga = estadoDe(v.visita_id);
+        const listo = typeof estadoDescarga === 'object' ? estadoDescarga : null;
 
-        if (enConfirmacionBorrado) {
+        if (visitaBorrarId === v.visita_id) {
           return (
-            <div key={v.visita_id} className="card" style={{ borderColor: 'var(--risk-600)' }}>
+            <div key={v.visita_id} className="card card--riesgo">
               {previsualizando.cargando || !previsualizacion ? (
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
                   Calculando qué se va a borrar…
@@ -255,10 +304,11 @@ export function MiEspacio() {
               ) : (
                 <div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                    Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
-                    {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
-                    {previsualizacion.num_oportunidades} oportunidad(es). Todo eso se borrará también. Los{' '}
-                    {previsualizacion.num_proximos_pasos} próximo(s) paso(s) vinculados también se borrarán. No se puede deshacer.
+                    {v.cliente_nombre} — esta visita arrastra: {previsualizacion.num_fotos} foto(s),{' '}
+                    {previsualizacion.num_audios} audio(s), {previsualizacion.num_notas} nota(s),{' '}
+                    {previsualizacion.num_hallazgos} hallazgo(s), {previsualizacion.num_oportunidades} oportunidad(es).
+                    Todo eso se borra también, junto con {previsualizacion.num_proximos_pasos} próximo(s) paso(s)
+                    vinculados. No se puede deshacer.
                   </div>
                   {!listo && (
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
@@ -280,10 +330,10 @@ export function MiEspacio() {
                     ) : (
                       <button
                         className="btn btn-secondary"
-                        disabled={estado === 'generando'}
+                        disabled={estadoDescarga === 'generando'}
                         onClick={() => descargar(v.visita_id)}
                       >
-                        {estado === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
+                        {estadoDescarga === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
                       </button>
                     )}
                     <button
@@ -292,7 +342,7 @@ export function MiEspacio() {
                       onClick={confirmarBorrado}
                       disabled={borrandoVisita.cargando}
                     >
-                      {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
+                      {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado'}
                     </button>
                   </div>
                   {borrandoVisita.error && (
@@ -305,67 +355,77 @@ export function MiEspacio() {
         }
 
         return (
-          <div key={v.visita_id} className="card">
+          <div
+            key={v.visita_id}
+            className="card"
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-3)' }}
+          >
             <div
-              style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}
+              style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
               onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
             >
-              <div>
-                <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{v.cliente_nombre}</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  {formatearFecha(v.creado_en)} · {formatearMB(v.bytes)} MB
-                </div>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {v.cliente_nombre}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 8 }}>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>ver contenido</span>
-                <span style={{ fontSize: 22, color: 'var(--ink-300)' }}>›</span>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                {formatearFecha(v.creado_en)} · {formatearMB(v.bytes)} MB
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              {listo ? (
-                <a
-                  href={listo.url}
-                  className="btn btn-primary"
-                  style={{ width: 'auto', padding: '0 16px', display: 'inline-block', textAlign: 'center' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
-                </a>
-              ) : (
-                <button
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', padding: '0 16px' }}
-                  disabled={estado === 'generando'}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    descargar(v.visita_id);
-                  }}
-                >
-                  {estado === 'generando' ? 'Generando copia…' : 'Descargar copia'}
-                </button>
-              )}
+            {listo ? (
+              <a
+                href={listo.url}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`}
+                title={`Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`}
+                style={{ ...cajaIcono, color: 'var(--brand-600)' }}
+              >
+                <IconoDescargar />
+              </a>
+            ) : (
               <button
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '0 16px', color: 'var(--risk-600)' }}
+                type="button"
+                aria-label={
+                  estadoDescarga === 'generando'
+                    ? 'Generando copia…'
+                    : estadoDescarga === 'error'
+                      ? 'Error al generar la copia, reintentar'
+                      : 'Descargar copia'
+                }
+                title={
+                  estadoDescarga === 'generando'
+                    ? 'Generando copia…'
+                    : estadoDescarga === 'error'
+                      ? 'Error, reintentar'
+                      : 'Descargar copia'
+                }
+                disabled={estadoDescarga === 'generando'}
                 onClick={(e) => {
                   e.stopPropagation();
-                  pedirBorrado(v.visita_id);
+                  descargar(v.visita_id);
+                }}
+                style={{
+                  ...cajaIcono,
+                  color: estadoDescarga === 'error' ? 'var(--danger-600)' : 'var(--ink-700)',
+                  opacity: estadoDescarga === 'generando' ? 0.45 : 1,
                 }}
               >
-                Borrar
+                <IconoDescargar />
               </button>
-            </div>
-            {estado === 'error' && (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--risk-600)', marginTop: 4 }}>
-                No se pudo generar la copia. Inténtalo de nuevo.
-              </div>
             )}
-            {listo && (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-                Disponible una hora — se borra solo después.
-              </div>
-            )}
+
+            <button
+              type="button"
+              aria-label={`Borrar visita de ${v.cliente_nombre}`}
+              title="Borrar visita"
+              onClick={(e) => {
+                e.stopPropagation();
+                pedirBorrado(v.visita_id);
+              }}
+              style={{ ...cajaIcono, color: 'var(--risk-600)' }}
+            >
+              <IconoBorrar />
+            </button>
           </div>
         );
       })}
