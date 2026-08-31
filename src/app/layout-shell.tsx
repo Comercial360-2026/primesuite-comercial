@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
@@ -63,9 +63,12 @@ export function LayoutShell() {
       <AvisoEspacio />
 
       {visitaEnCurso ? (
-        <a href={`/visita/${visitaEnCurso.id}`} className="visita-en-curso-banner">
+        // Link (no <a href>): navegación SPA. Con <a href> se recargaba la
+        // PWA entera en mitad de una visita — lento y se perdía el estado
+        // en memoria.
+        <Link to={`/visita/${visitaEnCurso.id}`} className="visita-en-curso-banner">
           Visita en curso con {visitaEnCurso.clienteNombre}
-        </a>
+        </Link>
       ) : (
         <AvisoVisitaProxima />
       )}
