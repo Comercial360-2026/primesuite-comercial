@@ -127,10 +127,15 @@ export function MiEspacio() {
   const { estado } = useEspacioEquipo();
 
   // Si Dirección Comercial pidió que liberes espacio, al abrir esta
-  // pantalla el aviso se da por atendido (has venido a mirarlo).
+  // pantalla el aviso se da por atendido (has venido a mirarlo). Se guarda
+  // quién lo pidió para dejar una línea visible mientras estás aquí.
   const { aviso: avisoLiberar, marcarAtendido } = useAvisoLiberar();
+  const [pidioLiberar, setPidioLiberar] = useState<string | null>(null);
   useEffect(() => {
-    if (avisoLiberar) marcarAtendido();
+    if (avisoLiberar) {
+      setPidioLiberar(avisoLiberar.pedidoPorNombre);
+      marcarAtendido();
+    }
   }, [avisoLiberar, marcarAtendido]);
 
   const mensajeEspacio =
@@ -158,6 +163,16 @@ export function MiEspacio() {
         </button>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>mi espacio</h1>
       </div>
+
+      {pidioLiberar && (
+        <div
+          className="card"
+          style={{ borderColor: 'var(--risk-600)', fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}
+        >
+          {pidioLiberar} te ha pedido que liberes espacio. Descarga copia de las visitas antiguas que
+          quieras conservar y bórralas.
+        </div>
+      )}
 
       <div className="card" style={{ borderColor: mensajeEspacio ? colorAviso : undefined }}>
         <div className="label" style={{ marginTop: 0 }}>tu espacio</div>

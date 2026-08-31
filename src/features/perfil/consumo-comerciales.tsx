@@ -42,16 +42,21 @@ export function ConsumoComerciales() {
   const { estado: espacioEquipo } = useEspacioEquipo();
   const { comercial } = useSesionActual();
 
-  // Avisos "libera espacio" sin atender, para no repetir la petición.
-  const { data: pendientes } = useQuery({
+  // Último aviso "libera espacio" de cada comercial (pendiente o atendido),
+  // para no repetir la petición nada más atenderla.
+  const { data: avisos } = useQuery({
     queryKey: ['avisos-liberar-pendientes'],
-    queryFn: async (): Promise<Record<string, string>> => {
+    queryFn: async (): Promise<Record<string, { creado_en: string; atendido_en: string | null }>> => {
       const { data, error } = await supabase
         .from('aviso_liberar_espacio')
-        .select('comercial_id, creado_en')
-        .is('atendido_en', null);
+        .select('comercial_id, creado_en, atendido_en')
+        .order('creado_en', { ascending: false });
       if (error) throw error;
-      return Object.fromEntries((data ?? []).map((a) => [a.comercial_id, a.creado_en]));
+      const m: Record<string, { creado_en: string; atendido_en: string | null }> = {};
+      for (const a of data ?? []) {
+        if (!m[a.comercial_id]) m[a.comercial_id] = { creado_en: a.creado_en, atendido_en: a.atendido_en };
+      }
+      return m;
     },
   });
   const [pidiendo, setPidiendo] = useState<string | null>(null);
@@ -118,8 +123,12 @@ export function ConsumoComerciales() {
       {consumo?.map((c) => {
         const porcentaje = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
         const color = porcentaje < 70 ? 'var(--ink-400)' : porcentaje < 90 ? 'var(--warning-600)' : 'var(--risk-600)';
-        const yaPedido = pendientes?.[c.comercial_id];
         const esYo = c.comercial_id === comercial?.id;
+        const ultimo = avisos?.[c.comercial_id];
+        const pendiente = ultimo && !ultimo.atendido_en;
+        const vistoReciente =
+          ultimo?.atendido_en &&
+          Date.now() - new Date(ultimo.atendido_en).getTime() < 7 * 24 * 60 * 60 * 1000;
         return (
           <div key={c.comercial_id} className="card" style={{ borderColor: porcentaje >= 90 ? color : undefined }}>
             <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{c.nombre}</div>
@@ -129,9 +138,13 @@ export function ConsumoComerciales() {
                 : `${formatearMB(c.bytes)} MB usados`}
             </div>
             {!esYo &&
-              (yaPedido ? (
+              (pendiente ? (
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                  Avisado el {new Date(yaPedido).toLocaleDateString('es-ES')} — pendiente de que lo mire
+                  Avisado el {new Date(ultimo!.creado_en).toLocaleDateString('es-ES')} — pendiente de que lo mire
+                </div>
+              ) : vistoReciente ? (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                  Lo miró el {new Date(ultimo!.atendido_en!).toLocaleDateString('es-ES')}
                 </div>
               ) : (
                 <button
