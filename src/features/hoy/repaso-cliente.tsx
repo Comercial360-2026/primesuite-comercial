@@ -9,6 +9,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -40,8 +42,16 @@ export function RepasoCliente() {
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
 
-  // Ventana "¿A qué vas?" para la visita sin planificar (obligatoria).
+  // Ventana "¿A qué vas?" para la visita sin planificar (obligatoria), y
+  // aviso previo si ya hay una visita en curso con este cliente.
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
+  const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
+  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+
+  function pedirIniciarVisitaAdHoc() {
+    if (visitaEnCurso) setEnCursoModalAbierto(true);
+    else setObjetivoModalAbierto(true);
+  }
 
   // Si venimos de una visita ya planificada, traemos su objetivo para
   // recordar "a qué vengo" antes de entrar.
@@ -349,13 +359,26 @@ export function RepasoCliente() {
       <button
         className="btn btn-primary"
         style={{ marginTop: 'auto' }}
-        onClick={visitaIdAgendada ? iniciarVisitaPlanificada : () => setObjetivoModalAbierto(true)}
+        onClick={visitaIdAgendada ? iniciarVisitaPlanificada : pedirIniciarVisitaAdHoc}
         disabled={iniciandoVisita.cargando}
       >
         {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
       <AvisoTardando visible={iniciandoVisita.tardando} />
+
+      {enCursoModalAbierto && visitaEnCurso && (
+        <VisitaEnCursoModal
+          clienteNombre={cliente?.nombre}
+          objetivo={visitaEnCurso.objetivo}
+          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
+          onEmpezarOtra={() => {
+            setEnCursoModalAbierto(false);
+            setObjetivoModalAbierto(true);
+          }}
+          onCerrar={() => setEnCursoModalAbierto(false)}
+        />
+      )}
 
       {objetivoModalAbierto && (
         <ObjetivoVisitaModal

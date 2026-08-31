@@ -9,6 +9,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 
 interface OportunidadActiva {
   id: string;
@@ -59,8 +61,16 @@ export function FichaCliente() {
   const queryClient = useQueryClient();
 
   // Ventana "¿A qué vas?" antes de arrancar una visita sobre la marcha — el
-  // objetivo es obligatorio también aquí, igual que al planificar.
+  // objetivo es obligatorio también aquí, igual que al planificar. Antes, si
+  // ya hay una visita en curso con este cliente, se avisa (enCursoModal).
   const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
+  const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
+  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+
+  function pedirIniciarVisitaAdHoc() {
+    if (visitaEnCurso) setEnCursoModalAbierto(true);
+    else setObjetivoAdHocAbierto(true);
+  }
 
   const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
@@ -576,13 +586,14 @@ export function FichaCliente() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div
                     style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '4px 0' }}
-                    onClick={() =>
-                      navigate(
-                        v.estado_captura === 'agendada'
-                          ? `/visita/${v.id}/planificada`
-                          : `/visita/${v.id}/detalle`
-                      )
-                    }
+                    onClick={() => {
+                      // Una visita EN CURSO se retoma en Visita Activa (igual
+                      // que desde "Hoy"), no en la vista de solo lectura —
+                      // esa es para las ya cerradas (consolidadas).
+                      if (v.estado_captura === 'agendada') navigate(`/visita/${v.id}/planificada`);
+                      else if (v.estado_captura === 'en_curso') navigate(`/visita/${v.id}`);
+                      else navigate(`/visita/${v.id}/detalle`);
+                    }}
                   >
                     <div>
                       <div style={{ fontSize: 'var(--text-base)' }}>
@@ -597,7 +608,11 @@ export function FichaCliente() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>
-                        {v.estado_captura === 'agendada' ? 'gestionar' : 'ver contenido'}
+                        {v.estado_captura === 'agendada'
+                          ? 'gestionar'
+                          : v.estado_captura === 'en_curso'
+                            ? 'continuar visita'
+                            : 'ver contenido'}
                       </span>
                       <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
                     </div>
@@ -744,9 +759,22 @@ export function FichaCliente() {
         </button>
       )}
 
-      <button className="btn btn-primary" onClick={() => setObjetivoAdHocAbierto(true)}>
+      <button className="btn btn-primary" onClick={pedirIniciarVisitaAdHoc}>
         Iniciar visita ahora →
       </button>
+
+      {enCursoModalAbierto && visitaEnCurso && (
+        <VisitaEnCursoModal
+          clienteNombre={cliente?.nombre}
+          objetivo={visitaEnCurso.objetivo}
+          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
+          onEmpezarOtra={() => {
+            setEnCursoModalAbierto(false);
+            setObjetivoAdHocAbierto(true);
+          }}
+          onCerrar={() => setEnCursoModalAbierto(false)}
+        />
+      )}
 
       {objetivoAdHocAbierto && (
         <ObjetivoVisitaModal

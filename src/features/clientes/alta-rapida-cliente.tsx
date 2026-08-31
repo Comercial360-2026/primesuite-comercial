@@ -9,6 +9,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
 // NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
 // pasa por la cola offline — `cliente` no está en EntidadSincronizable
@@ -31,6 +32,13 @@ export function AltaRapidaCliente() {
   // o sobre uno existente que ha salido como coincidencia.
   const [objetivoModal, setObjetivoModal] = useState<
     null | { modo: 'nuevo' } | { modo: 'existente'; clienteId: string; clienteNombre: string }
+  >(null);
+
+  // Aviso si el cliente existente que se va a visitar ya tiene una visita
+  // en curso (solo aplica a la vía "visitar un cliente que ya existe"; uno
+  // nuevo no puede tener visitas previas).
+  const [enCursoModal, setEnCursoModal] = useState<
+    null | { visita: { id: string; objetivo: string | null }; clienteId: string; clienteNombre: string }
   >(null);
 
   // Nombres de los clientes activos. La visibilidad de `cliente` no está
@@ -183,11 +191,21 @@ export function AltaRapidaCliente() {
   }
 
   // Tocar un cliente ya existente: en vez de crear un duplicado, se arranca
-  // la visita directamente sobre ese cliente. Abre la ventana "¿A qué vas?"
+  // la visita directamente sobre ese cliente. Si ya hay una visita en curso
+  // con él se avisa antes; si no, va directo a la ventana "¿A qué vas?"
   // (el arranque real lo hace arrancarConObjetivo al confirmar).
-  function visitarExistente(clienteId: string, clienteNombre: string) {
+  async function visitarExistente(clienteId: string, clienteNombre: string) {
     if (creacionCliente.cargando) return;
-    setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
+    const { data } = await supabase
+      .from('visita')
+      .select('id, objetivo')
+      .eq('cliente_id', clienteId)
+      .eq('estado_captura', 'en_curso')
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) setEnCursoModal({ visita: data, clienteId, clienteNombre });
+    else setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
   }
 
   return (
@@ -284,6 +302,20 @@ export function AltaRapidaCliente() {
         </button>
       </div>
       <AvisoTardando visible={creacionCliente.tardando} />
+
+      {enCursoModal && (
+        <VisitaEnCursoModal
+          clienteNombre={enCursoModal.clienteNombre}
+          objetivo={enCursoModal.visita.objetivo}
+          onContinuar={() => navigate(`/visita/${enCursoModal.visita.id}`)}
+          onEmpezarOtra={() => {
+            const { clienteId, clienteNombre } = enCursoModal;
+            setEnCursoModal(null);
+            setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
+          }}
+          onCerrar={() => setEnCursoModal(null)}
+        />
+      )}
 
       {objetivoModal && (
         <ObjetivoVisitaModal
