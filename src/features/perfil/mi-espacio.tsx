@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme } from '@/hooks/use-descargar-informe';
+import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -120,22 +121,26 @@ export function MiEspacio() {
     refetch();
   }
 
-  // Cuota dinámica: se recalcula sola según cuántos comerciales activos
-  // hay (60_cuota_dinamica_por_comercial.sql) — no hay número fijo que
-  // ajustar a mano cada vez que se da de alta o de baja a alguien.
-  const { data: cuotaBytes } = useQuery({
-    queryKey: ['cuota-comercial-bytes'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('fn_cuota_comercial_bytes');
-      if (error) throw error;
-      return data as number;
-    },
-  });
+  // Reparto blando: tu parte (cuota base) es orientativa; lo que manda es
+  // el pozo del equipo. Ver src/lib/espacio.ts.
+  const { estado } = useEspacioEquipo();
 
-  const bytesUsados = visitas?.reduce((acc, v) => acc + v.bytes, 0) ?? 0;
-  const porcentajeUsado = cuotaBytes ? (bytesUsados / cuotaBytes) * 100 : 0;
+  const mensajeEspacio =
+    estado?.nivel === 'aviso_mio'
+      ? `Vas usando bastante espacio (${estado.pctMio.toFixed(0)}% de tu parte). Aún hay margen del equipo, pero archiva visitas antiguas cuando puedas.`
+      : estado?.nivel === 'aviso_equipo'
+        ? `El espacio del equipo va al ${estado.pctEquipo.toFixed(0)}%. Ayuda a liberar borrando visitas antiguas.`
+        : estado?.nivel === 'critico_equipo'
+          ? `El espacio del equipo está al ${estado.pctEquipo.toFixed(0)}%. Libera visitas antiguas cuanto antes.`
+          : estado?.nivel === 'bloqueo'
+            ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%). No se pueden subir fotos ni audios hasta que se libere.`
+            : null;
   const colorAviso =
-    porcentajeUsado < 70 ? 'var(--ink-400)' : porcentajeUsado < 90 ? 'var(--warning-600)' : 'var(--risk-600)';
+    estado?.nivel === 'critico_equipo' || estado?.nivel === 'bloqueo'
+      ? 'var(--risk-600)'
+      : estado?.nivel === 'aviso_mio' || estado?.nivel === 'aviso_equipo'
+        ? 'var(--warning-600)'
+        : 'var(--ink-400)';
 
   return (
     <div className="screen">
@@ -146,19 +151,21 @@ export function MiEspacio() {
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>mi espacio</h1>
       </div>
 
-      <div className="card" style={{ borderColor: colorAviso }}>
-        <div className="label" style={{ marginTop: 0 }}>espacio usado</div>
+      <div className="card" style={{ borderColor: mensajeEspacio ? colorAviso : undefined }}>
+        <div className="label" style={{ marginTop: 0 }}>tu espacio</div>
         <div style={{ fontSize: 'var(--text-base)', color: colorAviso }}>
-          {cuotaBytes
-            ? `${formatearMB(bytesUsados)} MB de ${formatearMB(cuotaBytes)} MB (${porcentajeUsado.toFixed(0)}%)`
-            : `${formatearMB(bytesUsados)} MB usados`}
+          {estado
+            ? `${formatearMB(estado.miUso)} MB de ${formatearMB(estado.cuotaBase)} MB (${estado.pctMio.toFixed(0)}%)`
+            : '…'}
         </div>
-        {porcentajeUsado >= 70 && (
-          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 4 }}>
-            {porcentajeUsado >= 90
-              ? 'Te estás quedando sin espacio — descarga copia y borra alguna visita antigua.'
-              : 'Vas ajustado de espacio — revisa si hay visitas antiguas que puedas liberar.'}
-          </div>
+        <div className="label">espacio del equipo</div>
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+          {estado
+            ? `${formatearMB(estado.usadoTotal)} MB de ${formatearMB(estado.presupuesto)} MB (${estado.pctEquipo.toFixed(0)}%)`
+            : '…'}
+        </div>
+        {mensajeEspacio && (
+          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 6 }}>{mensajeEspacio}</div>
         )}
       </div>
 

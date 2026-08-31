@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
+import { AvisoEspacio } from '@/components/ui/aviso-espacio';
 
 // Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
 // solo se alcanza desde Hoy (ver 06_arquitectura_navegacion.md §5).
@@ -16,6 +17,8 @@ export function LayoutShell() {
       <main className="app-shell__content">
         <Outlet />
       </main>
+
+      <AvisoEspacio />
 
       {visitaEnCurso ? (
         <a href={`/visita/${visitaEnCurso.id}`} className="visita-en-curso-banner">

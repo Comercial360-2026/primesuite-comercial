@@ -1760,6 +1760,13 @@ export type Database = {
         Args: { p_comercial_id?: string; p_visita_id: string }
         Returns: boolean
       }
+      fn_espacio_equipo: {
+        Args: never
+        Returns: {
+          usado_total: number
+          presupuesto: number
+        }[]
+      }
       fn_espacio_por_comercial: {
         Args: never
         Returns: {

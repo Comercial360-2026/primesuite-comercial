@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -123,6 +124,13 @@ export function VisitaActiva() {
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
 
+  // Al 98% del pozo del equipo se cortan las subidas de binarios (fotos y
+  // audios); las notas de texto siguen. Ver src/lib/espacio.ts.
+  const { estado: espacioEquipo } = useEspacioEquipo();
+  const espacioBloqueado = espacioEquipo?.nivel === 'bloqueo';
+  const MSG_ESPACIO_LLENO =
+    'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).';
+
   const inputFotoRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -196,6 +204,11 @@ export function VisitaActiva() {
   const LIMITE_FOTO_BYTES = 12 * 1024 * 1024;
 
   async function capturarFoto(archivo: File) {
+    if (espacioBloqueado) {
+      flushSync(() => setFotoPendiente(null));
+      capturaFoto.establecerError(MSG_ESPACIO_LLENO);
+      return;
+    }
     const archivoComprimido = await comprimirImagen(archivo);
     if (archivoComprimido.size > LIMITE_FOTO_BYTES) {
       flushSync(() => setFotoPendiente(null));
@@ -275,6 +288,10 @@ export function VisitaActiva() {
 
   async function iniciarODetenerAudio() {
     if (!grabando) {
+      if (espacioBloqueado) {
+        capturaAudio.establecerError(MSG_ESPACIO_LLENO);
+        return;
+      }
       await capturaAudio.ejecutar(
         async () => {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -519,7 +536,13 @@ export function VisitaActiva() {
         ) : (
           <div
             style={{ flex: 1, minHeight: 220, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}
-            onClick={() => inputFotoRef.current?.click()}
+            onClick={() => {
+              if (espacioBloqueado) {
+                capturaFoto.establecerError(MSG_ESPACIO_LLENO);
+                return;
+              }
+              inputFotoRef.current?.click();
+            }}
           >
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
@@ -592,10 +615,18 @@ export function VisitaActiva() {
       />
 
       <div className="capture-grid">
-        <button className="capture-btn" disabled={capturaFoto.cargando} onClick={() => inputFotoRef.current?.click()}>
+        <button
+          className="capture-btn"
+          disabled={capturaFoto.cargando || espacioBloqueado}
+          onClick={() => inputFotoRef.current?.click()}
+        >
           {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
         </button>
-        <button className="capture-btn" disabled={capturaAudio.cargando && !grabando} onClick={iniciarODetenerAudio}>
+        <button
+          className="capture-btn"
+          disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
+          onClick={iniciarODetenerAudio}
+        >
           {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
         </button>
         <button className="capture-btn" onClick={() => setNotaAbierta(true)}>

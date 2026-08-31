@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
+import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 
 interface ConsumoComercial {
   comercial_id: string;
@@ -36,6 +37,8 @@ export function ConsumoComerciales() {
     },
   });
 
+  const { estado: espacioEquipo } = useEspacioEquipo();
+
   // isPaused: mismo patrón ya corregido en el resto de la app.
   const sinConexion = isPaused && consumo === undefined;
   function reintentar() {
@@ -51,6 +54,29 @@ export function ConsumoComerciales() {
         </button>
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>consumo por comercial</h1>
       </div>
+
+      {espacioEquipo && (
+        <div
+          className="card"
+          style={{
+            borderColor:
+              espacioEquipo.pctEquipo >= 95
+                ? 'var(--risk-600)'
+                : espacioEquipo.pctEquipo >= 85
+                  ? 'var(--warning-600)'
+                  : undefined,
+          }}
+        >
+          <div className="label" style={{ marginTop: 0 }}>espacio del equipo</div>
+          <div style={{ fontSize: 'var(--text-base)' }}>
+            {formatearMB(espacioEquipo.usadoTotal)} MB de {formatearMB(espacioEquipo.presupuesto)} MB (
+            {espacioEquipo.pctEquipo.toFixed(0)}%)
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+            parte orientativa por comercial: {formatearMB(espacioEquipo.cuotaBase)} MB
+          </div>
+        </div>
+      )}
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
