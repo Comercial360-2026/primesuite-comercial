@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      aviso_liberar_espacio: {
+        Row: {
+          atendido_en: string | null
+          comercial_id: string
+          creado_en: string
+          id: string
+          pedido_por: string
+        }
+        Insert: {
+          atendido_en?: string | null
+          comercial_id: string
+          creado_en?: string
+          id?: string
+          pedido_por: string
+        }
+        Update: {
+          atendido_en?: string | null
+          comercial_id?: string
+          creado_en?: string
+          id?: string
+          pedido_por?: string
+        }
+        Relationships: []
+      }
       captura_libre: {
         Row: {
           categoria_foto: string | null

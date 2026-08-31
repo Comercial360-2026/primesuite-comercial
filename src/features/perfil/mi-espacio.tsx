@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -124,6 +125,13 @@ export function MiEspacio() {
   // Reparto blando: tu parte (cuota base) es orientativa; lo que manda es
   // el pozo del equipo. Ver src/lib/espacio.ts.
   const { estado } = useEspacioEquipo();
+
+  // Si Dirección Comercial pidió que liberes espacio, al abrir esta
+  // pantalla el aviso se da por atendido (has venido a mirarlo).
+  const { aviso: avisoLiberar, marcarAtendido } = useAvisoLiberar();
+  useEffect(() => {
+    if (avisoLiberar) marcarAtendido();
+  }, [avisoLiberar, marcarAtendido]);
 
   const mensajeEspacio =
     estado?.nivel === 'aviso_mio'

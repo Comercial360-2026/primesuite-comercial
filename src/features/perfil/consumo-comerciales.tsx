@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
 
 interface ConsumoComercial {
   comercial_id: string;
@@ -38,6 +40,31 @@ export function ConsumoComerciales() {
   });
 
   const { estado: espacioEquipo } = useEspacioEquipo();
+  const { comercial } = useSesionActual();
+
+  // Avisos "libera espacio" sin atender, para no repetir la petición.
+  const { data: pendientes } = useQuery({
+    queryKey: ['avisos-liberar-pendientes'],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from('aviso_liberar_espacio')
+        .select('comercial_id, creado_en')
+        .is('atendido_en', null);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((a) => [a.comercial_id, a.creado_en]));
+    },
+  });
+  const [pidiendo, setPidiendo] = useState<string | null>(null);
+
+  async function pedirLiberar(comercialId: string) {
+    if (!comercial || pidiendo) return;
+    setPidiendo(comercialId);
+    await supabase
+      .from('aviso_liberar_espacio')
+      .insert({ comercial_id: comercialId, pedido_por: comercial.id });
+    setPidiendo(null);
+    queryClient.invalidateQueries({ queryKey: ['avisos-liberar-pendientes'] });
+  }
 
   // isPaused: mismo patrón ya corregido en el resto de la app.
   const sinConexion = isPaused && consumo === undefined;
@@ -91,6 +118,8 @@ export function ConsumoComerciales() {
       {consumo?.map((c) => {
         const porcentaje = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
         const color = porcentaje < 70 ? 'var(--ink-400)' : porcentaje < 90 ? 'var(--warning-600)' : 'var(--risk-600)';
+        const yaPedido = pendientes?.[c.comercial_id];
+        const esYo = c.comercial_id === comercial?.id;
         return (
           <div key={c.comercial_id} className="card" style={{ borderColor: porcentaje >= 90 ? color : undefined }}>
             <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{c.nombre}</div>
@@ -99,6 +128,22 @@ export function ConsumoComerciales() {
                 ? `${formatearMB(c.bytes)} MB de ${formatearMB(cuotaBytes)} MB (${porcentaje.toFixed(0)}%)`
                 : `${formatearMB(c.bytes)} MB usados`}
             </div>
+            {!esYo &&
+              (yaPedido ? (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                  Avisado el {new Date(yaPedido).toLocaleDateString('es-ES')} — pendiente de que lo mire
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
+                  disabled={pidiendo === c.comercial_id}
+                  onClick={() => pedirLiberar(c.comercial_id)}
+                >
+                  {pidiendo === c.comercial_id ? 'Enviando…' : 'Pedir que libere espacio'}
+                </button>
+              ))}
           </div>
         );
       })}
