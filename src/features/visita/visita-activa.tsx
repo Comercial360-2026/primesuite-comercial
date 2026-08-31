@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -95,6 +96,7 @@ function FotosPorUbicacion({ capturas, nombresUbicaciones, ubicacionActivaId, on
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
   const { iniciarVisita } = useVisitaActivaContext();
@@ -975,13 +977,43 @@ export function VisitaActiva() {
         />
       )}
 
-      {pasoAbierto && (
+      {pasoAbierto && visitaLocal?.clienteId && (
         <PasoRapidoModal
           visitaId={visitaId}
           comercialId={comercial.id}
           onGuardar={async (payload) => {
             const pasoId = crypto.randomUUID();
             await encolar(pasoId, 'proximo_paso', payload, { dependeDe: visitaId });
+            setTimeout(() => setPasoAbierto(false), 700);
+          }}
+          onPlanificarVisita={async ({ fecha, hora, franja }) => {
+            // Llamada directa, NO por la cola offline: igual que planificar
+            // desde la ficha, para que aparezca en la agenda al momento.
+            const nuevaId = crypto.randomUUID();
+            const { error } = await crearVisitaConResponsable({
+              pVisitaId: nuevaId,
+              pClienteId: visitaLocal.clienteId,
+              pComercialId: comercial.id,
+              pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
+              pEstadoCaptura: 'agendada',
+            });
+            if (error) throw new Error(error);
+            if (!hora) {
+              const { error: errHora } = await supabase
+                .from('visita')
+                .update({ hora_definida: false, franja: franja || null })
+                .eq('id', nuevaId);
+              if (errHora) throw new Error(errHora.message);
+            }
+            for (const k of [
+              ['visitas-hoy'],
+              ['visitas-proximas'],
+              ['visitas-atrasadas'],
+              ['agenda-planificadas'],
+              ['historial-visitas', visitaLocal.clienteId],
+            ]) {
+              queryClient.invalidateQueries({ queryKey: k });
+            }
             setTimeout(() => setPasoAbierto(false), 700);
           }}
           onCerrar={() => setPasoAbierto(false)}
