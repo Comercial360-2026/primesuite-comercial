@@ -6,7 +6,6 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -71,12 +70,6 @@ export function FichaCliente() {
     if (visitaEnCurso) setEnCursoModalAbierto(true);
     else setObjetivoAdHocAbierto(true);
   }
-
-  const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
-  const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
-  const previsualizando = useAccionAsync();
-  const borrandoVisita = useAccionAsync();
-  const { estadoDe, descargar } = useDescargarInforme();
 
   const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
   const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
@@ -318,59 +311,6 @@ export function FichaCliente() {
     }
   }, [planificando, searchParams]);
 
-  async function pedirPrevisualizacion(visitaId: string) {
-    setVisitaBorrarId(visitaId);
-    setPrevisualizacion(null);
-    await previsualizando.ejecutar(async () => {
-      const { data, error } = await supabase
-        .rpc('previsualizar_borrado_visita', { p_visita_id: visitaId })
-        .single();
-      if (error) throw new Error(error.message);
-      return data as PrevisualizacionBorrado;
-    }, {
-      onExito: (data) => setPrevisualizacion(data),
-    });
-  }
-
-  function cancelarBorrado() {
-    setVisitaBorrarId(null);
-    setPrevisualizacion(null);
-    previsualizando.limpiarError();
-    borrandoVisita.limpiarError();
-  }
-
-  async function confirmarBorradoVisita() {
-    if (!visitaBorrarId) return;
-    const rutas = previsualizacion?.rutas_storage ?? [];
-
-    await borrandoVisita.ejecutar(
-      async () => {
-        const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: visitaBorrarId });
-        if (error) throw new Error(error.message);
-
-        if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
-        }
-      },
-      {
-        onExito: () => {
-          setVisitaBorrarId(null);
-          setPrevisualizacion(null);
-          queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
-          queryClient.invalidateQueries({ queryKey: ['semaforo-cliente', clienteId] });
-          queryClient.invalidateQueries({ queryKey: ['ecosistema-completo', clienteId] });
-          // La "última visita" que se ve en la lista de Clientes puede
-          // cambiar al borrar una visita — mismo hueco que el borrado de
-          // cliente completo, corregido a la vez.
-          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-        },
-      }
-    );
-  }
-
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
     setPrevisualizacionCliente(null);
@@ -553,90 +493,47 @@ export function FichaCliente() {
 
         <div className="label">historial de visitas</div>
         {historialVisitas?.length ? (
-          historialVisitas.map((v) => (
-            <div key={v.id} className="card" style={{ marginBottom: 8 }}>
-              {visitaBorrarId === v.id ? (
-                previsualizando.cargando || !previsualizacion ? (
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
-                ) : (
-                  <div>
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                      Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
-                      {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
-                      {previsualizacion.num_oportunidades} oportunidad(es). Todo eso se borrará también. Los{' '}
-                      {previsualizacion.num_proximos_pasos} próximo(s) paso(s) vinculados también se borrarán. No se puede deshacer.
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
-                        Cancelar
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        style={{ background: 'var(--risk-600)' }}
-                        onClick={confirmarBorradoVisita}
-                        disabled={borrandoVisita.cargando}
-                      >
-                        {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
-                      </button>
-                    </div>
-                    {borrandoVisita.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>}
+          historialVisitas.map((v) => {
+            // La fila solo navega. Descargar informe y Borrar viven dentro
+            // de la visita (detalle / Visita Activa) — así el historial no
+            // es un muro de botones.
+            const estadoLegible =
+              v.estado_captura === 'agendada'
+                ? 'planificada'
+                : v.estado_captura === 'en_curso'
+                  ? 'en curso'
+                  : 'cerrada';
+            const accion =
+              v.estado_captura === 'agendada'
+                ? 'gestionar'
+                : v.estado_captura === 'en_curso'
+                  ? 'continuar visita'
+                  : 'ver contenido';
+            return (
+              <div
+                key={v.id}
+                className="card"
+                style={{ marginBottom: 8, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+                onClick={() => {
+                  if (v.estado_captura === 'agendada') navigate(`/visita/${v.id}/planificada`);
+                  else if (v.estado_captura === 'en_curso') navigate(`/visita/${v.id}`);
+                  else navigate(`/visita/${v.id}/detalle`);
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 'var(--text-base)' }}>
+                    {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
-                )
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '4px 0' }}
-                    onClick={() => {
-                      // Una visita EN CURSO se retoma en Visita Activa (igual
-                      // que desde "Hoy"), no en la vista de solo lectura —
-                      // esa es para las ya cerradas (consolidadas).
-                      if (v.estado_captura === 'agendada') navigate(`/visita/${v.id}/planificada`);
-                      else if (v.estado_captura === 'en_curso') navigate(`/visita/${v.id}`);
-                      else navigate(`/visita/${v.id}/detalle`);
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 'var(--text-base)' }}>
-                        {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </div>
-                      {v.objetivo && (
-                        <div style={{ fontSize: 'var(--text-sm)' }}>{v.objetivo}</div>
-                      )}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                        {v.estado_captura === 'agendada' ? 'planificada' : v.estado_captura}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>
-                        {v.estado_captura === 'agendada'
-                          ? 'gestionar'
-                          : v.estado_captura === 'en_curso'
-                            ? 'continuar visita'
-                            : 'ver contenido'}
-                      </span>
-                      <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
-                    </div>
-                  </div>
-                  {v.estado_captura !== 'agendada' && (
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <BotonDescargarInforme
-                        estado={estadoDe(v.id)}
-                        onDescargar={() => descargar(v.id)}
-                        compacto
-                      />
-                      <button
-                        className="btn btn-secondary"
-                        style={{ width: 'auto', padding: '4px 12px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                        onClick={() => pedirPrevisualizacion(v.id)}
-                      >
-                        Borrar
-                      </button>
-                    </div>
-                  )}
+                  {v.objetivo && <div style={{ fontSize: 'var(--text-sm)' }}>{v.objetivo}</div>}
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{estadoLegible}</div>
                 </div>
-              )}
-            </div>
-          ))
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>{accion}</span>
+                  <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
+                </div>
+              </div>
+            );
+          })
         ) : (
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin visitas registradas</div>
         )}

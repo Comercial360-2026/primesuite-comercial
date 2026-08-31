@@ -3,21 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { useAccionAsync } from '@/hooks/use-accion-async';
-import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
+import { useBorrarVisita } from '@/hooks/use-borrar-visita';
+import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { EstadoError } from '@/components/ui/estado-error';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
-
-interface PrevisualizacionBorrado {
-  num_fotos: number;
-  num_audios: number;
-  num_notas: number;
-  num_hallazgos: number;
-  num_oportunidades: number;
-  num_proximos_pasos: number;
-  rutas_storage: string[] | null;
-}
 
 interface VisitaAgenda {
   id: string;
@@ -215,37 +205,8 @@ export function AgendaDelDia() {
     hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean, bajoFranja = false) {
-    if (visitaBorrarId === visita.id) {
-      return (
-        <div key={visita.id} className="card">
-          {previsualizando.cargando || !previsualizacion ? (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-          ) : (
-            <>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
-                {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
-                {previsualizacion.num_oportunidades} oportunidad(es) y {previsualizacion.num_proximos_pasos} próximo(s)
-                paso(s). Todo eso se borrará también. No se puede deshacer.
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrando.cargando}>
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'var(--risk-600)' }}
-                  onClick={confirmarBorrado}
-                  disabled={borrando.cargando}
-                >
-                  {borrando.cargando ? 'Borrando…' : 'Confirmar borrado de la visita completa'}
-                </button>
-              </div>
-              {borrando.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrando.error}</div>}
-            </>
-          )}
-        </div>
-      );
+    if (borrar.visitaBorrarId === visita.id) {
+      return <div key={visita.id}><ConfirmarBorradoVisita ctrl={borrar} /></div>;
     }
     return (
       <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -280,17 +241,17 @@ export function AgendaDelDia() {
             </div>
           )}
         </div>
-        {visita.estado_captura !== 'agendada' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-            <BotonDescargarInforme estado={estadoDe(visita.id)} onDescargar={() => descargar(visita.id)} compacto />
-            <button
-              type="button"
-              onClick={() => void pedirBorrado(visita.id)}
-              style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4 }}
-            >
-              Borrar
-            </button>
-          </div>
+        {/* Solo la en curso lleva "Borrar" aquí (para matar una que se
+            inició sin querer). Descargar informe y borrar una visita
+            cerrada viven dentro de ella (ver contenido → detalle). */}
+        {visita.estado_captura === 'en_curso' && (
+          <button
+            type="button"
+            onClick={() => void borrar.pedir(visita.id)}
+            style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4, flexShrink: 0 }}
+          >
+            Borrar
+          </button>
         )}
       </div>
     );
@@ -320,75 +281,29 @@ export function AgendaDelDia() {
       navigate(`/visita/${visita.id}`);
       return;
     }
+    // consolidada → detalle de solo lectura (ver contenido, descargar
+    // informe, borrar) — no el repaso, que invita a empezar una visita.
+    if (visita.estado_captura === 'consolidada') {
+      navigate(`/visita/${visita.id}/detalle`);
+      return;
+    }
     // Planificada para OTRO día (atrasada o futura) → pantalla de gestión,
     // no el repaso: el repaso invita a empezarla ya y no es lo que quieres
     // con una visita para dentro de una semana.
-    if (visita.estado_captura === 'agendada' && !esDeHoy(visita.fecha)) {
+    if (!esDeHoy(visita.fecha)) {
       navigate(`/visita/${visita.id}/planificada`);
       return;
     }
-    // Planificada para hoy, o improvisada → repaso rápido antes de entrar.
+    // Planificada para hoy → repaso rápido antes de entrar.
     if (visita.cliente) {
       navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`);
     }
   }
 
-  // Borrar una visita creada por error (duplicada, o iniciada sin querer)
-  // — antes solo se podía borrar entrando a la ficha del cliente y
-  // buscando la visita correcta entre su historial, nada intuitivo ni
-  // rápido cuando el error se ve aquí mismo, en Hoy. Mismo patrón de
-  // previsualización + confirmación en dos pasos ya usado en la ficha de
-  // cliente, reutilizando las mismas funciones RPC.
-  const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
-  const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
-  const previsualizando = useAccionAsync();
-  const borrando = useAccionAsync();
-  const { estadoDe, descargar } = useDescargarInforme();
-
-  async function pedirBorrado(visitaId: string) {
-    setVisitaBorrarId(visitaId);
-    setPrevisualizacion(null);
-    await previsualizando.ejecutar(
-      async () => {
-        const { data, error } = await supabase.rpc('previsualizar_borrado_visita', { p_visita_id: visitaId }).single();
-        if (error) throw new Error(error.message);
-        return data as PrevisualizacionBorrado;
-      },
-      { onExito: (data) => setPrevisualizacion(data) }
-    );
-  }
-
-  function cancelarBorrado() {
-    setVisitaBorrarId(null);
-    setPrevisualizacion(null);
-    previsualizando.limpiarError();
-    borrando.limpiarError();
-  }
-
-  async function confirmarBorrado() {
-    if (!visitaBorrarId) return;
-    const rutas = previsualizacion?.rutas_storage ?? [];
-    await borrando.ejecutar(
-      async () => {
-        const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: visitaBorrarId });
-        if (error) throw new Error(error.message);
-        if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
-        }
-      },
-      {
-        onExito: () => {
-          setVisitaBorrarId(null);
-          setPrevisualizacion(null);
-          queryClient.invalidateQueries({ queryKey });
-          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-        },
-      }
-    );
-  }
+  // Borrar una visita creada por error (iniciada sin querer) — se ve aquí
+  // mismo, en Hoy, sin tener que entrar a la ficha del cliente. Flujo
+  // común (previsualizar → confirmar) en useBorrarVisita.
+  const borrar = useBorrarVisita({ onBorrada: () => queryClient.invalidateQueries({ queryKey }) });
 
   return (
     <div className="screen screen--split">

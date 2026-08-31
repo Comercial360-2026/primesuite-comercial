@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
+import { useBorrarVisita } from '@/hooks/use-borrar-visita';
+import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 
 // Pantalla de solo lectura para repasar una visita ya cerrada — hasta hoy
 // no existía ninguna: /visita/:id siempre abría VisitaActiva (pensada para
@@ -36,6 +38,9 @@ export function DetalleVisitaCerrada() {
   // cliente y Mi espacio — centralizados en use-descargar-informe.tsx para
   // que una corrección llegue a los cuatro sitios a la vez.
   const { estadoDe, descargar } = useDescargarInforme();
+  // Borrar la visita se hace desde aquí (no desde cada fila del historial):
+  // al borrarla, se vuelve atrás porque ya no existe.
+  const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -129,10 +134,12 @@ export function DetalleVisitaCerrada() {
     refetch();
   }
 
+  const estadoLegible: Record<string, string> = { en_curso: 'en curso', consolidada: 'cerrada', agendada: 'planificada' };
+
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
+        <button onClick={() => navigate(-1)} aria-label="volver" style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
           ←
         </button>
         <div style={{ flex: 1 }}>
@@ -140,17 +147,11 @@ export function DetalleVisitaCerrada() {
           {data && (
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
               {new Date(data.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-              {data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · {data.estado_captura}
+              {data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · {estadoLegible[data.estado_captura] ?? data.estado_captura}
             </div>
           )}
         </div>
       </div>
-
-      {data && visitaId && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <BotonDescargarInforme estado={estadoDe(visitaId)} onDescargar={() => descargar(visitaId)} />
-        </div>
-      )}
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 
@@ -296,6 +297,25 @@ export function DetalleVisitaCerrada() {
                 Esta visita no tiene ninguna captura registrada.
               </div>
             )}
+        </div>
+      )}
+
+      {data && visitaId && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {borrar.visitaBorrarId === visitaId ? (
+            <ConfirmarBorradoVisita ctrl={borrar} />
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <BotonDescargarInforme estado={estadoDe(visitaId)} onDescargar={() => descargar(visitaId)} />
+              <button
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '0 16px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                onClick={() => void borrar.pedir(visitaId)}
+              >
+                Borrar
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
