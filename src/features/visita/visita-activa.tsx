@@ -21,6 +21,16 @@ import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
+// Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
+// Firefox en webm. Antes se forzaba 'audio/webm' a pelo, así que en
+// iPhone el blob quedaba mal etiquetado y el reproductor daba "Error".
+// Se elige el primero que el navegador soporte de verdad.
+const TIPOS_AUDIO = ['audio/mp4', 'audio/webm', 'audio/ogg'];
+function elegirTipoAudio(): string | undefined {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return undefined;
+  return TIPOS_AUDIO.find((t) => MediaRecorder.isTypeSupported(t));
+}
+
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
@@ -304,6 +314,7 @@ export function VisitaActiva() {
   const inputFotoRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const { data: cliente } = useQuery({
     queryKey: ['cliente', visitaLocal?.clienteId],
@@ -491,6 +502,11 @@ export function VisitaActiva() {
   // minutos es de sobra para una nota de voz de campo; se detiene sola.
   const DURACION_MAXIMA_AUDIO_MS = 10 * 60 * 1000;
 
+  function soltarWakeLock() {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }
+
   async function iniciarODetenerAudio() {
     if (!grabando) {
       if (espacioBloqueado) {
@@ -500,24 +516,43 @@ export function VisitaActiva() {
       await capturaAudio.ejecutar(
         async () => {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const recorder = new MediaRecorder(stream);
+          const tipo = elegirTipoAudio();
+          const recorder = new MediaRecorder(stream, tipo ? { mimeType: tipo } : undefined);
           audioChunksRef.current = [];
-          recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+          recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunksRef.current.push(e.data);
+          };
           recorder.onstop = () => {
-            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            // El tipo real que ha usado el navegador — NO uno inventado.
+            const tipoReal = recorder.mimeType || tipo || audioChunksRef.current[0]?.type || 'audio/mp4';
+            const blob = new Blob(audioChunksRef.current, { type: tipoReal });
             flushSync(() => {
               setAudioPendiente(blob);
               setTituloPendiente('');
             });
             stream.getTracks().forEach((t) => t.stop());
+            soltarWakeLock();
             if (timeoutAudioRef.current) {
               clearTimeout(timeoutAudioRef.current);
               timeoutAudioRef.current = null;
             }
           };
-          recorder.start();
+          // timeslice: vuelca un trozo cada segundo. Si el sistema corta la
+          // grabación (pantalla bloqueada, cambio de app), al menos queda lo
+          // grabado hasta el último segundo en vez de un archivo vacío.
+          recorder.start(1000);
           mediaRecorderRef.current = recorder;
           setGrabando(true);
+          // Mantiene la pantalla encendida mientras se graba — no evita un
+          // bloqueo manual, pero sí el apagado automático por inactividad.
+          try {
+            const wl = (navigator as Navigator & {
+              wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> };
+            }).wakeLock;
+            wakeLockRef.current = (await wl?.request('screen')) ?? null;
+          } catch {
+            /* no soportado o denegado — no pasa nada */
+          }
           timeoutAudioRef.current = setTimeout(() => {
             if (mediaRecorderRef.current?.state === 'recording') {
               mediaRecorderRef.current.stop();
@@ -531,12 +566,38 @@ export function VisitaActiva() {
     } else {
       mediaRecorderRef.current?.stop();
       setGrabando(false);
+      soltarWakeLock();
       if (timeoutAudioRef.current) {
         clearTimeout(timeoutAudioRef.current);
         timeoutAudioRef.current = null;
       }
     }
   }
+
+  // Si la pantalla se bloquea o se cambia de app mientras se graba, iOS
+  // suspende la página y el MediaRecorder queda inservible. Se para la
+  // grabación de forma limpia para quedarnos con lo grabado hasta ese
+  // momento (gracias al timeslice) en vez de un archivo corrupto.
+  useEffect(() => {
+    if (!grabando) return;
+    const alOcultarse = () => {
+      if (document.visibilityState === 'hidden' && mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+        setGrabando(false);
+        soltarWakeLock();
+        if (timeoutAudioRef.current) {
+          clearTimeout(timeoutAudioRef.current);
+          timeoutAudioRef.current = null;
+        }
+        capturaAudio.establecerError(
+          'La grabación se detuvo al bloquearse la pantalla o cambiar de app. Se ha guardado lo grabado hasta ahí. Una app web no puede grabar en segundo plano.'
+        );
+      }
+    };
+    document.addEventListener('visibilitychange', alOcultarse);
+    return () => document.removeEventListener('visibilitychange', alOcultarse);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabando]);
 
   async function guardarNota() {
     if (!notaTexto.trim()) return;
@@ -917,6 +978,11 @@ export function VisitaActiva() {
                 {(capturaFoto.error || capturaAudio.error) && (
                   <div className="field-error-text">{capturaFoto.error || capturaAudio.error}</div>
                 )}
+                {grabando && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                    Grabando… no bloquees la pantalla ni cambies de app o se cortará.
+                  </div>
+                )}
               </>
             )}
           </>
@@ -1084,6 +1150,11 @@ export function VisitaActiva() {
 
       {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
       {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+      {grabando && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+          Grabando… no bloquees la pantalla ni cambies de app o se cortará.
+        </div>
+      )}
 
       {notaAbierta && (
         <div className="card">

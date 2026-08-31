@@ -157,6 +157,14 @@ async function sincronizarInsertSimple(
   if (error) throw new Error(error.message);
 }
 
+function extensionAudio(mime: string): string {
+  if (/mp4|m4a|aac/.test(mime)) return 'm4a';
+  if (mime.includes('webm')) return 'webm';
+  if (mime.includes('ogg')) return 'ogg';
+  if (/mpeg|mp3/.test(mime)) return 'mp3';
+  return 'm4a';
+}
+
 async function sincronizarCapturaLibre(
   operacion: OperacionPendiente<'captura_libre'>
 ): Promise<void> {
@@ -165,12 +173,17 @@ async function sincronizarCapturaLibre(
 
   if (operacion.archivoLocal && (payload.tipo === 'foto' || payload.tipo === 'audio')) {
     const bucket = payload.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
-    const extension = payload.tipo === 'foto' ? 'jpg' : 'm4a';
+    // La extensión del audio se deriva del tipo real del blob (iOS graba
+    // mp4/m4a, Android/desktop webm). Antes se forzaba .m4a siempre, aunque
+    // el contenido fuera webm — playback y descargas rotas.
+    const extension =
+      payload.tipo === 'foto' ? 'jpg' : extensionAudio(operacion.archivoLocal.type);
     const ruta = `${payload.visitaId}/${operacion.id}.${extension}`;
 
-    const { error: errorSubida } = await supabase.storage
-      .from(bucket)
-      .upload(ruta, operacion.archivoLocal, { upsert: true });
+    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, operacion.archivoLocal, {
+      upsert: true,
+      contentType: operacion.archivoLocal.type || undefined,
+    });
     if (errorSubida) throw new Error(errorSubida.message);
     storagePath = ruta;
   }
