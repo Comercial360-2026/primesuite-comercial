@@ -391,7 +391,7 @@ export function AgendaDelDia() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hoy</h1>
 
       {visitas && (hoyPendientes.length > 0 || (atrasadasFiltradas?.length ?? 0) > 0) && (
@@ -414,6 +414,8 @@ export function AgendaDelDia() {
           </button>
         </div>
       )}
+
+      <div className="screen__scroll">
 
       {atrasadasFiltradas && atrasadasFiltradas.length > 0 && (
         <div
@@ -508,13 +510,14 @@ export function AgendaDelDia() {
         </>
       )}
 
-      <div
-        className="card"
-        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
-        onClick={() => navigate('/agenda')}
-      >
-        <span style={{ fontSize: 'var(--text-sm)' }}>Ver agenda completa</span>
-        <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
+        <div
+          className="card"
+          style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
+          onClick={() => navigate('/agenda')}
+        >
+          <span style={{ fontSize: 'var(--text-sm)' }}>Ver agenda completa</span>
+          <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
+        </div>
       </div>
 
       <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
