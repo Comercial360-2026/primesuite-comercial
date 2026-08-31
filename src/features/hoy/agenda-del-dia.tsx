@@ -389,6 +389,16 @@ export function AgendaDelDia() {
     <div className="screen">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hoy</h1>
 
+      {visitas && (hoyPendientes.length > 0 || (atrasadasFiltradas?.length ?? 0) > 0) && (
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: -8 }}>
+          {hoyPendientes.length > 0 &&
+            `${hoyPendientes.length} planificada${hoyPendientes.length === 1 ? '' : 's'} hoy`}
+          {hoyPendientes.length > 0 && (atrasadasFiltradas?.length ?? 0) > 0 && ' · '}
+          {(atrasadasFiltradas?.length ?? 0) > 0 &&
+            `${atrasadasFiltradas!.length} atrasada${atrasadasFiltradas!.length === 1 ? '' : 's'}`}
+        </div>
+      )}
+
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
