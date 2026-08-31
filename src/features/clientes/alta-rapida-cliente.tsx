@@ -75,58 +75,88 @@ export function AltaRapidaCliente() {
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
   // de forma silenciosa — ahora se muestra como un error visible, mismo
   // patrón ya usado en OportunidadRapidaModal.
-  async function crearCliente(): Promise<{ id: string; nombre: string }> {
+  // Con red: INSERT directo (instantáneo, la ficha ya es navegable).
+  // Sin red o corte puntual: se encola y se sincroniza luego. `enCola` dice
+  // cuál de los dos pasó, para que cada flujo actúe en consecuencia.
+  async function crearCliente(): Promise<{ id: string; nombre: string; enCola: boolean }> {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
-    const { data: cliente, error: errorCliente } = await supabase
-      .from('cliente')
-      .insert({ nombre: nombre.trim(), estado_relacion: 'borrador', creado_por: comercial.id })
-      .select('id, nombre')
-      .single();
-    if (errorCliente || !cliente) {
-      throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente. Comprueba tu conexión.');
+    const clienteId = crypto.randomUUID();
+    const nombreLimpio = nombre.trim();
+
+    if (navigator.onLine) {
+      const { data, error: errorCliente } = await supabase
+        .from('cliente')
+        .insert({ id: clienteId, nombre: nombreLimpio, estado_relacion: 'borrador', creado_por: comercial.id })
+        .select('id, nombre')
+        .single();
+      if (!errorCliente && data) return { id: data.id, nombre: data.nombre, enCola: false };
+      // Si el fallo no parece de red (RLS, constraint…), se muestra tal
+      // cual — encolarlo solo lo escondería. Si parece de red, se encola.
+      const esFalloDeRed =
+        !navigator.onLine || /fetch|network|load failed/i.test(errorCliente?.message ?? '');
+      if (!esFalloDeRed) {
+        throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente.');
+      }
     }
-    return cliente;
+
+    await encolar(clienteId, 'cliente', { nombre: nombreLimpio, creadoPor: comercial.id });
+    return { id: clienteId, nombre: nombreLimpio, enCola: true };
   }
 
-  async function encolarVisita(clienteId: string, clienteNombre: string) {
+  async function encolarVisita(clienteId: string, clienteNombre: string, dependeDe?: string) {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
     const visitaId = crypto.randomUUID();
-    await encolar(visitaId, 'visita', {
-      clienteId,
-      comercialResponsableId: comercial.id,
-      tipoVisita: null,
-    });
+    await encolar(
+      visitaId,
+      'visita',
+      { clienteId, comercialResponsableId: comercial.id, tipoVisita: null },
+      dependeDe ? { dependeDe } : undefined
+    );
     return { visitaId, clienteNombre };
   }
 
   // "Estoy delante del cliente": crea la ficha y entra directo en captura.
+  // Si el cliente se encoló (sin red), la visita depende de él.
   async function crearYVisitar() {
     if (!nombre.trim() || creacionCliente.cargando) return;
     await creacionCliente.ejecutar(async () => {
       const cliente = await crearCliente();
-      return encolarVisita(cliente.id, cliente.nombre);
+      return encolarVisita(cliente.id, cliente.nombre, cliente.enCola ? cliente.id : undefined);
     }, alIniciarVisita);
   }
 
   // "Lo visito otro día": crea la ficha y abre en ella el formulario de
-  // planificar (?planificar=1) — reutiliza toda la lógica que ya vive en
-  // FichaCliente, sin duplicarla aquí.
+  // planificar (?planificar=1). Planificar necesita el cliente ya en el
+  // servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
     if (!nombre.trim() || creacionCliente.cargando) return;
+    if (!navigator.onLine) {
+      creacionCliente.establecerError(
+        'Necesitas conexión para planificar una visita. Puedes iniciar la visita ahora o guardar sin visita.'
+      );
+      return;
+    }
     await creacionCliente.ejecutar(crearCliente, {
-      onExito: (cliente) => navigate(`/clientes/${cliente.id}?planificar=1`),
+      onExito: (cliente) => {
+        if (cliente.enCola) {
+          creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
+          return;
+        }
+        navigate(`/clientes/${cliente.id}?planificar=1`);
+      },
     });
   }
 
-  // "Aún no sé cuándo": solo crea la ficha.
+  // "Aún no sé cuándo": solo crea la ficha. Si se encoló (sin red), la
+  // ficha aún no existe en el servidor, así que se vuelve al listado.
   async function crearSinVisita() {
     if (!nombre.trim() || creacionCliente.cargando) return;
     await creacionCliente.ejecutar(crearCliente, {
-      onExito: (cliente) => navigate(`/clientes/${cliente.id}`),
+      onExito: (cliente) => navigate(cliente.enCola ? '/clientes' : `/clientes/${cliente.id}`),
     });
   }
 

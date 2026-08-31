@@ -4,6 +4,7 @@
 // para que la UI pueda referenciar el registro antes de que exista en el servidor.
 
 export type EntidadSincronizable =
+  | 'cliente'
   | 'visita'
   | 'hallazgo'
   | 'captura_libre'
@@ -20,6 +21,15 @@ export type EstadoOperacion = 'pendiente' | 'subiendo' | 'completado' | 'error';
 // campos generados por la base de datos: id ya lo pone el cliente, creado_en
 // y actualizado_en los pone el trigger/default).
 // ----------------------------------------------------------------------------
+
+// El alta de cliente pasa por la cola SOLO como reserva para cuando no hay
+// red (ver alta-rapida-cliente.tsx): con conexión sigue siendo un INSERT
+// directo. Es un INSERT simple, sin doble escritura atómica como `visita`.
+export interface ClientePayload {
+  nombre: string;
+  creadoPor: string;
+  estadoRelacion?: string; // por defecto 'borrador' en la BD
+}
 
 export interface VisitaPayload {
   clienteId: string;
@@ -104,6 +114,7 @@ export interface UbicacionPayload {
 }
 
 export type PayloadPorEntidad = {
+  cliente: ClientePayload;
   visita: VisitaPayload;
   hallazgo: HallazgoPayload;
   captura_libre: CapturaLibrePayload;

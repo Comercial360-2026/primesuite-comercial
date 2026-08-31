@@ -14,6 +14,7 @@ export type {
   OperacionPendiente,
   EntidadSincronizable,
   EstadoOperacion,
+  ClientePayload,
   VisitaPayload,
   HallazgoPayload,
   CapturaLibrePayload,
