@@ -75,9 +75,11 @@ export function CierreVisita() {
     },
   });
 
-  const fotosParaNombres = operaciones.filter((op) => op.entidad === 'captura_libre');
-  const ubicacionIdsFotos = fotosParaNombres
-    .map((c) => (c.payload as { ubicacionId?: string }).ubicacionId)
+  // Ids de zona presentes en CUALQUIER elemento (capturas, hallazgos,
+  // oportunidades) — el recorrido ata los cinco tipos a una zona.
+  const ubicacionIds = operaciones
+    .filter((op) => ['captura_libre', 'hallazgo', 'oportunidad'].includes(op.entidad))
+    .map((op) => (op.payload as { ubicacionId?: string }).ubicacionId)
     .filter((id): id is string => !!id)
     .filter((id, i, arr) => arr.indexOf(id) === i);
 
@@ -85,10 +87,10 @@ export function CierreVisita() {
   // nombre — invisible mientras no existían ubicaciones reales, pero un
   // fallo real en cuanto se empezó a usar Modo Recorrido de verdad.
   const { data: nombresUbicaciones } = useQuery({
-    queryKey: ['nombres-ubicaciones-cierre', ubicacionIdsFotos.join(',')],
-    enabled: ubicacionIdsFotos.length > 0,
+    queryKey: ['nombres-ubicaciones-cierre', ubicacionIds.join(',')],
+    enabled: ubicacionIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('ubicacion').select('id, nombre').in('id', ubicacionIdsFotos);
+      const { data, error } = await supabase.from('ubicacion').select('id, nombre').in('id', ubicacionIds);
       if (error) throw error;
       return Object.fromEntries((data ?? []).map((u) => [u.id, u.nombre]));
     },
@@ -104,13 +106,27 @@ export function CierreVisita() {
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
 
-  // Agrupación por ubicación — evita revisar fotos una a una, tal como se
-  // decidió en la auditoría del modelo físico.
-  const fotosPorUbicacion = fotos.reduce<Record<string, number>>((acc, c) => {
-    const ubicacionId = (c.payload as { ubicacionId?: string }).ubicacionId ?? 'sin ubicación';
-    acc[ubicacionId] = (acc[ubicacionId] ?? 0) + 1;
+  // Agrupación por zona: todo lo capturado en el recorrido (fotos, audios,
+  // notas, hallazgos, oportunidades) para repasarlo zona a zona antes de
+  // cerrar, no elemento a elemento.
+  const zonaDe = (op: (typeof operaciones)[number]) =>
+    (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin ubicación';
+  const elementosPorUbicacion = (() => {
+    const acc: Record<
+      string,
+      { fotos: number; audios: number; notas: number; hallazgos: number; oportunidades: number }
+    > = {};
+    const bump = (zona: string, k: keyof (typeof acc)[string]) => {
+      acc[zona] = acc[zona] ?? { fotos: 0, audios: 0, notas: 0, hallazgos: 0, oportunidades: 0 };
+      acc[zona][k] += 1;
+    };
+    fotos.forEach((c) => bump(zonaDe(c), 'fotos'));
+    audios.forEach((c) => bump(zonaDe(c), 'audios'));
+    notas.forEach((c) => bump(zonaDe(c), 'notas'));
+    hallazgos.forEach((h) => bump(zonaDe(h), 'hallazgos'));
+    oportunidades.forEach((o) => bump(zonaDe(o), 'oportunidades'));
     return acc;
-  }, {});
+  })();
 
   const capturasPendientes = capturas.filter((c) => c.estado !== 'completado');
 
@@ -330,13 +346,24 @@ export function CierreVisita() {
 
       <div className="screen__scroll">
         <div className="label" style={{ marginTop: 0 }}>revisar por ubicación</div>
-        {Object.entries(fotosPorUbicacion).map(([ubicacionId, cantidad]) => (
-          <div key={ubicacionId} className="card">
-            {ubicacionId === 'sin ubicación' ? 'sin ubicación' : (nombresUbicaciones?.[ubicacionId] ?? '…')}
-            {' · '}
-            {cantidad} foto(s)
-          </div>
-        ))}
+        {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
+          const resumen = [
+            n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
+            n.audios && `${n.audios} audio${n.audios > 1 ? 's' : ''}`,
+            n.notas && `${n.notas} nota${n.notas > 1 ? 's' : ''}`,
+            n.hallazgos && `${n.hallazgos} hallazgo${n.hallazgos > 1 ? 's' : ''}`,
+            n.oportunidades && `${n.oportunidades} oportunidad${n.oportunidades > 1 ? 'es' : ''}`,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <div key={ubicacionId} className="card">
+              {ubicacionId === 'sin ubicación' ? 'sin ubicación' : (nombresUbicaciones?.[ubicacionId] ?? '…')}
+              {' · '}
+              {resumen}
+            </div>
+          );
+        })}
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>

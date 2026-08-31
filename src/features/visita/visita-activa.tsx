@@ -19,7 +19,7 @@ import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
-import type { OperacionPendiente } from '@/lib/offline-queue/types';
+import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
 interface FotosPorUbicacionProps {
   capturas: OperacionPendiente[];
@@ -94,6 +94,154 @@ function FotosPorUbicacion({ capturas, nombresUbicaciones, ubicacionActivaId, on
   );
 }
 
+interface CapturasPorUbicacionProps {
+  capturas: OperacionPendiente[];
+  hallazgos: OperacionPendiente[];
+  oportunidades: OperacionPendiente[];
+  nombresUbicaciones: Record<string, string>;
+  nombresTerminos?: Record<string, string>;
+  ubicacionActivaId?: string;
+  onTocarCaptura: (id: string) => void;
+}
+
+// Resumen de Modo Recorrido: TODO lo capturado (fotos, audios, notas,
+// hallazgos, oportunidades) agrupado por zona, con la zona activa primero.
+// Es lo que hace útil el recorrido — "todo lo de esta puerta junto".
+function CapturasPorUbicacion({
+  capturas,
+  hallazgos,
+  oportunidades,
+  nombresUbicaciones,
+  nombresTerminos,
+  ubicacionActivaId,
+  onTocarCaptura,
+}: CapturasPorUbicacionProps) {
+  const claveDe = (op: OperacionPendiente) =>
+    (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
+
+  const claves = new Set<string>();
+  [...capturas, ...hallazgos, ...oportunidades].forEach((op) => claves.add(claveDe(op)));
+  if (claves.size === 0) return null;
+
+  const claveActiva = ubicacionActivaId ?? 'sin-ubicacion';
+  const ordenadas = [
+    ...(claves.has(claveActiva) ? [claveActiva] : []),
+    ...[...claves].filter((k) => k !== claveActiva && k !== 'sin-ubicacion').sort(),
+    ...(claves.has('sin-ubicacion') && claveActiva !== 'sin-ubicacion' ? ['sin-ubicacion'] : []),
+  ];
+
+  const tag = (t: string) => (
+    <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginRight: 6 }}>{t}</span>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {ordenadas.map((clave) => {
+        const tipo = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
+        const fotos = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'foto');
+        const audios = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'audio');
+        const notas = capturas.filter((c) => claveDe(c) === clave && tipo(c) === 'nota');
+        const hz = hallazgos.filter((h) => claveDe(h) === clave);
+        const op = oportunidades.filter((o) => claveDe(o) === clave);
+        if (fotos.length + audios.length + notas.length + hz.length + op.length === 0) return null;
+
+        const nombre = clave === 'sin-ubicacion' ? 'sin zona' : nombresUbicaciones[clave] ?? '…';
+        const resumen = [
+          fotos.length && `${fotos.length} foto${fotos.length > 1 ? 's' : ''}`,
+          audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
+          notas.length && `${notas.length} nota${notas.length > 1 ? 's' : ''}`,
+          hz.length && `${hz.length} hallazgo${hz.length > 1 ? 's' : ''}`,
+          op.length && `${op.length} oportunidad${op.length > 1 ? 'es' : ''}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+
+        return (
+          <div
+            key={clave}
+            style={{
+              borderLeft: `2px solid ${clave === claveActiva ? 'var(--brand-600)' : 'transparent'}`,
+              paddingLeft: 8,
+            }}
+          >
+            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{nombre}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>{resumen}</div>
+
+            {fotos.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                {[...fotos].reverse().map((f) => {
+                  const blob = f.archivoLocal as Blob | undefined;
+                  const titulo = (f.payload as { titulo?: string }).titulo;
+                  return blob ? (
+                    <img
+                      key={f.id}
+                      src={URL.createObjectURL(blob)}
+                      alt={titulo ?? 'foto'}
+                      onClick={() => onTocarCaptura(f.id)}
+                      style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+                    />
+                  ) : (
+                    <div
+                      key={f.id}
+                      onClick={() => onTocarCaptura(f.id)}
+                      style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {audios.map((a) => (
+              <div
+                key={a.id}
+                onClick={() => onTocarCaptura(a.id)}
+                style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
+              >
+                {tag('audio')}
+                {(a.payload as { titulo?: string }).titulo || 'sin título'}
+              </div>
+            ))}
+            {notas.map((n) => {
+              const p = n.payload as { titulo?: string; contenidoTexto?: string };
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => onTocarCaptura(n.id)}
+                  style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
+                >
+                  {tag('nota')}
+                  {p.titulo || p.contenidoTexto || '(nota vacía)'}
+                </div>
+              );
+            })}
+            {hz.map((h) => {
+              const p = h.payload as { terminoId: string; naturaleza: string };
+              return (
+                <div key={h.id} style={{ fontSize: 'var(--text-sm)', padding: '4px 0' }}>
+                  {tag('hallazgo')}
+                  {nombresTerminos?.[p.terminoId] ?? '…'}
+                  <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginLeft: 6 }}>
+                    {p.naturaleza.replace('_', ' ')}
+                  </span>
+                </div>
+              );
+            })}
+            {op.map((o) => (
+              <div
+                key={o.id}
+                style={{ fontSize: 'var(--text-sm)', padding: '4px 0', color: 'var(--signal-600)', fontWeight: 500 }}
+              >
+                {tag('oportunidad')}
+                {(o.payload as { titulo: string }).titulo}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
@@ -106,6 +254,14 @@ export function VisitaActiva() {
   const [modoRecorrido, setModoRecorrido] = useState(false);
   const [ubicacionActual, setUbicacionActual] = useState<{ id: string; nombre: string } | undefined>(undefined);
   const [selectorUbicacionAbierto, setSelectorUbicacionAbierto] = useState(false);
+  // En Recorrido no se captura nada hasta elegir una zona; "sin zona" es la
+  // salida explícita para una captura suelta que no pertenece a ningún
+  // punto concreto.
+  const [sinZona, setSinZona] = useState(false);
+  // Ubicación que se aplica a TODO lo que se captura ahora mismo (foto,
+  // audio, nota, hallazgo, oportunidad): solo en Recorrido y solo si hay
+  // zona elegida. "sin zona" o fuera del recorrido => undefined, como hoy.
+  const ubicacionParaCaptura = modoRecorrido ? ubicacionActual?.id : undefined;
   const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
@@ -276,7 +432,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'foto',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
+              ubicacionId: ubicacionParaCaptura,
             },
             { dependeDe: visitaId, archivoLocal: fotoPendiente }
           ),
@@ -299,7 +455,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'audio',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
+              ubicacionId: ubicacionParaCaptura,
             },
             { dependeDe: visitaId, archivoLocal: audioPendiente }
           ),
@@ -382,7 +538,7 @@ export function VisitaActiva() {
             tipo: 'nota',
             titulo: notaTitulo.trim() || undefined,
             contenidoTexto: notaTexto.trim(),
-            ubicacionId: modoRecorrido ? ubicacionActual?.id : undefined,
+            ubicacionId: ubicacionParaCaptura,
           },
           { dependeDe: visitaId }
         ),
@@ -423,6 +579,20 @@ export function VisitaActiva() {
         mensajeError: 'No se pudo guardar el objetivo.',
       }
     );
+  }
+
+  async function guardarHallazgo(payload: HallazgoPayload) {
+    const hallazgoId = crypto.randomUUID();
+    await encolar(hallazgoId, 'hallazgo', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
+    setTimeout(() => setHallazgoAbierto(false), 700);
+  }
+
+  async function guardarOportunidad(payload: OportunidadPayload) {
+    const oportunidadId = crypto.randomUUID();
+    await encolar(oportunidadId, 'oportunidad', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
+    // Retraso para que "guardado ✓" del modal sea visible antes de que
+    // desaparezca — sin esto, la confirmación pasa demasiado rápido.
+    setTimeout(() => setOportunidadAbierta(false), 700);
   }
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
@@ -501,132 +671,283 @@ export function VisitaActiva() {
   const nombresUbicacionesVisita = Object.fromEntries(ubicacionesCliente.map((u) => [u.id, u.nombre]));
 
   if (modoRecorrido) {
+    const zonaElegida = !!ubicacionActual || sinZona;
+    const salirRecorrido = () => {
+      setModoRecorrido(false);
+      setSelectorUbicacionAbierto(false);
+      setSinZona(false);
+      setUbicacionActual(undefined);
+      setNotaAbierta(false);
+    };
     return (
       <div className="screen">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              type="button"
-              className={`chip${ubicacionActual ? ' chip--on' : ''}`}
-              onClick={() => setSelectorUbicacionAbierto((v) => !v)}
-            >
-              {ubicacionActual?.nombre ?? 'Sin ubicación'} ▾
-            </button>
-            {ubicacionActual && (
+        {/* Cabecera: zona actual + salir */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            {ubicacionActual ? (
+              <>
+                <button
+                  type="button"
+                  className="chip chip--on"
+                  onClick={() => setSelectorUbicacionAbierto((v) => !v)}
+                >
+                  {ubicacionActual.nombre} ▾
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUbicacionActual(undefined);
+                    setSinZona(false);
+                    setSelectorUbicacionAbierto(false);
+                    setNotaAbierta(false);
+                  }}
+                  style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
+                >
+                  quitar
+                </button>
+              </>
+            ) : sinZona ? (
               <button
                 type="button"
-                onClick={() => setUbicacionActual(undefined)}
-                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
+                onClick={() => setSinZona(false)}
+                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
               >
-                quitar
+                Sin zona · elegir una →
               </button>
+            ) : (
+              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>Recorrido</div>
             )}
           </div>
-          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={() => setModoRecorrido(false)}>
+          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px', flexShrink: 0 }} onClick={salirRecorrido}>
             Salir
           </button>
         </div>
 
-        {selectorUbicacionAbierto && visitaLocal?.clienteId && (
-          <SelectorUbicacion
-            clienteId={visitaLocal.clienteId}
-            comercialId={comercial.id}
-            titulo="ubicación de las fotos"
-            onSeleccionar={(u) => {
-              setUbicacionActual(u);
-              setSelectorUbicacionAbierto(false);
-            }}
-            onCerrar={() => setSelectorUbicacionAbierto(false)}
-          />
-        )}
-
-        <input
-          ref={inputFotoRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const archivo = e.target.files?.[0];
-            if (archivo) void capturarFoto(archivo);
-            e.target.value = '';
-          }}
-        />
-
-        {fotoPendiente ? (
-          // Mismo bloque de confirmación que en captura normal (vista previa +
-          // comentario opcional + guardar/descartar) — antes SOLO existía fuera
-          // de este return anticipado de Modo Recorrido, así que una foto
-          // tomada aquí quedaba "atascada" en memoria sin ninguna pantalla que
-          // la mostrara: no se guardaba, no aparecía en el contador, y la
-          // única forma de recuperarla era salir del modo por completo. Fallo
-          // real, encontrado inyectando una foto de prueba y viendo que no
-          // pasaba nada — no una carencia de diseño menor.
-          <div className="card">
-            <img
-              src={URL.createObjectURL(fotoPendiente)}
-              alt="vista previa"
-              style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+        {/* Nudge + selector de zona: obligatorio mientras no hay zona */}
+        {(!zonaElegida || selectorUbicacionAbierto) && visitaLocal?.clienteId && (
+          <>
+            {!zonaElegida && (
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginTop: 4 }}>
+                ¿Qué vas a revisar? Elige o crea la puerta, barrera o zona — todo lo que captures se
+                guardará ahí.
+              </div>
+            )}
+            <SelectorUbicacion
+              clienteId={visitaLocal.clienteId}
+              comercialId={comercial.id}
+              titulo={zonaElegida ? 'cambiar de zona' : 'zona a revisar'}
+              onSeleccionar={(u) => {
+                setUbicacionActual(u);
+                setSinZona(false);
+                setSelectorUbicacionAbierto(false);
+              }}
+              onCerrar={zonaElegida ? () => setSelectorUbicacionAbierto(false) : undefined}
             />
-            <input
-              className="field"
-              autoFocus
-              value={tituloPendiente}
-              onChange={(e) => setTituloPendiente(e.target.value)}
-              placeholder="qué es esta foto (opcional)"
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            {!zonaElegida && (
               <button
-                className="btn btn-secondary"
-                disabled={capturaFoto.cargando}
-                onClick={() => {
-                  setFotoPendiente(null);
-                  setTituloPendiente('');
-                }}
+                type="button"
+                onClick={() => setSinZona(true)}
+                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer', alignSelf: 'flex-start' }}
               >
-                Descartar
+                capturar sin asignar a una zona
               </button>
-              <button className="btn btn-primary" disabled={capturaFoto.cargando} onClick={confirmarCapturaPendiente}>
-                {capturaFoto.cargando ? 'Guardando…' : 'Guardar'}
-              </button>
+            )}
+          </>
+        )}
+
+        {/* Captura: solo con zona elegida y el selector cerrado */}
+        {zonaElegida && !selectorUbicacionAbierto && (
+          <>
+            <input
+              ref={inputFotoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void capturarFoto(archivo);
+                e.target.value = '';
+              }}
+            />
+
+            {fotoPendiente || audioPendiente ? (
+              <div className="card">
+                {fotoPendiente && (
+                  <img
+                    src={URL.createObjectURL(fotoPendiente)}
+                    alt="vista previa"
+                    style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+                  />
+                )}
+                {audioPendiente && (
+                  <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />
+                )}
+                <input
+                  className="field"
+                  autoFocus
+                  value={tituloPendiente}
+                  onChange={(e) => setTituloPendiente(e.target.value)}
+                  placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={capturaFoto.cargando || capturaAudio.cargando}
+                    onClick={() => {
+                      setFotoPendiente(null);
+                      setAudioPendiente(null);
+                      setTituloPendiente('');
+                    }}
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    disabled={capturaFoto.cargando || capturaAudio.cargando}
+                    onClick={confirmarCapturaPendiente}
+                  >
+                    {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+                {(capturaFoto.error || capturaAudio.error) && (
+                  <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
+                )}
+              </div>
+            ) : notaAbierta ? (
+              <div className="card">
+                <input
+                  className="field"
+                  style={{ marginBottom: 8 }}
+                  autoFocus
+                  value={notaTitulo}
+                  onChange={(e) => setNotaTitulo(e.target.value)}
+                  placeholder="título breve (opcional)"
+                />
+                <textarea
+                  className="field"
+                  style={{ height: 'auto', padding: 8 }}
+                  rows={2}
+                  value={notaTexto}
+                  onChange={(e) => setNotaTexto(e.target.value)}
+                  placeholder="escribe la nota…"
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={guardadoNota.cargando}
+                    onClick={() => {
+                      guardadoNota.limpiarError();
+                      setNotaAbierta(false);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
+                    {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+                {guardadoNota.error && (
+                  <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{ minHeight: 180, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
+                  onClick={() => {
+                    if (espacioBloqueado) {
+                      capturaFoto.establecerError(MSG_ESPACIO_LLENO);
+                      return;
+                    }
+                    inputFotoRef.current?.click();
+                  }}
+                >
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+                    <circle cx="12" cy="13" r="3.5" />
+                  </svg>
+                  Toca para disparar
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
+                    disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
+                    onClick={iniciarODetenerAudio}
+                  >
+                    {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
+                    onClick={() => setNotaAbierta(true)}
+                  >
+                    Nota
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
+                    onClick={() => setHallazgoAbierto(true)}
+                  >
+                    Hallazgo
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 'var(--text-sm)', width: 'auto', color: 'var(--signal-600)', borderColor: 'var(--signal-600)' }}
+                    onClick={() => setOportunidadAbierta(true)}
+                  >
+                    Oportunidad
+                  </button>
+                </div>
+                {(capturaFoto.error || capturaAudio.error) && (
+                  <div className="field-error-text">{capturaFoto.error || capturaAudio.error}</div>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {(() => {
+          const n = capturas.length + hallazgos.length + oportunidades.length;
+          return (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+              {n} {n === 1 ? 'elemento' : 'elementos'} en esta visita
             </div>
-            {capturaFoto.error && <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error}</div>}
-          </div>
-        ) : (
-          <div
-            style={{ flex: 1, minHeight: 220, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}
-            onClick={() => {
-              if (espacioBloqueado) {
-                capturaFoto.establecerError(MSG_ESPACIO_LLENO);
-                return;
-              }
-              inputFotoRef.current?.click();
-            }}
-          >
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
-              <circle cx="12" cy="13" r="3.5" />
-            </svg>
-            Toca para disparar
-          </div>
-        )}
+          );
+        })()}
 
-        {!fotoPendiente && capturaFoto.error && (
-          <div className="field-error-text">{capturaFoto.error}</div>
-        )}
-
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-          {capturas.filter((c) => c.entidad === 'captura_libre').length} capturas en esta visita
-        </div>
-
-        <FotosPorUbicacion
+        <CapturasPorUbicacion
           capturas={capturas}
+          hallazgos={hallazgos}
+          oportunidades={oportunidades}
           nombresUbicaciones={nombresUbicacionesVisita}
+          nombresTerminos={nombresTerminos}
           ubicacionActivaId={ubicacionActual?.id}
-          onTocarFoto={setCapturaEditandoId}
+          onTocarCaptura={setCapturaEditandoId}
         />
 
         {capturaEditandoId && <EditorCaptura capturaId={capturaEditandoId} onCerrar={() => setCapturaEditandoId(null)} />}
+
+        {/* Estos modales van también aquí: este `return` es anticipado y los
+            del final del componente no se montan en Modo Recorrido. */}
+        {hallazgoAbierto && (
+          <HallazgoRapidoModal
+            visitaId={visitaId}
+            comercialId={comercial.id}
+            onGuardar={guardarHallazgo}
+            onCerrar={() => setHallazgoAbierto(false)}
+          />
+        )}
+        {oportunidadAbierta && (
+          <OportunidadRapidaModal
+            visitaId={visitaId}
+            clienteId={visitaLocal?.clienteId}
+            comercialId={comercial.id}
+            onGuardar={guardarOportunidad}
+            onCerrar={() => setOportunidadAbierta(false)}
+          />
+        )}
       </div>
     );
   }
@@ -1088,14 +1409,7 @@ export function VisitaActiva() {
           visitaId={visitaId}
           clienteId={visitaLocal?.clienteId}
           comercialId={comercial.id}
-          onGuardar={async (payload) => {
-            const oportunidadId = crypto.randomUUID();
-            await encolar(oportunidadId, 'oportunidad', payload, { dependeDe: visitaId });
-            // Retraso para que "guardado ✓" del modal sea visible antes de
-            // que desaparezca — sin esto, la confirmación pasa demasiado
-            // rápido para notarla.
-            setTimeout(() => setOportunidadAbierta(false), 700);
-          }}
+          onGuardar={guardarOportunidad}
           onCerrar={() => setOportunidadAbierta(false)}
         />
       )}
@@ -1104,11 +1418,7 @@ export function VisitaActiva() {
         <HallazgoRapidoModal
           visitaId={visitaId}
           comercialId={comercial.id}
-          onGuardar={async (payload) => {
-            const hallazgoId = crypto.randomUUID();
-            await encolar(hallazgoId, 'hallazgo', payload, { dependeDe: visitaId });
-            setTimeout(() => setHallazgoAbierto(false), 700);
-          }}
+          onGuardar={guardarHallazgo}
           onCerrar={() => setHallazgoAbierto(false)}
         />
       )}
