@@ -971,7 +971,11 @@ export function VisitaActiva() {
     <div className="screen screen--split">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => navigate('/')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
+          <button
+            onClick={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+            aria-label="volver"
+            style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}
+          >
             ←
           </button>
           <div>
