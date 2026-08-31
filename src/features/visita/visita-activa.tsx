@@ -21,79 +21,6 @@ import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
-interface FotosPorUbicacionProps {
-  capturas: OperacionPendiente[];
-  nombresUbicaciones: Record<string, string>;
-  ubicacionActivaId?: string;
-  onTocarFoto: (capturaId: string) => void;
-}
-
-// Mismo agrupado en las dos pantallas donde se ven fotos de la visita (Modo
-// Recorrido y la vista normal de Visita Activa) — antes solo existía dentro
-// de Modo Recorrido, así que al volver a la vista normal las fotos volvían
-// a aparecer todas juntas sin agrupar, incluidas las tomadas fuera de
-// cualquier ubicación con el botón "foto" normal, sin ninguna marca que
-// avisara de que no tenían ubicación asignada. Encontrado en pruebas reales
-// con datos reales (ARCELOR), no en local.
-function FotosPorUbicacion({ capturas, nombresUbicaciones, ubicacionActivaId, onTocarFoto }: FotosPorUbicacionProps) {
-  const fotosVisita = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
-  if (fotosVisita.length === 0) return null;
-
-  const grupos = new Map<string, typeof fotosVisita>();
-  for (const f of fotosVisita) {
-    const clave = (f.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
-    if (!grupos.has(clave)) grupos.set(clave, []);
-    grupos.get(clave)!.push(f);
-  }
-
-  const claveActiva = ubicacionActivaId ?? 'sin-ubicacion';
-  const clavesOrdenadas = [
-    ...(grupos.has(claveActiva) ? [claveActiva] : []),
-    ...Array.from(grupos.keys()).filter((k) => k !== claveActiva && k !== 'sin-ubicacion'),
-    ...(grupos.has('sin-ubicacion') && claveActiva !== 'sin-ubicacion' ? ['sin-ubicacion'] : []),
-  ];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div className="label" style={{ marginTop: 0 }}>
-        fotos ({fotosVisita.length})
-      </div>
-      {clavesOrdenadas.map((clave) => {
-        const items = grupos.get(clave)!;
-        const nombre = clave === 'sin-ubicacion' ? 'sin ubicación' : nombresUbicaciones[clave] ?? '…';
-        return (
-          <div key={clave}>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 4 }}>
-              {nombre} ({items.length})
-            </div>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-              {[...items].reverse().map((f) => {
-                const blob = f.archivoLocal as Blob | undefined;
-                const payload = f.payload as { titulo?: string };
-                return blob ? (
-                  <img
-                    key={f.id}
-                    src={URL.createObjectURL(blob)}
-                    alt={payload.titulo ?? 'foto'}
-                    onClick={() => onTocarFoto(f.id)}
-                    style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-                  />
-                ) : (
-                  <div
-                    key={f.id}
-                    onClick={() => onTocarFoto(f.id)}
-                    style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
@@ -102,16 +29,18 @@ interface CapturasPorUbicacionProps {
   nombresTerminos?: Record<string, string>;
   ubicacionActivaId?: string;
   onTocarCaptura: (id: string) => void;
+  // 'recorrido': zonas siempre abiertas, "General" plegada, al final.
+  // 'normal': todo plegable, "General" arriba y abierta por defecto, zona
+  // más reciente también abierta. La oportunidad NO se lista aquí en modo
+  // 'normal' — tiene su propia sección (ver Visita Activa).
+  contexto: 'recorrido' | 'normal';
 }
 
-// Contenido de Modo Recorrido, en dos cajones de primer nivel:
-//  - Las ZONAS del recorrido (Puerta principal, Barrera…), con TODO lo de
-//    cada una junto (foto, audio, nota, hallazgo, oportunidad). Zona activa
-//    primero.
+// Contenido de la visita en dos cajones de primer nivel:
+//  - Las ZONAS del recorrido (Puerta principal, Barrera…), con todo lo de
+//    cada una junto. Zona activa / más reciente primero.
 //  - "General de la visita": lo capturado hablando con el cliente, sin
-//    recorrido. No es un descarte — es una fase real de la visita. Va como
-//    una sección plegada al final, para no mezclarse con las zonas pero
-//    tenerla a un toque sin salir del recorrido.
+//    recorrido. No es un descarte — es una fase real de la visita.
 function CapturasPorUbicacion({
   capturas,
   hallazgos,
@@ -120,16 +49,17 @@ function CapturasPorUbicacion({
   nombresTerminos,
   ubicacionActivaId,
   onTocarCaptura,
+  contexto,
 }: CapturasPorUbicacionProps) {
-  const [generalAbierta, setGeneralAbierta] = useState(false);
-
   const claveDe = (op: OperacionPendiente) =>
     (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
   const tipoDe = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
+  const incluirOportunidades = contexto === 'recorrido';
 
   const claves = new Set<string>();
-  [...capturas, ...hallazgos, ...oportunidades].forEach((op) => claves.add(claveDe(op)));
-  if (claves.size === 0) return null;
+  [...capturas, ...hallazgos, ...(incluirOportunidades ? oportunidades : [])].forEach((op) =>
+    claves.add(claveDe(op))
+  );
 
   const tag = (t: string) => (
     <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginRight: 6 }}>{t}</span>
@@ -140,8 +70,14 @@ function CapturasPorUbicacion({
     const audios = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'audio');
     const notas = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'nota');
     const hz = hallazgos.filter((h) => claveDe(h) === clave);
-    const op = oportunidades.filter((o) => claveDe(o) === clave);
+    const op = incluirOportunidades ? oportunidades.filter((o) => claveDe(o) === clave) : [];
     const total = fotos.length + audios.length + notas.length + hz.length + op.length;
+    const reciente = Math.max(
+      0,
+      ...[...fotos, ...audios, ...notas, ...hz, ...op].map((o) =>
+        new Date((o as { creadoEn?: string }).creadoEn ?? 0).getTime()
+      )
+    );
     const resumen = [
       fotos.length && `${fotos.length} foto${fotos.length > 1 ? 's' : ''}`,
       audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
@@ -151,7 +87,7 @@ function CapturasPorUbicacion({
     ]
       .filter(Boolean)
       .join(' · ');
-    return { fotos, audios, notas, hz, op, total, resumen };
+    return { fotos, audios, notas, hz, op, total, resumen, reciente };
   };
 
   const renderItems = (c: ReturnType<typeof contenidoDe>) => (
@@ -227,56 +163,95 @@ function CapturasPorUbicacion({
   );
 
   const claveActiva = ubicacionActivaId ?? null;
-  const zonas = [
-    ...(claveActiva && claves.has(claveActiva) ? [claveActiva] : []),
-    ...[...claves].filter((k) => k !== claveActiva && k !== 'sin-ubicacion').sort(),
-  ];
+  const zonasClaves = [...claves].filter((k) => k !== 'sin-ubicacion');
+  // Recorrido: zona activa primero, resto por nombre. Normal: por lo más
+  // reciente capturado en cada zona.
+  const zonas =
+    contexto === 'recorrido'
+      ? [
+          ...(claveActiva && claves.has(claveActiva) ? [claveActiva] : []),
+          ...zonasClaves
+            .filter((k) => k !== claveActiva)
+            .sort((a, b) => (nombresUbicaciones[a] ?? '').localeCompare(nombresUbicaciones[b] ?? '', 'es')),
+        ]
+      : zonasClaves.sort((a, b) => contenidoDe(b).reciente - contenidoDe(a).reciente);
   const general = claves.has('sin-ubicacion') ? contenidoDe('sin-ubicacion') : null;
+
+  // Estado de plegado que el comercial ha tocado a mano. El SIGNIFICADO
+  // depende del contexto:
+  //  - recorrido: `tocadas` son secciones CERRADas a mano (todo abierto por
+  //    defecto, incluidas las zonas nuevas que se creen sobre la marcha).
+  //  - normal: `tocadas` son secciones ABIERTas a mano; por defecto solo
+  //    "General" y la zona más reciente están abiertas.
+  const [tocadas, setTocadas] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (contexto === 'recorrido') {
+      s.add('sin-ubicacion'); // "General" plegada al entrar
+    } else {
+      s.add('sin-ubicacion'); // "General" abierta
+      if (zonas[0]) s.add(zonas[0]); // zona más reciente abierta
+    }
+    return s;
+  });
+  const estaAbierta = (k: string) => (contexto === 'recorrido' ? !tocadas.has(k) : tocadas.has(k));
+  const alternar = (k: string) => {
+    setTocadas((prev) => {
+      const s = new Set(prev);
+      if (s.has(k)) s.delete(k);
+      else s.add(k);
+      return s;
+    });
+  };
+
+  if (claves.size === 0) return null;
+
+  const seccion = (clave: string, opts: { nombre: string; general?: boolean }) => {
+    const c = contenidoDe(clave);
+    if (c.total === 0) return null;
+    const abierta = estaAbierta(clave);
+    const activa = contexto === 'recorrido' && clave === claveActiva;
+    return (
+      <div
+        key={clave}
+        style={{
+          borderLeft: `2px solid ${activa ? 'var(--brand-600)' : 'transparent'}`,
+          paddingLeft: 8,
+          ...(opts.general ? { borderTop: '1px solid var(--ink-200)', paddingTop: 10 } : {}),
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => alternar(clave)}
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 6,
+            border: 'none',
+            background: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            width: '100%',
+            textAlign: 'left',
+          }}
+        >
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{abierta ? '▾' : '▸'}</span>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{opts.nombre}</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>· {c.resumen}</span>
+        </button>
+        {abierta && <div style={{ marginTop: 6 }}>{renderItems(c)}</div>}
+      </div>
+    );
+  };
+
+  const bloqueZonas = zonas.map((clave) => seccion(clave, { nombre: nombresUbicaciones[clave] ?? '…' }));
+  const bloqueGeneral =
+    general && general.total > 0 ? seccion('sin-ubicacion', { nombre: 'General de la visita', general: true }) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {zonas.map((clave) => {
-        const c = contenidoDe(clave);
-        if (c.total === 0) return null;
-        return (
-          <div
-            key={clave}
-            style={{
-              borderLeft: `2px solid ${clave === claveActiva ? 'var(--brand-600)' : 'transparent'}`,
-              paddingLeft: 8,
-            }}
-          >
-            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{nombresUbicaciones[clave] ?? '…'}</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>{c.resumen}</div>
-            {renderItems(c)}
-          </div>
-        );
-      })}
-
-      {general && general.total > 0 && (
-        <div style={{ borderTop: '1px solid var(--ink-200)', paddingTop: 10 }}>
-          <button
-            type="button"
-            onClick={() => setGeneralAbierta((v) => !v)}
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 6,
-              border: 'none',
-              background: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              width: '100%',
-              textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{generalAbierta ? '▾' : '▸'}</span>
-            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>General de la visita</span>
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>· {general.resumen}</span>
-          </button>
-          {generalAbierta && <div style={{ marginTop: 6 }}>{renderItems(general)}</div>}
-        </div>
-      )}
+      {contexto === 'normal' && bloqueGeneral}
+      {bloqueZonas}
+      {contexto === 'recorrido' && bloqueGeneral}
     </div>
   );
 }
@@ -957,6 +932,7 @@ export function VisitaActiva() {
         })()}
 
         <CapturasPorUbicacion
+          contexto="recorrido"
           capturas={capturas}
           hallazgos={hallazgos}
           oportunidades={oportunidades}
@@ -1188,189 +1164,50 @@ export function VisitaActiva() {
       )}
 
       <div className="screen__scroll">
-        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota').length > 0 && (
-          <>
-            <div className="label" style={{ marginTop: 0 }}>
-              notas ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota').length})
-            </div>
-            {capturas
-              .filter((c) => (c.payload as { tipo: string }).tipo === 'nota')
-              .map((c) => {
-                const payload = c.payload as { titulo?: string; contenidoTexto?: string };
-                return (
-                  <div
-                    key={c.id}
-                    className="card"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-                    onClick={() => navigate(`/capturas/${c.id}`)}
-                  >
-                    <span style={{ fontSize: 'var(--text-sm)' }}>
-                      {payload.titulo || payload.contenidoTexto || '(nota vacía)'}
-                    </span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
-                  </div>
-                );
-              })}
-          </>
-        )}
-
-        {notasCompaneros.length > 0 && (
-          <>
-            <div className="label">de compañeros ({notasCompaneros.length})</div>
-            {notasCompaneros.map((c) => (
-              <div
-                key={c.id}
-                className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-                onClick={() => navigate(`/capturas/${c.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)' }}>{c.titulo || c.contenido_texto || '(nota vacía)'}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
-        <FotosPorUbicacion
+        {/* General de la visita + zonas del recorrido, agrupado y plegable.
+            La oportunidad NO se lista aquí — tiene su sección propia debajo. */}
+        <CapturasPorUbicacion
+          contexto="normal"
           capturas={capturas}
+          hallazgos={hallazgos}
+          oportunidades={oportunidades}
           nombresUbicaciones={nombresUbicacionesVisita}
-          onTocarFoto={(capturaId) => navigate(`/capturas/${capturaId}`)}
+          nombresTerminos={nombresTerminos}
+          onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
         />
 
-        {capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio').length > 0 && (
+        {/* Oportunidades: sección propia (es el negocio de la visita), con
+            etiqueta de la zona donde se detectó, si la hay. */}
+        {oportunidades.length > 0 && (
           <>
-            <div className="label">
-              audios ({capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio').length})
-            </div>
-            {capturas
-              .filter((c) => (c.payload as { tipo: string }).tipo === 'audio')
-              .map((c) => {
-                const payload = c.payload as { titulo?: string };
-                const hora = new Date(c.creadoEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <div
-                    key={c.id}
-                    className="card"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-                    onClick={() => navigate(`/capturas/${c.id}`)}
-                  >
-                    <span style={{ fontSize: 'var(--text-sm)' }}>{payload.titulo ? `${payload.titulo} · ${hora}` : `audio · ${hora}`}</span>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.estado}</span>
-                  </div>
-                );
-              })}
-          </>
-        )}
-
-        {audiosCompaneros.length > 0 && (
-          <>
-            <div className="label">de compañeros ({audiosCompaneros.length})</div>
-            {audiosCompaneros.map((c) => (
-              <div
-                key={c.id}
-                className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
-                onClick={() => navigate(`/capturas/${c.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)' }}>{c.titulo || 'audio'}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
-        {hallazgos.length > 0 && (
-          <>
-            <div className="label">hallazgos ({hallazgos.length})</div>
-            {hallazgos.map((h) => {
-              const payload = h.payload as { terminoId: string; naturaleza: string };
+            <div className="label">oportunidades ({oportunidades.length})</div>
+            {oportunidades.map((o) => {
+              const p = o.payload as { titulo: string; prioridad?: string; ubicacionId?: string };
+              const zona = p.ubicacionId ? nombresUbicacionesVisita[p.ubicacionId] : null;
               return (
-                <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
-                  <span style={{ fontSize: 'var(--text-sm)' }}>{nombresTerminos?.[payload.terminoId] ?? '…'}</span>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                    {payload.naturaleza.replace('_', ' ')}
+                <div
+                  key={o.id}
+                  className="card card--oportunidad"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/oportunidades/${o.id}`)}
+                >
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
+                    {p.titulo}
                   </span>
+                  {(p.prioridad || zona) && (
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                      {p.prioridad ?? ''}
+                      {p.prioridad && zona ? ' · ' : ''}
+                      {zona ? `en: ${zona}` : ''}
+                    </span>
+                  )}
                 </div>
               );
             })}
           </>
         )}
 
-        {hallazgosCompaneros.length > 0 && (
-          <>
-            <div className="label">de compañeros ({hallazgosCompaneros.length})</div>
-            {hallazgosCompaneros.map((h) => (
-              <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
-                <span style={{ fontSize: 'var(--text-sm)' }}>
-                  {(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                  {h.naturaleza.replace('_', ' ')} · de {nombresComerciales?.[h.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
-        {oportunidadesCompaneros.length > 0 && (
-          <>
-            <div className="label">de compañeros ({oportunidadesCompaneros.length})</div>
-            {oportunidadesCompaneros.map((o) => (
-              <div
-                key={o.id}
-                className="card card--oportunidad"
-                style={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/oportunidades/${o.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-                  {o.titulo}
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                  de {nombresComerciales?.[o.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
-        {oportunidades.length > 0 && (
-          <>
-            <div className="label">oportunidades ({oportunidades.length})</div>
-            {oportunidades.map((o) => (
-              <div
-                key={o.id}
-                className="card card--oportunidad"
-                style={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/oportunidades/${o.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-                  {(o.payload as { titulo: string }).titulo}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
-        {pasosCompaneros.length > 0 && (
-          <>
-            <div className="label">de compañeros ({pasosCompaneros.length})</div>
-            {pasosCompaneros.map((p) => (
-              <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 'var(--text-sm)' }}>{p.descripcion}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  {p.fecha_objetivo ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES') : 'sin fecha objetivo'}
-                  {' · de '}
-                  {nombresComerciales?.[p.comercial_responsable_id] ?? '…'}
-                </span>
-              </div>
-            ))}
-          </>
-        )}
-
+        {/* Próximos pasos: lo que va a pasar después de la visita. */}
         {pasos.length > 0 && (
           <>
             <div className="label">próximos pasos ({pasos.length})</div>
@@ -1402,6 +1239,77 @@ export function VisitaActiva() {
                 </div>
               );
             })}
+          </>
+        )}
+
+        {/* De compañeros: todo lo que ha capturado otro comercial en esta
+            misma visita, en una sola sección. */}
+        {hayCompaneros && (
+          <>
+            <div className="label">de compañeros</div>
+            {notasCompaneros.map((c) => (
+              <div
+                key={c.id}
+                className="card"
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                onClick={() => navigate(`/capturas/${c.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)' }}>
+                  nota · {c.titulo || c.contenido_texto || '(nota vacía)'}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+            {audiosCompaneros.map((c) => (
+              <div
+                key={c.id}
+                className="card"
+                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                onClick={() => navigate(`/capturas/${c.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)' }}>audio · {c.titulo || 'sin título'}</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+            {hallazgosCompaneros.map((h) => (
+              <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
+                <span style={{ fontSize: 'var(--text-sm)' }}>
+                  hallazgo · {(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                  {h.naturaleza.replace('_', ' ')} · de {nombresComerciales?.[h.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+            {oportunidadesCompaneros.map((o) => (
+              <div
+                key={o.id}
+                className="card card--oportunidad"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/oportunidades/${o.id}`)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
+                  oportunidad · {o.titulo}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
+                  de {nombresComerciales?.[o.comercial_autor_id] ?? '…'}
+                </span>
+              </div>
+            ))}
+            {pasosCompaneros.map((p) => (
+              <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 'var(--text-sm)' }}>próximo paso · {p.descripcion}</span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  {p.fecha_objetivo ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES') : 'sin fecha objetivo'}
+                  {' · de '}
+                  {nombresComerciales?.[p.comercial_responsable_id] ?? '…'}
+                </span>
+              </div>
+            ))}
           </>
         )}
 
