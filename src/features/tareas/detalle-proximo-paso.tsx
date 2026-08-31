@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { crearVisitaConResponsable } from '@/lib/rpc';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
 // vía paso-rapido-modal.tsx). Mismo patrón que detalle-hallazgo.tsx:
@@ -13,6 +15,7 @@ export function DetalleProximoPaso() {
   const { pasoId } = useParams<{ pasoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { comercial } = useSesionActual();
 
   const [descripcion, setDescripcion] = useState('');
   const [fechaObjetivo, setFechaObjetivo] = useState('');
@@ -22,6 +25,9 @@ export function DetalleProximoPaso() {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [planificando, setPlanificando] = useState(false);
+  const [visitaPlanificada, setVisitaPlanificada] = useState(false);
+  const [errorPlan, setErrorPlan] = useState<string | null>(null);
 
   const { data: paso, isLoading, isError } = useQuery({
     queryKey: ['proximo-paso', pasoId],
@@ -29,7 +35,7 @@ export function DetalleProximoPaso() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, visita:visita_id(cliente:cliente_id(nombre))')
+        .select('id, descripcion, fecha_objetivo, estado, visita:visita_id(cliente:cliente_id(id, nombre))')
         .eq('id', pasoId!)
         .single();
       if (err) throw err;
@@ -90,6 +96,52 @@ export function DetalleProximoPaso() {
     navigate(-1);
   }
 
+  // Si el próximo paso es en realidad "volver a visitar", se planifica la
+  // visita para su fecha objetivo (mismo cliente, yo de responsable, sin
+  // hora) y aparece en la Agenda. No marca el paso como hecho — eso lo
+  // decide el comercial con el botón que sale después.
+  async function planificarVisita(clienteId: string) {
+    if (!comercial || !fechaObjetivo || planificando || visitaPlanificada) return;
+    setPlanificando(true);
+    setErrorPlan(null);
+    try {
+      const nuevaId = crypto.randomUUID();
+      const { error: err } = await crearVisitaConResponsable({
+        pVisitaId: nuevaId,
+        pClienteId: clienteId,
+        pComercialId: comercial.id,
+        pFecha: new Date(`${fechaObjetivo}T09:00:00`).toISOString(),
+        pEstadoCaptura: 'agendada',
+      });
+      if (err) throw new Error(err);
+      const { error: errHora } = await supabase
+        .from('visita')
+        .update({ hora_definida: false })
+        .eq('id', nuevaId);
+      if (errHora) throw new Error(errHora.message);
+      setVisitaPlanificada(true);
+      for (const k of [
+        ['visitas-hoy'],
+        ['visitas-proximas'],
+        ['visitas-atrasadas'],
+        ['agenda-planificadas'],
+      ]) {
+        queryClient.invalidateQueries({ queryKey: k });
+      }
+    } catch (e) {
+      setErrorPlan(e instanceof Error ? e.message : 'No se pudo planificar la visita.');
+    } finally {
+      setPlanificando(false);
+    }
+  }
+
+  async function marcarHecho() {
+    if (!pasoId) return;
+    await supabase.from('proximo_paso').update({ estado: 'completado' }).eq('id', pasoId);
+    queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
+    navigate(-1);
+  }
+
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
@@ -112,7 +164,8 @@ export function DetalleProximoPaso() {
     );
   }
 
-  const clienteNombre = (paso.visita as unknown as { cliente: { nombre: string } | null })?.cliente?.nombre;
+  const cliente = (paso.visita as unknown as { cliente: { id: string; nombre: string } | null })?.cliente;
+  const clienteNombre = cliente?.nombre;
 
   return (
     <div className="screen">
@@ -151,6 +204,36 @@ export function DetalleProximoPaso() {
       />
 
       {error && <div className="field-error-text">{error}</div>}
+
+      {cliente && fechaObjetivo && paso.estado !== 'completado' && (
+        <div className="card" style={{ marginTop: 4 }}>
+          {visitaPlanificada ? (
+            <>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
+                Visita planificada para el{' '}
+                {new Date(fechaObjetivo).toLocaleDateString('es-ES')}. Está en la Agenda.
+              </div>
+              <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={marcarHecho}>
+                Marcar este paso como hecho
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+                ¿Es volver a visitar a {clienteNombre}? Planifícala para esa fecha.
+              </div>
+              <button
+                className="btn btn-secondary"
+                disabled={planificando}
+                onClick={() => planificarVisita(cliente.id)}
+              >
+                {planificando ? 'Planificando…' : 'Planificar visita para esta fecha'}
+              </button>
+              {errorPlan && <div className="field-error-text" style={{ marginTop: 8 }}>{errorPlan}</div>}
+            </>
+          )}
+        </div>
+      )}
 
       <button
         className="btn btn-primary"
