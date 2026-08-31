@@ -7,7 +7,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { EstadoError } from '@/components/ui/estado-error';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
-import { franjaDe, franjaActual, etiquetaFranja } from '@/lib/franja-visita';
+import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
@@ -42,8 +42,11 @@ function rangoDeHoy() {
 // Texto de "cuándo" de una visita. Con hora → "09:00"; sin hora pero con
 // franja → "mañana" / "tarde"; sin nada → "sin hora". conDia antepone el día
 // (para la lista de Próximas, que mezcla fechas).
-function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
+function cuandoTexto(v: VisitaAgenda, conDia: boolean, bajoFranja = false): string {
   const d = new Date(v.fecha);
+  // Bajo una cabecera de franja ("Tarde", "Sin hora"), una visita sin hora no
+  // repite la franja — no aporta nada. Con hora sí: la hora concreta informa.
+  if (bajoFranja && !v.hora_definida) return '';
   const dia = conDia
     ? d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
     : '';
@@ -209,12 +212,8 @@ export function AgendaDelDia() {
   const proximasVisibles = proximas.slice(0, 5);
   const sinNadaHoy =
     hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
-  // La sección de la franja en curso (mañana antes de las 14:00, tarde
-  // después) se abre sola al entrar; el resto arranca cerrado. Al salir y
-  // volver se recalcula — no recuerda los despliegues hechos a mano.
-  const ahoraFranja = franjaActual();
 
-  function renderVisita(visita: VisitaAgenda, mostrarDia: boolean) {
+  function renderVisita(visita: VisitaAgenda, mostrarDia: boolean, bajoFranja = false) {
     if (visitaBorrarId === visita.id) {
       return (
         <div key={visita.id} className="card">
@@ -250,9 +249,12 @@ export function AgendaDelDia() {
     return (
       <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {cuandoTexto(visita, mostrarDia)}
-          </div>
+          {(() => {
+            const texto = cuandoTexto(visita, mostrarDia, bajoFranja);
+            return texto ? (
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{texto}</div>
+            ) : null;
+          })()}
           <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
             {visita.cliente?.nombre ?? 'Cliente'}
           </div>
@@ -449,27 +451,35 @@ export function AgendaDelDia() {
           >
             {hoyEnCurso.map((visita) => renderVisita(visita, false))}
           </SeccionColapsable>
+          {/* Una sola "Visitas de hoy" con mañana / tarde / sin hora dentro
+              como etiquetas (no secciones sueltas). El contador son las
+              pendientes de empezar; abierta por defecto si hay alguna. */}
           <SeccionColapsable
-            titulo="Visitas de mañana"
-            cantidad={hoyManana.length}
-            defaultAbierta={ahoraFranja === 'manana'}
+            titulo="Visitas de hoy"
+            cantidad={hoyPendientes.length}
+            defaultAbierta={hoyPendientes.length > 0}
           >
-            {hoyManana.map((visita) => renderVisita(visita, false))}
-          </SeccionColapsable>
-          <SeccionColapsable
-            titulo="Visitas de tarde"
-            cantidad={hoyTarde.length}
-            defaultAbierta={ahoraFranja === 'tarde'}
-          >
-            {hoyTarde.map((visita) => renderVisita(visita, false))}
-          </SeccionColapsable>
-          <SeccionColapsable titulo="Sin hora" cantidad={hoySinHora.length}>
-            {hoySinHora.map((visita) => renderVisita(visita, false))}
+            {(
+              [
+                ['manana', 'Mañana', hoyManana],
+                ['tarde', 'Tarde', hoyTarde],
+                ['sin_hora', 'Sin hora', hoySinHora],
+              ] as const
+            ).map(([clave, etiqueta, lista]) =>
+              lista.length === 0 ? null : (
+                <div key={clave}>
+                  <div className="label" style={{ marginTop: clave === 'manana' ? 0 : undefined }}>
+                    {etiqueta}
+                  </div>
+                  {lista.map((visita) => renderVisita(visita, false, true))}
+                </div>
+              )
+            )}
           </SeccionColapsable>
           <SeccionColapsable titulo="Hechas hoy" cantidad={hoyHechas.length}>
             {hoyHechas.map((visita) => renderVisita(visita, false))}
           </SeccionColapsable>
-          <SeccionColapsable titulo="Próximas" cantidad={proximas.length}>
+          <SeccionColapsable titulo="Próximas visitas" cantidad={proximas.length}>
             {proximasVisibles.map((visita) => renderVisita(visita, true))}
             {proximas.length > proximasVisibles.length && (
               <div
