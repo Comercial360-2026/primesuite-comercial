@@ -12,6 +12,7 @@ import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descarga
 interface DetalleVisita {
   fecha: string;
   tipo_visita: string | null;
+  objetivo: string | null;
   estado_captura: string;
   resumen_texto: string | null;
   cliente_nombre: string;
@@ -45,7 +46,7 @@ export function DetalleVisitaCerrada() {
         await Promise.all([
           supabase
             .from('visita')
-            .select('fecha, tipo_visita, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
+            .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
             .eq('id', visitaId!)
             .single(),
           supabase
@@ -102,6 +103,7 @@ export function DetalleVisitaCerrada() {
       return {
         fecha: visita!.fecha,
         tipo_visita: visita!.tipo_visita,
+        objetivo: visita!.objetivo,
         estado_captura: visita!.estado_captura,
         resumen_texto: visita!.resumen_texto,
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
@@ -162,6 +164,13 @@ export function DetalleVisitaCerrada() {
 
       {data && (
         <div className="screen__scroll">
+          {data.objetivo?.trim() && (
+            <div className="card" style={{ background: 'var(--surface-1)' }}>
+              <div className="label" style={{ marginTop: 0 }}>objetivo de la visita</div>
+              <div style={{ fontSize: 'var(--text-base)' }}>{data.objetivo}</div>
+            </div>
+          )}
+
           {data.resumen_texto && (
             <div className="card">
               <div className="label" style={{ marginTop: 0 }}>resumen</div>

@@ -30,6 +30,7 @@ interface VisitaHistorial {
   id: string;
   fecha: string;
   tipo_visita: string | null;
+  objetivo: string | null;
   estado_captura: string;
 }
 
@@ -79,6 +80,7 @@ export function FichaCliente() {
   // Solo se usa cuando no hay hora: '' = sin hora fija, 'manana' | 'tarde' =
   // franja sin hora concreta.
   const [franjaPlan, setFranjaPlan] = useState<'' | 'manana' | 'tarde'>('');
+  const [objetivoPlan, setObjetivoPlan] = useState('');
   const [comercialPlan, setComercialPlan] = useState('');
   const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
   const planificacion = useAccionAsync();
@@ -125,15 +127,22 @@ export function FichaCliente() {
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
-        // La RPC no conoce `hora_definida` ni `franja`: si no hay hora, un
-        // UPDATE posterior marca hora_definida=false y guarda la franja
-        // elegida (o null = "sin hora").
+        // La RPC no conoce `hora_definida`, `franja` ni `objetivo`: un UPDATE
+        // posterior los fija — hora/franja solo si no hay hora concreta, el
+        // objetivo siempre que se haya escrito.
+        const parche: {
+          objetivo?: string;
+          hora_definida?: boolean;
+          franja?: string | null;
+        } = {};
+        if (objetivoPlan.trim()) parche.objetivo = objetivoPlan.trim();
         if (!horaPlan) {
-          const { error: errHora } = await supabase
-            .from('visita')
-            .update({ hora_definida: false, franja: franjaPlan || null })
-            .eq('id', visitaId);
-          if (errHora) throw new Error(errHora.message);
+          parche.hora_definida = false;
+          parche.franja = franjaPlan || null;
+        }
+        if (Object.keys(parche).length) {
+          const { error: errParche } = await supabase.from('visita').update(parche).eq('id', visitaId);
+          if (errParche) throw new Error(errParche.message);
         }
         return fechaPlan;
       },
@@ -144,6 +153,7 @@ export function FichaCliente() {
           setFechaPlan('');
           setHoraPlan('');
           setFranjaPlan('');
+          setObjetivoPlan('');
           setComercialPlan('');
           for (const k of [
             ['historial-visitas', clienteId],
@@ -275,7 +285,7 @@ export function FichaCliente() {
     queryFn: async (): Promise<VisitaHistorial[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, estado_captura')
+        .select('id, fecha, tipo_visita, objetivo, estado_captura')
         .eq('cliente_id', clienteId!)
         .order('fecha', { ascending: false })
         .limit(10);
@@ -578,8 +588,11 @@ export function FichaCliente() {
                       <div style={{ fontSize: 'var(--text-base)' }}>
                         {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </div>
+                      {v.objetivo && (
+                        <div style={{ fontSize: 'var(--text-sm)' }}>{v.objetivo}</div>
+                      )}
                       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                        {v.tipo_visita ?? 'sin tipo'} · {v.estado_captura === 'agendada' ? 'planificada' : v.estado_captura}
+                        {v.estado_captura === 'agendada' ? 'planificada' : v.estado_captura}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -641,6 +654,15 @@ export function FichaCliente() {
             min={hoyISO}
             value={fechaPlan}
             onChange={(e) => setFechaPlan(e.target.value)}
+          />
+          <div className="label">objetivo (opcional)</div>
+          <textarea
+            className="field"
+            style={{ height: 'auto', padding: 8 }}
+            rows={2}
+            placeholder="a qué vas: cerrar pedido, presentar gama, primera toma de contacto…"
+            value={objetivoPlan}
+            onChange={(e) => setObjetivoPlan(e.target.value)}
           />
           <div className="label">hora (opcional)</div>
           <input

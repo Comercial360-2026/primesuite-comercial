@@ -114,11 +114,13 @@ export function DetalleProximoPaso() {
         pEstadoCaptura: 'agendada',
       });
       if (err) throw new Error(err);
-      const { error: errHora } = await supabase
+      // La visita hereda la descripción del paso como objetivo — "esto lo
+      // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
+      const { error: errParche } = await supabase
         .from('visita')
-        .update({ hora_definida: false })
+        .update({ hora_definida: false, objetivo: descripcion.trim() || null })
         .eq('id', nuevaId);
-      if (errHora) throw new Error(errHora.message);
+      if (errParche) throw new Error(errParche.message);
       setVisitaPlanificada(true);
       for (const k of [
         ['visitas-hoy'],

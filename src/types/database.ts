@@ -1409,6 +1409,7 @@ export type Database = {
           franja: string | null
           hora_definida: boolean
           id: string
+          objetivo: string | null
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null
@@ -1423,6 +1424,7 @@ export type Database = {
           franja?: string | null
           hora_definida?: boolean
           id?: string
+          objetivo?: string | null
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null
@@ -1437,6 +1439,7 @@ export type Database = {
           franja?: string | null
           hora_definida?: boolean
           id?: string
+          objetivo?: string | null
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null

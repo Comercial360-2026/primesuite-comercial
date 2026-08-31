@@ -9,6 +9,7 @@ interface PasoRapidoModalProps {
     fecha: string;
     hora: string;
     franja: '' | 'manana' | 'tarde';
+    objetivo: string;
   }) => Promise<void>;
   onCerrar: () => void;
 }
@@ -37,6 +38,7 @@ export function PasoRapidoModal({
   const [fechaVisita, setFechaVisita] = useState('');
   const [horaVisita, setHoraVisita] = useState('');
   const [franjaVisita, setFranjaVisita] = useState<'' | 'manana' | 'tarde'>('');
+  const [objetivoVisita, setObjetivoVisita] = useState('');
 
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -58,7 +60,12 @@ export function PasoRapidoModal({
         });
       } else {
         if (!fechaVisita) return;
-        await onPlanificarVisita({ fecha: fechaVisita, hora: horaVisita, franja: franjaVisita });
+        await onPlanificarVisita({
+          fecha: fechaVisita,
+          hora: horaVisita,
+          franja: franjaVisita,
+          objetivo: objetivoVisita,
+        });
       }
       // El cierre del modal lo controla el padre (visita-activa.tsx), con
       // el mismo retraso de 700ms que el resto de modales, para que
@@ -164,6 +171,15 @@ export function PasoRapidoModal({
               min={hoyISO}
               value={fechaVisita}
               onChange={(e) => setFechaVisita(e.target.value)}
+            />
+            <div className="label">objetivo (opcional)</div>
+            <textarea
+              className="field"
+              style={{ height: 'auto', padding: 8 }}
+              rows={2}
+              placeholder="a qué vuelves: cerrar el pedido, revisar la instalación…"
+              value={objetivoVisita}
+              onChange={(e) => setObjetivoVisita(e.target.value)}
             />
             <div className="label">hora (opcional)</div>
             <input

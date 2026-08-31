@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
   // --- Recolección de datos de la visita ---
   const { data: visita, error: errorVisita } = await admin
     .from('visita')
-    .select('id, fecha, tipo_visita, estado_captura, resumen_texto, cliente:cliente_id(id, nombre)')
+    .select('id, fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(id, nombre)')
     .eq('id', visitaId)
     .single();
   if (errorVisita || !visita) {
@@ -194,6 +194,11 @@ Deno.serve(async (req) => {
   escribirTitulo(`Visita — ${clienteInfo?.nombre ?? 'cliente'}`);
   escribirParrafo(`${formatearFecha(visita.fecha)}${visita.tipo_visita ? ` · ${visita.tipo_visita}` : ''}`);
   y -= 6;
+
+  if (visita.objetivo) {
+    escribirSubtitulo('Objetivo de la visita');
+    escribirParrafo(visita.objetivo);
+  }
 
   if (visita.resumen_texto) {
     escribirSubtitulo('Resumen');

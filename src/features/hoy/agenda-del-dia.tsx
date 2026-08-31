@@ -24,6 +24,7 @@ interface VisitaAgenda {
   fecha: string;
   hora_definida: boolean;
   franja: string | null;
+  objetivo: string | null;
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
@@ -81,7 +82,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gte('fecha', inicio)
         .lte('fecha', fin)
         .order('fecha', { ascending: true });
@@ -101,7 +102,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .gt('fecha', fin)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true })
@@ -122,7 +123,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .lt('fecha', inicio)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: false })
@@ -258,7 +259,11 @@ export function AgendaDelDia() {
           <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
             {visita.cliente?.nombre ?? 'Cliente'}
           </div>
-          {visita.tipo_visita && <span className="chip" style={{ marginTop: 6 }}>{visita.tipo_visita}</span>}
+          {visita.objetivo && (
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginTop: 2 }}>
+              {visita.objetivo}
+            </div>
+          )}
           {visita.estado_captura === 'en_curso' && (
             <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
               en curso

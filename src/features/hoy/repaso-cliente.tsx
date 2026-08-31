@@ -38,6 +38,22 @@ export function RepasoCliente() {
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
 
+  // Si venimos de una visita ya planificada, traemos su objetivo para
+  // recordar "a qué vengo" antes de entrar.
+  const { data: visitaAgendada } = useQuery({
+    queryKey: ['visita-agendada-objetivo', visitaIdAgendada],
+    enabled: !!visitaIdAgendada,
+    queryFn: async (): Promise<{ objetivo: string | null }> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('objetivo')
+        .eq('id', visitaIdAgendada!)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? { objetivo: null };
+    },
+  });
+
   const clienteQueryKey = ['cliente', clienteId];
   const {
     data: cliente,
@@ -237,6 +253,17 @@ export function RepasoCliente() {
         />
       ) : (
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>{cliente?.nombre ?? '…'}</h1>
+      )}
+
+      {visitaIdAgendada && (
+        <div className="card" style={{ background: 'var(--surface-1)' }}>
+          <div className="label" style={{ marginTop: 0 }}>vas a</div>
+          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
+            {visitaAgendada === undefined
+              ? 'Cargando…'
+              : visitaAgendada.objetivo?.trim() || 'sin objetivo definido'}
+          </div>
+        </div>
       )}
 
       {isErrorInterlocutores || sinConexionInterlocutores ? (

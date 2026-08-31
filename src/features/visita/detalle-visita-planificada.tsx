@@ -19,6 +19,7 @@ interface VisitaPlan {
   fecha: string;
   hora_definida: boolean;
   franja: string | null;
+  objetivo: string | null;
   tipo_visita: string | null;
   estado_captura: string;
   cliente_id: string;
@@ -64,7 +65,7 @@ export function DetalleVisitaPlanificada() {
     queryFn: async (): Promise<VisitaPlan> => {
       const { data: fila, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
         .eq('id', visitaId!)
         .single();
       if (error) throw error;
@@ -74,6 +75,7 @@ export function DetalleVisitaPlanificada() {
         fecha: fila.fecha,
         hora_definida: fila.hora_definida,
         franja: fila.franja,
+        objetivo: fila.objetivo,
         tipo_visita: fila.tipo_visita,
         estado_captura: fila.estado_captura,
         cliente_id: cli?.id ?? '',
@@ -200,8 +202,10 @@ export function DetalleVisitaPlanificada() {
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 4 }}>Es hoy.</div>
             )}
 
-            <div className="label">tipo</div>
-            <div style={{ fontSize: 'var(--text-base)' }}>{data.tipo_visita ?? 'sin especificar'}</div>
+            <div className="label">objetivo</div>
+            <div style={{ fontSize: 'var(--text-base)' }}>
+              {data.objetivo ?? 'sin objetivo definido'}
+            </div>
           </div>
 
           {/* Empezar */}

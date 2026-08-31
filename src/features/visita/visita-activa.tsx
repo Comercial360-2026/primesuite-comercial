@@ -193,6 +193,34 @@ export function VisitaActiva() {
     },
   });
 
+  // Objetivo de la visita: se fija al planificar (ver ficha-cliente /
+  // paso-rapido-modal) y aquí el comercial puede matizarlo si al llegar la
+  // realidad no coincide con lo previsto. maybeSingle: una visita ad-hoc
+  // iniciada sin conexión todavía no tiene fila en el servidor — en ese
+  // caso `visitaServidor` es null y no se muestra el editor (el objetivo
+  // de una visita improvisada no estaba planificado de antemano).
+  const objetivoQueryKey = ['visita-objetivo', visitaId];
+  const { data: visitaServidor } = useQuery({
+    queryKey: objetivoQueryKey,
+    enabled: !!visitaId,
+    queryFn: async (): Promise<{ objetivo: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('objetivo')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const [objetivoBorrador, setObjetivoBorrador] = useState<string | null>(null);
+  const guardadoObjetivo = useAccionAsync();
+  useEffect(() => {
+    if (visitaServidor && objetivoBorrador === null) {
+      setObjetivoBorrador(visitaServidor.objetivo ?? '');
+    }
+  }, [visitaServidor, objetivoBorrador]);
+
   if (!visitaId || !comercial) return null;
 
   // Límite de seguridad, por debajo del límite real del servidor (15 MB)
@@ -362,6 +390,28 @@ export function VisitaActiva() {
           }, 700);
         },
         mensajeError: 'No se pudo guardar la nota. Inténtalo de nuevo.',
+      }
+    );
+  }
+
+  async function guardarObjetivo() {
+    await guardadoObjetivo.ejecutar(
+      async () => {
+        const nuevo = (objetivoBorrador ?? '').trim();
+        const { error, count } = await supabase
+          .from('visita')
+          .update({ objetivo: nuevo || null }, { count: 'exact' })
+          .eq('id', visitaId!);
+        if (error) throw new Error(error.message);
+        if (!count) {
+          throw new Error(
+            'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
+          );
+        }
+      },
+      {
+        onExito: () => queryClient.invalidateQueries({ queryKey: objetivoQueryKey }),
+        mensajeError: 'No se pudo guardar el objetivo.',
       }
     );
   }
@@ -600,6 +650,46 @@ export function VisitaActiva() {
           Participantes
         </button>
       </div>
+
+      {visitaServidor && (
+        <div>
+          <div className="label" style={{ marginTop: 0 }}>objetivo de la visita</div>
+          <textarea
+            className="field"
+            style={{ height: 'auto', padding: 8 }}
+            rows={2}
+            value={objetivoBorrador ?? ''}
+            onChange={(e) => setObjetivoBorrador(e.target.value)}
+            placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
+          />
+          {(objetivoBorrador ?? '') !== (visitaServidor.objetivo ?? '') && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: 'var(--text-sm)' }}
+                disabled={guardadoObjetivo.cargando}
+                onClick={() => {
+                  guardadoObjetivo.limpiarError();
+                  setObjetivoBorrador(visitaServidor.objetivo ?? '');
+                }}
+              >
+                Deshacer
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 'var(--text-sm)' }}
+                disabled={guardadoObjetivo.cargando}
+                onClick={guardarObjetivo}
+              >
+                {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar objetivo'}
+              </button>
+            </div>
+          )}
+          {guardadoObjetivo.error && (
+            <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+          )}
+        </div>
+      )}
 
       <input
         ref={inputFotoRef}
@@ -1017,7 +1107,7 @@ export function VisitaActiva() {
             await encolar(pasoId, 'proximo_paso', payload, { dependeDe: visitaId });
             setTimeout(() => setPasoAbierto(false), 700);
           }}
-          onPlanificarVisita={async ({ fecha, hora, franja }) => {
+          onPlanificarVisita={async ({ fecha, hora, franja, objetivo }) => {
             // Llamada directa, NO por la cola offline: igual que planificar
             // desde la ficha, para que aparezca en la agenda al momento.
             const nuevaId = crypto.randomUUID();
@@ -1029,12 +1119,18 @@ export function VisitaActiva() {
               pEstadoCaptura: 'agendada',
             });
             if (error) throw new Error(error);
+            const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
+            if (objetivo.trim()) parche.objetivo = objetivo.trim();
             if (!hora) {
-              const { error: errHora } = await supabase
+              parche.hora_definida = false;
+              parche.franja = franja || null;
+            }
+            if (Object.keys(parche).length) {
+              const { error: errParche } = await supabase
                 .from('visita')
-                .update({ hora_definida: false, franja: franja || null })
+                .update(parche)
                 .eq('id', nuevaId);
-              if (errHora) throw new Error(errHora.message);
+              if (errParche) throw new Error(errParche.message);
             }
             for (const k of [
               ['visitas-hoy'],

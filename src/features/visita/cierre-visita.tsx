@@ -7,8 +7,6 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 
-const TIPOS_VISITA = ['comercial', 'demo', 'tecnica', 'seguimiento', 'relacion'] as const;
-
 // Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
 // cola offline (db.ts/sync-engine.ts) solo modela creación de registros
 // nuevos (ver 09_arquitectura_tecnica.md §4 y la decisión ya cerrada de no
@@ -16,10 +14,10 @@ const TIPOS_VISITA = ['comercial', 'demo', 'tecnica', 'seguimiento', 'relacion']
 // resuelve aquí con un intento directo + reintento ligero en localStorage
 // si no hay red en el momento del cierre — es una corrección puntual, no
 // una ampliación del motor de sincronización.
-function intentarConsolidarOffline(visitaId: string, tipoVisita: string | null) {
+function intentarConsolidarOffline(visitaId: string) {
   localStorage.setItem(
     `consolidar-pendiente-${visitaId}`,
-    JSON.stringify({ estado_captura: 'consolidada', tipo_visita: tipoVisita })
+    JSON.stringify({ estado_captura: 'consolidada' })
   );
   const reintentar = async () => {
     const clave = `consolidar-pendiente-${visitaId}`;
@@ -40,10 +38,27 @@ export function CierreVisita() {
   const { operaciones } = useSyncQueue(visitaId);
   const { cerrarVisita } = useVisitaActivaContext();
 
-  const [tipoVisita, setTipoVisita] = useState<string | null>(null);
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
   const consolidacion = useAccionAsync();
+
+  // "Ibas a…": el objetivo con el que se planificó la visita, para cerrarla
+  // teniéndolo delante. Solo lectura aquí — si hay que matizarlo se hace en
+  // Visita Activa. maybeSingle porque una visita ad-hoc offline aún no
+  // tiene fila en el servidor.
+  const { data: visitaObjetivo } = useQuery({
+    queryKey: ['visita-objetivo', visitaId],
+    enabled: !!visitaId,
+    queryFn: async (): Promise<{ objetivo: string | null } | null> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('objetivo')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
   const terminoIdsHallazgos = hallazgosParaResumen
@@ -107,7 +122,7 @@ export function CierreVisita() {
         if (navigator.onLine) {
           const { error } = await supabase
             .from('visita')
-            .update({ estado_captura: 'consolidada', tipo_visita: tipoVisita })
+            .update({ estado_captura: 'consolidada' })
             .eq('id', visitaId);
           if (error) {
             // Con conexión presente, un error de Supabase es un fallo real
@@ -118,7 +133,7 @@ export function CierreVisita() {
           }
           return { sincronizada: true };
         } else {
-          intentarConsolidarOffline(visitaId, tipoVisita);
+          intentarConsolidarOffline(visitaId);
           return { sincronizada: false };
         }
       },
@@ -160,6 +175,13 @@ export function CierreVisita() {
         )}
 
         <div className="screen__scroll">
+          {visitaObjetivo?.objetivo?.trim() && (
+            <div className="card" style={{ background: 'var(--surface-1)' }}>
+              <div className="label" style={{ marginTop: 0 }}>ibas a</div>
+              <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <span className="chip">{fotos.length} fotos</span>
             <span className="chip">{audios.length} audios</span>
@@ -299,6 +321,13 @@ export function CierreVisita() {
         </div>
       </div>
 
+      {visitaObjetivo?.objetivo?.trim() && (
+        <div className="card" style={{ background: 'var(--surface-1)' }}>
+          <div className="label" style={{ marginTop: 0 }}>ibas a</div>
+          <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
+        </div>
+      )}
+
       <div className="screen__scroll">
         <div className="label" style={{ marginTop: 0 }}>revisar por ubicación</div>
         {Object.entries(fotosPorUbicacion).map(([ubicacionId, cantidad]) => (
@@ -308,16 +337,6 @@ export function CierreVisita() {
             {cantidad} foto(s)
           </div>
         ))}
-
-        <div className="label">tipo de visita</div>
-        <select className="field" value={tipoVisita ?? ''} onChange={(e) => setTipoVisita(e.target.value || null)}>
-          <option value="">sin especificar</option>
-          {TIPOS_VISITA.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>

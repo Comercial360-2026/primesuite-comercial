@@ -21,6 +21,7 @@ interface VisitaAgenda {
   fecha: string;
   hora_definida: boolean;
   franja: string | null;
+  objetivo: string | null;
   tipo_visita: string | null;
   cliente: { id: string; nombre: string } | null;
 }
@@ -85,7 +86,7 @@ export function Agenda() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, tipo_visita, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre)')
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true });
       if (error) throw error;
@@ -182,9 +183,11 @@ export function Agenda() {
       >
         <div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{v.cliente?.nombre ?? 'Cliente'}</div>
+          {v.objetivo && (
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>{v.objetivo}</div>
+          )}
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
             {cuando}
-            {v.tipo_visita ? ` · ${v.tipo_visita}` : ''}
             {deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}
           </div>
         </div>
