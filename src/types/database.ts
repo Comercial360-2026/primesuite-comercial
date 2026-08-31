@@ -36,7 +36,78 @@ export type Database = {
           id?: string
           pedido_por?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
+            columns: ["pedido_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
+            columns: ["pedido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
+            columns: ["pedido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
+            columns: ["pedido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
+            columns: ["pedido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+        ]
       }
       captura_libre: {
         Row: {
@@ -1787,8 +1858,8 @@ export type Database = {
       fn_espacio_equipo: {
         Args: never
         Returns: {
-          usado_total: number
           presupuesto: number
+          usado_total: number
         }[]
       }
       fn_espacio_por_comercial: {
