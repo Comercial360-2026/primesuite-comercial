@@ -25,12 +25,22 @@ restyle de las filas sea **un solo sitio**, no pantalla por pantalla.
 
 ### Cuándo usarlo
 
-- Pantallas que son sobre todo una lista de accesos o de datos: **Yo**, Mi
-  espacio, y (fases siguientes) Clientes, Mis próximos pasos, Agenda, ficha
-  de cliente…
-- **No** para el contenido rico de una pantalla (formularios, la visita
-  activa, tarjetas con gráfico o con su propio botón de acción): eso sigue
-  siendo `.card` u otros componentes.
+- Pantallas que son sobre todo una lista de accesos, de datos o de acciones
+  repetidas. Tras el rollout general (Fase 4) están en el sistema: **Yo**,
+  Mi espacio, Clientes, Mis próximos pasos, Agenda, **Hoy**, ficha de
+  cliente (todo el cuerpo), Vocabulario (Pendientes y Catálogo),
+  Solicitudes de ayuda, Consumo por comercial, Clientes duplicados,
+  Ubicaciones de cliente, y las listas dentro de los `detalle-*`
+  (hallazgos / oportunidades / próximos pasos de una visita cerrada).
+- **No** para el contenido rico de una pantalla (formularios —incluidos
+  `detalle-oportunidad` / `detalle-hallazgo` / el cuerpo de
+  `detalle-proximo-paso`—, la visita activa, alta rápida, cierre de visita,
+  fotos/audios/prosa, chips de etiquetas): eso sigue siendo `.card` u otros
+  componentes. Un formulario navegable es peor que un formulario.
+- **Modos inline** (renombrar, mover, fusionar, confirmar borrado): se
+  dibujan como `<div className="fila-confirmacion">` **dentro del grupo**
+  (misma caja, separador y padding que las filas), nunca como una `.card`
+  desprendida.
 
 ### Componentes
 
