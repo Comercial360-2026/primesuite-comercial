@@ -94,6 +94,35 @@ const registro = {
     </>
   ),
 
+  // "+" — crear / añadir (nueva categoría, nuevo término, nueva ubicación).
+  mas: <path d="M12 5v14M5 12h14" />,
+
+  // Lápiz — renombrar / editar en el sitio.
+  editar: (
+    <>
+      <path d="M4 20l1-4 11-11 3 3-11 11z" />
+      <path d="M14 7l3 3" />
+    </>
+  ),
+
+  // Flecha que entra en una caja — mover a otra categoría.
+  mover: (
+    <>
+      <path d="M4 12h10" />
+      <path d="M10 8l4 4-4 4" />
+      <path d="M16 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2" />
+    </>
+  ),
+
+  // Dos ramas que confluyen en una — fusionar con un término existente.
+  fusionar: (
+    <>
+      <path d="M5 4v3c0 3 2 5 5 5h9" />
+      <path d="M5 20v-3c0-3 2-5 5-5" />
+      <path d="M15 8l4 4-4 4" />
+    </>
+  ),
+
   // Almacenamiento / cuota — cilindro de disco.
   almacenamiento: (
     <>
