@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta, fechaLarga, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -153,7 +154,7 @@ export function DetalleVisitaPlanificada() {
   const franja = data ? franjaDe(data.fecha, data.hora_definida, data.franja) : null;
   const horaTexto =
     data && data.hora_definida
-      ? fechaVisita!.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      ? hora(fechaVisita!)
       : null;
 
   return (
@@ -176,12 +177,7 @@ export function DetalleVisitaPlanificada() {
               />
               <FilaDato
                 etiqueta="Fecha"
-                valor={fechaVisita!.toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                valor={fechaLarga(fechaVisita!)}
               />
               <FilaDato
                 etiqueta="Cuándo"
@@ -210,7 +206,7 @@ export function DetalleVisitaPlanificada() {
             <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
               <div style={{ fontSize: 'var(--text-sm)' }}>
                 Esta visita es para el{' '}
-                {fechaVisita!.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}. ¿Empezarla ahora
+                {fechaCorta(fechaVisita!)}. ¿Empezarla ahora
                 igualmente?
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -318,7 +314,7 @@ export function DetalleVisitaPlanificada() {
             <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
                 Se eliminará la visita planificada a {data.cliente_nombre} del{' '}
-                {fechaVisita!.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}. No se puede deshacer.
+                {fechaCorta(fechaVisita!)}. No se puede deshacer.
               </div>
               {cancelar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{cancelar.error}</div>}
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -175,10 +176,10 @@ export function MisProximosPasos() {
               const guardandoEsta = guardandoId === p.id;
               const cliente = p.visita?.cliente?.nombre ?? 'Cliente';
               const cuando = p.fecha_objetivo
-                ? ` · ${vencido ? 'vencido' : new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}`
+                ? ` · ${vencido ? 'vencido' : fechaCorta(p.fecha_objetivo)}`
                 : '';
               const notaRevisita = revisita
-                ? ` · revisita planificada ${new Date(revisita).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
+                ? ` · revisita planificada ${fechaCorta(revisita)}`
                 : '';
               const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
 

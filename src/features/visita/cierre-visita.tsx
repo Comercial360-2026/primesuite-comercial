@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -237,7 +238,7 @@ export function CierreVisita() {
                 return (
                   <div key={p.id} style={{ fontSize: 'var(--text-sm)' }}>
                     {payload.descripcion}
-                    {payload.fechaObjetivo && ` · ${new Date(payload.fechaObjetivo).toLocaleDateString('es-ES')}`}
+                    {payload.fechaObjetivo && ` · ${fechaCorta(payload.fechaObjetivo)}`}
                   </div>
                 );
               })}

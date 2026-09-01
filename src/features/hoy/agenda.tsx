@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -45,7 +46,7 @@ function etiquetaDia(d: Date) {
   manana.setDate(manana.getDate() + 1);
   if (claveDia(d) === claveDia(hoy)) return 'Hoy';
   if (claveDia(d) === claveDia(manana)) return 'Mañana';
-  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  return fechaLarga(d);
 }
 
 // Listas que refrescar tras cancelar visitas (mismo juego que
@@ -256,9 +257,9 @@ export function Agenda() {
     // enseña la hora (o "sin hora fija"). En "Atrasadas" no hay cabecera de
     // día, así que enseña la fecha.
     const cuando = conFecha
-      ? new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+      ? fechaDiaMes(v.fecha)
       : v.hora_definida
-        ? new Date(v.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+        ? hora(v.fecha)
         : 'sin hora fija';
     return (
       <FilaNavegable

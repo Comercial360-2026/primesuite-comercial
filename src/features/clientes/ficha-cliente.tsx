@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -459,7 +460,7 @@ export function FichaCliente() {
                 titulo={p.descripcion}
                 valor={
                   p.fecha_objetivo
-                    ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES')
+                    ? fechaCorta(p.fecha_objetivo)
                     : undefined
                 }
                 to={`/proximos-pasos/${p.id}`}
@@ -479,7 +480,7 @@ export function FichaCliente() {
             etiqueta="Última actividad"
             valor={
               semaforo?.ultima_visita
-                ? new Date(semaforo.ultima_visita).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
+                ? fechaCorta(semaforo.ultima_visita)
                 : 'sin visitas registradas'
             }
           />
@@ -525,11 +526,7 @@ export function FichaCliente() {
               return (
                 <FilaNavegable
                   key={v.id}
-                  titulo={new Date(v.fecha).toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
+                  titulo={fechaCorta(v.fecha)}
                   subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
                   valor={accion}
                   to={to}
@@ -548,10 +545,7 @@ export function FichaCliente() {
       {planificadaPara && !planificando && (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
           Visita planificada para el{' '}
-          {new Date(`${planificadaPara}T09:00:00`).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-          })}
+          {fechaCorta(`${planificadaPara}T09:00:00`)}
           . Aparecerá en «Hoy» ese día.
         </div>
       )}
@@ -561,7 +555,7 @@ export function FichaCliente() {
           {visitaYaPlanificada && (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 8 }}>
               Ya tienes una visita planificada con este cliente el{' '}
-              {new Date(visitaYaPlanificada.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}. Puedes
+              {fechaCorta(visitaYaPlanificada.fecha)}. Puedes
               planificar otra igualmente.
             </div>
           )}

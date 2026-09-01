@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -129,7 +130,7 @@ export function SolicitudesReasignacion() {
           <SeccionLista>
             {solicitudes.map((s) => {
               const meta =
-                `${new Date(s.fecha_visita).toLocaleDateString('es-ES')} · pedida por ${s.solicitante_nombre}` +
+                `${fechaCorta(s.fecha_visita)} · pedida por ${s.solicitante_nombre}` +
                 (s.nota ? ` · «${s.nota}»` : '');
 
               if (asignandoId === s.id) {

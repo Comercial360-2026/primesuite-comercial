@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
@@ -341,7 +342,7 @@ export function ColaVocabulario() {
                   const meta =
                     `${t.categoria_nombre} · propuesto por ${t.propuesto_por_nombre}` +
                     (t.fecha_propuesta
-                      ? ` · ${new Date(t.fecha_propuesta).toLocaleDateString('es-ES')}`
+                      ? ` · ${fechaCorta(t.fecha_propuesta)}`
                       : '');
 
                   if (fusionandoId === t.id) {

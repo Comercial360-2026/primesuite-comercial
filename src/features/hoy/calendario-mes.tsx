@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { fechaLarga } from '@/lib/fechas';
 
 // Vista de mes para la Agenda. Solo pinta: recibe las visitas ya filtradas
 // (por "Todas / Solo mías") y una función para renderizar cada fila del panel
@@ -182,11 +183,7 @@ export function CalendarioMes<T extends { id: string; fecha: string }>({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="label" style={{ marginTop: 4 }}>
             {(() => {
-              const t = fechaDiaSel!.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              });
+              const t = fechaLarga(fechaDiaSel!);
               return t.charAt(0).toUpperCase() + t.slice(1);
             })()}
           </div>

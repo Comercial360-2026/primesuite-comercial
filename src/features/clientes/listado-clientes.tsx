@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -157,7 +158,7 @@ export function ListadoClientes() {
               const subtitulo =
                 [
                   c.ultima_visita &&
-                    `última visita ${new Date(c.ultima_visita).toLocaleDateString('es-ES')}`,
+                    `última visita ${fechaCorta(c.ultima_visita)}`,
                   !esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`,
                 ]
                   .filter(Boolean)

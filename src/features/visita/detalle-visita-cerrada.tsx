@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
@@ -145,11 +146,7 @@ export function DetalleVisitaCerrada() {
         titulo={data?.cliente_nombre ?? 'visita'}
         subtitulo={
           data
-            ? `${new Date(data.fecha).toLocaleDateString('es-ES', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}${data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · ${
+            ? `${fechaCorta(data.fecha)}${data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · ${
                 estadoLegible[data.estado_captura] ?? data.estado_captura
               }`
             : undefined
@@ -269,7 +266,7 @@ export function DetalleVisitaCerrada() {
                   titulo={p.descripcion}
                   subtitulo={
                     p.fecha_objetivo
-                      ? `${new Date(p.fecha_objetivo).toLocaleDateString('es-ES')} · ${p.estado}`
+                      ? `${fechaCorta(p.fecha_objetivo)} · ${p.estado}`
                       : p.estado
                   }
                   to={`/proximos-pasos/${p.id}`}

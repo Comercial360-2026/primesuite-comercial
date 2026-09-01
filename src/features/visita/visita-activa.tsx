@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -1313,7 +1314,7 @@ export function VisitaActiva() {
                   <span style={{ fontSize: 'var(--text-sm)' }}>{payload.descripcion}</span>
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
                     {payload.fechaObjetivo
-                      ? new Date(payload.fechaObjetivo).toLocaleDateString('es-ES')
+                      ? fechaCorta(payload.fechaObjetivo)
                       : 'sin fecha objetivo'}
                     {' · '}
                     {etiquetaSync[p.estado] ?? p.estado}
@@ -1386,7 +1387,7 @@ export function VisitaActiva() {
               <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 'var(--text-sm)' }}>próximo paso · {p.descripcion}</span>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  {p.fecha_objetivo ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES') : 'sin fecha objetivo'}
+                  {p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha objetivo'}
                   {' · de '}
                   {nombresComerciales?.[p.comercial_responsable_id] ?? '…'}
                 </span>

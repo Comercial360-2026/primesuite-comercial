@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -223,7 +224,7 @@ export function Deduplicacion() {
                 const meta =
                   `${c.visitas} visita${c.visitas === 1 ? '' : 's'} · ${c.oportunidades} oportunidad${c.oportunidades === 1 ? '' : 'es'} · ${c.interlocutores} contacto${c.interlocutores === 1 ? '' : 's'}` +
                   ` · ${c.sector ? c.sector : 'sector sin definir'}${c.ubicacion ? ` · ${c.ubicacion}` : ''}` +
-                  ` · creada ${new Date(c.creado_en).toLocaleDateString('es-ES')}${
+                  ` · creada ${fechaCorta(c.creado_en)}${
                     c.creado_por && nombresComerciales?.[c.creado_por] ? ` por ${nombresComerciales[c.creado_por]}` : ''
                   }`;
                 return (
