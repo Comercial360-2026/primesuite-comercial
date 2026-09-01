@@ -212,6 +212,7 @@ que lleva su propia acción. Las listas de accesos/datos siguen siendo
 | Campo | Tipo | Notas |
 |---|---|---|
 | `etiqueta` | `string` | Texto del botón. |
+| `icono` | `NombreIcono?` | Icono delante del texto, para acción concreta (hacer copia, planificar…). Ver §"Iconos". |
 | `onClick` | `() => void` | |
 | `disabled` | `boolean?` | |
 | `cargando` | `boolean?` | Deshabilita el botón y muestra `etiquetaCargando`. |
@@ -441,6 +442,20 @@ del texto.
 Para la fila compacta de iconos de una pantalla de detalle (el par
 "descargar / borrar" de `detalle-*`) se usa **`FilaAccion`**, no dos `.btn`
 grandes.
+
+## Formatos de fecha y hora
+
+Un solo sitio: `src/lib/fechas.ts`. Ninguna pantalla llama a
+`new Date(x).toLocale…` directamente.
+
+| Función | Sale | Para |
+|---|---|---|
+| `fechaCorta(x)` | `9 sept 2026` | listas, metadatos, "última visita", texto corrido |
+| `fechaDiaMes(x)` | `mar 9 sept` | chips y filas donde el año sobra (esta semana / mes) |
+| `fechaLarga(x)` | `martes, 9 de septiembre de 2026` | cabeceras y fechas destacadas (`FilaDato`) |
+| `hora(x)` | `09:30` | siempre HH:MM, nunca "9h" ni "9:5" |
+
+Aceptan ISO string o `Date`; devuelven `''` si el valor es nulo.
 
 ## Modales
 

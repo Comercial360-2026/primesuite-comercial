@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
@@ -123,6 +124,7 @@ export function ConsumoComerciales() {
                     ? undefined
                     : {
                         etiqueta: pendiente ? 'Ya avisado' : 'Pedir que libere espacio',
+                        icono: pendiente ? 'check' : 'solicitudes',
                         onClick: () => pedirLiberar(c.comercial_id),
                         disabled: pendiente,
                         cargando: pidiendo === c.comercial_id,
@@ -136,8 +138,8 @@ export function ConsumoComerciales() {
                 {!esYo && ultimo && (
                   <div className="tarjeta-accion__estado">
                     {pendiente
-                      ? `Avisado el ${new Date(ultimo.creado_en).toLocaleDateString('es-ES')} — aún no lo ha mirado`
-                      : `Lo miró el ${new Date(ultimo.atendido_en!).toLocaleDateString('es-ES')}`}
+                      ? `Avisado el ${fechaCorta(ultimo.creado_en)} — aún no lo ha mirado`
+                      : `Lo miró el ${fechaCorta(ultimo.atendido_en!)}`}
                   </div>
                 )}
               </TarjetaAccion>

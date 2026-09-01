@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Icono, type NombreIcono } from './iconos';
 
 // Bloque informativo + un único botón de acción. Sustituye al patrón
 // `<div className="card">` con `.label`, un cuerpo de texto/cifras y un
@@ -19,6 +20,9 @@ type Tono = 'neutral' | 'aviso' | 'riesgo';
 export interface AccionTarjeta {
   etiqueta: string;
   onClick: () => void;
+  /** Icono delante del texto — acción concreta (hacer copia, planificar…).
+   *  Ver 08_sistema_diseno.md §"Iconos". */
+  icono?: NombreIcono;
   disabled?: boolean;
   /** Mientras corre: deshabilita el botón y muestra `etiquetaCargando`. */
   cargando?: boolean;
@@ -53,6 +57,7 @@ export function TarjetaAccion({ titulo, children, tono = 'neutral', accion, erro
           disabled={accion.disabled || accion.cargando}
           onClick={accion.onClick}
         >
+          {accion.icono && !accion.cargando && <Icono nombre={accion.icono} size={18} />}
           {accion.cargando ? accion.etiquetaCargando ?? 'Un momento…' : accion.etiqueta}
         </button>
       )}

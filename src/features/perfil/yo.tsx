@@ -300,6 +300,7 @@ export function Yo() {
             tono={backupPendiente ? 'aviso' : 'neutral'}
             accion={{
               etiqueta: 'Hacer copia completa ahora',
+              icono: 'descargar',
               onClick: hacerCopiaCompleta,
               cargando: exportando,
               etiquetaCargando: 'Preparando copia…',

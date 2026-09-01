@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -203,15 +204,16 @@ export function DetalleProximoPaso() {
         visitaPlanificada ? (
           <TarjetaAccion
             titulo="Revisita"
-            accion={{ etiqueta: 'Marcar este paso como hecho', onClick: marcarHecho }}
+            accion={{ etiqueta: 'Marcar este paso como hecho', icono: 'check', onClick: marcarHecho }}
           >
-            Visita planificada para el {new Date(fechaObjetivo).toLocaleDateString('es-ES')}. Está en la Agenda.
+            Visita planificada para el {fechaCorta(fechaObjetivo)}. Está en la Agenda.
           </TarjetaAccion>
         ) : (
           <TarjetaAccion
             titulo="¿Volver a visitar?"
             accion={{
               etiqueta: 'Planificar visita para esta fecha',
+              icono: 'mas',
               onClick: () => planificarVisita(cliente.id),
               disabled: !descripcion.trim(),
               cargando: planificando,
