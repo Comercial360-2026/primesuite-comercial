@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
@@ -211,15 +212,10 @@ export function DetalleOportunidad() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
-          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Oportunidad</h1>
-      </div>
+      <CabeceraDetalle
+        titulo="Oportunidad"
+        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+      />
 
       <div className="label" style={{ marginTop: 0 }}>título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />

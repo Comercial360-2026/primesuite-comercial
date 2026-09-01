@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 const NATURALEZAS = [
   'contexto',
@@ -140,15 +141,10 @@ export function DetalleHallazgo() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
-          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hallazgo</h1>
-      </div>
+      <CabeceraDetalle
+        titulo="Hallazgo"
+        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+      />
 
       <div className="card">
         <div className="label" style={{ marginTop: 0 }}>{(hallazgo.termino as unknown as { nombre: string })?.nombre ?? '…'}</div>

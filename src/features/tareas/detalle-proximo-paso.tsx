@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
 // vía paso-rapido-modal.tsx). Mismo patrón que detalle-hallazgo.tsx:
@@ -158,12 +159,7 @@ export function DetalleProximoPaso() {
   if (isError || !paso) {
     return (
       <div className="screen">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-            ←
-          </button>
-          <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Próximo paso</h1>
-        </div>
+        <CabeceraDetalle titulo="Próximo paso" />
         <div className="field-error-text">No se pudo cargar este próximo paso.</div>
       </div>
     );
@@ -174,14 +170,11 @@ export function DetalleProximoPaso() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
-        <button
-          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
-          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Próximo paso</h1>
+      <div style={{ position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
+        <CabeceraDetalle
+          titulo="Próximo paso"
+          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+        />
       </div>
 
       {clienteNombre && (
