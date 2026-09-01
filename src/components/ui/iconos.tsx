@@ -207,6 +207,9 @@ const registro = {
   // Guion — estado neutro / en pausa (p. ej. semáforo "seguimiento").
   guion: <path d="M6 12h12" />,
 
+  // Play — "en curso" (visita ya empezada). Relleno, no trazo.
+  reproducir: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
+
   // Bandeja vacía — estado "no hay nada en esta lista" por defecto.
   bandeja: (
     <>

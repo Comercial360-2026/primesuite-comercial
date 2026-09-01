@@ -22,7 +22,7 @@ export function fechaCorta(v: Entrada): string {
 /** "mar 9 sept" — chips y filas donde el año sobra (esta semana / mes). */
 export function fechaDiaMes(v: Entrada): string {
   const d = aDate(v);
-  return d ? d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+  return d ? d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '') : '';
 }
 
 /** "martes, 9 de septiembre de 2026" — cabeceras y fechas destacadas. */

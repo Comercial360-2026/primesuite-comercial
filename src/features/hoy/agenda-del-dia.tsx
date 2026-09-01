@@ -2,13 +2,15 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
-import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { Icono } from '@/components/ui/iconos';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
+import { BloqueAhora } from './bloque-ahora';
 
 interface VisitaAgenda {
   id: string;
@@ -32,20 +34,13 @@ function rangoDeHoy() {
 }
 
 // Texto de "cuándo" de una visita. Con hora → "09:00"; sin hora pero con
-// franja → "mañana" / "tarde"; sin nada → "sin hora". conDia antepone el día
-// (para la lista de Próximas, que mezcla fechas).
-function cuandoTexto(v: VisitaAgenda, conDia: boolean, bajoFranja = false): string {
-  const d = new Date(v.fecha);
-  // Bajo una cabecera de franja ("Tarde", "Sin hora"), una visita sin hora no
-  // repite la franja — no aporta nada. Con hora sí: la hora concreta informa.
-  if (bajoFranja && !v.hora_definida) return '';
-  const dia = conDia
-    ? d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
-    : '';
-  const hora = v.hora_definida
-    ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+// franja → "mañana" / "tarde". `conDia` antepone el día (para la lista de
+// Próximas, que mezcla fechas).
+function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
+  const t = v.hora_definida
+    ? hora(v.fecha)
     : etiquetaFranja(franjaDe(v.fecha, v.hora_definida, v.franja));
-  return dia ? `${dia} · ${hora}` : hora;
+  return conDia ? `${fechaDiaMes(v.fecha)} · ${t}` : t;
 }
 
 export function AgendaDelDia() {
@@ -59,6 +54,7 @@ export function AgendaDelDia() {
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const [soloMiasElegido, setSoloMias] = useState(true);
   const soloMias = esDireccionComercial ? soloMiasElegido : true;
+  const [hechasAbiertas, setHechasAbiertas] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -84,8 +80,7 @@ export function AgendaDelDia() {
 
   // Visitas planificadas para días futuros. Sin esto, planificar una visita
   // para la semana que viene era un agujero: no se veía en ninguna parte
-  // hasta que llegaba el día. Solo 'agendada' (las que ya se empezaron o
-  // cerraron no son "próximas") y solo hacia delante.
+  // hasta que llegaba el día. Solo 'agendada' y solo hacia delante.
   const { data: visitasProximas } = useQuery({
     queryKey: ['visitas-proximas', comercial?.id, fin],
     enabled: !!comercial,
@@ -104,9 +99,8 @@ export function AgendaDelDia() {
   });
 
   // Planificadas para una fecha que ya pasó y nadie las hizo. Sin esto se
-  // quedaban 'agendada' con fecha vieja y desaparecían de todas las listas
-  // (Hoy filtra por hoy, Próximas por futuro): invisibles. Van arriba del
-  // todo para que se resuelvan (empezar, reprogramar o cancelar).
+  // quedaban 'agendada' con fecha vieja e invisibles. Van arriba para que se
+  // resuelvan (empezar, reprogramar o cancelar en su detalle).
   const { data: visitasAtrasadas } = useQuery({
     queryKey: ['visitas-atrasadas', comercial?.id, inicio],
     enabled: !!comercial,
@@ -124,12 +118,8 @@ export function AgendaDelDia() {
     },
   });
 
-  // Igual que en Clientes: "Hoy" mostraba las visitas de TODO el equipo sin
-  // distinguir de quién eran — encontrado probando multiparticipante, no
-  // era intencionado dejarlo así solo aquí y arreglarlo solo en Clientes.
   // El responsable vive en visita_participante (rol 'responsable'), no en
-  // la propia tabla `visita` — ver crear-visita-con-responsable.ts.
-  // Se piden participantes para las de hoy Y las próximas de una vez.
+  // la propia tabla `visita`. Se pide para hoy + próximas + atrasadas.
   const idsVisitas = [
     ...(visitas?.map((v) => v.id) ?? []),
     ...(visitasProximas?.map((v) => v.id) ?? []),
@@ -149,13 +139,9 @@ export function AgendaDelDia() {
     },
   });
 
-  // Aparte del mapa de responsables (para la etiqueta "de [nombre]"), hace
-  // falta saber TODOS los participantes de cada visita para el filtro
-  // "Solo mías" — si solo mirara el responsable, alguien añadido como
-  // participante (no responsable) nunca vería la visita como suya, aunque
-  // ya esté trabajando en ella. Encontrado probando la solicitud de ayuda
-  // recién construida: Dirección Comercial se asignaba a sí mismo y la
-  // visita seguía sin aparecer en su "Solo mías".
+  // Todos los participantes de cada visita, para el filtro "Solo mías" — si
+  // solo mirara el responsable, alguien añadido como participante nunca
+  // vería la visita como suya aunque ya esté trabajando en ella.
   const { data: participantesPorVisita } = useQuery({
     queryKey: ['participantes-visitas-hoy', idsVisitas.join(',')],
     enabled: idsVisitas.length > 0,
@@ -189,76 +175,56 @@ export function AgendaDelDia() {
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
-  // La pantalla Hoy se organiza en secciones plegables por el ciclo de vida
-  // de la visita: en curso (arriba, ya empezada) → pendientes por franja
-  // (agendadas para hoy sin empezar) → hechas hoy (consolidadas, solo para
-  // descargar el informe o borrar un error). Una consolidada no cuenta como
-  // "Visita de tarde" pendiente.
   const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
-  const hoyManana = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'manana');
-  const hoyTarde = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'tarde');
-  const hoySinHora = hoyPendientes.filter((v) => franjaDe(v.fecha, v.hora_definida, v.franja) === 'sin_hora');
   const proximas = proximasFiltradas ?? [];
-  const proximasVisibles = proximas.slice(0, 5);
-  const sinNadaHoy =
-    hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
+  const atrasadas = atrasadasFiltradas ?? [];
 
-  function renderVisita(visita: VisitaAgenda, mostrarDia: boolean, bajoFranja = false) {
-    const cuando = cuandoTexto(visita, mostrarDia, bajoFranja);
-    const responsableId = responsables?.[visita.id];
-    const deOtro = !!responsableId && responsableId !== comercial?.id;
-    const subtitulo =
-      [visita.objetivo || null, deOtro ? `de ${nombresComerciales?.[responsableId] ?? '…'}` : null]
-        .filter(Boolean)
-        .join(' · ') || undefined;
-    return (
-      <FilaNavegable
-        key={visita.id}
-        titulo={visita.cliente?.nombre ?? 'Cliente'}
-        subtitulo={subtitulo}
-        valor={cuando || undefined}
-        tono={visita.estado_captura === 'en_curso' ? 'ok' : 'neutral'}
-        onClick={() => abrirVisita(visita)}
-        chevron
-      />
-    );
-  }
+  const ahoraMs = Date.now();
+  const esDeHoy = (f: string) => {
+    const t = new Date(f).getTime();
+    return t >= new Date(inicio).getTime() && t <= new Date(fin).getTime();
+  };
+  // Planificada de hoy con hora fija que ya pasó y no se ha empezado.
+  const sinEmpezarTarde = (v: VisitaAgenda) =>
+    v.hora_definida && new Date(v.fecha).getTime() < ahoraMs;
 
-  // isPaused: TanStack Query pausa la consulta en vez de marcarla como
-  // error cuando decide que la red no es fiable (networkMode 'online' por
-  // defecto) — sin esto, la pantalla se queda en blanco, ni cargando ni
-  // error, el mismo problema de fondo que este punto quería resolver.
+  // La siguiente cosa que hacer: la primera pendiente de hoy, o la primera
+  // futura si hoy no queda ninguna. (Solo se usa si no hay ninguna en curso.)
+  const proxima = hoyPendientes[0] ?? proximas[0] ?? null;
+  const proximaEsHoy = !!proxima && esDeHoy(proxima.fecha);
+
+  const hechasNombres = hoyHechas
+    .map((v) => v.cliente?.nombre)
+    .filter(Boolean)
+    .join(', ');
+
+  const mostrarSeccionHoy = hoyPendientes.length > 0 || hoyHechas.length > 0;
+  const sinNada =
+    hoyEnCurso.length === 0 &&
+    hoyPendientes.length === 0 &&
+    hoyHechas.length === 0 &&
+    proximas.length === 0 &&
+    atrasadas.length === 0;
+
   const sinConexion = isPaused && visitas === undefined;
-  // reintentar() en vez de refetch() a secas: una consulta "paused" no
-  // siempre reacciona a un refetch() manual — resetQueries fuerza un
-  // intento realmente nuevo, verificado en pruebas reales de red rota.
   function reintentar() {
     queryClient.resetQueries({ queryKey });
     refetch();
   }
 
-  const esDeHoy = (f: string) => {
-    const t = new Date(f).getTime();
-    return t >= new Date(inicio).getTime() && t <= new Date(fin).getTime();
-  };
-
   function abrirVisita(visita: VisitaAgenda) {
-    // en_curso → retomar en Visita activa.
     if (visita.estado_captura === 'en_curso') {
       navigate(`/visita/${visita.id}`);
       return;
     }
-    // consolidada → detalle de solo lectura (ver contenido, descargar
-    // informe, borrar) — no el repaso, que invita a empezar una visita.
     if (visita.estado_captura === 'consolidada') {
       navigate(`/visita/${visita.id}/detalle`);
       return;
     }
-    // Planificada para OTRO día (atrasada o futura) → pantalla de gestión,
-    // no el repaso: el repaso invita a empezarla ya y no es lo que quieres
-    // con una visita para dentro de una semana.
+    // Planificada para OTRO día (atrasada o futura) → pantalla de gestión
+    // (empezar / reprogramar / anular), no el repaso.
     if (!esDeHoy(visita.fecha)) {
       navigate(`/visita/${visita.id}/planificada`);
       return;
@@ -269,24 +235,37 @@ export function AgendaDelDia() {
     }
   }
 
+  function renderVisita(visita: VisitaAgenda, conDia: boolean) {
+    const responsableId = responsables?.[visita.id];
+    const deOtro = !!responsableId && responsableId !== comercial?.id;
+    const subtitulo =
+      [visita.objetivo || null, deOtro ? `de ${nombresComerciales?.[responsableId] ?? '…'}` : null]
+        .filter(Boolean)
+        .join(' · ') || undefined;
+    const cuando = cuandoTexto(visita, conDia);
+    return (
+      <FilaNavegable
+        key={visita.id}
+        icono={visita.estado_captura === 'consolidada' ? 'check' : 'hoy'}
+        titulo={visita.cliente?.nombre ?? 'Cliente'}
+        subtitulo={subtitulo}
+        valor={cuando || undefined}
+        onClick={() => abrirVisita(visita)}
+        chevron
+      />
+    );
+  }
+
+  const fechaHoy = fechaLarga(new Date());
+
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Hoy" icono="hoy" />
-
-      {visitas && (hoyPendientes.length > 0 || (atrasadasFiltradas?.length ?? 0) > 0) && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: -8 }}>
-          {hoyPendientes.length > 0 &&
-            `${hoyPendientes.length} planificada${hoyPendientes.length === 1 ? '' : 's'} hoy`}
-          {hoyPendientes.length > 0 && (atrasadasFiltradas?.length ?? 0) > 0 && ' · '}
-          {(atrasadasFiltradas?.length ?? 0) > 0 &&
-            `${atrasadasFiltradas!.length} atrasada${atrasadasFiltradas!.length === 1 ? '' : 's'}`}
-        </div>
-      )}
+      <CabeceraSeccion titulo="Hoy" icono="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
 
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todos
+            Todas
           </button>
           <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
             Solo mías
@@ -295,105 +274,113 @@ export function AgendaDelDia() {
       )}
 
       <div className="screen__scroll">
+        {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
+        {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
+        {isError && (
+          <EstadoLista estado="error" mensaje="No se pudieron cargar las visitas de hoy." onReintentar={reintentar} />
+        )}
 
-      {atrasadasFiltradas && atrasadasFiltradas.length > 0 && (
-        <SeccionLista>
-          <FilaNavegable
-            tono="aviso"
-            titulo={`${atrasadasFiltradas.length} visita${atrasadasFiltradas.length === 1 ? '' : 's'} atrasada${
-              atrasadasFiltradas.length === 1 ? '' : 's'
-            }`}
-            subtitulo="Revisar en Agenda"
-            to="/agenda"
-          />
-        </SeccionLista>
-      )}
+        {visitas && !isError && !sinConexion && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <BloqueAhora
+              enCurso={hoyEnCurso}
+              proxima={proxima}
+              proximaEsHoy={proximaEsHoy}
+              onAbrir={(v) => abrirVisita(v as VisitaAgenda)}
+            />
 
-      {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
-
-      {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
-
-      {isError && (
-        <EstadoLista
-          estado="error"
-          mensaje="No se pudieron cargar las visitas de hoy."
-          onReintentar={reintentar}
-        />
-      )}
-
-      {!isLoading && !isError && !sinConexion && sinNadaHoy && (
-        <EstadoLista
-          estado="vacio"
-          mensaje={soloMias ? 'No tienes visitas para hoy.' : 'No hay visitas para hoy.'}
-        />
-      )}
-
-      {/* Se espera a tener datos (visitas !== undefined) antes de montar las
-          secciones: SeccionColapsable fija su estado abierto/cerrado en el
-          primer render, y con la lista aún vacía "En curso" y la franja en
-          curso arrancarían cerradas por error. */}
-      {visitas && !isError && !sinConexion && (
-        <>
-          {/* En curso arriba del todo, abierta si hay alguna: una visita ya
-              empezada no está "pendiente", va en su propia sección y no en
-              la franja, para no contarla dos veces. */}
-          <SeccionColapsable
-            titulo="En curso"
-            cantidad={hoyEnCurso.length}
-            defaultAbierta={hoyEnCurso.length > 0}
-          >
-            <SeccionLista>{hoyEnCurso.map((visita) => renderVisita(visita, false))}</SeccionLista>
-          </SeccionColapsable>
-          {/* Una sola "Visitas de hoy" con mañana / tarde / sin hora dentro
-              como subcabeceras del grupo (no secciones sueltas). El contador
-              son las pendientes de empezar; abierta por defecto si hay alguna. */}
-          <SeccionColapsable
-            titulo="Visitas de hoy"
-            cantidad={hoyPendientes.length}
-            defaultAbierta={hoyPendientes.length > 0}
-          >
-            <SeccionLista>
-              {(
-                [
-                  ['manana', 'Mañana', hoyManana],
-                  ['tarde', 'Tarde', hoyTarde],
-                  ['sin_hora', 'Sin hora', hoySinHora],
-                ] as const
-              ).flatMap(([clave, etiqueta, lista]) =>
-                lista.length === 0
-                  ? []
-                  : [
-                      <div key={`sub-${clave}`} className="seccion-lista__subcabecera">
-                        {etiqueta}
-                      </div>,
-                      ...lista.map((visita) => renderVisita(visita, false, true)),
-                    ]
-              )}
-            </SeccionLista>
-          </SeccionColapsable>
-          <SeccionColapsable titulo="Hechas hoy" cantidad={hoyHechas.length}>
-            <SeccionLista>{hoyHechas.map((visita) => renderVisita(visita, false))}</SeccionLista>
-          </SeccionColapsable>
-          <SeccionColapsable titulo="Próximas visitas" cantidad={proximas.length}>
-            <SeccionLista>{proximasVisibles.map((visita) => renderVisita(visita, true))}</SeccionLista>
-            {proximas.length > proximasVisibles.length && (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingLeft: 4 }}>
-                y {proximas.length - proximasVisibles.length} más
-              </div>
+            {atrasadas.length > 0 && (
+              <section>
+                <div className="hoy-atrasadas-cab">
+                  <Icono nombre="atencion" size={14} /> Atrasadas ({atrasadas.length})
+                </div>
+                <SeccionLista>
+                  {atrasadas.slice(0, 2).map((v) => (
+                    <FilaNavegable
+                      key={v.id}
+                      icono="atencion"
+                      tono="aviso"
+                      titulo={v.cliente?.nombre ?? 'Cliente'}
+                      subtitulo={
+                        [v.objetivo || null, `era para el ${fechaDiaMes(v.fecha)}`].filter(Boolean).join(' · ')
+                      }
+                      onClick={() => abrirVisita(v)}
+                      chevron
+                    />
+                  ))}
+                  <FilaNavegable
+                    tono="aviso"
+                    titulo={atrasadas.length > 2 ? `Resolver las ${atrasadas.length}` : 'Ver en la agenda'}
+                    to="/agenda"
+                  />
+                </SeccionLista>
+              </section>
             )}
-          </SeccionColapsable>
-        </>
-      )}
 
-        <div style={{ marginTop: 12 }}>
-          <SeccionLista>
-            <FilaNavegable titulo="Ver agenda completa" to="/agenda" />
-          </SeccionLista>
-        </div>
+            {mostrarSeccionHoy && (
+              <SeccionLista titulo="Hoy">
+                {[...hoyPendientes]
+                  .sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
+                  .map((v) => {
+                    const responsableId = responsables?.[v.id];
+                    const deOtro = !!responsableId && responsableId !== comercial?.id;
+                    const subtitulo =
+                      [v.objetivo || null, deOtro ? `de ${nombresComerciales?.[responsableId] ?? '…'}` : null]
+                        .filter(Boolean)
+                        .join(' · ') || undefined;
+                    const tarde = sinEmpezarTarde(v);
+                    return (
+                      <FilaNavegable
+                        key={v.id}
+                        icono={tarde ? 'atencion' : 'hoy'}
+                        tono={tarde ? 'aviso' : 'neutral'}
+                        titulo={v.cliente?.nombre ?? 'Cliente'}
+                        subtitulo={subtitulo}
+                        valor={tarde ? `sin empezar · ${hora(v.fecha)}` : cuandoTexto(v, false) || undefined}
+                        onClick={() => abrirVisita(v)}
+                        chevron
+                      />
+                    );
+                  })}
+
+                {hoyHechas.length > 0 && (
+                  <FilaNavegable
+                    icono="check"
+                    densidad="compacta"
+                    titulo="Hecho hoy"
+                    valor={hechasAbiertas ? 'ocultar' : hechasNombres || undefined}
+                    chevron={false}
+                    onClick={() => setHechasAbiertas((x) => !x)}
+                  />
+                )}
+                {hechasAbiertas && hoyHechas.map((v) => renderVisita(v, false))}
+              </SeccionLista>
+            )}
+
+            {proximas.length > 0 ? (
+              <SeccionLista titulo="Próximas">
+                {proximas.slice(0, 3).map((v) => renderVisita(v, true))}
+                <FilaNavegable titulo="Ver toda la agenda" to="/agenda" />
+              </SeccionLista>
+            ) : (
+              <SeccionLista>
+                <FilaNavegable titulo="Ver toda la agenda" to="/agenda" />
+              </SeccionLista>
+            )}
+
+            {sinNada && (
+              <EstadoLista
+                estado="vacio"
+                mensaje={soloMias ? 'No tienes visitas para hoy.' : 'No hay visitas para hoy.'}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
-        + Visita no agendada
+        <Icono nombre="mas" size={18} />
+        Empezar visita sin planificar
       </button>
     </div>
   );
