@@ -175,6 +175,38 @@ const registro = {
     </>
   ),
 
+  // --- Mensajes (componente Aviso). Formas distintas entre sí para que se
+  // distingan sin depender del color. ---
+
+  // Info — círculo con "i".
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 7.5h.01" />
+    </>
+  ),
+
+  // Atención — triángulo con "!".
+  atencion: (
+    <>
+      <path d="M12 4L2.5 20h19z" />
+      <path d="M12 10v5" />
+      <path d="M12 18h.01" />
+    </>
+  ),
+
+  // Error — círculo con aspa.
+  error: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </>
+  ),
+
+  // Guion — estado neutro / en pausa (p. ej. semáforo "seguimiento").
+  guion: <path d="M6 12h12" />,
+
   // --- Captura durante la visita (botones grandes de visita-activa /
   // editor-captura). Trazo simple, mismo criterio que el resto. ---
 
@@ -225,11 +257,13 @@ const registro = {
     </>
   ),
 
-  // Recorrido — ruta serpenteante con punta de flecha.
+  // Recorrido — punto de partida, rastro de puntos y chincheta de destino.
   recorrido: (
     <>
-      <path d="M8 4h6a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6" />
-      <path d="M14 16l2.5 2-2.5 2" />
+      <circle cx="5" cy="19" r="1.6" />
+      <path d="M7 17.5c3.5-1.5 4.5-5 4.5-8" strokeDasharray="0.1 3.4" />
+      <path d="M17 3.5a3.5 3.5 0 0 0-3.5 3.5c0 2.7 3.5 6.5 3.5 6.5s3.5-3.8 3.5-6.5A3.5 3.5 0 0 0 17 3.5z" />
+      <circle cx="17" cy="7" r="1.2" />
     </>
   ),
 } satisfies Record<string, ReactNode>;
