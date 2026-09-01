@@ -234,6 +234,21 @@ export function Agenda() {
     }
   }
 
+  // Anular una sola visita — la acción que revela el gesto de deslizar.
+  async function anularUna(id: string) {
+    if (!navigator.onLine) {
+      setResultadoLote('Necesitas conexión para anular visitas.');
+      return;
+    }
+    setResultadoLote(null);
+    const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
+    if (error) {
+      setResultadoLote('No se pudo anular la visita. Inténtalo de nuevo.');
+      return;
+    }
+    for (const k of CLAVES_LISTAS_VISITAS) queryClient.invalidateQueries({ queryKey: k });
+  }
+
   function fila(v: VisitaAgenda, conFecha: boolean) {
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
@@ -258,6 +273,11 @@ export function Agenda() {
             : undefined
         }
         disabled={seleccionando && !!deOtro}
+        swipe={
+          deOtro
+            ? undefined
+            : { etiqueta: 'Anular', icono: 'borrar', tono: 'riesgo', onAccion: () => anularUna(v.id) }
+        }
       />
     );
   }
@@ -314,6 +334,10 @@ export function Agenda() {
           />
           {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
         </>
+      )}
+
+      {!seleccionando && resultadoLote && (
+        <div className="field-error-text">{resultadoLote}</div>
       )}
 
       {isLoading && <EstadoLista estado="cargando" />}

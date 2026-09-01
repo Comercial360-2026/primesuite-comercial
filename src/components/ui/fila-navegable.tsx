@@ -1,7 +1,18 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icono, type NombreIcono } from './iconos';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
+import { useSwipeFila } from '@/hooks/use-swipe-fila';
+
+/** Acción única que revela el gesto de deslizar (táctil). */
+export interface AccionSwipe {
+  etiqueta: string;
+  icono: NombreIcono;
+  onAccion: () => void;
+  tono?: 'neutral' | 'riesgo';
+}
+
+const ANCHO_SWIPE = 96;
 
 // Fila de una lista agrupada (dentro de SeccionLista). Es la pieza que
 // sustituye a la maraña de `<div className="card" onClick={navigate(...)}>`
@@ -37,6 +48,9 @@ interface PropsBase {
    *  el cuerpo marca/desmarca (aparece la casilla, se oculta la flecha).
    *  Sin esta prop, o con `activa:false`, la fila es exactamente la de hoy. */
   seleccion?: EstadoSeleccion;
+  /** Deslizar la fila a la izquierda revela esta acción (gesto táctil; se
+   *  ignora con ratón y en modo seleccionar). */
+  swipe?: AccionSwipe;
 }
 
 type Props = PropsBase &
@@ -53,10 +67,13 @@ export function FilaNavegable({
   chevron,
   disabled,
   seleccion,
+  swipe,
   to,
   onClick,
 }: Props) {
   const seleccionando = seleccion?.activa ?? false;
+  const swipeActivo = !!swipe && !seleccionando;
+  const s = useSwipeFila({ ancho: ANCHO_SWIPE, activo: swipeActivo });
 
   const clases = [
     'fila',
@@ -108,17 +125,71 @@ export function FilaNavegable({
     );
   }
 
-  if (to != null) {
-    return (
-      <Link to={to} className={clases}>
+  // Con swipe: estilo de arrastre + handlers de puntero en el elemento
+  // arrastrable, y un clic mientras está abierta la cierra en vez de
+  // navegar/accionar.
+  const estiloSwipe: CSSProperties | undefined = swipeActivo
+    ? { transform: `translateX(${s.dx}px)`, transition: s.dx === 0 || s.abierta ? 'transform .18s ease' : 'none', touchAction: 'pan-y' }
+    : undefined;
+  const clicSwipe = swipeActivo
+    ? (e: { preventDefault: () => void }) => {
+        if (s.abierta) {
+          e.preventDefault();
+          s.cerrar();
+        }
+      }
+    : undefined;
+
+  const elementoFila =
+    to != null ? (
+      <Link
+        to={to}
+        className={clases}
+        style={estiloSwipe}
+        onClick={clicSwipe}
+        {...(swipeActivo ? s.handlers : {})}
+      >
         {contenido}
       </Link>
+    ) : (
+      <button
+        type="button"
+        className={clases}
+        style={estiloSwipe}
+        onClick={(e) => {
+          if (swipeActivo && s.abierta) {
+            e.preventDefault();
+            s.cerrar();
+            return;
+          }
+          onClick?.();
+        }}
+        disabled={disabled}
+        {...(swipeActivo ? s.handlers : {})}
+      >
+        {contenido}
+      </button>
     );
-  }
+
+  if (!swipeActivo) return elementoFila;
 
   return (
-    <button type="button" className={clases} onClick={onClick} disabled={disabled}>
-      {contenido}
-    </button>
+    <div className="fila-swipe">
+      <div className="fila-swipe__zona" aria-hidden={!s.abierta}>
+        <button
+          type="button"
+          tabIndex={s.abierta ? 0 : -1}
+          className={`fila-swipe__accion${swipe!.tono === 'riesgo' ? ' fila-swipe__accion--riesgo' : ''}`}
+          onClick={() => {
+            s.cerrar();
+            swipe!.onAccion();
+          }}
+        >
+          <Icono nombre={swipe!.icono} size={18} />
+          {swipe!.etiqueta}
+        </button>
+      </div>
+      {elementoFila}
+    </div>
   );
 }

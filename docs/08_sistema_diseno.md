@@ -267,6 +267,31 @@ Quién hace qué:
 - Al terminar (o al Cancelar) → `seleccionando = false`, `ids` vacío.
 - Ids que ya no están en la lista al ejecutar se ignoran.
 
+### Deslizar (swipe) — prop `swipe?` de `FilaNavegable`
+
+Gesto **táctil** para revelar **una** acción por fila (en la app: "Anular"
+en la Agenda). Deliberadamente limitado: el sistema de filas prioriza
+acciones **visibles** (`FilaAccion`), así que el swipe solo se usa donde no
+hay acción a la vista y entrar al detalle costaría un paso.
+
+| Prop (`AccionSwipe`) | Tipo | Notas |
+|---|---|---|
+| `etiqueta` | `string` | Texto bajo el icono en la zona revelada. |
+| `icono` | `NombreIcono` | |
+| `onAccion` | `() => void` | Se ejecuta al pulsar la acción revelada (la fila se cierra sola antes). |
+| `tono` | `'neutral' \| 'riesgo'` | `riesgo` = fondo rojo. |
+
+Reglas:
+
+- Solo puntero **no-ratón**: en escritorio no se arrastra (la acción sigue
+  en el detalle / en modo seleccionar). Lo implementa `useSwipeFila`
+  (`src/hooks/use-swipe-fila.ts`), sin librería de gestos.
+- Bloqueo de eje: si el primer movimiento es vertical, se suelta para no
+  romper el scroll. Se abre al pasar la mitad del ancho de la acción.
+- Se desactiva mientras `seleccion.activa`.
+- El ancho de la zona (`--swipe-accion-ancho`) debe coincidir con
+  `ANCHO_SWIPE` del hook.
+
 ### Tokens — bloque "Filas" (`tokens.css`)
 
 | Token | Uso |
@@ -281,6 +306,7 @@ Quién hace qué:
 | `--seccion-cabecera` | Color del título gris de la sección. |
 | `--fila-seleccion` / `--fila-seleccion-marcada` | Círculo de `FilaToggle` sin marcar / marcado. |
 | `--fila-marcada-bg` | Fondo de una fila marcada. |
+| `--swipe-accion-ancho` | Ancho de la zona de acción del gesto de deslizar (`96px`). |
 | `--fila-tono-aviso` / `--fila-tono-riesgo` / `--fila-tono-ok` | Colores de tono. |
 
 ### Tabla de tonos

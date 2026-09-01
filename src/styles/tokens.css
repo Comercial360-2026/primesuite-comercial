@@ -81,6 +81,10 @@
   --fila-seleccion-marcada: var(--brand-600); /* casilla marcada */
   --fila-marcada-bg: var(--brand-050);      /* fondo de una fila marcada */
 
+  /* Deslizar para revelar una acción (prop `swipe?`). El ancho debe
+     coincidir con ANCHO_SWIPE de use-swipe-fila.ts. */
+  --swipe-accion-ancho: 96px;
+
   /* Tono de una fila (valor / subtítulo / icono destacados). Sin fondo de
      color: solo tiñe texto e icono, coherente con la regla "sin degradados,
      sin opacity sobre color". neutral = sin tono. */
