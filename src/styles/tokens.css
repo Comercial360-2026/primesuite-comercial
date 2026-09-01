@@ -31,6 +31,10 @@
   --warning-600: #A87A12;    /* Semáforo amarillo */
   --danger-600: #B23A3A;     /* Errores de formulario / semáforo rojo */
 
+  /* Ancho máximo de la app — en escritorio queda como una columna de móvil
+     centrada sobre el fondo gris. Se toca SOLO aquí. */
+  --app-max-w: 500px;
+
   /* Tipografía */
   --font-sans: 'Inter', system-ui, sans-serif;
   --text-xs: 12px;

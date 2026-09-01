@@ -2,6 +2,10 @@
    tokens de tokens.css. Sin sombras, sin transparencias, sin degradados
    (regla no negociable, ver 08_sistema_diseno.md §2.7). */
 
+/* Base — el "hueco" fuera de la columna de la app (visible en escritorio)
+   es del mismo gris que las pantallas, sin marco. */
+body { margin: 0; background: var(--surface-0); }
+
 .btn {
   height: var(--h-button);
   width: 100%;
@@ -73,6 +77,8 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  max-width: var(--app-max-w);
+  margin-inline: auto;
 }
 .app-shell__content {
   flex: 1;
@@ -105,7 +111,7 @@
 
 .lista-agrupada {
   display: flex; flex-direction: column; gap: var(--space-6);
-  width: 100%; max-width: 520px; margin: 0 auto;
+  width: 100%;
 }
 
 .seccion-lista { display: flex; flex-direction: column; gap: 6px; }
