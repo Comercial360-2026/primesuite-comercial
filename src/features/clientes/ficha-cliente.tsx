@@ -10,6 +10,9 @@ import { crearVisitaConResponsable } from '@/lib/rpc';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 
 interface OportunidadActiva {
   id: string;
@@ -366,27 +369,29 @@ export function FichaCliente() {
 
   return (
     <div className="screen screen--split">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate('/clientes')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{cliente?.nombre ?? '…'}</div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-            {cliente?.estado_relacion} {cliente?.sector ? `· ${cliente.sector}` : ''}
-          </div>
-        </div>
-        {semaforo && <span className={`chip chip--${semaforo.semaforo}`}>{semaforo.semaforo}</span>}
-        {!confirmandoBorrarCliente && (
-          <button
-            className="btn btn-secondary"
-            style={{ width: 'auto', padding: '4px 10px', fontSize: 'var(--text-xs)', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-            onClick={pedirBorradoCliente}
-          >
-            Borrar cliente
-          </button>
-        )}
-      </div>
+      <CabeceraDetalle
+        titulo={cliente?.nombre ?? '…'}
+        subtitulo={
+          cliente
+            ? `${cliente.estado_relacion}${cliente.sector ? ` · ${cliente.sector}` : ''}`
+            : undefined
+        }
+        volverA="/clientes"
+        derecha={
+          <>
+            {semaforo && <span className={`chip chip--${semaforo.semaforo}`}>{semaforo.semaforo}</span>}
+            {!confirmandoBorrarCliente && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '4px 10px', fontSize: 'var(--text-xs)', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                onClick={pedirBorradoCliente}
+              >
+                Borrar cliente
+              </button>
+            )}
+          </>
+        }
+      />
 
       {confirmandoBorrarCliente && (
         <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
@@ -493,47 +498,44 @@ export function FichaCliente() {
 
         <div className="label">historial de visitas</div>
         {historialVisitas?.length ? (
-          historialVisitas.map((v) => {
-            // La fila solo navega. Descargar informe y Borrar viven dentro
-            // de la visita (detalle / Visita Activa) — así el historial no
-            // es un muro de botones.
-            const estadoLegible =
-              v.estado_captura === 'agendada'
-                ? 'planificada'
-                : v.estado_captura === 'en_curso'
-                  ? 'en curso'
-                  : 'cerrada';
-            const accion =
-              v.estado_captura === 'agendada'
-                ? 'gestionar'
-                : v.estado_captura === 'en_curso'
-                  ? 'continuar visita'
-                  : 'ver contenido';
-            return (
-              <div
-                key={v.id}
-                className="card"
-                style={{ marginBottom: 8, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-                onClick={() => {
-                  if (v.estado_captura === 'agendada') navigate(`/visita/${v.id}/planificada`);
-                  else if (v.estado_captura === 'en_curso') navigate(`/visita/${v.id}`);
-                  else navigate(`/visita/${v.id}/detalle`);
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--text-base)' }}>
-                    {new Date(v.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </div>
-                  {v.objetivo && <div style={{ fontSize: 'var(--text-sm)' }}>{v.objetivo}</div>}
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{estadoLegible}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-300)' }}>{accion}</span>
-                  <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
-                </div>
-              </div>
-            );
-          })
+          <SeccionLista>
+            {historialVisitas.map((v) => {
+              // La fila solo navega. Descargar informe y Borrar viven dentro
+              // de la visita (detalle / Visita Activa) — así el historial no
+              // es un muro de botones.
+              const estadoLegible =
+                v.estado_captura === 'agendada'
+                  ? 'planificada'
+                  : v.estado_captura === 'en_curso'
+                    ? 'en curso'
+                    : 'cerrada';
+              const accion =
+                v.estado_captura === 'agendada'
+                  ? 'gestionar'
+                  : v.estado_captura === 'en_curso'
+                    ? 'continuar visita'
+                    : 'ver contenido';
+              const to =
+                v.estado_captura === 'agendada'
+                  ? `/visita/${v.id}/planificada`
+                  : v.estado_captura === 'en_curso'
+                    ? `/visita/${v.id}`
+                    : `/visita/${v.id}/detalle`;
+              return (
+                <FilaNavegable
+                  key={v.id}
+                  titulo={new Date(v.fecha).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                  subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
+                  valor={accion}
+                  to={to}
+                />
+              );
+            })}
+          </SeccionLista>
         ) : (
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin visitas registradas</div>
         )}
