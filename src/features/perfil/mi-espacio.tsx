@@ -7,9 +7,11 @@ import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import type { NivelEspacio } from '@/lib/espacio';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -192,12 +194,7 @@ export function MiEspacio() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate('/yo')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Mi espacio</h1>
-      </div>
+      <CabeceraDetalle titulo="Mi espacio" volverA="/yo" />
 
       <div className="lista-agrupada">
         {pidioLiberar && (
@@ -246,21 +243,14 @@ export function MiEspacio() {
 
         {isLoading && <div style={{ color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Cargando…</div>}
 
-        {sinConexion && (
-          <div className="card card--riesgo">
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-              Sin conexión. Comprueba tu red e inténtalo de nuevo.
-            </div>
-            <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={reintentar}>
-              Reintentar
-            </button>
-          </div>
-        )}
+        {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
         {isError && (
-          <div className="card card--riesgo">
-            No se pudo cargar tu espacio. Comprueba tu conexión e inténtalo de nuevo.
-          </div>
+          <EstadoLista
+            estado="error"
+            mensaje="No se pudo cargar tu espacio. Comprueba tu conexión e inténtalo de nuevo."
+            onReintentar={reintentar}
+          />
         )}
 
         {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
