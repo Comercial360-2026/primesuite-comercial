@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { EstadoError } from '@/components/ui/estado-error';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface ProximoPaso {
   id: string;
@@ -105,63 +108,76 @@ export function MisProximosPasos() {
         </button>
       </div>
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      {isLoading && <EstadoLista estado="cargando" />}
 
-      {sinConexion && (
-        <EstadoError mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo." onReintentar={reintentar} />
-      )}
+      {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
       {isError && (
-        <EstadoError mensaje="No se pudieron cargar los próximos pasos." onReintentar={reintentar} />
+        <EstadoLista
+          estado="error"
+          mensaje="No se pudieron cargar los próximos pasos."
+          onReintentar={reintentar}
+        />
       )}
 
       {errorGuardado && (
         <p style={{ color: 'var(--risk-600)', fontSize: 'var(--text-xs)' }}>{errorGuardado}</p>
       )}
 
-      {!sinConexion && !isError && pasos?.map((p) => {
-        const vencido = filtro === 'pendiente' && esVencido(p.fecha_objetivo);
-        const guardandoEsta = guardandoId === p.id;
-        return (
-          <div key={p.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            {filtro === 'pendiente' && (
-              <button
-                aria-label="marcar como completado"
-                onClick={() => marcarCompletado(p.id)}
-                disabled={guardandoEsta}
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: 4,
-                  border: '1.5px solid var(--ink-200)',
-                  background: guardandoEsta ? 'var(--ink-200)' : 'none',
-                  marginTop: 2,
-                  cursor: guardandoEsta ? 'default' : 'pointer',
-                  flexShrink: 0,
-                }}
-              />
-            )}
-            <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/proximos-pasos/${p.id}`)}>
-              <div style={{ fontSize: 'var(--text-base)' }}>
-                {p.descripcion}
-                {guardandoEsta && (
-                  <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)' }}> · guardando…</span>
-                )}
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: vencido ? 'var(--danger-600)' : 'var(--ink-400)' }}>
-                {p.visita?.cliente?.nombre ?? 'Cliente'}
-                {p.fecha_objetivo &&
-                  ` · ${vencido ? 'vencido' : new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}`}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {!sinConexion && !isError && !!pasos?.length && (
+        <div className="lista-agrupada">
+          <SeccionLista>
+            {pasos.map((p) => {
+              const vencido = filtro === 'pendiente' && esVencido(p.fecha_objetivo);
+              const guardandoEsta = guardandoId === p.id;
+              const cliente = p.visita?.cliente?.nombre ?? 'Cliente';
+              const cuando = p.fecha_objetivo
+                ? ` · ${vencido ? 'vencido' : new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}`
+                : '';
+              const subtitulo = `${cliente}${cuando}${guardandoEsta ? ' · guardando…' : ''}`;
+
+              // 'completado' → sin acción, solo se abre el detalle.
+              if (filtro === 'completado') {
+                return (
+                  <FilaNavegable
+                    key={p.id}
+                    titulo={p.descripcion}
+                    subtitulo={subtitulo}
+                    to={`/proximos-pasos/${p.id}`}
+                  />
+                );
+              }
+
+              // 'pendiente' → el cuerpo abre el detalle; la marca de
+              // verificación a la derecha lo cierra como completado. Son
+              // hermanos (FilaAccion), así que marcar no abre el detalle.
+              const completar: AccionFila = {
+                icono: 'check',
+                etiqueta: 'Marcar como completado',
+                onClick: () => marcarCompletado(p.id),
+                tono: 'brand',
+                disabled: guardandoEsta,
+              };
+              return (
+                <FilaAccion
+                  key={p.id}
+                  titulo={p.descripcion}
+                  subtitulo={subtitulo}
+                  tono={vencido ? 'riesgo' : 'neutral'}
+                  onClick={() => navigate(`/proximos-pasos/${p.id}`)}
+                  acciones={[completar]}
+                />
+              );
+            })}
+          </SeccionLista>
+        </div>
+      )}
 
       {!isLoading && !isError && !sinConexion && pasos?.length === 0 && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          sin próximos pasos {filtro === 'pendiente' ? 'pendientes' : 'completados'}
-        </p>
+        <EstadoLista
+          estado="vacio"
+          mensaje={`Sin próximos pasos ${filtro === 'pendiente' ? 'pendientes' : 'completados'}.`}
+        />
       )}
     </div>
   );

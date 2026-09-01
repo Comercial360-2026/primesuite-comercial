@@ -79,6 +79,9 @@ const registro = {
     </>
   ),
 
+  // Marca de verificación — "hecho" / "marcar como completado".
+  check: <path d="M5 12.5l4 4L19 7" />,
+
   // Almacenamiento / cuota — cilindro de disco.
   almacenamiento: (
     <>
