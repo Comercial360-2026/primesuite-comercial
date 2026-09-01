@@ -14,7 +14,7 @@ interface ProximoPaso {
   fecha_objetivo: string | null;
   estado: string;
   oportunidad_id: string | null;
-  visita: { cliente: { nombre: string } | null } | null;
+  visita: { cliente: { id: string; nombre: string } | null } | null;
 }
 
 // NOTA DE ALCANCE: hoy no existe ningún botón en el flujo crítico que cree
@@ -42,12 +42,42 @@ export function MisProximosPasos() {
     queryFn: async (): Promise<ProximoPaso[]> => {
       const { data, error } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, visita:visita_id(cliente:cliente_id(nombre))')
+        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, visita:visita_id(cliente:cliente_id(id, nombre))')
         .eq('comercial_responsable_id', comercial!.id)
         .eq('estado', filtro)
         .order('fecha_objetivo', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as ProximoPaso[];
+    },
+  });
+
+  // "Tarea" vs "Próxima visita": la elección se hace al crear el paso
+  // (PasoRapidoModal) y una "próxima visita" NO crea proximo_paso — planifica
+  // una visita. Así que aquí todo son tareas. Lo útil de distinguir en esta
+  // pantalla es cuáles ya han derivado en una revisita planificada: se
+  // cruza cada paso pendiente con las visitas 'agendada' futuras de su
+  // cliente (dato que ya existe, sin tocar el modelo). Esas bajan de
+  // prioridad y llevan la nota "revisita planificada · <fecha>".
+  const idsClientesPasos = [
+    ...new Set((pasos ?? []).map((p) => p.visita?.cliente?.id).filter((x): x is string => !!x)),
+  ];
+  const { data: revisitasPorCliente } = useQuery({
+    queryKey: ['mpp-revisitas-planificadas', idsClientesPasos.join(',')],
+    enabled: filtro === 'pendiente' && idsClientesPasos.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const hoyISO = new Date(new Date().toDateString()).toISOString();
+      const { data, error } = await supabase
+        .from('visita')
+        .select('cliente_id, fecha')
+        .eq('estado_captura', 'agendada')
+        .in('cliente_id', idsClientesPasos)
+        .gte('fecha', hoyISO)
+        .order('fecha', { ascending: true });
+      if (error) throw error;
+      // La primera fecha por cliente (la consulta viene ordenada asc).
+      const m: Record<string, string> = {};
+      for (const v of data ?? []) if (!m[v.cliente_id]) m[v.cliente_id] = v.fecha;
+      return m;
     },
   });
   // isPaused: mismo hueco corregido hoy en el resto de pantallas —
@@ -85,6 +115,13 @@ export function MisProximosPasos() {
   function esVencido(fechaObjetivo: string | null) {
     if (!fechaObjetivo) return false;
     return new Date(fechaObjetivo) < new Date(new Date().toDateString());
+  }
+
+  // Fecha de la primera visita planificada del cliente de este paso, o
+  // null si no hay ninguna (solo en el filtro "pendiente").
+  function revisitaDe(p: ProximoPaso): string | null {
+    const cid = p.visita?.cliente?.id;
+    return (cid && revisitasPorCliente?.[cid]) || null;
   }
 
   return (
@@ -127,14 +164,22 @@ export function MisProximosPasos() {
       {!sinConexion && !isError && !!pasos?.length && (
         <div className="lista-agrupada">
           <SeccionLista>
-            {pasos.map((p) => {
-              const vencido = filtro === 'pendiente' && esVencido(p.fecha_objetivo);
+            {[...pasos]
+              // Los que ya tienen una revisita planificada bajan al final
+              // (orden estable: dentro de cada grupo se mantiene el de fecha).
+              .sort((a, b) => Number(!!revisitaDe(a)) - Number(!!revisitaDe(b)))
+              .map((p) => {
+              const revisita = revisitaDe(p);
+              const vencido = filtro === 'pendiente' && !revisita && esVencido(p.fecha_objetivo);
               const guardandoEsta = guardandoId === p.id;
               const cliente = p.visita?.cliente?.nombre ?? 'Cliente';
               const cuando = p.fecha_objetivo
                 ? ` · ${vencido ? 'vencido' : new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}`
                 : '';
-              const subtitulo = `${cliente}${cuando}${guardandoEsta ? ' · guardando…' : ''}`;
+              const notaRevisita = revisita
+                ? ` · revisita planificada ${new Date(revisita).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
+                : '';
+              const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
 
               // 'completado' → sin acción, solo se abre el detalle.
               if (filtro === 'completado') {
