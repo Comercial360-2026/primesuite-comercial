@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { EstadoError } from '@/components/ui/estado-error';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
@@ -81,84 +84,67 @@ export function ConsumoComerciales() {
     <div className="screen">
       <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" />
 
-      {espacioEquipo && (
-        <div
-          className="card"
-          style={{
-            borderColor:
-              espacioEquipo.pctEquipo >= 95
-                ? 'var(--risk-600)'
-                : espacioEquipo.pctEquipo >= 85
-                  ? 'var(--warning-600)'
-                  : undefined,
-          }}
-        >
-          <div className="label" style={{ marginTop: 0 }}>espacio del equipo</div>
-          <div style={{ fontSize: 'var(--text-base)' }}>
-            {formatearMB(espacioEquipo.usadoTotal)} MB de {formatearMB(espacioEquipo.presupuesto)} MB (
-            {espacioEquipo.pctEquipo.toFixed(0)}%)
-          </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
-            parte orientativa por comercial: {formatearMB(espacioEquipo.cuotaBase)} MB
-          </div>
-        </div>
-      )}
+      <div className="lista-agrupada">
+        {espacioEquipo && (
+          <SeccionLista titulo="Espacio del equipo">
+            <FilaDato
+              etiqueta="Usado"
+              valor={`${formatearMB(espacioEquipo.usadoTotal)} de ${formatearMB(espacioEquipo.presupuesto)} MB (${espacioEquipo.pctEquipo.toFixed(0)}%)`}
+              tono={espacioEquipo.pctEquipo >= 95 ? 'riesgo' : espacioEquipo.pctEquipo >= 85 ? 'aviso' : 'neutral'}
+            />
+            <FilaDato
+              etiqueta="Parte orientativa por comercial"
+              valor={`${formatearMB(espacioEquipo.cuotaBase)} MB`}
+            />
+          </SeccionLista>
+        )}
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
-
-      {sinConexion && (
-        <EstadoError mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo." onReintentar={reintentar} />
-      )}
-
-      {isError && (
-        <EstadoError mensaje="No se pudo cargar el consumo por comercial." onReintentar={reintentar} />
-      )}
-
-      {consumo?.map((c) => {
-        const porcentaje = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
-        const color = porcentaje < 70 ? 'var(--ink-400)' : porcentaje < 90 ? 'var(--warning-600)' : 'var(--risk-600)';
-        const esYo = c.comercial_id === comercial?.id;
-        const ultimo = avisos?.[c.comercial_id];
-        const pendiente = !!ultimo && !ultimo.atendido_en;
-        return (
-          <div key={c.comercial_id} className="card" style={{ borderColor: porcentaje >= 90 ? color : undefined }}>
-            <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{c.nombre}</div>
-            <div style={{ fontSize: 'var(--text-sm)', color }}>
-              {cuotaBytes
-                ? `${formatearMB(c.bytes)} MB de ${formatearMB(cuotaBytes)} MB (${porcentaje.toFixed(0)}%)`
-                : `${formatearMB(c.bytes)} MB usados`}
-            </div>
-            {!esYo && (
-              <>
-                {ultimo && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+        {isLoading ? (
+          <EstadoLista estado="cargando" />
+        ) : sinConexion ? (
+          <EstadoLista estado="sin-conexion" onReintentar={reintentar} />
+        ) : isError ? (
+          <EstadoLista estado="error" mensaje="No se pudo cargar el consumo por comercial." onReintentar={reintentar} />
+        ) : consumo?.length === 0 ? (
+          <EstadoLista estado="vacio" mensaje="No hay comerciales activos." />
+        ) : (
+          consumo?.map((c) => {
+            const porcentaje = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
+            const esYo = c.comercial_id === comercial?.id;
+            const ultimo = avisos?.[c.comercial_id];
+            const pendiente = !!ultimo && !ultimo.atendido_en;
+            return (
+              <TarjetaAccion
+                key={c.comercial_id}
+                titulo={esYo ? `${c.nombre} · tú` : c.nombre}
+                tono={porcentaje >= 90 ? 'riesgo' : porcentaje >= 70 ? 'aviso' : 'neutral'}
+                accion={
+                  esYo
+                    ? undefined
+                    : {
+                        etiqueta: pendiente ? 'Ya avisado' : 'Pedir que libere espacio',
+                        onClick: () => pedirLiberar(c.comercial_id),
+                        disabled: pendiente,
+                        cargando: pidiendo === c.comercial_id,
+                        etiquetaCargando: 'Enviando…',
+                      }
+                }
+              >
+                {cuotaBytes
+                  ? `${formatearMB(c.bytes)} MB de ${formatearMB(cuotaBytes)} MB (${porcentaje.toFixed(0)}%)`
+                  : `${formatearMB(c.bytes)} MB usados`}
+                {!esYo && ultimo && (
+                  <div className="tarjeta-accion__estado">
                     {pendiente
                       ? `Avisado el ${new Date(ultimo.creado_en).toLocaleDateString('es-ES')} — aún no lo ha mirado`
                       : `Lo miró el ${new Date(ultimo.atendido_en!).toLocaleDateString('es-ES')}`}
                   </div>
                 )}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-                  disabled={pendiente || pidiendo === c.comercial_id}
-                  onClick={() => pedirLiberar(c.comercial_id)}
-                >
-                  {pendiente
-                    ? 'Ya avisado'
-                    : pidiendo === c.comercial_id
-                      ? 'Enviando…'
-                      : 'Pedir que libere espacio'}
-                </button>
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      {!isLoading && !isError && !sinConexion && consumo?.length === 0 && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>No hay comerciales activos.</p>
-      )}
+              </TarjetaAccion>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
