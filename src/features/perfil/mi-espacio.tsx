@@ -450,7 +450,7 @@ export function MiEspacio() {
                               className="btn btn-secondary"
                               style={{ display: 'inline-flex', alignItems: 'center' }}
                             >
-                              Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
+                              Descargar de nuevo ({formatearMB(listo.tamanoBytes)} MB)
                             </a>
                           ) : (
                             <button
@@ -482,7 +482,7 @@ export function MiEspacio() {
               const accionDescargar: AccionFila = {
                 icono: 'descargar',
                 etiqueta: listo
-                  ? `Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`
+                  ? `Descargar la copia otra vez (${formatearMB(listo.tamanoBytes)} MB)`
                   : estadoDescarga === 'generando'
                     ? 'Generando copia…'
                     : estadoDescarga === 'error'
@@ -498,7 +498,7 @@ export function MiEspacio() {
               // (generando / listo / error) serían invisibles. Se reflejan
               // en el subtítulo de la fila para que se vean.
               const textoDescarga = listo
-                ? `Copia lista (${formatearMB(listo.tamanoBytes)} MB)`
+                ? `Copia descargada (${formatearMB(listo.tamanoBytes)} MB)`
                 : estadoDescarga === 'generando'
                   ? 'Generando copia…'
                   : estadoDescarga === 'error'
