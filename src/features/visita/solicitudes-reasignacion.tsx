@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface SolicitudPendiente {
   id: string;
@@ -25,7 +28,7 @@ export function SolicitudesReasignacion() {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: solicitudes } = useQuery({
+  const { data: solicitudes, isLoading, isPaused, refetch } = useQuery({
     queryKey: ['solicitudes-reasignacion-pendientes'],
     queryFn: async (): Promise<SolicitudPendiente[]> => {
       const { data, error: err } = await supabase
@@ -113,72 +116,89 @@ export function SolicitudesReasignacion() {
     <div className="screen">
       <CabeceraDetalle titulo="Solicitudes de ayuda" />
 
-      {!solicitudes?.length && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>No hay solicitudes pendientes.</p>
-      )}
+      {error && <div className="field-error-text">{error}</div>}
 
-      {solicitudes?.map((s) => (
-        <div key={s.id} className="card">
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{s.cliente_nombre}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {new Date(s.fecha_visita).toLocaleDateString('es-ES')} · pedida por {s.solicitante_nombre}
-          </div>
-          {s.nota && <div style={{ fontSize: 'var(--text-sm)', marginTop: 6 }}>{s.nota}</div>}
+      {isLoading ? (
+        <EstadoLista estado="cargando" />
+      ) : isPaused && !solicitudes ? (
+        <EstadoLista estado="sin-conexion" onReintentar={() => refetch()} />
+      ) : !solicitudes?.length ? (
+        <EstadoLista estado="vacio" mensaje="No hay solicitudes pendientes." />
+      ) : (
+        <div className="lista-agrupada">
+          <SeccionLista>
+            {solicitudes.map((s) => {
+              const meta =
+                `${new Date(s.fecha_visita).toLocaleDateString('es-ES')} · pedida por ${s.solicitante_nombre}` +
+                (s.nota ? ` · «${s.nota}»` : '');
 
-          {asignandoId === s.id ? (
-            <div style={{ marginTop: 10 }}>
-              <input
-                className="field"
-                autoFocus
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="buscar comercial…"
-              />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-                {comercialesActivos
-                  ?.filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
-                  .map((c) => (
+              if (asignandoId === s.id) {
+                return (
+                  <div key={s.id} className="fila-confirmacion">
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{s.cliente_nombre}</div>
+                    <input
+                      className="field"
+                      autoFocus
+                      style={{ marginTop: 6 }}
+                      value={busqueda}
+                      onChange={(e) => setBusqueda(e.target.value)}
+                      placeholder="buscar comercial…"
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                      {comercialesActivos
+                        ?.filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="chip"
+                            style={{ textAlign: 'left' }}
+                            disabled={procesando === s.id}
+                            onClick={() => asignar(s, c.id)}
+                          >
+                            {c.nombre}
+                          </button>
+                        ))}
+                    </div>
                     <button
-                      key={c.id}
                       type="button"
-                      className="chip"
-                      style={{ textAlign: 'left' }}
+                      className="btn btn-secondary"
+                      style={{ marginTop: 8 }}
+                      onClick={() => setAsignandoId(null)}
                       disabled={procesando === s.id}
-                      onClick={() => asignar(s, c.id)}
                     >
-                      {c.nombre}
+                      Cancelar
                     </button>
-                  ))}
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                onClick={() => setAsignandoId(null)}
-                disabled={procesando === s.id}
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                onClick={() => descartar(s.id)}
-                disabled={procesando === s.id}
-              >
-                Descartar
-              </button>
-              <button type="button" className="btn btn-primary" onClick={() => setAsignandoId(s.id)} disabled={procesando === s.id}>
-                Asignar a alguien
-              </button>
-            </div>
-          )}
-          {error && procesando === null && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
+                  </div>
+                );
+              }
+
+              return (
+                <FilaAccion
+                  key={s.id}
+                  titulo={s.cliente_nombre}
+                  subtitulo={meta}
+                  acciones={[
+                    {
+                      icono: 'solicitudes',
+                      etiqueta: 'Asignar a alguien',
+                      onClick: () => setAsignandoId(s.id),
+                      disabled: procesando === s.id,
+                    },
+                    {
+                      icono: 'borrar',
+                      etiqueta: 'Descartar la solicitud',
+                      tono: 'riesgo',
+                      onClick: () => descartar(s.id),
+                      disabled: procesando === s.id,
+                    },
+                  ]}
+                />
+              );
+            })}
+          </SeccionLista>
         </div>
-      ))}
+      )}
     </div>
   );
 }
