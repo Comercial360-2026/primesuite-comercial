@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { claveDuplicado } from '@/lib/nombres-cliente';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 // Pantalla de Dirección Comercial para juntar fichas de cliente duplicadas.
 // El motor de fusión ya vive en la base de datos: al poner
@@ -40,7 +43,6 @@ const esVacia = (c: ClienteDup) =>
 type Grupo = { clave: string; clientes: ClienteDup[] };
 
 export function Deduplicacion() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [maestroPorGrupo, setMaestroPorGrupo] = useState<Record<string, string>>({});
   const [confirmando, setConfirmando] = useState<string | null>(null);
@@ -192,23 +194,18 @@ export function Deduplicacion() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Clientes duplicados</h1>
-      </div>
+      <CabeceraDetalle titulo="Clientes duplicados" />
 
-      {cargando && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
-
-      {!cargando && grupos.length === 0 && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          No hay clientes duplicados. Se agrupan las fichas con el mismo nombre (ignorando mayúsculas, acentos y la
-          coletilla S.L./S.A.).
-        </p>
-      )}
-
-      {grupos.map((g) => {
+      {cargando ? (
+        <EstadoLista estado="cargando" />
+      ) : grupos.length === 0 ? (
+        <EstadoLista
+          estado="vacio"
+          mensaje="No hay clientes duplicados. Se agrupan las fichas con el mismo nombre (ignorando mayúsculas, acentos y la coletilla S.L./S.A.)."
+        />
+      ) : (
+       <div className="lista-agrupada">
+        {grupos.map((g) => {
         const maestroId = maestroDe(g);
         const duplicados = g.clientes.filter((c) => c.id !== maestroId);
         const visitasQueMueven = duplicados.reduce((n, c) => n + c.visitas, 0);
@@ -219,67 +216,30 @@ export function Deduplicacion() {
         const bloqueado = procesando === g.clave;
 
         return (
-          <div key={g.clave} className="card">
-            <div className="label" style={{ marginTop: 0 }}>
-              {g.clientes.length} fichas parecidas
-            </div>
-
-            {g.clientes.map((c) => {
-              const esMaestro = c.id === maestroId;
-              return (
-                <label
-                  key={c.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                    padding: '8px 0',
-                    borderTop: '1px solid var(--ink-100)',
-                    cursor: bloqueado ? 'default' : 'pointer',
-                    opacity: bloqueado ? 0.6 : 1,
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={`maestro-${g.clave}`}
-                    checked={esMaestro}
+          <div key={g.clave} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SeccionLista titulo={`${g.clientes.length} fichas parecidas · toca la que se queda`}>
+              {g.clientes.map((c) => {
+                const esMaestro = c.id === maestroId;
+                const meta =
+                  `${c.visitas} visita${c.visitas === 1 ? '' : 's'} · ${c.oportunidades} oportunidad${c.oportunidades === 1 ? '' : 'es'} · ${c.interlocutores} contacto${c.interlocutores === 1 ? '' : 's'}` +
+                  ` · ${c.sector ? c.sector : 'sector sin definir'}${c.ubicacion ? ` · ${c.ubicacion}` : ''}` +
+                  ` · creada ${new Date(c.creado_en).toLocaleDateString('es-ES')}${
+                    c.creado_por && nombresComerciales?.[c.creado_por] ? ` por ${nombresComerciales[c.creado_por]}` : ''
+                  }`;
+                return (
+                  <FilaNavegable
+                    key={c.id}
+                    titulo={c.nombre}
+                    subtitulo={meta}
+                    valor={esMaestro ? 'se queda' : esVacia(c) ? 'sin datos' : undefined}
+                    tono={esMaestro ? 'ok' : 'neutral'}
+                    chevron={false}
                     disabled={bloqueado || enConfirmacion}
-                    onChange={() => setMaestroPorGrupo((m) => ({ ...m, [g.clave]: c.id }))}
-                    style={{ marginTop: 3 }}
+                    onClick={() => setMaestroPorGrupo((m) => ({ ...m, [g.clave]: c.id }))}
                   />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 'var(--text-base)', fontWeight: esMaestro ? 600 : 400 }}>
-                      {c.nombre}
-                      {esMaestro && (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400 }}>
-                          {'  '}— esta se queda
-                        </span>
-                      )}
-                      {!esMaestro && esVacia(c) && (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400 }}>
-                          {'  '}— sin datos
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      {c.visitas} visita{c.visitas === 1 ? '' : 's'} · {c.oportunidades} oportunidad
-                      {c.oportunidades === 1 ? '' : 'es'} · {c.interlocutores} contacto
-                      {c.interlocutores === 1 ? '' : 's'}
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      {c.sector ? c.sector : 'sector sin definir'}
-                      {c.ubicacion ? ` · ${c.ubicacion}` : ''}
-                    </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      creada el {new Date(c.creado_en).toLocaleDateString('es-ES')}
-                      {c.creado_por && nombresComerciales?.[c.creado_por]
-                        ? ` por ${nombresComerciales[c.creado_por]}`
-                        : ''}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
+                );
+              })}
+            </SeccionLista>
 
             {enConfirmacion ? (
               <div style={{ marginTop: 10 }}>
@@ -349,7 +309,9 @@ export function Deduplicacion() {
             )}
           </div>
         );
-      })}
+        })}
+       </div>
+      )}
     </div>
   );
 }
