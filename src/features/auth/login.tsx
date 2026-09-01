@@ -53,6 +53,7 @@ export function Login() {
   }
 
   return (
+    <div className="pantalla-suelta">
     <div className="screen" style={{ justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
         <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>PrimeSuite</div>
@@ -94,6 +95,7 @@ export function Login() {
         {acceso.cargando ? 'Entrando…' : 'Entrar'}
       </button>
       <AvisoTardando visible={acceso.tardando} />
+    </div>
     </div>
   );
 }
