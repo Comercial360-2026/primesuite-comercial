@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
 interface VisitaAgenda {
@@ -203,40 +205,23 @@ export function AgendaDelDia() {
     hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean, bajoFranja = false) {
+    const cuando = cuandoTexto(visita, mostrarDia, bajoFranja);
+    const responsableId = responsables?.[visita.id];
+    const deOtro = !!responsableId && responsableId !== comercial?.id;
+    const subtitulo =
+      [visita.objetivo || null, deOtro ? `de ${nombresComerciales?.[responsableId] ?? '…'}` : null]
+        .filter(Boolean)
+        .join(' · ') || undefined;
     return (
-      <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
-          {(() => {
-            const texto = cuandoTexto(visita, mostrarDia, bajoFranja);
-            return texto ? (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{texto}</div>
-            ) : null;
-          })()}
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500, marginTop: 2 }}>
-            {visita.cliente?.nombre ?? 'Cliente'}
-          </div>
-          {visita.objetivo && (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginTop: 2 }}>
-              {visita.objetivo}
-            </div>
-          )}
-          {visita.estado_captura === 'en_curso' && (
-            <span className="chip chip--on" style={{ marginLeft: 6, marginTop: 6 }}>
-              en curso
-            </span>
-          )}
-          {visita.estado_captura === 'agendada' && (
-            <span className="chip" style={{ marginLeft: 6, marginTop: 6 }}>
-              planificada
-            </span>
-          )}
-          {responsables?.[visita.id] && responsables[visita.id] !== comercial?.id && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              de {nombresComerciales?.[responsables[visita.id]] ?? '…'}
-            </div>
-          )}
-        </div>
-      </div>
+      <FilaNavegable
+        key={visita.id}
+        titulo={visita.cliente?.nombre ?? 'Cliente'}
+        subtitulo={subtitulo}
+        valor={cuando || undefined}
+        tono={visita.estado_captura === 'en_curso' ? 'ok' : 'neutral'}
+        onClick={() => abrirVisita(visita)}
+        chevron
+      />
     );
   }
 
@@ -311,16 +296,16 @@ export function AgendaDelDia() {
       <div className="screen__scroll">
 
       {atrasadasFiltradas && atrasadasFiltradas.length > 0 && (
-        <div
-          className="card"
-          style={{ cursor: 'pointer', borderColor: 'var(--warning-600)' }}
-          onClick={() => navigate('/agenda')}
-        >
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
-            {atrasadasFiltradas.length} visita{atrasadasFiltradas.length === 1 ? '' : 's'} atrasada
-            {atrasadasFiltradas.length === 1 ? '' : 's'} — revisar en Agenda →
-          </div>
-        </div>
+        <SeccionLista>
+          <FilaNavegable
+            tono="aviso"
+            titulo={`${atrasadasFiltradas.length} visita${atrasadasFiltradas.length === 1 ? '' : 's'} atrasada${
+              atrasadasFiltradas.length === 1 ? '' : 's'
+            }`}
+            subtitulo="Revisar en Agenda"
+            to="/agenda"
+          />
+        </SeccionLista>
       )}
 
       {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
@@ -356,38 +341,40 @@ export function AgendaDelDia() {
             cantidad={hoyEnCurso.length}
             defaultAbierta={hoyEnCurso.length > 0}
           >
-            {hoyEnCurso.map((visita) => renderVisita(visita, false))}
+            <SeccionLista>{hoyEnCurso.map((visita) => renderVisita(visita, false))}</SeccionLista>
           </SeccionColapsable>
           {/* Una sola "Visitas de hoy" con mañana / tarde / sin hora dentro
-              como etiquetas (no secciones sueltas). El contador son las
-              pendientes de empezar; abierta por defecto si hay alguna. */}
+              como subcabeceras del grupo (no secciones sueltas). El contador
+              son las pendientes de empezar; abierta por defecto si hay alguna. */}
           <SeccionColapsable
             titulo="Visitas de hoy"
             cantidad={hoyPendientes.length}
             defaultAbierta={hoyPendientes.length > 0}
           >
-            {(
-              [
-                ['manana', 'Mañana', hoyManana],
-                ['tarde', 'Tarde', hoyTarde],
-                ['sin_hora', 'Sin hora', hoySinHora],
-              ] as const
-            ).map(([clave, etiqueta, lista]) =>
-              lista.length === 0 ? null : (
-                <div key={clave}>
-                  <div className="label" style={{ marginTop: clave === 'manana' ? 0 : undefined }}>
-                    {etiqueta}
-                  </div>
-                  {lista.map((visita) => renderVisita(visita, false, true))}
-                </div>
-              )
-            )}
+            <SeccionLista>
+              {(
+                [
+                  ['manana', 'Mañana', hoyManana],
+                  ['tarde', 'Tarde', hoyTarde],
+                  ['sin_hora', 'Sin hora', hoySinHora],
+                ] as const
+              ).flatMap(([clave, etiqueta, lista]) =>
+                lista.length === 0
+                  ? []
+                  : [
+                      <div key={`sub-${clave}`} className="seccion-lista__subcabecera">
+                        {etiqueta}
+                      </div>,
+                      ...lista.map((visita) => renderVisita(visita, false, true)),
+                    ]
+              )}
+            </SeccionLista>
           </SeccionColapsable>
           <SeccionColapsable titulo="Hechas hoy" cantidad={hoyHechas.length}>
-            {hoyHechas.map((visita) => renderVisita(visita, false))}
+            <SeccionLista>{hoyHechas.map((visita) => renderVisita(visita, false))}</SeccionLista>
           </SeccionColapsable>
           <SeccionColapsable titulo="Próximas visitas" cantidad={proximas.length}>
-            {proximasVisibles.map((visita) => renderVisita(visita, true))}
+            <SeccionLista>{proximasVisibles.map((visita) => renderVisita(visita, true))}</SeccionLista>
             {proximas.length > proximasVisibles.length && (
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingLeft: 4 }}>
                 y {proximas.length - proximasVisibles.length} más
@@ -397,13 +384,10 @@ export function AgendaDelDia() {
         </>
       )}
 
-        <div
-          className="card"
-          style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
-          onClick={() => navigate('/agenda')}
-        >
-          <span style={{ fontSize: 'var(--text-sm)' }}>Ver agenda completa</span>
-          <span style={{ fontSize: 20, color: 'var(--ink-300)' }}>›</span>
+        <div style={{ marginTop: 12 }}>
+          <SeccionLista>
+            <FilaNavegable titulo="Ver agenda completa" to="/agenda" />
+          </SeccionLista>
         </div>
       </div>
 
