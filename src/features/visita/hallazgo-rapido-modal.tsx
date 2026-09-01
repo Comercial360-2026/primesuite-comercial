@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
+import { Modal } from '@/components/ui/modal';
 
 interface HallazgoRapidoModalProps {
   visitaId: string;
@@ -68,33 +69,7 @@ export function HallazgoRapidoModal({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--surface-0)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        zIndex: 10,
-      }}
-      onClick={onCerrar}
-    >
-      <div
-        className="card"
-        style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>hallazgo</div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="cerrar"
-          >
-            ×
-          </button>
-        </div>
+    <Modal titulo="hallazgo" onCerrar={onCerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           lo que el cliente tiene, sea de quién sea
         </div>
@@ -138,7 +113,6 @@ export function HallazgoRapidoModal({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }

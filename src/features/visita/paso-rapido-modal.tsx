@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
+import { Modal } from '@/components/ui/modal';
 
 interface PasoRapidoModalProps {
   visitaId: string;
@@ -88,34 +89,7 @@ export function PasoRapidoModal({
       : !!fechaVisita && !!objetivoVisita.trim();
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--surface-0)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        zIndex: 10,
-      }}
-      onClick={onCerrar}
-    >
-      <div
-        className="card"
-        style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>qué queda pendiente</div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="cerrar"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal titulo="qué queda pendiente" onCerrar={onCerrar}>
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
           <button
             type="button"
@@ -234,7 +208,6 @@ export function PasoRapidoModal({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }

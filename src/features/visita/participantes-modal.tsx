@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { Modal } from '@/components/ui/modal';
 
 interface ParticipantesModalProps {
   visitaId: string;
@@ -124,27 +125,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'var(--surface-0)', display: 'flex', alignItems: 'flex-end', zIndex: 10 }}
-      onClick={onCerrar}
-    >
-      <div
-        className="card"
-        style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)', maxHeight: '80vh', overflowY: 'auto' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>Participantes</div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal titulo="Participantes" onCerrar={onCerrar}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
           {participantes?.map((p) => (
             <div key={p.comercial_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -213,7 +194,6 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
         )}
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }

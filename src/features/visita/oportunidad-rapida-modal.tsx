@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { OportunidadPayload } from '@/lib/offline-queue/types';
+import { Modal } from '@/components/ui/modal';
 
 interface OportunidadRapidaModalProps {
   visitaId: string;
@@ -66,34 +67,7 @@ export function OportunidadRapidaModal({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'var(--surface-0)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        zIndex: 10,
-      }}
-      onClick={onCerrar}
-    >
-      <div
-        className="card"
-        style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>oportunidad rápida</div>
-          <button
-            type="button"
-            onClick={onCerrar}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="cerrar"
-          >
-            ×
-          </button>
-        </div>
-
+    <Modal titulo="oportunidad rápida" onCerrar={onCerrar}>
         <div className="label">título</div>
         <input
           className="field"
@@ -127,7 +101,6 @@ export function OportunidadRapidaModal({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }

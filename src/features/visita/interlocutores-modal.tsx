@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { Modal } from '@/components/ui/modal';
 
 interface InterlocutoresModalProps {
   visitaId: string;
@@ -194,39 +195,16 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
     invalidar();
   }
 
+  // La × / Esc / tocar fuera cierran primero la edición o el alta si están
+  // abiertas — no todo el modal de golpe.
+  const cerrar = () => {
+    if (editandoId) setEditandoId(null);
+    else if (creandoNuevo) setCreandoNuevo(false);
+    else onCerrar();
+  };
+
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'var(--surface-0)', display: 'flex', alignItems: 'flex-end', zIndex: 10 }}
-      onClick={onCerrar}
-    >
-      <div
-        className="card"
-        style={{ width: '100%', boxSizing: 'border-box', margin: 'var(--space-5)', maxHeight: '80vh', overflowY: 'auto' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>interlocutores</div>
-          <button
-            type="button"
-            onClick={() => {
-              // Si hay una edición o alta abiertas, la "×" cierra primero
-              // eso — no todo el modal de golpe. Es la misma "×" siempre
-              // visible en el mismo sitio, así que debe salir de lo más
-              // cercano primero, no saltar directo a la pantalla anterior.
-              if (editandoId) {
-                setEditandoId(null);
-              } else if (creandoNuevo) {
-                setCreandoNuevo(false);
-              } else {
-                onCerrar();
-              }
-            }}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
+    <Modal titulo="interlocutores" onCerrar={cerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           quién ha estado presente en esta visita
         </div>
@@ -423,7 +401,6 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
         )}
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }
