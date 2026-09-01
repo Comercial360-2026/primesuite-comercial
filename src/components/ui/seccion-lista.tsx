@@ -4,10 +4,10 @@ import type { ReactNode } from 'react';
 // gris discreta (opcional, en frase — solo la primera en mayúscula) y un
 // grupo de filas con separadores finos y esquinas redondeadas.
 //
-// No sabe qué filas contiene: dentro van FilaNavegable (y, en fases
-// siguientes, FilaDato / FilaAccion). El aspecto está en components.css
-// (.seccion-lista*) sobre el bloque "Filas" de tokens.css — restyle = un
-// sitio, no sección por sección.
+// No sabe qué filas contiene: dentro van FilaNavegable, FilaDato y
+// FilaAccion. El aspecto está en components.css (.seccion-lista*) sobre el
+// bloque "Filas" de tokens.css — restyle = un sitio, no sección por
+// sección.
 
 interface Props {
   /** Cabecera gris. En frase ("Dirección comercial"), no en Mayúsculas. */

@@ -72,12 +72,58 @@ según qué prop reciba (el tipo obliga a pasar exactamente una):
 | `chevron` | `boolean?` | Fuerza mostrar/ocultar la flecha. Por defecto: visible solo con `to`. |
 | `disabled` | `boolean?` | Solo efectivo en la variante `onClick`. |
 
+#### `FilaDato` — *implementado*
+
+Fila de solo lectura: etiqueta a la izquierda, valor a la derecha. No
+navega ni acciona (es un `<div>`, sin flecha y sin fondo al pasar el
+ratón). Para la parte "Resumen" de pantallas como **Mi espacio** (tu
+parte, espacio del equipo…). Reutiliza la caja y los tonos de
+`FilaNavegable`; el valor va algo más oscuro y mayor que en una fila
+navegable porque es el dato principal.
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `etiqueta` | `string` | Obligatorio. Se pinta en `.fila__titulo`. |
+| `valor` | `ReactNode` | Obligatorio. Texto, porcentaje, un `<span>`… a la derecha. |
+| `icono` | `NombreIcono?` | Icono opcional a la izquierda, por simetría con la familia. |
+| `tono` | `'neutral' \| 'aviso' \| 'riesgo' \| 'ok'` | Mismo mapa que `FilaNavegable`: `aviso`/`ok` tiñen el valor; `riesgo` también la etiqueta. |
+| `densidad` | `'normal' \| 'compacta'` | Igual que `FilaNavegable`. |
+
+#### `FilaAccion` — *implementado*
+
+Fila con un **cuerpo** —opcionalmente pulsable— y una fila de **botones de
+icono** a la derecha (p. ej. descargar informe, borrar visita). Sustituye
+al patrón `<div className="card" style={{display:'flex'}}>` con
+icon-buttons hechos a mano y `e.stopPropagation()` repartidos. El cuerpo y
+el grupo de acciones son hermanos (no `<button>` anidados), así que pulsar
+una acción nunca dispara el cuerpo.
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `titulo` | `string` | Obligatorio. |
+| `subtitulo` | `string?` | Segunda línea gris. |
+| `icono` | `NombreIcono?` | Icono a la izquierda del cuerpo. |
+| `onClick` | `() => void ?` | Si falta, el cuerpo es inerte (sin hover ni cursor de puntero). |
+| `tono` | `'neutral' \| 'aviso' \| 'riesgo' \| 'ok'` | Tiñe el cuerpo igual que las demás filas. |
+| `densidad` | `'normal' \| 'compacta'` | Igual que `FilaNavegable`. |
+| `disabled` | `boolean?` | Desactiva el `onClick` del cuerpo (no las acciones). |
+| `acciones` | `AccionFila[]` | Botones de icono a la derecha. Vacío = ninguna. |
+
+`AccionFila`:
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `icono` | `NombreIcono` | |
+| `etiqueta` | `string` | `aria-label` + `title`. Obligatorio: los botones son solo icono. |
+| `onClick` | `() => void ?` | |
+| `href` | `string?` | Si está, se dibuja como `<a href>` real en vez de `<button>` — necesario para descargas (`window.open()` tras un `await` lo bloquea el navegador). |
+| `tono` | `'neutral' \| 'riesgo' \| 'brand'` | Color del icono. Distinto set que el tono de la fila: aquí es afordancia (destructiva / principal), no estado. |
+| `disabled` | `boolean?` | |
+
 #### Reservados en el contrato — *no implementados todavía*
 
 Se construyen cuando la pantalla que los necesita entre en su fase:
 
-- `FilaDato` — etiqueta + valor a la derecha, solo lectura, sin acción.
-- `FilaAccion` — cuerpo con `onClick` + `acciones[]` de icon-buttons.
 - `EstadoLista` — cargando / vacío / sin conexión / error (unifica la
   tarjeta de "isPaused" repetida en ~5 sitios).
 - `TarjetaAccion` — bloque informativo + 1 botón (p. ej. la copia de
@@ -96,6 +142,7 @@ Se construyen cuando la pantalla que los necesita entre en su fase:
 | `--fila-activa-bg` | Fondo al pulsar / al pasar el ratón. |
 | `--fila-icono` | Color del icono de la izquierda. |
 | `--fila-chevron` | Color de la flecha `›`. |
+| `--fila-accion-size` | Lado de un botón de icono de `FilaAccion` (`36px`). |
 | `--seccion-cabecera` | Color del título gris de la sección. |
 | `--fila-tono-aviso` / `--fila-tono-riesgo` / `--fila-tono-ok` | Colores de tono. |
 
