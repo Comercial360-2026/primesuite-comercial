@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
@@ -47,8 +48,21 @@ function etiquetaDia(d: Date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+// Listas que refrescar tras cancelar visitas (mismo juego que
+// use-borrar-visita.ts). Prefijo: las claves llevan clienteId/fecha dentro.
+const CLAVES_LISTAS_VISITAS = [
+  ['agenda-planificadas'],
+  ['visitas-hoy'],
+  ['visitas-proximas'],
+  ['visitas-atrasadas'],
+  ['historial-visitas'],
+  ['listado-clientes'],
+  ['semaforo-cliente'],
+];
+
 export function Agenda() {
   const { comercial } = useSesionActual();
+  const queryClient = useQueryClient();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   // Dirección Comercial entra viendo TODO el equipo — si no, una visita que
   // planificó para un compañero le desaparecería de la vista. Un comercial
@@ -160,6 +174,66 @@ export function Agenda() {
     return { atrasadas: atr, dias: listaDias, mias };
   }, [visitas, participantes, soloMias, comercial]);
 
+  // Modo seleccionar → cancelar varias planificadas de una pasada. Cancelar
+  // = eliminar_visita_completa (una 'agendada' no tiene fotos/audios). Solo
+  // sobre visitas propias: las "de otro" salen deshabilitadas.
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
+  const [resultadoLote, setResultadoLote] = useState<string | null>(null);
+  const corriendoLote = progresoLote !== null;
+
+  function alternarMarca(id: string) {
+    setMarcadas((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  function entrarSeleccion() {
+    setResultadoLote(null);
+    setMarcadas(new Set());
+    setSeleccionando(true);
+  }
+
+  function salirSeleccion() {
+    if (corriendoLote) return;
+    setSeleccionando(false);
+    setMarcadas(new Set());
+    setResultadoLote(null);
+  }
+
+  async function cancelarLote() {
+    if (corriendoLote) return;
+    const ids = mias.map((v) => v.id).filter((id) => marcadas.has(id));
+    if (!ids.length) return;
+    if (!navigator.onLine) {
+      setResultadoLote('Necesitas conexión para anular visitas.');
+      return;
+    }
+    setResultadoLote(null);
+    setProgresoLote({ hecho: 0, total: ids.length });
+    const fallos: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: ids[i] });
+      if (error) fallos.push(ids[i]);
+      setProgresoLote({ hecho: i + 1, total: ids.length });
+    }
+    for (const k of CLAVES_LISTAS_VISITAS) queryClient.invalidateQueries({ queryKey: k });
+    setProgresoLote(null);
+    if (fallos.length === 0) {
+      setSeleccionando(false);
+      setMarcadas(new Set());
+    } else {
+      setMarcadas(new Set(fallos));
+      setResultadoLote(
+        `Se anularon ${ids.length - fallos.length}. ${fallos.length} no se pudieron anular.`
+      );
+    }
+  }
+
   function fila(v: VisitaAgenda, conFecha: boolean) {
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
@@ -178,6 +252,12 @@ export function Agenda() {
         subtitulo={v.objetivo ?? undefined}
         valor={`${cuando}${deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}`}
         to={`/visita/${v.id}/planificada`}
+        seleccion={
+          seleccionando
+            ? { activa: true, marcada: marcadas.has(v.id), onToggle: () => alternarMarca(v.id) }
+            : undefined
+        }
+        disabled={seleccionando && !!deOtro}
       />
     );
   }
@@ -188,16 +268,23 @@ export function Agenda() {
     <div className="screen">
       <CabeceraDetalle titulo="Agenda" />
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" className={`chip${vista === 'lista' ? ' chip--on' : ''}`} onClick={() => setVista('lista')}>
-          Lista
-        </button>
-        <button type="button" className={`chip${vista === 'mes' ? ' chip--on' : ''}`} onClick={() => setVista('mes')}>
-          Mes
-        </button>
-      </div>
+      {!seleccionando && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className={`chip${vista === 'lista' ? ' chip--on' : ''}`} onClick={() => setVista('lista')}>
+            Lista
+          </button>
+          <button type="button" className={`chip${vista === 'mes' ? ' chip--on' : ''}`} onClick={() => setVista('mes')}>
+            Mes
+          </button>
+          {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
+            <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccion}>
+              Seleccionar
+            </button>
+          )}
+        </div>
+      )}
 
-      {esDireccionComercial && (
+      {esDireccionComercial && !seleccionando && (
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
             Todas
@@ -206,6 +293,27 @@ export function Agenda() {
             Solo mías
           </button>
         </div>
+      )}
+
+      {seleccionando && (
+        <>
+          <BarraSeleccion
+            n={marcadas.size}
+            onCancelar={salirSeleccion}
+            acciones={[
+              {
+                etiqueta: corriendoLote
+                  ? `Anulando ${progresoLote!.hecho} de ${progresoLote!.total}…`
+                  : `Anular (${marcadas.size})`,
+                icono: 'borrar',
+                tono: 'riesgo',
+                onClick: cancelarLote,
+                disabled: corriendoLote || marcadas.size === 0,
+              },
+            ]}
+          />
+          {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
+        </>
       )}
 
       {isLoading && <EstadoLista estado="cargando" />}
