@@ -234,6 +234,39 @@ clic (lo hace el `<button>` de la fila). Glifos `circulo` / `check-circulo`
 del registro. Se exporta junto a `EstadoSeleccion` por si una lista a
 medida lo necesita.
 
+#### `BarraSeleccion` — *implementado*
+
+La cabecera del modo seleccionar: "N seleccionados · Cancelar · [Borrar
+(N)]". Igual en Mi espacio y Agenda → un componente, no copiada. Se coloca
+arriba de la lista, dentro del `.screen` (no es una barra fija global).
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `n` | `number` | Nº de filas marcadas. `0` → "Selecciona elementos". |
+| `onCancelar` | `() => void` | Apaga el modo seleccionar en la pantalla. |
+| `acciones` | `AccionSeleccion[]` | Normalmente una. El contador va en `etiqueta` si se quiere ("Borrar (3)"). |
+
+`AccionSeleccion`: `{ etiqueta; icono: NombreIcono; tono?: 'neutral' \| 'riesgo'; onClick; disabled? }`.
+`riesgo` = destructiva (borrar / cancelar), en rojo.
+
+### Modo seleccionar — patrón de pantalla
+
+Quién hace qué:
+
+- **La pantalla** tiene el estado: un `seleccionando: boolean` y un
+  `Set<string>` de ids marcados. Un chip/botón "Seleccionar" lo enciende.
+- Cada fila recibe `seleccion={{ activa: seleccionando, marcada: ids.has(id), onToggle: () => alterna(id) }}`.
+- `BarraSeleccion` arriba, con `n={ids.size}` y una acción "Borrar (n)"
+  (`tono:'riesgo'`, `disabled` si `n === 0`).
+- La acción en lote = **N × la operación individual que ya existe**, en
+  bucle, con progreso ("Borrando 3 de 7…") y parte de fallos parciales. No
+  se crea RPC de lote. Las filas que fallan se quedan marcadas.
+- **Sin conexión**: el modo seleccionar se puede usar, pero al confirmar
+  una acción que necesita red (borrar visitas: arrastran Storage) se avisa
+  y no se hace nada — no se encola.
+- Al terminar (o al Cancelar) → `seleccionando = false`, `ids` vacío.
+- Ids que ya no están en la lista al ejecutar se ignoran.
+
 ### Tokens — bloque "Filas" (`tokens.css`)
 
 | Token | Uso |
