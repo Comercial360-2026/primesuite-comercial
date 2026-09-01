@@ -161,3 +161,48 @@
 .fila--riesgo .fila__valor,
 .fila--riesgo .fila__titulo { color: var(--fila-tono-riesgo); }
 .fila--riesgo .fila__badge { border-color: var(--fila-tono-riesgo); color: var(--fila-tono-riesgo); }
+
+/* FilaDato — etiqueta + valor a la derecha, solo lectura. No navega ni
+   acciona: es un <div>, sin hover, sin flecha. El valor es el dato
+   principal (más oscuro y algo mayor que el .fila__valor de una fila
+   navegable). Los tonos de arriba lo siguen tiñendo igual. */
+.fila--dato { cursor: default; }
+.fila--dato:hover { background: var(--surface-1); }
+.fila--dato .fila__valor { color: var(--ink-900); font-size: var(--text-base); text-align: right; }
+
+/* FilaAccion — cuerpo (opcionalmente pulsable) + botones de icono a la
+   derecha. No puede ser un solo <button> (no se anidan): el cuerpo y el
+   grupo de acciones son hermanos. El padding lo llevan ellos, no la fila,
+   para que el fondo de "activa" del cuerpo llegue al borde real. */
+.fila--accion { padding: 0; cursor: default; }
+.fila--accion:hover { background: var(--surface-1); }
+.fila__cuerpo-accion {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--fila-pad-y) var(--fila-pad-x);
+  border: none; background: none; font: inherit; color: inherit;
+  text-align: left; cursor: default;
+}
+button.fila__cuerpo-accion { cursor: pointer; }
+button.fila__cuerpo-accion:hover:not(:disabled) { background: var(--fila-activa-bg); }
+button.fila__cuerpo-accion:active:not(:disabled) { background: var(--fila-activa-bg); }
+button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
+.fila--compacta .fila__cuerpo-accion {
+  padding-top: var(--space-2); padding-bottom: var(--space-2);
+}
+
+.fila__acciones {
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--space-2);
+  padding-right: var(--fila-pad-x);
+}
+.fila__accion-btn {
+  flex-shrink: 0; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--fila-accion-size); height: var(--fila-accion-size);
+  border: 1px solid var(--ink-200); border-radius: var(--radius-field);
+  background: var(--surface-1); color: var(--ink-700); cursor: pointer;
+}
+.fila__accion-btn:hover:not(:disabled) { background: var(--fila-activa-bg); }
+.fila__accion-btn:disabled { opacity: 0.45; cursor: default; }
+.fila__accion-btn--riesgo { color: var(--danger-600); }
+.fila__accion-btn--brand { color: var(--brand-600); }

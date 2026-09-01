@@ -60,7 +60,8 @@
   --h-bignav: 56px;
   --h-capture-button: 64px;
 
-  /* Filas — sistema de listas agrupadas (SeccionLista + FilaNavegable).
+  /* Filas — sistema de listas agrupadas (SeccionLista + FilaNavegable /
+     FilaDato / FilaAccion).
      Todo el aspecto de las filas de toda la app se controla desde aquí:
      cambiar el alto, el separador o el color del icono/chevron se hace SOLO
      en este bloque, nunca fila a fila. Ver 08_sistema_diseno.md §"Sistema
@@ -72,6 +73,7 @@
   --fila-activa-bg: var(--surface-0);       /* fondo al pulsar / al pasar el ratón */
   --fila-icono: var(--ink-400);             /* color del icono de la izquierda */
   --fila-chevron: var(--ink-200);           /* color de la flecha ">" de la derecha */
+  --fila-accion-size: 36px;                 /* caja de un botón de icono de FilaAccion (cómodo en filas compactas de 44px) */
   --seccion-cabecera: var(--ink-400);       /* color del título gris de cada sección */
 
   /* Tono de una fila (valor / subtítulo / icono destacados). Sin fondo de
