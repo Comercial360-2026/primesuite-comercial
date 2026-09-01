@@ -52,6 +52,15 @@ export const ESTADO_PASO_LABEL: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
+export const TIPO_FECHA_RELEVANTE_LABEL: Record<string, string> = {
+  vencimiento_contrato: 'Vencimiento de contrato',
+  renovacion: 'Renovación',
+  auditoria: 'Auditoría',
+  presupuesto: 'Presupuesto',
+  implantacion: 'Implantación',
+  otro: 'Otro',
+};
+
 /** Devuelve la etiqueta del mapa, o el valor con "_"→" " y primera en mayúscula. */
 export function etiqueta(mapa: Record<string, string>, valor: string | null | undefined): string {
   if (!valor) return '—';

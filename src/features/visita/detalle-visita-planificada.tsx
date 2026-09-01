@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, fechaLarga, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { EstadoError } from '@/components/ui/estado-error';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -161,9 +161,13 @@ export function DetalleVisitaPlanificada() {
     <div className="screen">
       <CabeceraDetalle titulo="Visita planificada" />
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      {isLoading && <EstadoLista estado="cargando" />}
       {(isError || isPaused) && (
-        <EstadoError mensaje="No se pudo cargar la visita planificada." onReintentar={() => refetch()} />
+        <EstadoLista
+          estado={isPaused ? 'sin-conexion' : 'error'}
+          mensaje="No se pudo cargar la visita planificada."
+          onReintentar={() => refetch()}
+        />
       )}
 
       {data && (

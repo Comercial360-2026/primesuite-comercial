@@ -6,6 +6,7 @@ import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
@@ -32,7 +33,7 @@ export function DetalleProximoPaso() {
   const [visitaPlanificada, setVisitaPlanificada] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
 
-  const { data: paso, isLoading, isError } = useQuery({
+  const { data: paso, isLoading, isError, refetch } = useQuery({
     queryKey: ['proximo-paso', pasoId],
     enabled: !!pasoId,
     queryFn: async () => {
@@ -153,7 +154,8 @@ export function DetalleProximoPaso() {
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>
+        <CabeceraDetalle titulo="Próximo paso" />
+        <EstadoLista estado="cargando" />
       </div>
     );
   }
@@ -162,7 +164,7 @@ export function DetalleProximoPaso() {
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Próximo paso" />
-        <div className="field-error-text">No se pudo cargar este próximo paso.</div>
+        <EstadoLista estado="error" mensaje="No se pudo cargar este próximo paso." onReintentar={() => refetch()} />
       </div>
     );
   }

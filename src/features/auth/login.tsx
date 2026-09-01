@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { Aviso } from '@/components/ui/aviso';
 
 // Pantalla mínima de autenticación — pieza que faltaba desde el inicio del
 // proyecto (ver nota histórica en main.tsx: "SOLO DESARROLLO — no hay
@@ -84,7 +85,11 @@ export function Login() {
         }}
         placeholder="••••••••"
       />
-      {acceso.error && <div className="field-error-text">{acceso.error}</div>}
+      {acceso.error && (
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <Aviso tipo="error">{acceso.error}</Aviso>
+        </div>
+      )}
 
       <button
         className="btn btn-primary"

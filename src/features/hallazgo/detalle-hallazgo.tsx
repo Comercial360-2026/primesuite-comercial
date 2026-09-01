@@ -2,18 +2,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import {
+  NATURALEZA_ORDEN,
+  NATURALEZA_LABEL,
+  TIPO_FECHA_RELEVANTE_LABEL,
+  etiqueta,
+} from '@/lib/etiquetas-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
-const NATURALEZAS = [
-  'contexto',
-  'oportunidad',
-  'riesgo',
-  'competencia',
-  'fortaleza',
-  'proyecto_activo',
-] as const;
-
-const TIPOS_FECHA = ['vencimiento_contrato', 'renovacion', 'auditoria', 'presupuesto', 'implantacion', 'otro'];
+const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
 // Pantalla de edición (no de creación): el Hallazgo se crea con captura
 // mínima (término + naturaleza) desde el botón "Hallazgo" en Visita Activa
@@ -134,7 +132,8 @@ export function DetalleHallazgo() {
   if (isLoading || !hallazgo) {
     return (
       <div className="screen">
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>
+        <CabeceraDetalle titulo="Hallazgo" />
+        <EstadoLista estado="cargando" />
       </div>
     );
   }
@@ -149,14 +148,14 @@ export function DetalleHallazgo() {
 
       <div className="label">naturaleza</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {NATURALEZAS.map((n) => (
+        {NATURALEZA_ORDEN.map((n) => (
           <button
             key={n}
             type="button"
             className={`chip${naturaleza === n ? ' chip--on' : ''}`}
             onClick={() => setNaturaleza(n)}
           >
-            {n.replace('_', ' ')}
+            {etiqueta(NATURALEZA_LABEL, n)}
           </button>
         ))}
       </div>
@@ -197,7 +196,7 @@ export function DetalleHallazgo() {
           <option value="">tipo…</option>
           {TIPOS_FECHA.map((t) => (
             <option key={t} value={t}>
-              {t.replace('_', ' ')}
+              {etiqueta(TIPO_FECHA_RELEVANTE_LABEL, t)}
             </option>
           ))}
         </select>
