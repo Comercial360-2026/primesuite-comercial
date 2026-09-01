@@ -12,6 +12,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -72,6 +73,88 @@ export function MiEspacio() {
   const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
   const previsualizando = useAccionAsync();
   const borrandoVisita = useAccionAsync();
+
+  // Modo seleccionar → borrar varias visitas de una pasada. El borrado en
+  // lote es N× la operación individual (previsualizar → Storage → RPC) en
+  // bucle: no hay RPC de lote y cada visita arrastra ficheros de Storage
+  // fuera de SQL. Progreso "Borrando 3 de 7…" + parte de fallos parciales.
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
+  const [resultadoLote, setResultadoLote] = useState<string | null>(null);
+  const corriendoLote = progresoLote !== null;
+
+  function alternarMarca(id: string) {
+    setMarcadas((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  function entrarSeleccion() {
+    cancelarBorrado(); // cierra la confirmación individual si estaba abierta
+    setResultadoLote(null);
+    setMarcadas(new Set());
+    setSeleccionando(true);
+  }
+
+  function salirSeleccion() {
+    if (corriendoLote) return;
+    setSeleccionando(false);
+    setMarcadas(new Set());
+    setResultadoLote(null);
+  }
+
+  async function borrarLote() {
+    if (corriendoLote) return;
+    const ids = (visitas ?? []).map((v) => v.visita_id).filter((id) => marcadas.has(id));
+    if (!ids.length) return;
+    if (!navigator.onLine) {
+      setResultadoLote('Necesitas conexión para borrar visitas.');
+      return;
+    }
+    setResultadoLote(null);
+    setProgresoLote({ hecho: 0, total: ids.length });
+    const fallos: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        const { data, error } = await supabase
+          .rpc('previsualizar_borrado_visita', { p_visita_id: id })
+          .single();
+        if (error) throw new Error(error.message);
+        const rutas = (data as PrevisualizacionBorrado).rutas_storage ?? [];
+        // Mismo orden obligatorio que el borrado individual: Storage antes
+        // que el RPC (que borra la fila de participante de la cascada).
+        if (rutas.length) {
+          await Promise.all([
+            supabase.storage.from('fotos-visita').remove(rutas),
+            supabase.storage.from('audios-visita').remove(rutas),
+          ]);
+        }
+        const { error: errDel } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
+        if (errDel) throw new Error(errDel.message);
+      } catch {
+        fallos.push(id);
+      }
+      setProgresoLote({ hecho: i + 1, total: ids.length });
+    }
+    queryClient.invalidateQueries({ queryKey: espacioQueryKey });
+    queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+    setProgresoLote(null);
+    if (fallos.length === 0) {
+      setSeleccionando(false);
+      setMarcadas(new Set());
+    } else {
+      // Las que fallaron se quedan marcadas para reintentar.
+      setMarcadas(new Set(fallos));
+      setResultadoLote(
+        `Se borraron ${ids.length - fallos.length}. ${fallos.length} no se pudieron borrar.`
+      );
+    }
+  }
 
   async function pedirBorrado(visitaId: string) {
     setVisitaBorrarId(visitaId);
@@ -263,7 +346,7 @@ export function MiEspacio() {
           </div>
         )}
 
-        {!!visitas?.length && (
+        {!!visitas?.length && !seleccionando && (
           <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
             <button
               type="button"
@@ -279,7 +362,39 @@ export function MiEspacio() {
             >
               Las que más ocupan
             </button>
+            <button
+              type="button"
+              className="chip"
+              style={{ marginLeft: 'auto' }}
+              onClick={entrarSeleccion}
+            >
+              Seleccionar
+            </button>
           </div>
+        )}
+
+        {seleccionando && (
+          <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+            <BarraSeleccion
+              n={marcadas.size}
+              onCancelar={salirSeleccion}
+              acciones={[
+                {
+                  etiqueta: corriendoLote
+                    ? `Borrando ${progresoLote!.hecho} de ${progresoLote!.total}…`
+                    : `Borrar (${marcadas.size})`,
+                  icono: 'borrar',
+                  tono: 'riesgo',
+                  onClick: borrarLote,
+                  disabled: corriendoLote || marcadas.size === 0,
+                },
+              ]}
+            />
+          </div>
+        )}
+
+        {resultadoLote && (
+          <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>{resultadoLote}</div>
         )}
 
         {!!visitas?.length && (
@@ -287,6 +402,22 @@ export function MiEspacio() {
             {visitasOrdenadas.map((v) => {
               const estadoDescarga = estadoDe(v.visita_id);
               const listo = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+
+              if (seleccionando) {
+                return (
+                  <FilaAccion
+                    key={v.visita_id}
+                    densidad="compacta"
+                    titulo={v.cliente_nombre}
+                    subtitulo={`${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
+                    seleccion={{
+                      activa: true,
+                      marcada: marcadas.has(v.visita_id),
+                      onToggle: () => alternarMarca(v.visita_id),
+                    }}
+                  />
+                );
+              }
 
               if (visitaBorrarId === v.visita_id) {
                 return (
