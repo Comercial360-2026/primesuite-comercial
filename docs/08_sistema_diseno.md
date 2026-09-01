@@ -411,3 +411,33 @@ Cuándo lleva icono:
 Para la fila compacta de iconos de una pantalla de detalle (el par
 "descargar / borrar" de `detalle-*`) se usa **`FilaAccion`**, no dos `.btn`
 grandes.
+
+## Modales
+
+Un solo componente, `Modal` (`src/components/ui/modal.tsx`), para todos los
+diálogos. Antes cada modal de la visita se montaba a mano con
+`position:fixed; inset:0` y una tarjeta pegada al borde inferior — sin
+componente común y sin respetar el ancho de la app.
+
+```tsx
+<Modal titulo="qué queda pendiente" onCerrar={cerrar}>
+  …contenido…
+</Modal>
+```
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `titulo` | `string` | Cabecera, en minúsculas / frase. |
+| `onCerrar` | `() => void` | Lo llaman la × de la cabecera, la tecla `Esc` y tocar fuera de la tarjeta. |
+| `children` | `ReactNode` | El contenido del diálogo. |
+
+Reglas:
+
+- **Diálogo centrado**, con caja, sobre la columna de la app (ancho
+  `--app-max-w`). No es una hoja pegada a un borde.
+- Fondo **gris opaco** (`--surface-0`), no un velo translúcido: la regla
+  "sin transparencias sobre color" no se rompe. Por eso la tarjeta va
+  centrada y con caja — para que se lea como diálogo aun con el fondo
+  opaco.
+- El contenido interno usa los componentes normales (`.field`, `.btn`,
+  `.chip`, `SeccionLista`…). `Modal` solo pone el marco y la cabecera.

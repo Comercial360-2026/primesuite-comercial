@@ -80,6 +80,11 @@ body { margin: 0; background: var(--surface-0); }
 
 .screen { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); min-height: 100%; box-sizing: border-box; background: var(--surface-0); }
 
+/* Pantalla que va SIN el marco de la app (login): le da el mismo tope de
+   ancho y centrado que `.app-shell`, para que en escritorio no se vaya a
+   todo el ancho. */
+.pantalla-suelta { max-width: var(--app-max-w); margin-inline: auto; min-height: 100dvh; }
+
 .screen--split { flex: 1; min-height: 0; overflow: hidden; }
 .screen__scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
@@ -113,6 +118,36 @@ body { margin: 0; background: var(--surface-0); }
   display: block; height: 40px; line-height: 40px; text-align: center;
   background: var(--brand-050); color: var(--brand-600); font-size: var(--text-sm); font-weight: 500;
   text-decoration: none;
+}
+
+/* Modal — diálogo centrado sobre la columna de la app. Fondo gris opaco
+   (regla "sin transparencias"), tarjeta centrada con caja para que se lea
+   como diálogo. Ver src/components/ui/modal.tsx y 08_sistema_diseno.md
+   §"Modales". */
+.modal-fondo {
+  position: fixed; inset: 0; z-index: 20;
+  background: var(--surface-0);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-4); box-sizing: border-box;
+}
+.modal-caja {
+  width: 100%;
+  max-width: calc(var(--app-max-w) - 2 * var(--space-4));
+  max-height: calc(100dvh - 2 * var(--space-4));
+  overflow-y: auto; box-sizing: border-box;
+  background: var(--surface-1);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-control);
+  padding: var(--space-4);
+}
+.modal-cabecera {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.modal-titulo { font-size: var(--text-md); font-weight: 500; }
+.modal-cerrar {
+  border: none; background: none; cursor: pointer;
+  font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
 /* Sistema de filas — SeccionLista + FilaNavegable.
