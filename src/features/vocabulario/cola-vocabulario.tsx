@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface TerminoPropuesto {
   id: string;
@@ -64,7 +67,7 @@ export function ColaVocabulario() {
   const [moviendoTerminoId, setMoviendoTerminoId] = useState<string | null>(null);
   const [nuevoTerminoPorCategoria, setNuevoTerminoPorCategoria] = useState<Record<string, string>>({});
 
-  const { data: propuestos, isLoading, isError } = useQuery({
+  const { data: propuestos, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['terminos-propuestos'],
     // Este término puede proponerse desde otras pantallas (Hallazgo rápido,
     // Detalle de Oportunidad) que no saben nada de esta consulta y no
@@ -317,99 +320,108 @@ export function ColaVocabulario() {
             Términos que comerciales han propuesto sobre la marcha, en espera de revisión.
           </p>
 
-          {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
-          {isError && (
-            <div className="card card--riesgo">
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
-                No se pudo cargar la lista. Comprueba tu conexión.
-              </div>
-            </div>
-          )}
           {error && <div className="field-error-text">{error}</div>}
 
-          {!isLoading && !isError && !propuestos?.length && (
-            <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>No hay términos pendientes de revisar.</p>
-          )}
+          {isLoading ? (
+            <EstadoLista estado="cargando" />
+          ) : isPaused && !propuestos ? (
+            <EstadoLista estado="sin-conexion" onReintentar={() => refetch()} />
+          ) : isError ? (
+            <EstadoLista
+              estado="error"
+              mensaje="No se pudo cargar la lista. Comprueba tu conexión."
+              onReintentar={() => refetch()}
+            />
+          ) : !propuestos?.length ? (
+            <EstadoLista estado="vacio" mensaje="No hay términos pendientes de revisar." />
+          ) : (
+            <div className="lista-agrupada">
+              <SeccionLista>
+                {propuestos.map((t) => {
+                  const meta =
+                    `${t.categoria_nombre} · propuesto por ${t.propuesto_por_nombre}` +
+                    (t.fecha_propuesta
+                      ? ` · ${new Date(t.fecha_propuesta).toLocaleDateString('es-ES')}`
+                      : '');
 
-          {propuestos?.map((t) => (
-            <div key={t.id} className="card">
-              <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{t.nombre}</div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
-                categoría: {t.categoria_nombre} · propuesto por {t.propuesto_por_nombre}
-                {t.fecha_propuesta && ` · ${new Date(t.fecha_propuesta).toLocaleDateString('es-ES')}`}
-              </div>
-
-              {fusionandoId === t.id ? (
-                <div style={{ marginTop: 8 }}>
-                  <input
-                    className="field"
-                    autoFocus
-                    value={textoBusquedaFusion}
-                    onChange={(e) => setTextoBusquedaFusion(e.target.value)}
-                    placeholder="buscar término corporativo destino…"
-                  />
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
-                    {catalogoCorporativo
-                      ?.filter(
-                        (c) =>
-                          textoBusquedaFusion.trim() &&
-                          c.nombre.toLowerCase().includes(textoBusquedaFusion.trim().toLowerCase())
-                      )
-                      .slice(0, 8)
-                      .map((c) => (
+                  if (fusionandoId === t.id) {
+                    return (
+                      <div key={t.id} className="fila-confirmacion">
+                        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{t.nombre}</div>
+                        <input
+                          className="field"
+                          autoFocus
+                          style={{ marginTop: 6 }}
+                          value={textoBusquedaFusion}
+                          onChange={(e) => setTextoBusquedaFusion(e.target.value)}
+                          placeholder="buscar término corporativo destino…"
+                        />
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
+                          {catalogoCorporativo
+                            ?.filter(
+                              (c) =>
+                                textoBusquedaFusion.trim() &&
+                                c.nombre.toLowerCase().includes(textoBusquedaFusion.trim().toLowerCase())
+                            )
+                            .slice(0, 8)
+                            .map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                className="chip"
+                                disabled={procesandoId === t.id}
+                                onClick={() => resolver(t.id, 'fusionar', c.id)}
+                              >
+                                {c.nombre}
+                              </button>
+                            ))}
+                        </div>
                         <button
-                          key={c.id}
                           type="button"
-                          className="chip"
-                          disabled={procesandoId === t.id}
-                          onClick={() => resolver(t.id, 'fusionar', c.id)}
+                          className="btn btn-secondary"
+                          style={{ marginTop: 8 }}
+                          onClick={() => { setFusionandoId(null); setTextoBusquedaFusion(''); }}
                         >
-                          {c.nombre}
+                          Cancelar
                         </button>
-                      ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ marginTop: 8 }}
-                    onClick={() => { setFusionandoId(null); setTextoBusquedaFusion(''); }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: 'auto', padding: '0 16px' }}
-                    disabled={procesandoId === t.id}
-                    onClick={() => resolver(t.id, 'incorporar')}
-                  >
-                    {procesandoId === t.id ? '…' : 'Incorporar tal cual'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', padding: '0 16px' }}
-                    disabled={procesandoId === t.id}
-                    onClick={() => { setFusionandoId(t.id); setTextoBusquedaFusion(''); }}
-                  >
-                    Fusionar con existente
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', padding: '0 16px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                    disabled={procesandoId === t.id}
-                    onClick={() => resolver(t.id, 'descartar')}
-                  >
-                    Descartar
-                  </button>
-                </div>
-              )}
+                      </div>
+                    );
+                  }
+
+                  const acciones: AccionFila[] = [
+                    {
+                      icono: 'check',
+                      etiqueta: 'Incorporar tal cual',
+                      onClick: () => resolver(t.id, 'incorporar'),
+                      disabled: procesandoId === t.id,
+                    },
+                    {
+                      icono: 'fusionar',
+                      etiqueta: 'Fusionar con un término existente',
+                      onClick: () => { setFusionandoId(t.id); setTextoBusquedaFusion(''); },
+                      disabled: procesandoId === t.id,
+                    },
+                    {
+                      icono: 'borrar',
+                      etiqueta: 'Descartar la propuesta',
+                      tono: 'riesgo',
+                      onClick: () => resolver(t.id, 'descartar'),
+                      disabled: procesandoId === t.id,
+                    },
+                  ];
+
+                  return (
+                    <FilaAccion
+                      key={t.id}
+                      titulo={t.nombre}
+                      subtitulo={procesandoId === t.id ? `${meta} · procesando…` : meta}
+                      acciones={acciones}
+                    />
+                  );
+                })}
+              </SeccionLista>
             </div>
-          ))}
+          )}
         </>
       ) : (
         <>
