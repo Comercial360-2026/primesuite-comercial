@@ -70,6 +70,15 @@ const registro = {
   // (p. ej. secciones plegables) la hace quien la usa, no este dibujo.
   chevron: <path d="M9 6l6 6-6 6" />,
 
+  // Flecha "‹" de volver, para CabeceraDetalle. Flecha completa (con asta),
+  // no un chevron: significa "volver atrás", no "aquí hay más".
+  atras: (
+    <>
+      <path d="M11 5l-7 7 7 7" />
+      <path d="M4 12h16" />
+    </>
+  ),
+
   // Almacenamiento / cuota — cilindro de disco.
   almacenamiento: (
     <>

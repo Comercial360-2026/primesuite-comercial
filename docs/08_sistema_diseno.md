@@ -120,6 +120,24 @@ una acción nunca dispara el cuerpo.
 | `tono` | `'neutral' \| 'riesgo' \| 'brand'` | Color del icono. Distinto set que el tono de la fila: aquí es afordancia (destructiva / principal), no estado. |
 | `disabled` | `boolean?` | |
 
+#### `CabeceraDetalle` — *implementado*
+
+La fila `‹ Título` de arriba de las pantallas de detalle. Sustituye al
+`<button>←</button>` + `<h1>` copiado a mano en ~13 pantallas (agenda,
+ficha de cliente, Mi espacio, los `detalle-*`, vocabulario, consumo…).
+Usa el icono `atras` del registro (flecha con asta, no un chevron: es
+"volver", no "hay más").
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `titulo` | `string` | Obligatorio. |
+| `subtitulo` | `string?` | Segunda línea gris bajo el título (p. ej. `"Cliente activo · Hostelería"`). |
+| `onVolver` | `() => void ?` | Acción de volver a medida. Tiene prioridad sobre `volverA`. La usan las pantallas que cierran un panel de confirmación en vez de salir. |
+| `volverA` | `string?` | Ruta fija a la que volver en vez de `navigate(-1)` (ficha de cliente → `/clientes`, Mi espacio → `/yo`). |
+| `derecha` | `ReactNode?` | Ranura a la derecha: chip de estado, botón de acción (p. ej. el semáforo + "Borrar cliente" de la ficha). |
+
+Prioridad de la vuelta: `onVolver` → `volverA` → `navigate(-1)`.
+
 #### Reservados en el contrato — *no implementados todavía*
 
 Se construyen cuando la pantalla que los necesita entre en su fase:
@@ -128,7 +146,6 @@ Se construyen cuando la pantalla que los necesita entre en su fase:
   tarjeta de "isPaused" repetida en ~5 sitios).
 - `TarjetaAccion` — bloque informativo + 1 botón (p. ej. la copia de
   seguridad, el medidor de espacio).
-- `CabeceraDetalle` — el `‹ Título` hecho a mano en ~12 pantallas.
 - Prop `seleccion?: { activa; marcada; onToggle }` en las filas
   (multi-selección para borrado) y `FilaToggle`.
 
