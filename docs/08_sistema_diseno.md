@@ -387,10 +387,22 @@ Los tonos **solo tiñen texto e icono**, nunca ponen fondo de color
 </div>
 ```
 
-## Iconos en botones
+## Iconos — cuándo sí y cuándo no
 
-`.btn` (`.btn-primary` / `.btn-secondary`) admite un icono opcional **antes
-del texto**:
+Una sola regla para toda la app: el icono depende de **qué hace** el
+control, no de en qué componente está. Todos salen del registro de
+`src/components/ui/iconos.tsx` (trazo simple, `currentColor`); no se
+dibujan `<svg>` a mano en las pantallas.
+
+| Caso | Icono | Ejemplos |
+|---|---|---|
+| "Qué tipo de cosa es esto" (navegación, filas de lista) | **Sí, delante** | menú de abajo; `FilaNavegable` con `icono=` |
+| **Verbo concreto sobre algo** | **Sí, delante** | Foto, Audio, Nota, Hallazgo, Oportunidad, Próximo paso, Iniciar recorrido, Descargar, Borrar, Compartir, Añadir, Empezar |
+| Botón genérico de formulario o diálogo | **No, solo texto** | Guardar, Cancelar, Aceptar, Reintentar, Confirmar, Descartar |
+| Chip de filtro / estado (no es una acción) | **No, solo texto** | Todos / Solo mías, Lista / Mes, Seleccionar |
+
+En `.btn` (`.btn-primary` / `.btn-secondary`) el icono va **antes del
+texto**, separado 8 px (`--space-2`), y hereda el color del texto:
 
 ```tsx
 <button className="btn btn-primary">
@@ -398,15 +410,9 @@ del texto**:
 </button>
 ```
 
-El icono hereda el color del texto (`currentColor`) y va separado 8 px
-(`--space-2`). Un botón sin icono se ve exactamente igual que antes.
-
-Cuándo lleva icono:
-
-- **Sí** — acción concreta sobre un objeto: descargar, borrar, compartir,
-  añadir, empezar / iniciar. Ayuda a reconocer la acción de un vistazo.
-- **No** — botón genérico de formulario o de diálogo: Guardar, Cancelar,
-  Reintentar, Aceptar, Confirmar. Solo texto.
+Un botón sin icono se ve exactamente igual que antes. Los botones grandes
+de captura de la visita (`.capture-btn`, columna) llevan el icono encima
+del texto.
 
 Para la fila compacta de iconos de una pantalla de detalle (el par
 "descargar / borrar" de `detalle-*`) se usa **`FilaAccion`**, no dos `.btn`
