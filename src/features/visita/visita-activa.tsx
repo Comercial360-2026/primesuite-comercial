@@ -19,6 +19,7 @@ import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
+import { Icono } from '@/components/ui/iconos';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
 // Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
@@ -938,10 +939,7 @@ export function VisitaActiva() {
                     inputFotoRef.current?.click();
                   }}
                 >
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
-                    <circle cx="12" cy="13" r="3.5" />
-                  </svg>
+                  <Icono nombre="foto" size={40} />
                   Toca para disparar
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -951,6 +949,7 @@ export function VisitaActiva() {
                     disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
                     onClick={iniciarODetenerAudio}
                   >
+                    <Icono nombre="audio" size={18} />
                     {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
                   </button>
                   <button
@@ -958,6 +957,7 @@ export function VisitaActiva() {
                     style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
                     onClick={() => setNotaAbierta(true)}
                   >
+                    <Icono nombre="nota" size={18} />
                     Nota
                   </button>
                   <button
@@ -965,6 +965,7 @@ export function VisitaActiva() {
                     style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
                     onClick={() => setHallazgoAbierto(true)}
                   >
+                    <Icono nombre="hallazgo" size={18} />
                     Hallazgo
                   </button>
                   <button
@@ -972,6 +973,7 @@ export function VisitaActiva() {
                     style={{ fontSize: 'var(--text-sm)', width: 'auto', color: 'var(--signal-600)', borderColor: 'var(--signal-600)' }}
                     onClick={() => setOportunidadAbierta(true)}
                   >
+                    <Icono nombre="oportunidad" size={18} />
                     Oportunidad
                   </button>
                 </div>
@@ -1131,6 +1133,7 @@ export function VisitaActiva() {
           disabled={capturaFoto.cargando || espacioBloqueado}
           onClick={() => inputFotoRef.current?.click()}
         >
+          <Icono nombre="foto" size={22} />
           {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
         </button>
         <button
@@ -1138,12 +1141,15 @@ export function VisitaActiva() {
           disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
           onClick={iniciarODetenerAudio}
         >
+          <Icono nombre="audio" size={22} />
           {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
         </button>
         <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
+          <Icono nombre="nota" size={22} />
           Nota
         </button>
         <button className="capture-btn capture-btn--oportunidad" onClick={() => setOportunidadAbierta(true)}>
+          <Icono nombre="oportunidad" size={22} />
           Oportunidad
         </button>
       </div>
@@ -1405,6 +1411,7 @@ export function VisitaActiva() {
           style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-600)', borderColor: 'var(--brand-600)' }}
           onClick={() => setModoRecorrido(true)}
         >
+          <Icono nombre="recorrido" size={18} />
           Iniciar recorrido
         </button>
         <button
@@ -1412,6 +1419,7 @@ export function VisitaActiva() {
           style={{ fontSize: 'var(--text-sm)' }}
           onClick={() => setHallazgoAbierto(true)}
         >
+          <Icono nombre="hallazgo" size={18} />
           Hallazgo
         </button>
         <button
@@ -1419,6 +1427,7 @@ export function VisitaActiva() {
           style={{ fontSize: 'var(--text-sm)' }}
           onClick={() => setPasoAbierto(true)}
         >
+          <Icono nombre="paso" size={18} />
           Próximo paso
         </button>
       </div>

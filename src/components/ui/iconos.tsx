@@ -174,6 +174,64 @@ const registro = {
       <path d="M17.5 12H9" />
     </>
   ),
+
+  // --- Captura durante la visita (botones grandes de visita-activa /
+  // editor-captura). Trazo simple, mismo criterio que el resto. ---
+
+  // Foto — cámara.
+  foto: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8.5 7L10 4h4l1.5 3" />
+      <circle cx="12" cy="13.5" r="3.3" />
+    </>
+  ),
+
+  // Audio — micrófono.
+  audio: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 18v3" />
+    </>
+  ),
+
+  // Nota — documento con renglones.
+  nota: (
+    <>
+      <path d="M6 3h9l3 3v15H6z" />
+      <path d="M15 3v3h3" />
+      <path d="M9 11h6M9 14.5h6" />
+    </>
+  ),
+
+  // Hallazgo — lupa (algo observado sobre el terreno).
+  hallazgo: (
+    <>
+      <circle cx="11" cy="11" r="6" />
+      <path d="M15.5 15.5L20 20" />
+    </>
+  ),
+
+  // Oportunidad — destello de 4 puntas (mismo sentido que el acento
+  // --signal-600 del sistema).
+  oportunidad: <path d="M12 3.5c.6 4.3 1.6 5.3 6 6-4.4.7-5.4 1.7-6 6-.6-4.3-1.6-5.3-6-6 4.4-.7 5.4-1.7 6-6z" />,
+
+  // Próximo paso — banderín (lo que queda pendiente al salir).
+  paso: (
+    <>
+      <path d="M6 21V4" />
+      <path d="M6 4.5h11l-2.5 4 2.5 4H6" />
+    </>
+  ),
+
+  // Recorrido — ruta serpenteante con punta de flecha.
+  recorrido: (
+    <>
+      <path d="M8 4h6a4 4 0 0 1 0 8H10a4 4 0 0 0 0 8h6" />
+      <path d="M14 16l2.5 2-2.5 2" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type NombreIcono = keyof typeof registro;
