@@ -6,6 +6,9 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useUbicacionesCliente } from '@/hooks/use-ubicaciones-cliente';
 import { eliminarOperacion } from '@/lib/offline-queue';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface PrevisualizacionBorradoUbicacion {
   num_fotos: number;
@@ -151,91 +154,90 @@ export function GestionUbicacionesCliente() {
       </div>
       {errorCrear && <div className="field-error-text">{errorCrear}</div>}
 
-      {ubicaciones.length === 0 && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 12 }}>
-          este cliente todavía no tiene ubicaciones
+      {ubicaciones.length === 0 ? (
+        <EstadoLista estado="vacio" mensaje="Este cliente todavía no tiene ubicaciones." />
+      ) : (
+        <div className="lista-agrupada">
+          <SeccionLista>
+            {ubicaciones.map((u) => {
+              if (renombrandoId === u.id) {
+                return (
+                  <div key={u.id} className="fila-confirmacion">
+                    <input
+                      className="field"
+                      autoFocus
+                      value={textoRenombrar}
+                      onChange={(e) => setTextoRenombrar(e.target.value)}
+                    />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button className="btn btn-secondary" onClick={() => setRenombrandoId(null)} disabled={guardandoRenombre}>
+                        Cancelar
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        disabled={!textoRenombrar.trim() || guardandoRenombre}
+                        onClick={() => guardarRenombre(u.id)}
+                      >
+                        {guardandoRenombre ? 'Guardando…' : 'Guardar'}
+                      </button>
+                    </div>
+                    {errorRenombre && <div className="field-error-text" style={{ marginTop: 8 }}>{errorRenombre}</div>}
+                  </div>
+                );
+              }
+              if (confirmandoBorrarId === u.id) {
+                return (
+                  <div key={u.id} className="fila-confirmacion">
+                    {cargandoPrevisualizacion ? (
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>comprobando uso…</div>
+                    ) : previsualizacion ? (
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
+                        {total > 0
+                          ? `"${u.nombre}" tiene ${previsualizacion.num_fotos} foto(s), ${previsualizacion.num_audios} audio(s), ${previsualizacion.num_notas} nota(s), ${previsualizacion.num_hallazgos} hallazgo(s) y ${previsualizacion.num_oportunidades} oportunidad(es) vinculados. Se borrará la ubicación; esos elementos se quedan sin ubicación asignada, no se borran.`
+                          : `"${u.nombre}" no tiene nada vinculado.`}
+                      </div>
+                    ) : null}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button className="btn btn-secondary" onClick={() => setConfirmandoBorrarId(null)} disabled={borrando}>
+                        Cancelar
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ background: 'var(--risk-600)' }}
+                        disabled={borrando || cargandoPrevisualizacion}
+                        onClick={() => confirmarBorrado(u.id)}
+                      >
+                        {borrando ? 'Borrando…' : 'Confirmar borrado'}
+                      </button>
+                    </div>
+                    {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
+                  </div>
+                );
+              }
+              return (
+                <FilaAccion
+                  key={u.id}
+                  titulo={u.nombre}
+                  subtitulo={u.sincronizada ? undefined : 'guardando…'}
+                  acciones={[
+                    {
+                      icono: 'editar',
+                      etiqueta: 'Renombrar ubicación',
+                      onClick: () => { setRenombrandoId(u.id); setTextoRenombrar(u.nombre); },
+                    },
+                    {
+                      icono: 'borrar',
+                      etiqueta: 'Borrar ubicación',
+                      tono: 'riesgo',
+                      onClick: () => abrirConfirmacionBorrado(u.id),
+                    },
+                  ]}
+                />
+              );
+            })}
+          </SeccionLista>
         </div>
       )}
-
-      {ubicaciones.map((u) => (
-        <div key={u.id} className="card" style={{ marginTop: 8 }}>
-          {renombrandoId === u.id ? (
-            <>
-              <input
-                className="field"
-                autoFocus
-                value={textoRenombrar}
-                onChange={(e) => setTextoRenombrar(e.target.value)}
-              />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn btn-secondary" onClick={() => setRenombrandoId(null)} disabled={guardandoRenombre}>
-                  cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  disabled={!textoRenombrar.trim() || guardandoRenombre}
-                  onClick={() => guardarRenombre(u.id)}
-                >
-                  {guardandoRenombre ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-              {errorRenombre && <div className="field-error-text" style={{ marginTop: 8 }}>{errorRenombre}</div>}
-            </>
-          ) : confirmandoBorrarId === u.id ? (
-            <>
-              {cargandoPrevisualizacion ? (
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>comprobando uso…</div>
-              ) : previsualizacion ? (
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
-                  {total > 0
-                    ? `"${u.nombre}" tiene ${previsualizacion.num_fotos} foto(s), ${previsualizacion.num_audios} audio(s), ${previsualizacion.num_notas} nota(s), ${previsualizacion.num_hallazgos} hallazgo(s) y ${previsualizacion.num_oportunidades} oportunidad(es) vinculados. Se borrará la ubicación; esos elementos se quedan sin ubicación asignada, no se borran.`
-                    : `"${u.nombre}" no tiene nada vinculado.`}
-                </div>
-              ) : null}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn btn-secondary" onClick={() => setConfirmandoBorrarId(null)} disabled={borrando}>
-                  cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'var(--risk-600)' }}
-                  disabled={borrando || cargandoPrevisualizacion}
-                  onClick={() => confirmarBorrado(u.id)}
-                >
-                  {borrando ? 'Borrando…' : 'Confirmar borrado'}
-                </button>
-              </div>
-              {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
-            </>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--text-sm)' }}>
-                {u.nombre}
-                {!u.sincronizada && <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · guardando…</span>}
-              </span>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRenombrandoId(u.id);
-                    setTextoRenombrar(u.nombre);
-                  }}
-                  style={{ border: 'none', background: 'none', color: 'var(--brand-600)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
-                >
-                  Renombrar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => abrirConfirmacionBorrado(u.id)}
-                  style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
-                >
-                  Borrar
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
