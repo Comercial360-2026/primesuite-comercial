@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { formatearMB, type NivelEspacio } from '@/lib/espacio';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaDato } from '@/components/ui/fila-dato';
-import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { Aviso } from '@/components/ui/aviso';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
@@ -16,8 +18,10 @@ interface ConsumoComercial {
   bytes: number;
 }
 
-function formatearMB(bytes: number) {
-  return (bytes / (1024 * 1024)).toFixed(1);
+function colorBarra(nivel: NivelEspacio | undefined): string {
+  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'var(--risk-600)';
+  if (nivel === 'aviso_equipo') return 'var(--warning-600)';
+  return 'var(--success-600)';
 }
 
 export function ConsumoComerciales() {
@@ -62,15 +66,70 @@ export function ConsumoComerciales() {
       return m;
     },
   });
-  const [pidiendo, setPidiendo] = useState<string | null>(null);
 
-  async function pedirLiberar(comercialId: string) {
-    if (!comercial || pidiendo) return;
-    setPidiendo(comercialId);
-    await supabase
-      .from('aviso_liberar_espacio')
-      .insert({ comercial_id: comercialId, pedido_por: comercial.id });
-    setPidiendo(null);
+  // Modo seleccionar → pedir a varios de una pasada. No hay RPC de lote: es
+  // N× el mismo insert en bucle, con progreso.
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [confirmando, setConfirmando] = useState(false);
+  const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
+  const [resultado, setResultado] = useState<{ tipo: 'exito' | 'atencion'; texto: string } | null>(null);
+  const corriendo = progreso !== null;
+
+  function alternarMarca(id: string) {
+    setMarcadas((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  function entrarSeleccion() {
+    setResultado(null);
+    setSeleccionando(true);
+  }
+
+  function salirSeleccion() {
+    if (corriendo) return;
+    setSeleccionando(false);
+    setMarcadas(new Set());
+    setConfirmando(false);
+  }
+
+  // ¿Se le puede pedir a este comercial? A ti no; a quien ya está avisado y
+  // aún no lo ha mirado, tampoco (sería repetir). Si ya lo miró, sí se
+  // puede volver a pedir.
+  function elegible(c: ConsumoComercial): boolean {
+    if (c.comercial_id === comercial?.id) return false;
+    const u = avisos?.[c.comercial_id];
+    return !(u && !u.atendido_en);
+  }
+
+  async function enviarLote() {
+    if (!comercial) return;
+    const ids = [...marcadas];
+    setConfirmando(false);
+    setProgreso({ hecho: 0, total: ids.length });
+    let ok = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const { error } = await supabase
+        .from('aviso_liberar_espacio')
+        .insert({ comercial_id: ids[i], pedido_por: comercial.id });
+      if (!error) ok++;
+      setProgreso({ hecho: i + 1, total: ids.length });
+    }
+    setProgreso(null);
+    setSeleccionando(false);
+    setMarcadas(new Set());
+    setResultado(
+      ok === ids.length
+        ? {
+            tipo: 'exito',
+            texto: `Se ha pedido a ${ok} compañero${ok === 1 ? '' : 's'} que liberen espacio.`,
+          }
+        : { tipo: 'atencion', texto: `Se envió a ${ok} de ${ids.length}. Inténtalo otra vez con el resto.` }
+    );
     queryClient.invalidateQueries({ queryKey: ['avisos-liberar-pendientes'] });
   }
 
@@ -81,24 +140,42 @@ export function ConsumoComerciales() {
     refetch();
   }
 
+  const hayElegibles = (consumo ?? []).some(elegible);
+  const nombresMarcados = (consumo ?? [])
+    .filter((c) => marcadas.has(c.comercial_id))
+    .map((c) => c.nombre)
+    .join(', ');
+
   return (
     <div className="screen">
       <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" />
 
       <div className="lista-agrupada">
-        {espacioEquipo && (
-          <SeccionLista titulo="Espacio del equipo">
-            <FilaDato
-              etiqueta="Usado"
-              valor={`${formatearMB(espacioEquipo.usadoTotal)} de ${formatearMB(espacioEquipo.presupuesto)} MB (${espacioEquipo.pctEquipo.toFixed(0)}%)`}
-              tono={espacioEquipo.pctEquipo >= 95 ? 'riesgo' : espacioEquipo.pctEquipo >= 85 ? 'aviso' : 'neutral'}
+        {/* Medidor del EQUIPO, igual que en "Mi espacio": es el pozo común
+            lo que manda; la parte por comercial de abajo es orientativa. */}
+        <div className="medidor">
+          <div className="medidor__lb">Espacio del equipo</div>
+          <div className="medidor__barra">
+            <div
+              className="medidor__relleno"
+              style={{
+                width: `${Math.min(espacioEquipo?.pctEquipo ?? 0, 100)}%`,
+                background: colorBarra(espacioEquipo?.nivel),
+              }}
             />
-            <FilaDato
-              etiqueta="Parte orientativa por comercial"
-              valor={`${formatearMB(espacioEquipo.cuotaBase)} MB`}
-            />
-          </SeccionLista>
-        )}
+          </div>
+          <div className="medidor__cifra">
+            {espacioEquipo
+              ? `${Math.round(espacioEquipo.pctEquipo)}% · quedan ${formatearMB(
+                  Math.max(espacioEquipo.presupuesto - espacioEquipo.usadoTotal, 0)
+                )} MB de ${formatearMB(espacioEquipo.presupuesto)} MB · parte orientativa ${formatearMB(
+                  espacioEquipo.cuotaBase
+                )} MB por comercial`
+              : 'Calculando…'}
+          </div>
+        </div>
+
+        {resultado && !seleccionando && <Aviso tipo={resultado.tipo}>{resultado.texto}</Aviso>}
 
         {isLoading ? (
           <EstadoLista estado="cargando" />
@@ -109,42 +186,106 @@ export function ConsumoComerciales() {
         ) : consumo?.length === 0 ? (
           <EstadoLista estado="vacio" mensaje="No hay comerciales activos." />
         ) : (
-          consumo?.map((c) => {
-            const porcentaje = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
-            const esYo = c.comercial_id === comercial?.id;
-            const ultimo = avisos?.[c.comercial_id];
-            const pendiente = !!ultimo && !ultimo.atendido_en;
-            return (
-              <TarjetaAccion
-                key={c.comercial_id}
-                titulo={esYo ? `${c.nombre} · tú` : c.nombre}
-                tono={porcentaje >= 90 ? 'riesgo' : porcentaje >= 70 ? 'aviso' : 'neutral'}
-                accion={
-                  esYo
-                    ? undefined
-                    : {
-                        etiqueta: pendiente ? 'Ya avisado' : 'Pedir que libere espacio',
-                        icono: pendiente ? 'check' : 'solicitudes',
-                        onClick: () => pedirLiberar(c.comercial_id),
-                        disabled: pendiente,
-                        cargando: pidiendo === c.comercial_id,
-                        etiquetaCargando: 'Enviando…',
-                      }
-                }
-              >
-                {cuotaBytes
-                  ? `${formatearMB(c.bytes)} MB de ${formatearMB(cuotaBytes)} MB (${porcentaje.toFixed(0)}%)`
-                  : `${formatearMB(c.bytes)} MB usados`}
-                {!esYo && ultimo && (
-                  <div className="tarjeta-accion__estado">
-                    {pendiente
-                      ? `Avisado el ${fechaCorta(ultimo.creado_en)} — aún no lo ha mirado`
-                      : `Lo miró el ${fechaCorta(ultimo.atendido_en!)}`}
+          <>
+            {!seleccionando && hayElegibles && (
+              <div style={{ display: 'flex', paddingInline: 'var(--fila-pad-x)' }}>
+                <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccion}>
+                  Seleccionar
+                </button>
+              </div>
+            )}
+
+            {seleccionando && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingInline: 'var(--fila-pad-x)' }}>
+                <BarraSeleccion
+                  n={marcadas.size}
+                  onCancelar={salirSeleccion}
+                  acciones={[
+                    {
+                      etiqueta: corriendo
+                        ? `Enviando ${progreso!.hecho} de ${progreso!.total}…`
+                        : `Pedir que liberen (${marcadas.size})`,
+                      icono: 'solicitudes',
+                      onClick: () => setConfirmando(true),
+                      disabled: corriendo || marcadas.size === 0,
+                    },
+                  ]}
+                />
+                {confirmando && (
+                  <div
+                    className="fila-confirmacion"
+                    style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-control)' }}
+                  >
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-900)' }}>
+                      Se enviará un aviso a {marcadas.size} compañero{marcadas.size === 1 ? '' : 's'} ({nombresMarcados})
+                      para que liberen espacio.
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>
+                        Cancelar
+                      </button>
+                      <button className="btn btn-primary" style={{ flex: 1 }} onClick={enviarLote}>
+                        Sí, avisar a {marcadas.size}
+                      </button>
+                    </div>
                   </div>
                 )}
-              </TarjetaAccion>
-            );
-          })
+              </div>
+            )}
+
+            <SeccionLista titulo="Por comercial">
+              {consumo?.map((c) => {
+                const pct = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
+                const mb = formatearMB(c.bytes);
+                const esYo = c.comercial_id === comercial?.id;
+                const ultimo = avisos?.[c.comercial_id];
+                const pendienteSinMirar = !!ultimo && !ultimo.atendido_en;
+
+                let tono: 'neutral' | 'aviso' | 'riesgo' = 'neutral';
+                let texto: string;
+                if (cuotaBytes && pct >= 100) {
+                  tono = 'riesgo';
+                  texto = `⚠ ${mb} MB · ${Math.round(pct)}% — pasado de su parte`;
+                } else if (cuotaBytes && pct >= 85) {
+                  tono = 'aviso';
+                  texto = `⚠ ${mb} MB · ${Math.round(pct)}% — cerca del límite`;
+                } else {
+                  texto = cuotaBytes ? `${mb} MB · ${Math.round(pct)}% de su parte` : `${mb} MB`;
+                }
+
+                if (esYo) texto += ' · eres tú';
+                else if (pendienteSinMirar) texto += ` · avisado ${fechaCorta(ultimo!.creado_en)}, sin mirar`;
+                else if (ultimo?.atendido_en) texto += ` · lo miró ${fechaCorta(ultimo.atendido_en)}`;
+
+                const puedo = elegible(c);
+                const fila = (
+                  <FilaAccion
+                    key={c.comercial_id}
+                    titulo={c.nombre}
+                    subtitulo={texto}
+                    tono={tono}
+                    seleccion={
+                      seleccionando && puedo
+                        ? {
+                            activa: true,
+                            marcada: marcadas.has(c.comercial_id),
+                            onToggle: () => alternarMarca(c.comercial_id),
+                          }
+                        : undefined
+                    }
+                  />
+                );
+
+                return seleccionando && !puedo ? (
+                  <div key={c.comercial_id} style={{ opacity: 0.5 }}>
+                    {fila}
+                  </div>
+                ) : (
+                  fila
+                );
+              })}
+            </SeccionLista>
+          </>
         )}
       </div>
     </div>
