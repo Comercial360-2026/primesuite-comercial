@@ -386,3 +386,28 @@ Los tonos **solo tiñen texto e icono**, nunca ponen fondo de color
   </SeccionLista>
 </div>
 ```
+
+## Iconos en botones
+
+`.btn` (`.btn-primary` / `.btn-secondary`) admite un icono opcional **antes
+del texto**:
+
+```tsx
+<button className="btn btn-primary">
+  <Icono nombre="descargar" /> Descargar informe
+</button>
+```
+
+El icono hereda el color del texto (`currentColor`) y va separado 8 px
+(`--space-2`). Un botón sin icono se ve exactamente igual que antes.
+
+Cuándo lleva icono:
+
+- **Sí** — acción concreta sobre un objeto: descargar, borrar, compartir,
+  añadir, empezar / iniciar. Ayuda a reconocer la acción de un vistazo.
+- **No** — botón genérico de formulario o de diálogo: Guardar, Cancelar,
+  Reintentar, Aceptar, Confirmar. Solo texto.
+
+Para la fila compacta de iconos de una pantalla de detalle (el par
+"descargar / borrar" de `detalle-*`) se usa **`FilaAccion`**, no dos `.btn`
+grandes.
