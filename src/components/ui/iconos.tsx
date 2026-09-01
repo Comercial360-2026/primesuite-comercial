@@ -82,6 +82,18 @@ const registro = {
   // Marca de verificación — "hecho" / "marcar como completado".
   check: <path d="M5 12.5l4 4L19 7" />,
 
+  // Círculo vacío — casilla sin marcar de FilaToggle (modo seleccionar).
+  circulo: <circle cx="12" cy="12" r="8.5" />,
+
+  // Círculo con check — casilla marcada de FilaToggle. El relleno lo pone
+  // el CSS (.fila-toggle--marcada), aquí solo va el trazo.
+  'check-circulo': (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8.5 12.3l2.4 2.4 4.6-5" />
+    </>
+  ),
+
   // Almacenamiento / cuota — cilindro de disco.
   almacenamiento: (
     <>

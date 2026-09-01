@@ -1,4 +1,5 @@
 import { Icono, type NombreIcono } from './iconos';
+import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 
 // Fila de una lista agrupada (dentro de SeccionLista) con un cuerpo
 // —opcionalmente pulsable— y una fila de botones de icono a la derecha
@@ -39,6 +40,10 @@ interface Props {
   /** Desactiva el `onClick` del cuerpo (no las acciones). */
   disabled?: boolean;
   acciones?: AccionFila[];
+  /** Modo seleccionar. Con `activa`, el cuerpo marca/desmarca en vez de su
+   *  `onClick`, y los botones de acción se ocultan. Sin esta prop, o con
+   *  `activa:false`, la fila es exactamente la de hoy. */
+  seleccion?: EstadoSeleccion;
 }
 
 export function FilaAccion({
@@ -50,12 +55,16 @@ export function FilaAccion({
   densidad = 'normal',
   disabled,
   acciones = [],
+  seleccion,
 }: Props) {
+  const seleccionando = seleccion?.activa ?? false;
+
   const clases = [
     'fila',
     'fila--accion',
     densidad === 'compacta' && 'fila--compacta',
     tono !== 'neutral' && `fila--${tono}`,
+    seleccionando && seleccion!.marcada && 'fila--marcada',
   ]
     .filter(Boolean)
     .join(' ');
@@ -64,6 +73,7 @@ export function FilaAccion({
 
   const cuerpo = (
     <>
+      {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
       {icono && (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
@@ -78,7 +88,17 @@ export function FilaAccion({
 
   return (
     <div className={clases}>
-      {onClick ? (
+      {seleccionando ? (
+        <button
+          type="button"
+          className="fila__cuerpo-accion"
+          onClick={seleccion!.onToggle}
+          disabled={disabled}
+          aria-pressed={seleccion!.marcada}
+        >
+          {cuerpo}
+        </button>
+      ) : onClick ? (
         <button type="button" className="fila__cuerpo-accion" onClick={onClick} disabled={disabled}>
           {cuerpo}
         </button>
@@ -86,7 +106,7 @@ export function FilaAccion({
         <div className="fila__cuerpo-accion">{cuerpo}</div>
       )}
 
-      {acciones.length > 0 && (
+      {!seleccionando && acciones.length > 0 && (
         <div className="fila__acciones">
           {acciones.map((a, i) => {
             const claseBtn = [

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icono, type NombreIcono } from './iconos';
+import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 
 // Fila de una lista agrupada (dentro de SeccionLista). Es la pieza que
 // sustituye a la maraña de `<div className="card" onClick={navigate(...)}>`
@@ -32,6 +33,10 @@ interface PropsBase {
   /** Fuerza mostrar/ocultar la flecha ">". Por defecto: visible con `to`. */
   chevron?: boolean;
   disabled?: boolean;
+  /** Modo seleccionar. Con `activa`, la fila deja de navegar/accionar: todo
+   *  el cuerpo marca/desmarca (aparece la casilla, se oculta la flecha).
+   *  Sin esta prop, o con `activa:false`, la fila es exactamente la de hoy. */
+  seleccion?: EstadoSeleccion;
 }
 
 type Props = PropsBase &
@@ -47,22 +52,27 @@ export function FilaNavegable({
   densidad = 'normal',
   chevron,
   disabled,
+  seleccion,
   to,
   onClick,
 }: Props) {
+  const seleccionando = seleccion?.activa ?? false;
+
   const clases = [
     'fila',
     densidad === 'compacta' && 'fila--compacta',
     tono !== 'neutral' && `fila--${tono}`,
+    seleccionando && seleccion!.marcada && 'fila--marcada',
   ]
     .filter(Boolean)
     .join(' ');
 
   const tamIcono = densidad === 'compacta' ? 18 : 20;
-  const mostrarChevron = chevron ?? to != null;
+  const mostrarChevron = !seleccionando && (chevron ?? to != null);
 
   const contenido = (
     <>
+      {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
       {icono && (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
@@ -81,6 +91,22 @@ export function FilaNavegable({
       )}
     </>
   );
+
+  // Modo seleccionar: la fila nunca navega ni ejecuta su acción normal —
+  // todo el cuerpo marca/desmarca. Se dibuja siempre como <button>.
+  if (seleccionando) {
+    return (
+      <button
+        type="button"
+        className={clases}
+        onClick={seleccion!.onToggle}
+        disabled={disabled}
+        aria-pressed={seleccion!.marcada}
+      >
+        {contenido}
+      </button>
+    );
+  }
 
   if (to != null) {
     return (

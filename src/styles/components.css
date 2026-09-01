@@ -147,6 +147,15 @@
   min-height: 44px; padding-top: var(--space-2); padding-bottom: var(--space-2);
 }
 
+/* Modo seleccionar — casilla circular a la izquierda + fondo de fila
+   marcada. La pinta FilaNavegable/FilaAccion cuando recibe `seleccion`. */
+.fila-toggle { flex-shrink: 0; display: flex; color: var(--fila-seleccion); }
+.fila-toggle--marcada { color: var(--fila-seleccion-marcada); }
+.fila--marcada,
+.fila--marcada .fila__cuerpo-accion { background: var(--fila-marcada-bg); }
+.fila--marcada:hover:not(:disabled),
+.fila--marcada button.fila__cuerpo-accion:hover:not(:disabled) { background: var(--fila-marcada-bg); }
+
 .fila__icono { flex-shrink: 0; display: flex; color: var(--fila-icono); }
 .fila__cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fila__titulo { line-height: 1.3; }

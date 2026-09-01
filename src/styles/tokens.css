@@ -76,6 +76,11 @@
   --fila-accion-size: 36px;                 /* caja de un botón de icono de FilaAccion (cómodo en filas compactas de 44px) */
   --seccion-cabecera: var(--ink-400);       /* color del título gris de cada sección */
 
+  /* Modo seleccionar (FilaToggle + prop `seleccion?`). */
+  --fila-seleccion: var(--ink-200);         /* círculo de la casilla sin marcar */
+  --fila-seleccion-marcada: var(--brand-600); /* casilla marcada */
+  --fila-marcada-bg: var(--brand-050);      /* fondo de una fila marcada */
+
   /* Tono de una fila (valor / subtítulo / icono destacados). Sin fondo de
      color: solo tiñe texto e icono, coherente con la regla "sin degradados,
      sin opacity sobre color". neutral = sin tono. */

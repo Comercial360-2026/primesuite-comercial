@@ -196,12 +196,43 @@ falló, reintenta"), que se mantiene como componente propio. Las pantallas
 que aún llaman a `EstadoError` directo migran a `EstadoLista` al entrar en
 su fase.
 
-#### Reservados en el contrato — *no implementados todavía*
+#### `FilaToggle` + prop `seleccion?` — *implementado*
 
-Se construyen cuando la pantalla que los necesita entre en su fase:
+"Modo seleccionar": una lista que normalmente navega pasa a marcar filas
+para una acción en lote (borrar visitas en Mi espacio, cancelar
+planificadas en Agenda). La pantalla lleva el estado (qué ids marcados) y
+lo baja a cada fila.
 
-- Prop `seleccion?: { activa; marcada; onToggle }` en las filas
-  (multi-selección para borrado en lote) y `FilaToggle`.
+Prop opcional en **`FilaNavegable`** y **`FilaAccion`** (no en `FilaDato`,
+que es de solo lectura):
+
+```ts
+interface EstadoSeleccion {
+  activa: boolean;      // el modo seleccionar está encendido en esta lista
+  marcada: boolean;     // esta fila está marcada
+  onToggle: () => void; // marca / desmarca esta fila
+}
+```
+
+Reglas cuando `seleccion.activa`:
+
+- Aparece un `FilaToggle` (círculo) a la izquierda, antes del icono.
+- La fila **no navega ni ejecuta su `onClick`/`to`**: todo el cuerpo llama
+  a `onToggle`. `FilaNavegable` con `to` se dibuja como `<button>` (con
+  `aria-pressed`), no como `<Link>`.
+- La flecha `›` se oculta. En `FilaAccion`, los botones de icono de la
+  derecha se ocultan.
+- Fila marcada → clase `fila--marcada` (fondo `--fila-marcada-bg`, sin
+  tocar el tono).
+- Una fila `disabled` no se puede marcar.
+
+Sin la prop, o con `activa:false`, la fila se comporta **exactamente**
+como antes — el cambio es no-op para todas las llamadas existentes.
+
+`FilaToggle` es solo el dibujo del círculo (`aria-hidden`); no captura el
+clic (lo hace el `<button>` de la fila). Glifos `circulo` / `check-circulo`
+del registro. Se exporta junto a `EstadoSeleccion` por si una lista a
+medida lo necesita.
 
 ### Tokens — bloque "Filas" (`tokens.css`)
 
@@ -215,6 +246,8 @@ Se construyen cuando la pantalla que los necesita entre en su fase:
 | `--fila-chevron` | Color de la flecha `›`. |
 | `--fila-accion-size` | Lado de un botón de icono de `FilaAccion` (`36px`). |
 | `--seccion-cabecera` | Color del título gris de la sección. |
+| `--fila-seleccion` / `--fila-seleccion-marcada` | Círculo de `FilaToggle` sin marcar / marcado. |
+| `--fila-marcada-bg` | Fondo de una fila marcada. |
 | `--fila-tono-aviso` / `--fila-tono-riesgo` / `--fila-tono-ok` | Colores de tono. |
 
 ### Tabla de tonos
