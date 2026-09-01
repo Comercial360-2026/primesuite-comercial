@@ -143,12 +143,9 @@ export function DetalleHallazgo() {
     <div className="screen">
       <CabeceraDetalle
         titulo="Hallazgo"
+        subtitulo={(hallazgo.termino as unknown as { nombre: string })?.nombre ?? undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
-
-      <div className="card">
-        <div className="label" style={{ marginTop: 0 }}>{(hallazgo.termino as unknown as { nombre: string })?.nombre ?? '…'}</div>
-      </div>
 
       <div className="label">naturaleza</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

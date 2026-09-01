@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
 // vía paso-rapido-modal.tsx). Mismo patrón que detalle-hallazgo.tsx:
@@ -173,15 +174,10 @@ export function DetalleProximoPaso() {
       <div style={{ position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
         <CabeceraDetalle
           titulo="Próximo paso"
+          subtitulo={clienteNombre}
           onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
         />
       </div>
-
-      {clienteNombre && (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>{clienteNombre}</div>
-        </div>
-      )}
 
       <div className="label" style={{ marginTop: 0 }}>descripción</div>
       <textarea
@@ -204,33 +200,28 @@ export function DetalleProximoPaso() {
       {error && <div className="field-error-text">{error}</div>}
 
       {cliente && fechaObjetivo && paso.estado !== 'completado' && (
-        <div className="card" style={{ marginTop: 4 }}>
-          {visitaPlanificada ? (
-            <>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
-                Visita planificada para el{' '}
-                {new Date(fechaObjetivo).toLocaleDateString('es-ES')}. Está en la Agenda.
-              </div>
-              <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={marcarHecho}>
-                Marcar este paso como hecho
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-                ¿Es volver a visitar a {clienteNombre}? Planifícala para esa fecha.
-              </div>
-              <button
-                className="btn btn-secondary"
-                disabled={planificando || !descripcion.trim()}
-                onClick={() => planificarVisita(cliente.id)}
-              >
-                {planificando ? 'Planificando…' : 'Planificar visita para esta fecha'}
-              </button>
-              {errorPlan && <div className="field-error-text" style={{ marginTop: 8 }}>{errorPlan}</div>}
-            </>
-          )}
-        </div>
+        visitaPlanificada ? (
+          <TarjetaAccion
+            titulo="Revisita"
+            accion={{ etiqueta: 'Marcar este paso como hecho', onClick: marcarHecho }}
+          >
+            Visita planificada para el {new Date(fechaObjetivo).toLocaleDateString('es-ES')}. Está en la Agenda.
+          </TarjetaAccion>
+        ) : (
+          <TarjetaAccion
+            titulo="¿Volver a visitar?"
+            accion={{
+              etiqueta: 'Planificar visita para esta fecha',
+              onClick: () => planificarVisita(cliente.id),
+              disabled: !descripcion.trim(),
+              cargando: planificando,
+              etiquetaCargando: 'Planificando…',
+            }}
+            error={errorPlan ?? undefined}
+          >
+            ¿Es volver a visitar a {clienteNombre}? Planifícala para esa fecha.
+          </TarjetaAccion>
+        )
       )}
 
       <button

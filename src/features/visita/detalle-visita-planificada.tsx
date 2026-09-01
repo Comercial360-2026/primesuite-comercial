@@ -5,6 +5,9 @@ import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
@@ -164,44 +167,42 @@ export function DetalleVisitaPlanificada() {
 
       {data && (
         <>
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>cliente</div>
-            <div
-              style={{ fontSize: 'var(--text-lg)', fontWeight: 500, cursor: 'pointer' }}
-              onClick={() => navigate(`/clientes/${data.cliente_id}`)}
-            >
-              {data.cliente_nombre} ›
-            </div>
-
-            <div className="label">fecha</div>
-            <div style={{ fontSize: 'var(--text-base)' }}>
-              {fechaVisita!.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-              {horaTexto
-                ? `${horaTexto} (${etiquetaFranja(franja!)})`
-                : franja === 'sin_hora'
-                  ? 'sin hora fija'
-                  : `${etiquetaFranja(franja!)} (sin hora fija)`}
-            </div>
+          <div className="lista-agrupada">
+            <SeccionLista>
+              <FilaNavegable
+                icono="clientes"
+                titulo={data.cliente_nombre}
+                to={`/clientes/${data.cliente_id}`}
+              />
+              <FilaDato
+                etiqueta="Fecha"
+                valor={fechaVisita!.toLocaleDateString('es-ES', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              />
+              <FilaDato
+                etiqueta="Cuándo"
+                valor={
+                  horaTexto
+                    ? `${horaTexto} (${etiquetaFranja(franja!)})`
+                    : franja === 'sin_hora'
+                      ? 'sin hora fija'
+                      : `${etiquetaFranja(franja!)} (sin hora fija)`
+                }
+              />
+              <FilaDato etiqueta="Objetivo" valor={data.objetivo ?? 'sin objetivo definido'} />
+            </SeccionLista>
             {esPasada && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500, marginTop: 4 }}>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500, paddingInline: 'var(--fila-pad-x)' }}>
                 Atrasada — esta visita estaba planificada para una fecha que ya pasó.
               </div>
             )}
             {esHoy && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 4 }}>Es hoy.</div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Es hoy.</div>
             )}
-
-            <div className="label">objetivo</div>
-            <div style={{ fontSize: 'var(--text-base)' }}>
-              {data.objetivo ?? 'sin objetivo definido'}
-            </div>
           </div>
 
           {/* Empezar */}
