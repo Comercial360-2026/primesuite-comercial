@@ -1,20 +1,40 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
-import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
+import {
+  NATURALEZA_ORDEN,
+  NATURALEZA_LABEL,
+  ETAPA_LABEL,
+  PRIORIDAD_LABEL,
+  PRIORIDAD_ORDEN,
+  TIPO_VISITA_LABEL,
+  etiqueta,
+} from '@/lib/etiquetas-visita';
+import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Icono } from '@/components/ui/iconos';
+import { VisorFotos } from './visor-fotos';
 
-// Pantalla de solo lectura para repasar una visita ya cerrada — hasta hoy
-// no existía ninguna: /visita/:id siempre abría VisitaActiva (pensada para
-// captura en curso), así que no había forma de volver a ver fotos, audios,
-// notas, hallazgos u oportunidad de una visita pasada sin "reabrirla".
+// Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
+// informe.pdf y en el mismo orden: cabecera + KPI → resumen → objetivo →
+// oportunidades → hallazgos → próximos pasos → anexo (notas · fotos ·
+// audios) → informe.
 
+interface Foto {
+  id: string;
+  titulo: string | null;
+  url: string | null;
+  ubicacion_nombre: string | null;
+}
 interface DetalleVisita {
   fecha: string;
   tipo_visita: string | null;
@@ -22,62 +42,69 @@ interface DetalleVisita {
   estado_captura: string;
   resumen_texto: string | null;
   cliente_nombre: string;
-  fotos: Array<{ id: string; titulo: string | null; url: string | null; ubicacion_nombre: string | null }>;
+  fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
   hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; termino_nombre: string }>;
-  oportunidades: Array<{ id: string; titulo: string; etapa: string }>;
+  oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string }>;
 }
 
-const URL_FIRMADA_SEGUNDOS = 60 * 10; // 10 min, de sobra para repasar la pantalla.
+const URL_FIRMADA_SEGUNDOS = 60 * 10;
+
+function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
+  if (!p.fecha_objetivo || p.estado !== 'pendiente') return false;
+  const f = new Date(p.fecha_objetivo);
+  f.setHours(0, 0, 0, 0);
+  return f < new Date(new Date().toDateString());
+}
 
 export function DetalleVisitaCerrada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Descargar el informe en PDF de la visita, desde el sitio donde alguien
-  // iría a buscarlo. Misma lógica y mismo botón que en Hoy, la ficha de
-  // cliente y Mi espacio — centralizados en use-descargar-informe.tsx para
-  // que una corrección llegue a los cuatro sitios a la vez.
   const { estadoDe, descargar } = useDescargarInforme();
-  // Borrar la visita se hace desde aquí (no desde cada fila del historial):
-  // al borrarla, se vuelve atrás porque ya no existe.
   const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
+  const [visorIndice, setVisorIndice] = useState<number | null>(null);
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey,
     enabled: !!visitaId,
     queryFn: async (): Promise<DetalleVisita> => {
-      const [{ data: visita, error: errorVisita }, { data: capturas, error: errorCapturas }, { data: hallazgos, error: errorHallazgos }, { data: oportunidades, error: errorOportunidades }, { data: proximosPasos, error: errorProximosPasos }] =
-        await Promise.all([
-          supabase
-            .from('visita')
-            .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
-            .eq('id', visitaId!)
-            .single(),
-          supabase
-            .from('captura_libre')
-            .select('id, tipo, titulo, contenido_texto, storage_path, ubicacion:ubicacion_id(nombre)')
-            .eq('visita_id', visitaId!)
-            .order('creado_en', { ascending: true }),
-          supabase
-            .from('hallazgo')
-            .select('id, nota, naturaleza, termino:termino_id(nombre)')
-            .eq('visita_id', visitaId!)
-            .order('creado_en', { ascending: true }),
-          supabase
-            .from('oportunidad')
-            .select('id, titulo, etapa')
-            .eq('visita_origen_id', visitaId!),
-          supabase
-            .from('proximo_paso')
-            .select('id, descripcion, fecha_objetivo, estado')
-            .eq('visita_id', visitaId!)
-            .order('fecha_objetivo', { ascending: true }),
-        ]);
+      const [
+        { data: visita, error: errorVisita },
+        { data: capturas, error: errorCapturas },
+        { data: hallazgos, error: errorHallazgos },
+        { data: oportunidades, error: errorOportunidades },
+        { data: proximosPasos, error: errorProximosPasos },
+      ] = await Promise.all([
+        supabase
+          .from('visita')
+          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
+          .eq('id', visitaId!)
+          .single(),
+        supabase
+          .from('captura_libre')
+          .select('id, tipo, titulo, contenido_texto, storage_path, ubicacion:ubicacion_id(nombre)')
+          .eq('visita_id', visitaId!)
+          .order('creado_en', { ascending: true }),
+        supabase
+          .from('hallazgo')
+          .select('id, nota, naturaleza, termino:termino_id(nombre)')
+          .eq('visita_id', visitaId!)
+          .order('creado_en', { ascending: true }),
+        supabase
+          .from('oportunidad')
+          .select('id, titulo, etapa, prioridad, valor_estimado')
+          .eq('visita_origen_id', visitaId!),
+        supabase
+          .from('proximo_paso')
+          .select('id, descripcion, fecha_objetivo, estado')
+          .eq('visita_id', visitaId!)
+          .order('fecha_objetivo', { ascending: true }),
+      ]);
 
       if (errorVisita) throw errorVisita;
       if (errorCapturas) throw errorCapturas;
@@ -125,20 +152,73 @@ export function DetalleVisitaCerrada() {
           nota: h.nota,
           termino_nombre: (h.termino as unknown as { nombre: string } | null)?.nombre ?? '',
         })),
-        oportunidades: oportunidades ?? [],
+        oportunidades: (oportunidades ?? []) as DetalleVisita['oportunidades'],
         proximosPasos: proximosPasos ?? [],
       };
     },
   });
 
-  // isPaused: mismo patrón corregido hoy en el resto de la app.
   const sinConexion = isPaused && data === undefined;
   function reintentar() {
     queryClient.resetQueries({ queryKey });
     refetch();
   }
 
-  const estadoLegible: Record<string, string> = { en_curso: 'en curso', consolidada: 'cerrada', agendada: 'planificada' };
+  const estadoLegible: Record<string, string> = {
+    en_curso: 'en curso',
+    consolidada: 'cerrada',
+    agendada: 'planificada',
+  };
+
+  // --- Derivados (solo con datos) ---
+  const opsOrdenadas = data
+    ? [...data.oportunidades].sort((a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9))
+    : [];
+  const totalEuros = data ? data.oportunidades.reduce((s, o) => s + (o.valor_estimado ?? 0), 0) : 0;
+  const riesgosN = data ? data.hallazgos.filter((h) => h.naturaleza === 'riesgo').length : 0;
+  const vencidosN = data ? data.proximosPasos.filter(esVencido).length : 0;
+
+  const conocidas = new Set<string>(NATURALEZA_ORDEN);
+  const gruposHallazgos: { naturaleza: string; items: DetalleVisita['hallazgos'] }[] = data
+    ? [
+        ...NATURALEZA_ORDEN.map((n) => ({
+          naturaleza: n as string,
+          items: data.hallazgos.filter((h) => h.naturaleza === n),
+        })).filter((g) => g.items.length > 0),
+        ...(() => {
+          const otras = data.hallazgos.filter((h) => !conocidas.has(h.naturaleza));
+          return otras.length ? [{ naturaleza: otras[0].naturaleza, items: otras }] : [];
+        })(),
+      ]
+    : [];
+
+  const fotosPorUbi = new Map<string, { foto: Foto; idx: number }[]>();
+  data?.fotos.forEach((foto, idx) => {
+    const k = foto.ubicacion_nombre ?? 'Sin ubicación asignada';
+    const lista = fotosPorUbi.get(k) ?? [];
+    lista.push({ foto, idx });
+    fotosPorUbi.set(k, lista);
+  });
+
+  const kpis: { texto: string; alerta: boolean }[] = [];
+  if (totalEuros > 0) kpis.push({ texto: `${totalEuros.toLocaleString('es-ES')} € en oportunidades`, alerta: false });
+  if (riesgosN > 0) kpis.push({ texto: `${riesgosN} riesgo${riesgosN === 1 ? '' : 's'}`, alerta: true });
+  if (vencidosN > 0)
+    kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
+
+  const estadoDescarga = visitaId ? estadoDe(visitaId) : 'inactivo';
+  const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+
+  const sinNada =
+    !!data &&
+    !data.resumen_texto &&
+    !data.objetivo?.trim() &&
+    !data.notas.length &&
+    !data.fotos.length &&
+    !data.audios.length &&
+    !data.hallazgos.length &&
+    !data.oportunidades.length &&
+    !data.proximosPasos.length;
 
   return (
     <div className="screen screen--split">
@@ -146,166 +226,245 @@ export function DetalleVisitaCerrada() {
         titulo={data?.cliente_nombre ?? 'visita'}
         subtitulo={
           data
-            ? `${fechaCorta(data.fecha)}${data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · ${
-                estadoLegible[data.estado_captura] ?? data.estado_captura
-              }`
+            ? `${fechaCorta(data.fecha)}${
+                data.tipo_visita ? ` · ${etiqueta(TIPO_VISITA_LABEL, data.tipo_visita).toLowerCase()}` : ''
+              } · ${estadoLegible[data.estado_captura] ?? data.estado_captura}`
             : undefined
         }
       />
 
       {isLoading && <EstadoLista estado="cargando" />}
-
       {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
-
       {isError && <EstadoLista estado="error" mensaje="No se pudo cargar la visita." onReintentar={reintentar} />}
 
       {data && (
-        <div className="screen__scroll">
-          {data.objetivo?.trim() && (
-            <div className="card" style={{ background: 'var(--surface-1)' }}>
-              <div className="label" style={{ marginTop: 0 }}>objetivo de la visita</div>
-              <div style={{ fontSize: 'var(--text-base)' }}>{data.objetivo}</div>
+        <div className="screen__scroll" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {kpis.length > 0 && (
+            <div className="dvc-kpis">
+              {kpis.map((k) => (
+                <span key={k.texto} className={`dvc-kpi${k.alerta ? ' dvc-kpi--alerta' : ''}`}>
+                  {k.alerta && <Icono nombre="atencion" size={12} />}
+                  {k.texto}
+                </span>
+              ))}
             </div>
           )}
 
-          {data.resumen_texto && (
-            <div className="card">
-              <div className="label" style={{ marginTop: 0 }}>resumen</div>
-              <div style={{ fontSize: 'var(--text-base)' }}>{data.resumen_texto}</div>
+          {sinNada && (
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
+              Esta visita no tiene ninguna captura registrada.
             </div>
           )}
 
-          {data.notas.length > 0 && (
-            <>
-              <div className="label">notas ({data.notas.length})</div>
-              {data.notas.map((n) => (
-                <div key={n.id} className="card">
-                  {n.titulo && <div style={{ fontWeight: 500 }}>{n.titulo}</div>}
-                  <div style={{ fontSize: 'var(--text-sm)' }}>{n.contenido_texto}</div>
+          {/* Resumen — primero y destacado, como en el informe. */}
+          {!sinNada && (
+            <div className="dvc-bloque dvc-bloque--resumen">
+              <div className="dvc-bloque__lb">Resumen</div>
+              {data.resumen_texto ? (
+                <div className="dvc-bloque__texto">{data.resumen_texto}</div>
+              ) : (
+                <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
+                  Sin resumen registrado.
                 </div>
-              ))}
-            </>
+              )}
+            </div>
           )}
 
-          {data.fotos.length > 0 && (
-            <>
-              <div className="label">fotos ({data.fotos.length})</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
-                {data.fotos.map((f) =>
-                  f.url ? (
-                    <div key={f.id}>
-                      <img src={f.url} alt={f.titulo ?? 'foto'} style={{ width: '100%', borderRadius: 10, display: 'block' }} />
-                      {(f.titulo || f.ubicacion_nombre) && (
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                          {f.titulo}
-                          {f.titulo && f.ubicacion_nombre && ' · '}
-                          {f.ubicacion_nombre}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div key={f.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      {f.titulo ?? 'foto no disponible'}
-                      {f.ubicacion_nombre && ` · ${f.ubicacion_nombre}`}
-                    </div>
-                  )
-                )}
-              </div>
-            </>
-          )}
-
-          {data.audios.length > 0 && (
-            <>
-              <div className="label">audios ({data.audios.length})</div>
-              {data.audios.map((a) => (
-                <div key={a.id} className="card">
-                  {a.titulo && <div style={{ fontSize: 'var(--text-sm)', marginBottom: 6 }}>{a.titulo}</div>}
-                  {a.url ? (
-                    <audio controls src={a.url} style={{ width: '100%' }} />
-                  ) : (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>audio no disponible</div>
-                  )}
+          {!sinNada && (
+            <div className="dvc-bloque">
+              <div className="dvc-bloque__lb">Objetivo de la visita</div>
+              {data.objetivo?.trim() ? (
+                <div className="dvc-bloque__texto">{data.objetivo}</div>
+              ) : (
+                <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
+                  Sin objetivo registrado.
                 </div>
-              ))}
-            </>
+              )}
+            </div>
           )}
 
-          {data.hallazgos.length > 0 && (
-            <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
-              {data.hallazgos.map((h) => (
-                <FilaNavegable
-                  key={h.id}
-                  titulo={h.termino_nombre || 'Hallazgo'}
-                  subtitulo={h.nota ?? undefined}
-                  valor={h.naturaleza}
-                  tono={h.naturaleza === 'riesgo' ? 'riesgo' : h.naturaleza === 'oportunidad' ? 'ok' : 'neutral'}
-                  to={`/hallazgos/${h.id}`}
-                />
-              ))}
-            </SeccionLista>
-          )}
-
-          {data.oportunidades.length > 0 && (
-            <SeccionLista titulo={`Oportunidades originadas (${data.oportunidades.length})`}>
-              {data.oportunidades.map((o) => (
+          {opsOrdenadas.length > 0 && (
+            <SeccionLista titulo={`Oportunidades (${opsOrdenadas.length})`}>
+              {opsOrdenadas.map((o) => (
                 <FilaNavegable
                   key={o.id}
                   titulo={o.titulo}
-                  valor={o.etapa}
+                  subtitulo={`${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`}
+                  valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
                   to={`/oportunidades/${o.id}`}
                 />
               ))}
+              {totalEuros > 0 && <FilaDato etiqueta="Total estimado" valor={`${totalEuros.toLocaleString('es-ES')} €`} />}
+            </SeccionLista>
+          )}
+
+          {gruposHallazgos.length > 0 && (
+            <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
+              {gruposHallazgos.flatMap((g) => [
+                <div
+                  key={`sub-${g.naturaleza}`}
+                  className={`seccion-lista__subcabecera${g.naturaleza === 'riesgo' ? ' seccion-lista__subcabecera--riesgo' : ''}`}
+                >
+                  {g.naturaleza === 'riesgo' && <Icono nombre="atencion" size={12} />}{' '}
+                  {etiqueta(NATURALEZA_LABEL, g.naturaleza)} ({g.items.length})
+                </div>,
+                ...g.items.map((h) => (
+                  <FilaNavegable
+                    key={h.id}
+                    titulo={h.termino_nombre || 'Hallazgo'}
+                    subtitulo={h.nota ?? undefined}
+                    tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
+                    to={`/hallazgos/${h.id}`}
+                  />
+                )),
+              ])}
             </SeccionLista>
           )}
 
           {data.proximosPasos.length > 0 && (
             <SeccionLista titulo={`Próximos pasos (${data.proximosPasos.length})`}>
-              {data.proximosPasos.map((p) => (
-                <FilaNavegable
-                  key={p.id}
-                  titulo={p.descripcion}
-                  subtitulo={
-                    p.fecha_objetivo
-                      ? `${fechaCorta(p.fecha_objetivo)} · ${p.estado}`
-                      : p.estado
-                  }
-                  to={`/proximos-pasos/${p.id}`}
-                />
-              ))}
+              {data.proximosPasos.map((p) => {
+                const vencido = esVencido(p);
+                return (
+                  <FilaNavegable
+                    key={p.id}
+                    titulo={p.descripcion}
+                    tono={vencido ? 'riesgo' : 'neutral'}
+                    valor={
+                      vencido ? (
+                        <span style={{ color: 'var(--danger-600)', fontWeight: 600 }}>
+                          Vencido{p.fecha_objetivo ? ` · ${fechaCorta(p.fecha_objetivo)}` : ''}
+                        </span>
+                      ) : p.fecha_objetivo ? (
+                        fechaCorta(p.fecha_objetivo)
+                      ) : undefined
+                    }
+                    to={`/proximos-pasos/${p.id}`}
+                  />
+                );
+              })}
             </SeccionLista>
           )}
 
-          {!data.resumen_texto &&
-            !data.notas.length &&
-            !data.fotos.length &&
-            !data.audios.length &&
-            !data.hallazgos.length &&
-            !data.oportunidades.length &&
-            !data.proximosPasos.length && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-                Esta visita no tiene ninguna captura registrada.
+          {data.notas.length > 0 && (
+            <div>
+              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+                Anexo · Notas ({data.notas.length})
               </div>
-            )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {data.notas.map((n) => (
+                  <div key={n.id} className="dvc-bloque">
+                    {n.titulo && <div style={{ fontWeight: 500, marginBottom: 2 }}>{n.titulo}</div>}
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>
+                      {n.contenido_texto}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data.fotos.length > 0 && (
+            <div>
+              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+                Anexo · Fotos ({data.fotos.length})
+              </div>
+              {[...fotosPorUbi.entries()].map(([ubi, lista]) => (
+                <div key={ubi} style={{ marginBottom: 8 }}>
+                  <div className="dvc-fotos-ubi">{ubi}</div>
+                  <div className="dvc-fotos-grid">
+                    {lista.map(({ foto, idx }) =>
+                      foto.url ? (
+                        <button key={foto.id} type="button" onClick={() => setVisorIndice(idx)} aria-label={foto.titulo ?? 'ver foto'}>
+                          <img src={foto.url} alt={foto.titulo ?? 'foto'} />
+                        </button>
+                      ) : (
+                        <div key={foto.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', alignSelf: 'center' }}>
+                          {foto.titulo ?? 'no disponible'}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {data.audios.length > 0 && (
+            <div>
+              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+                Anexo · Audios ({data.audios.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {data.audios.map((a) => (
+                  <div key={a.id} className="dvc-bloque">
+                    {a.titulo && <div style={{ fontSize: 'var(--text-sm)', marginBottom: 6 }}>{a.titulo}</div>}
+                    {a.url ? (
+                      <audio controls src={a.url} style={{ width: '100%' }} />
+                    ) : (
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>audio no disponible</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visitaId && (
+            <SeccionLista>
+              <FilaAccion
+                densidad="compacta"
+                titulo="Informe de la visita (PDF)"
+                subtitulo={
+                  descargaLista
+                    ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                    : estadoDescarga === 'generando'
+                      ? 'Generando el PDF…'
+                      : estadoDescarga === 'error'
+                        ? 'No se pudo generar, toca de nuevo'
+                        : 'Descárgalo o pásalo a otras áreas'
+                }
+                acciones={[
+                  {
+                    icono: 'descargar',
+                    etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
+                    onClick: descargaLista ? undefined : () => descargar(visitaId),
+                    href: descargaLista ? descargaLista.url : undefined,
+                    disabled: estadoDescarga === 'generando',
+                    tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
+                  },
+                ]}
+              />
+            </SeccionLista>
+          )}
         </div>
       )}
 
       {data && visitaId && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ marginTop: 4 }}>
           {borrar.visitaBorrarId === visitaId ? (
             <ConfirmarBorradoVisita ctrl={borrar} />
           ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <BotonDescargarInforme estado={estadoDe(visitaId)} onDescargar={() => descargar(visitaId)} />
-              <button
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '0 16px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+            <SeccionLista>
+              <FilaNavegable
+                icono="borrar"
+                titulo="Borrar esta visita"
+                tono="riesgo"
+                chevron={false}
                 onClick={() => void borrar.pedir(visitaId)}
-              >
-                Borrar
-              </button>
-            </div>
+              />
+            </SeccionLista>
           )}
         </div>
+      )}
+
+      {visorIndice != null && data && (
+        <VisorFotos
+          fotos={data.fotos}
+          indice={visorIndice}
+          onCerrar={() => setVisorIndice(null)}
+          onCambiar={setVisorIndice}
+        />
       )}
     </div>
   );

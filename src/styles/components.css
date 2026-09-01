@@ -186,6 +186,74 @@ body {
 .aviso--exito { border-left-color: var(--success-600); }
 .aviso--exito .aviso__icono, .aviso--exito .aviso__etiqueta { color: var(--success-600); }
 
+/* Visor de fotos a pantalla completa (detalle de visita cerrada). Fondo
+   casi negro sólido — una foto se ve mejor sobre oscuro y no rompe la
+   regla "sin transparencias" (es un color, no opacity). Ver
+   src/features/visita/visor-fotos.tsx. */
+.visor-fotos {
+  position: fixed; inset: 0; z-index: 30;
+  background: var(--ink-900);
+  display: flex; align-items: center; justify-content: center;
+  touch-action: pan-y;
+}
+.visor-fotos__img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.visor-fotos__nodisp { color: var(--ink-200); font-size: var(--text-sm); }
+.visor-fotos__cerrar {
+  position: absolute; top: 6px; right: 8px;
+  border: none; background: none; color: var(--surface-1);
+  font-size: 28px; line-height: 1; padding: 6px; cursor: pointer;
+}
+.visor-fotos__inferior {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: var(--space-3) var(--space-4);
+  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+}
+.visor-fotos__pie { color: var(--surface-1); font-size: var(--text-sm); text-align: center; }
+.visor-fotos__nav { display: flex; align-items: center; gap: var(--space-5); }
+.visor-fotos__nav button {
+  border: none; background: none; color: var(--surface-1);
+  display: flex; padding: var(--space-2); cursor: pointer;
+}
+.visor-fotos__nav button:disabled { color: var(--ink-700); cursor: default; }
+.visor-fotos__cuenta { color: var(--surface-1); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.visor-fotos__flecha-izq { display: flex; transform: scaleX(-1); }
+
+/* Fotos del detalle de visita cerrada — rejilla uniforme, todas recortadas
+   igual (object-fit: cover), agrupadas por ubicación. */
+.dvc-fotos-ubi { font-size: var(--text-xs); font-weight: 500; padding: 2px var(--fila-pad-x) 4px; }
+.dvc-fotos-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.dvc-fotos-grid button {
+  aspect-ratio: 1; padding: 0; border: none; border-radius: var(--radius-field);
+  overflow: hidden; background: var(--ink-100); cursor: pointer;
+  position: relative; display: block;
+}
+.dvc-fotos-grid img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
+/* Banda de KPI del detalle de visita cerrada — una línea de chips, solo
+   los datos que aplican. Los ⚠ dan la pista sin depender del color. */
+.dvc-kpis { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 var(--fila-pad-x); }
+.dvc-kpi {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px; border-radius: var(--radius-chip);
+  border: 1px solid var(--ink-200); font-size: var(--text-xs); color: var(--ink-700);
+}
+.dvc-kpi--alerta { border-color: var(--danger-600); color: var(--danger-600); }
+
+/* Bloque de texto del detalle (resumen destacado / objetivo). */
+.dvc-bloque {
+  background: var(--surface-1); border: 1px solid var(--ink-100);
+  border-radius: var(--radius-control); padding: var(--space-3) var(--space-4);
+}
+.dvc-bloque--resumen { border-left: 3px solid var(--brand-600); }
+.dvc-bloque__lb { font-size: var(--text-xs); color: var(--ink-400); }
+.dvc-bloque--resumen .dvc-bloque__lb {
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--brand-600);
+}
+.dvc-bloque__texto { font-size: var(--text-base); margin-top: 4px; line-height: 1.4; }
+
 /* Medidor de espacio del equipo (pantalla Mi espacio). Barra con
    presencia, no un sliver; cifra en positivo. */
 .medidor {
@@ -275,6 +343,11 @@ body {
   font-size: var(--text-xs); color: var(--seccion-cabecera);
 }
 .seccion-lista__subcabecera:first-child { border-top: none; }
+.seccion-lista__subcabecera--riesgo {
+  color: var(--risk-600); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em;
+  display: flex; align-items: center; gap: 4px;
+}
 
 .fila {
   display: flex; align-items: center; gap: var(--space-3);
