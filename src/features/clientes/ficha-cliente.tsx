@@ -15,6 +15,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { FilaAccion } from '@/components/ui/fila-accion';
+import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 
 interface OportunidadActiva {
   id: string;
@@ -381,7 +382,7 @@ export function FichaCliente() {
         volverA="/clientes"
         derecha={
           <>
-            {semaforo && <span className={`chip chip--${semaforo.semaforo}`}>{semaforo.semaforo}</span>}
+            {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
             {!confirmandoBorrarCliente && (
               <button
                 className="btn btn-secondary"

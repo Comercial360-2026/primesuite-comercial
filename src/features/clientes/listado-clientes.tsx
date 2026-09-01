@@ -6,6 +6,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -167,7 +168,7 @@ export function ListadoClientes() {
                   key={c.cliente_id}
                   titulo={c.cliente_nombre}
                   subtitulo={subtitulo}
-                  valor={<span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>}
+                  valor={<EtiquetaSemaforo valor={c.semaforo} />}
                   to={`/clientes/${c.cliente_id}`}
                 />
               );
