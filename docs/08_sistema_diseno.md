@@ -143,6 +143,38 @@ Usa el icono `atras` del registro (flecha con asta, no un chevron: es
 
 Prioridad de la vuelta: `onVolver` → `volverA` → `navigate(-1)`.
 
+#### `TarjetaAccion` — *implementado*
+
+Bloque informativo + **un** botón de acción. Sustituye al patrón
+`<div className="card">` con `.label`, un cuerpo de texto/cifras y un
+`<button className="btn btn-secondary">` montado a mano (el medidor de
+espacio y la copia de seguridad de **Yo**). No es una fila: es una tarjeta
+con caja, para contenido que debe destacar (una cifra grande, un aviso) y
+que lleva su propia acción. Las listas de accesos/datos siguen siendo
+`SeccionLista` + filas.
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `titulo` | `string` | Cabecera pequeña gris (la `.label` de arriba). |
+| `children` | `ReactNode` | Cuerpo: texto, cifras, una barra fina… Para la línea de estado que el tono debe teñir, usar `<div className="tarjeta-accion__estado">`. |
+| `tono` | `'neutral' \| 'aviso' \| 'riesgo'` | Por defecto `neutral`. Tiñe **borde + título + `tarjeta-accion__estado`**. No hay `ok` (una tarjeta con acción nunca es "todo correcto"). |
+| `accion` | `AccionTarjeta?` | El botón único, abajo. Sin `accion` = tarjeta solo informativa. |
+| `error` | `string?` | Línea de error bajo el botón (`field-error-text`). |
+
+`AccionTarjeta`:
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `etiqueta` | `string` | Texto del botón. |
+| `onClick` | `() => void` | |
+| `disabled` | `boolean?` | |
+| `cargando` | `boolean?` | Deshabilita el botón y muestra `etiquetaCargando`. |
+| `etiquetaCargando` | `string?` | Por defecto `"Un momento…"`. |
+
+Sin `href` (las descargas de **Yo** generan el blob en JS, no navegan). Si
+alguna tarjeta necesitase descargar tras un `await`, se añade igual que en
+`AccionFila`.
+
 #### `EstadoLista` — *implementado*
 
 Los cuatro estados "no hay lista que pintar" en un solo componente:
@@ -168,10 +200,8 @@ su fase.
 
 Se construyen cuando la pantalla que los necesita entre en su fase:
 
-- `TarjetaAccion` — bloque informativo + 1 botón (p. ej. la copia de
-  seguridad, el medidor de espacio).
 - Prop `seleccion?: { activa; marcada; onToggle }` en las filas
-  (multi-selección para borrado) y `FilaToggle`.
+  (multi-selección para borrado en lote) y `FilaToggle`.
 
 ### Tokens — bloque "Filas" (`tokens.css`)
 

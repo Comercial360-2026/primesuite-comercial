@@ -8,6 +8,7 @@ import { obtenerOperacionesConError } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
 const DIAS_AVISO_BACKUP = 7;
@@ -203,12 +204,12 @@ export function Yo() {
   });
 
   const porcentajeUsado = bytesUsados != null ? (bytesUsados / LIMITE_STORAGE_BYTES) * 100 : null;
-  const colorAviso =
+  const tonoEspacio =
     porcentajeUsado == null || porcentajeUsado < 70
-      ? 'var(--ink-400)'
+      ? 'neutral'
       : porcentajeUsado < 90
-        ? 'var(--warning-600)'
-        : 'var(--risk-600)';
+        ? 'aviso'
+        : 'riesgo';
 
   async function cerrarSesion() {
     setCerrando(true);
@@ -278,25 +279,33 @@ export function Yo() {
         </SeccionLista>
 
         {esDireccionComercial && bytesUsados != null && (
-          <div className="card" style={{ borderColor: colorAviso }}>
-            <div className="label" style={{ marginTop: 0 }}>Espacio de almacenamiento</div>
-            <div style={{ fontSize: 'var(--text-base)', color: colorAviso }}>
+          <TarjetaAccion titulo="Espacio de almacenamiento" tono={tonoEspacio}>
+            <div style={{ fontSize: 'var(--text-base)' }}>
               {formatearMB(bytesUsados)} MB de 1024 MB usados ({porcentajeUsado!.toFixed(0)}%)
             </div>
             {porcentajeUsado! >= 70 && (
-              <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 4 }}>
+              <div className="tarjeta-accion__estado">
                 {porcentajeUsado! >= 90
                   ? 'Crítico — actúa pronto o los comerciales no podrán subir fotos ni audios.'
                   : 'Acercándose al límite del plan gratuito de Supabase.'}
               </div>
             )}
-          </div>
+          </TarjetaAccion>
         )}
 
         {esDireccionComercial && (
-          <div className="card" style={{ borderColor: backupPendiente ? 'var(--warning-600)' : undefined }}>
-            <div className="label" style={{ marginTop: 0 }}>Copia de seguridad completa</div>
-            <div style={{ fontSize: 'var(--text-sm)', color: backupPendiente ? 'var(--warning-600)' : 'var(--ink-400)' }}>
+          <TarjetaAccion
+            titulo="Copia de seguridad completa"
+            tono={backupPendiente ? 'aviso' : 'neutral'}
+            accion={{
+              etiqueta: 'Hacer copia completa ahora',
+              onClick: hacerCopiaCompleta,
+              cargando: exportando,
+              etiquetaCargando: 'Preparando copia…',
+            }}
+            error={errorExportacion ?? undefined}
+          >
+            <div>
               {diasDesdeBackup === null
                 ? 'Todavía no has hecho ninguna copia completa.'
                 : diasDesdeBackup === 0
@@ -304,20 +313,11 @@ export function Yo() {
                   : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
             </div>
             {backupPendiente && (
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginTop: 4 }}>
+              <div className="tarjeta-accion__estado">
                 Supabase gratuito no hace copias automáticas — te recomendamos descargar una ahora.
               </div>
             )}
-            <button
-              className="btn btn-secondary"
-              style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-              disabled={exportando}
-              onClick={hacerCopiaCompleta}
-            >
-              {exportando ? 'Preparando copia…' : 'Hacer copia completa ahora'}
-            </button>
-            {errorExportacion && <div className="field-error-text" style={{ marginTop: 8 }}>{errorExportacion}</div>}
-          </div>
+          </TarjetaAccion>
         )}
 
         {esDireccionComercial && (
