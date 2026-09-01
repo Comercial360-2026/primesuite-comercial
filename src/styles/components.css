@@ -150,6 +150,34 @@ body { margin: 0; background: var(--surface-0); }
   font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
+/* Aviso — mensaje con jerarquía. Icono de forma propia + palabra de tipo +
+   texto; el color solo refuerza (el usuario es daltónico). Ver
+   src/components/ui/aviso.tsx y 08_sistema_diseno.md §"Mensajes (Aviso)". */
+.aviso {
+  display: flex; gap: var(--space-2); align-items: flex-start;
+  padding: var(--space-3); box-sizing: border-box;
+  border: 1px solid var(--ink-200); border-left-width: 3px;
+  border-radius: var(--radius-field);
+  background: var(--surface-1);
+  font-size: var(--text-sm); color: var(--ink-900);
+}
+.aviso__icono { flex-shrink: 0; display: flex; margin-top: 1px; }
+.aviso__cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aviso__etiqueta {
+  font-size: var(--text-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.aviso__texto { line-height: 1.35; }
+
+.aviso--info { border-left-color: var(--brand-600); }
+.aviso--info .aviso__icono, .aviso--info .aviso__etiqueta { color: var(--brand-600); }
+.aviso--atencion { border-left-color: var(--warning-600); }
+.aviso--atencion .aviso__icono, .aviso--atencion .aviso__etiqueta { color: var(--warning-600); }
+.aviso--error { border-left-color: var(--danger-600); }
+.aviso--error .aviso__icono, .aviso--error .aviso__etiqueta { color: var(--danger-600); }
+.aviso--exito { border-left-color: var(--success-600); }
+.aviso--exito .aviso__icono, .aviso--exito .aviso__etiqueta { color: var(--success-600); }
+
 /* Sistema de filas — SeccionLista + FilaNavegable.
    Todo el aspecto sale del bloque "Filas" de tokens.css; aquí solo se
    ensambla. Ver 08_sistema_diseno.md §"Sistema de filas". */

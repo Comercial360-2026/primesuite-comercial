@@ -20,6 +20,7 @@ import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
 // Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
@@ -981,9 +982,9 @@ export function VisitaActiva() {
                   <div className="field-error-text">{capturaFoto.error || capturaAudio.error}</div>
                 )}
                 {grabando && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                    Grabando… no bloquees la pantalla ni cambies de app o se cortará.
-                  </div>
+                  <Aviso tipo="atencion" titulo="Grabando">
+                    No bloquees la pantalla ni cambies de app o la grabación se cortará.
+                  </Aviso>
                 )}
               </>
             )}
@@ -1157,9 +1158,9 @@ export function VisitaActiva() {
       {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
       {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
       {grabando && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-          Grabando… no bloquees la pantalla ni cambies de app o se cortará.
-        </div>
+        <Aviso tipo="atencion" titulo="Grabando">
+          No bloquees la pantalla ni cambies de app o la grabación se cortará.
+        </Aviso>
       )}
 
       {notaAbierta && (

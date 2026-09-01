@@ -348,6 +348,11 @@ Los tonos **solo tiñen texto e icono**, nunca ponen fondo de color
 | `riesgo` | `--danger-600` | icono, `valor`, `badge` **y el título** | Grave / destructivo (p. ej. "Cerrar sesión", "N sin sincronizar"). |
 | `ok` | `--success-600` | icono, `valor`, `badge` | Confirmación positiva. |
 
+El tono **no puede ser la única señal** (el usuario es daltónico, ver
+§"Color y accesibilidad"): una fila con tono `aviso`/`riesgo`/`ok` debe
+llevar además un icono o un `badge` con texto que la distinga de una fila
+neutral.
+
 ### Reglas de estilo
 
 - Cabeceras de sección **en frase**, no en Mayúsculas Iniciales.
@@ -447,3 +452,50 @@ Reglas:
   opaco.
 - El contenido interno usa los componentes normales (`.field`, `.btn`,
   `.chip`, `SeccionLista`…). `Modal` solo pone el marco y la cabecera.
+
+## Color y accesibilidad — nada se entiende solo por el color
+
+El usuario principal es **daltónico** (rojo/verde). Regla no negociable:
+**el color nunca es la única señal**. Cada punto donde el color carga
+significado lleva además una segunda pista — forma de icono, palabra,
+negrita o posición.
+
+Dónde aplica y con qué segunda pista:
+
+| Punto | Color | Segunda pista |
+|---|---|---|
+| Semáforo del cliente | verde / amarillo / rojo | `EtiquetaSemaforo`: icono de forma propia (✓ / – / △) + palabra ("Al día" / "Seguimiento" / "En riesgo") |
+| Mensajes (`Aviso`) | azul / ámbar / rojo / verde | icono de forma propia + palabra de tipo ("ATENCIÓN"…) |
+| Tono de fila (`aviso` / `riesgo` / `ok`) | ámbar / rojo / verde | **la fila también debe llevar** un icono o un `badge` con texto que la distinga; el tono por sí solo no basta |
+| "Oportunidad" (rojo `--signal-600`) | rojo | icono `oportunidad` (destello) delante del texto |
+| Error de campo (`.field-error-text`) | rojo | va pegado al campo que falla + texto que dice qué corregir |
+
+Si al añadir un elemento nuevo el único modo de leerlo es "porque es
+rojo" o "porque es verde", falta la segunda pista.
+
+## Mensajes (`Aviso`)
+
+Un componente, `Aviso` (`src/components/ui/aviso.tsx`), para los mensajes
+de pantalla (avisos, errores, confirmaciones). Sustituye a los
+`<div style={{fontSize:'var(--text-xs)', color:'var(--ink-400)'}}>` sueltos
+—gris minúsculo, se perdían— repartidos por el flujo de la visita.
+
+```tsx
+<Aviso tipo="atencion" titulo="Grabando">
+  No bloquees la pantalla ni cambies de app o la grabación se cortará.
+</Aviso>
+```
+
+| Prop | Tipo | Notas |
+|---|---|---|
+| `tipo` | `'info' \| 'atencion' \| 'error' \| 'exito'` | Por defecto `info`. Fija el icono, la palabra y el color de acento. |
+| `titulo` | `string?` | Reemplaza la palabra de tipo por defecto ("Atención"…). |
+| `children` | `ReactNode` | El texto del mensaje. |
+
+- Cada tipo tiene un **icono de forma distinta** (ℹ / △ / ⊗ / ✓) y una
+  **palabra** ("INFO" / "ATENCIÓN" / "ERROR" / "HECHO"): se distinguen sin
+  ver el color.
+- Tamaño `--text-sm` (no `--text-xs`): un aviso tiene que verse.
+- `role="alert"` para `error`, `role="status"` para el resto.
+- Para el error corto pegado a un campo de formulario se sigue usando
+  `.field-error-text` (no un `Aviso` con caja).
