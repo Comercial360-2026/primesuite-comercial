@@ -7,6 +7,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
+import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -106,9 +107,7 @@ export function ListadoClientes() {
 
   return (
     <div className="screen screen--split">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Clientes</h1>
-      </div>
+      <CabeceraSeccion titulo="Clientes" icono="clientes" />
 
       <input
         className="field"

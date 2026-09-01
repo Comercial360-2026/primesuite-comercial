@@ -7,6 +7,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 
 interface ProximoPaso {
   id: string;
@@ -126,7 +127,7 @@ export function MisProximosPasos() {
 
   return (
     <div className="screen">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Mis próximos pasos</h1>
+      <CabeceraSeccion titulo="Mis próximos pasos" icono="tareas" />
 
       <div style={{ display: 'flex', gap: 6 }}>
         <button

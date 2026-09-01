@@ -8,6 +8,7 @@ import { obtenerOperacionesConError } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
 const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
@@ -233,7 +234,7 @@ export function Yo() {
 
   return (
     <div className="screen">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Yo</h1>
+      <CabeceraSeccion titulo="Yo" icono="yo" />
 
       <div className="lista-agrupada">
         <div style={{ paddingInline: 'var(--fila-pad-x)' }}>

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -270,7 +271,7 @@ export function AgendaDelDia() {
 
   return (
     <div className="screen screen--split">
-      <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hoy</h1>
+      <CabeceraSeccion titulo="Hoy" icono="hoy" />
 
       {visitas && (hoyPendientes.length > 0 || (atrasadasFiltradas?.length ?? 0) > 0) && (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: -8 }}>

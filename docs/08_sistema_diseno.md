@@ -14,6 +14,25 @@ está **implementado en código** y a lo que apuntan los comentarios de
 | Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `box-shadow`, sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. |
 | Iconos | `src/components/ui/iconos.tsx` | Registro único. Las pantallas piden el icono por nombre; cambiar de set = editar ese archivo. |
 
+## Prueba de usuario — requisito de toda pantalla
+
+Antes de dar una pantalla por hecha, tiene que pasar estos 6 puntos. Si
+falla uno, no está terminada:
+
+1. **¿Se entiende en 2 segundos qué hacer aquí?** Hay una acción o foco
+   principal y se ve.
+2. **¿Cada estado importante tiene una pista que NO es el color?** Forma
+   de icono, palabra, negrita o posición. El usuario es daltónico
+   (rojo/verde). Ver §"Color y accesibilidad".
+3. **¿Hay una sola jerarquía clara?** Lo importante grande, lo secundario
+   pequeño. Nada compite.
+4. **¿Los estados vacíos están resueltos?** No ocupan lo mismo que uno
+   lleno; usan `EstadoLista` (`vacio`), no un texto suelto.
+5. **¿Los formatos son consistentes?** Horas, fechas y nombres se
+   escriben igual en toda la app.
+6. **¿No hay nada repetido ni decorativo de más?** Un dato o una acción
+   aparece una vez.
+
 ---
 
 ## Sistema de filas
@@ -452,6 +471,19 @@ Reglas:
   opaco.
 - El contenido interno usa los componentes normales (`.field`, `.btn`,
   `.chip`, `SeccionLista`…). `Modal` solo pone el marco y la cabecera.
+
+## Cabeceras
+
+Dos componentes, uno por nivel:
+
+- **`CabeceraSeccion`** (`src/components/ui/cabecera-seccion.tsx`) — las 4
+  pantallas del menú de abajo (Hoy / Clientes / Tareas / Yo). Icono +
+  título `--text-xl` peso 600, a la izquierda. Antes cada una ponía un
+  `<h1>` suelto con estilos inline y sin icono. Props: `titulo`, `icono`,
+  `derecha?`.
+- **`CabeceraDetalle`** (`src/components/ui/cabecera-detalle.tsx`) — las
+  pantallas de detalle: flecha `‹` de volver + título (+ `subtitulo?`,
+  `derecha?`). Ver la tabla de props en §"Sistema de filas".
 
 ## Color y accesibilidad — nada se entiende solo por el color
 
