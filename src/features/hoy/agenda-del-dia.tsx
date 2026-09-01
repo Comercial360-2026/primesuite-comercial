@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { useBorrarVisita } from '@/hooks/use-borrar-visita';
-import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
-import { EstadoError } from '@/components/ui/estado-error';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
@@ -205,9 +203,6 @@ export function AgendaDelDia() {
     hoyEnCurso.length === 0 && hoyPendientes.length === 0 && hoyHechas.length === 0;
 
   function renderVisita(visita: VisitaAgenda, mostrarDia: boolean, bajoFranja = false) {
-    if (borrar.visitaBorrarId === visita.id) {
-      return <div key={visita.id}><ConfirmarBorradoVisita ctrl={borrar} /></div>;
-    }
     return (
       <div key={visita.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => abrirVisita(visita)}>
@@ -241,18 +236,6 @@ export function AgendaDelDia() {
             </div>
           )}
         </div>
-        {/* Solo la en curso lleva "Borrar" aquí (para matar una que se
-            inició sin querer). Descargar informe y borrar una visita
-            cerrada viven dentro de ella (ver contenido → detalle). */}
-        {visita.estado_captura === 'en_curso' && (
-          <button
-            type="button"
-            onClick={() => void borrar.pedir(visita.id)}
-            style={{ border: 'none', background: 'none', color: 'var(--risk-600)', fontSize: 'var(--text-xs)', cursor: 'pointer', padding: 4, flexShrink: 0 }}
-          >
-            Borrar
-          </button>
-        )}
       </div>
     );
   }
@@ -300,11 +283,6 @@ export function AgendaDelDia() {
     }
   }
 
-  // Borrar una visita creada por error (iniciada sin querer) — se ve aquí
-  // mismo, en Hoy, sin tener que entrar a la ficha del cliente. Flujo
-  // común (previsualizar → confirmar) en useBorrarVisita.
-  const borrar = useBorrarVisita({ onBorrada: () => queryClient.invalidateQueries({ queryKey }) });
-
   return (
     <div className="screen screen--split">
       <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Hoy</h1>
@@ -345,26 +323,23 @@ export function AgendaDelDia() {
         </div>
       )}
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando agenda…</p>}
+      {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
 
-      {sinConexion && (
-        <EstadoError
-          mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo."
-          onReintentar={reintentar}
-        />
-      )}
+      {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
       {isError && (
-        <EstadoError
+        <EstadoLista
+          estado="error"
           mensaje="No se pudieron cargar las visitas de hoy."
           onReintentar={reintentar}
         />
       )}
 
       {!isLoading && !isError && !sinConexion && sinNadaHoy && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          {soloMias ? 'No tienes visitas para hoy.' : 'No hay visitas para hoy.'}
-        </p>
+        <EstadoLista
+          estado="vacio"
+          mensaje={soloMias ? 'No tienes visitas para hoy.' : 'No hay visitas para hoy.'}
+        />
       )}
 
       {/* Se espera a tener datos (visitas !== undefined) antes de montar las
