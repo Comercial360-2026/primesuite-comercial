@@ -207,6 +207,15 @@ const registro = {
   // Guion — estado neutro / en pausa (p. ej. semáforo "seguimiento").
   guion: <path d="M6 12h12" />,
 
+  // Bandeja vacía — estado "no hay nada en esta lista" por defecto.
+  bandeja: (
+    <>
+      <path d="M4 13l2.5-7h11L20 13" />
+      <path d="M4 13v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />
+      <path d="M4 13h4l1.5 2.5h5L16 13h4" />
+    </>
+  ),
+
   // --- Captura durante la visita (botones grandes de visita-activa /
   // editor-captura). Trazo simple, mismo criterio que el resto. ---
 

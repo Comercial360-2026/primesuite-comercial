@@ -39,12 +39,10 @@ export function EstadoLista(props: Props) {
   }
 
   return (
-    <div className="estado-lista">
-      {props.icono && (
-        <span className="estado-lista__icono">
-          <Icono nombre={props.icono} size={28} />
-        </span>
-      )}
+    <div className="estado-lista estado-lista--vacio">
+      <span className="estado-lista__icono">
+        <Icono nombre={props.icono ?? 'bandeja'} size={32} />
+      </span>
       <span>{props.mensaje}</span>
     </div>
   );
