@@ -42,6 +42,22 @@ restyle de las filas sea **un solo sitio**, no pantalla por pantalla.
   (misma caja, separador y padding que las filas), nunca como una `.card`
   desprendida.
 
+### Qué patrón de acción usar
+
+Cuando una lista lleva acciones, el patrón depende de si la acción es la
+misma para todos los elementos o distinta en cada uno:
+
+- **Misma acción sobre varios elementos a la vez** (borrar visitas, anular
+  visitas planificadas) → **modo seleccionar** (`seleccion?` en las filas +
+  `BarraSeleccion`). Ver *Modo seleccionar — patrón de pantalla*.
+- **Decisión distinta por elemento** (a quién asignar una reasignación, con
+  qué cliente fusionar, renombrar / mover un término) → **`FilaAccion`**
+  con sus botones de icono (y un modo inline `fila-confirmacion` para el
+  paso siguiente si hace falta).
+- **Bloque suelto que destaca y trae su propia acción** (el medidor de
+  espacio, la copia de seguridad) → **`TarjetaAccion`**. Nunca dentro de
+  una lista: una `TarjetaAccion` por fila es un muro de botones.
+
 ### Componentes
 
 Todos en `src/components/ui/`, nombres en español.
@@ -57,8 +73,9 @@ redondeadas.
 | `children` | `ReactNode` | Las filas. |
 
 Varias `SeccionLista` se envuelven en `<div className="lista-agrupada">`
-(flex columna, `gap: --space-6`, `max-width: 520px`, centrado) para el
-layout de escritorio.
+(flex columna, `gap: --space-6`, ancho completo). El tope de ancho para
+escritorio lo pone ahora el marco de la app (`.app-shell`,
+`--app-max-w`), no cada lista.
 
 Para listas con **secciones internas** (la Agenda: un grupo por día, y
 dentro "Mañana" / "Tarde" / "Sin hora"), se intercala un
@@ -335,8 +352,8 @@ Los tonos **solo tiñen texto e icono**, nunca ponen fondo de color
 
 - Cabeceras de sección **en frase**, no en Mayúsculas Iniciales.
 - Flecha `›` solo en filas que navegan (`to`); nunca en acciones.
-- Ancho máximo `520px` centrado desde el primer día (escritorio); `:hover`
-  además de `:active`.
+- Toda la app va en una columna centrada en escritorio (`.app-shell`,
+  `--app-max-w`, ~500 px); las filas usan `:hover` además de `:active`.
 - La primera fila de un grupo no lleva separador superior (lo recorta
   `.fila:first-child`).
 
