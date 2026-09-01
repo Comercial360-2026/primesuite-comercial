@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { EstadoError } from '@/components/ui/estado-error';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 // Pantalla de solo lectura para repasar una visita ya cerrada — hasta hoy
 // no existía ninguna: /visita/:id siempre abría VisitaActiva (pensada para
@@ -154,15 +156,11 @@ export function DetalleVisitaCerrada() {
         }
       />
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      {isLoading && <EstadoLista estado="cargando" />}
 
-      {sinConexion && (
-        <EstadoError mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo." onReintentar={reintentar} />
-      )}
+      {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
-      {isError && (
-        <EstadoError mensaje="No se pudo cargar la visita." onReintentar={reintentar} />
-      )}
+      {isError && <EstadoLista estado="error" mensaje="No se pudo cargar la visita." onReintentar={reintentar} />}
 
       {data && (
         <div className="screen__scroll">
@@ -236,55 +234,48 @@ export function DetalleVisitaCerrada() {
           )}
 
           {data.hallazgos.length > 0 && (
-            <>
-              <div className="label">hallazgos ({data.hallazgos.length})</div>
+            <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
               {data.hallazgos.map((h) => (
-                <div
+                <FilaNavegable
                   key={h.id}
-                  className="card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/hallazgos/${h.id}`)}
-                >
-                  <span className={`chip${h.naturaleza === 'riesgo' ? ' chip--riesgo' : h.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}>
-                    {h.termino_nombre}
-                  </span>
-                  {h.nota && <div style={{ fontSize: 'var(--text-sm)', marginTop: 4 }}>{h.nota}</div>}
-                </div>
+                  titulo={h.termino_nombre || 'Hallazgo'}
+                  subtitulo={h.nota ?? undefined}
+                  valor={h.naturaleza}
+                  tono={h.naturaleza === 'riesgo' ? 'riesgo' : h.naturaleza === 'oportunidad' ? 'ok' : 'neutral'}
+                  to={`/hallazgos/${h.id}`}
+                />
               ))}
-            </>
+            </SeccionLista>
           )}
 
           {data.oportunidades.length > 0 && (
-            <>
-              <div className="label">oportunidades originadas ({data.oportunidades.length})</div>
+            <SeccionLista titulo={`Oportunidades originadas (${data.oportunidades.length})`}>
               {data.oportunidades.map((o) => (
-                <div
+                <FilaNavegable
                   key={o.id}
-                  className="card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/oportunidades/${o.id}`)}
-                >
-                  {o.titulo} — {o.etapa}
-                </div>
+                  titulo={o.titulo}
+                  valor={o.etapa}
+                  to={`/oportunidades/${o.id}`}
+                />
               ))}
-            </>
+            </SeccionLista>
           )}
 
           {data.proximosPasos.length > 0 && (
-            <>
-              <div className="label">próximos pasos ({data.proximosPasos.length})</div>
+            <SeccionLista titulo={`Próximos pasos (${data.proximosPasos.length})`}>
               {data.proximosPasos.map((p) => (
-                <div key={p.id} className="card">
-                  {p.descripcion}
-                  {p.fecha_objetivo && (
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                      {' '}· {new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}
-                    </span>
-                  )}
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}> [{p.estado}]</span>
-                </div>
+                <FilaNavegable
+                  key={p.id}
+                  titulo={p.descripcion}
+                  subtitulo={
+                    p.fecha_objetivo
+                      ? `${new Date(p.fecha_objetivo).toLocaleDateString('es-ES')} · ${p.estado}`
+                      : p.estado
+                  }
+                  to={`/proximos-pasos/${p.id}`}
+                />
               ))}
-            </>
+            </SeccionLista>
           )}
 
           {!data.resumen_texto &&
