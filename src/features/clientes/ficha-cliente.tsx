@@ -13,6 +13,8 @@ import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { FilaAccion } from '@/components/ui/fila-accion';
 
 interface OportunidadActiva {
   id: string;
@@ -432,58 +434,57 @@ export function FichaCliente() {
       )}
 
       <div className="screen__scroll">
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>oportunidades activas</div>
+       <div className="lista-agrupada">
+        <SeccionLista titulo="Oportunidades activas">
           {oportunidades?.length ? (
             oportunidades.map((o) => (
-              <div
+              <FilaNavegable
                 key={o.id}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', cursor: 'pointer' }}
-                onClick={() => navigate(`/oportunidades/${o.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-base)' }}>{o.titulo}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--signal-600)', fontWeight: 500 }}>{o.prioridad}</span>
-              </div>
+                titulo={o.titulo}
+                valor={o.prioridad}
+                to={`/oportunidades/${o.id}`}
+              />
             ))
           ) : (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>ninguna oportunidad activa</div>
+            <FilaAccion titulo="Ninguna oportunidad activa" tono="neutral" />
           )}
+        </SeccionLista>
 
-          <div style={{ borderTop: '1px solid var(--ink-100)', margin: '12px 0' }} />
-          <div className="label" style={{ marginTop: 0 }}>próximos pasos</div>
+        <SeccionLista titulo="Próximos pasos">
           {proximosPasos?.length ? (
             proximosPasos.map((p) => (
-              <div key={p.id} style={{ fontSize: 'var(--text-base)', padding: '4px 0' }}>
-                {p.descripcion}
-                {p.fecha_objetivo && (
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                    {' '}· {new Date(p.fecha_objetivo).toLocaleDateString('es-ES')}
-                  </span>
-                )}
-              </div>
+              <FilaNavegable
+                key={p.id}
+                titulo={p.descripcion}
+                valor={
+                  p.fecha_objetivo
+                    ? new Date(p.fecha_objetivo).toLocaleDateString('es-ES')
+                    : undefined
+                }
+                to={`/proximos-pasos/${p.id}`}
+              />
             ))
           ) : (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin próximos pasos pendientes</div>
+            <FilaAccion titulo="Sin próximos pasos pendientes" tono="neutral" />
           )}
+        </SeccionLista>
 
-          <div
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', cursor: 'pointer' }}
-            onClick={() => navigate(`/clientes/${clienteId}/ubicaciones`)}
-          >
-            <span className="label" style={{ marginTop: 0, marginBottom: 0 }}>ubicaciones</span>
-            <span style={{ fontSize: 'var(--text-sm)' }}>ver ›</span>
-          </div>
+        <SeccionLista titulo="Más">
+          <FilaNavegable
+            titulo="Ubicaciones"
+            to={`/clientes/${clienteId}/ubicaciones`}
+          />
+          <FilaDato
+            etiqueta="Última actividad"
+            valor={
+              semaforo?.ultima_visita
+                ? new Date(semaforo.ultima_visita).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
+                : 'sin visitas registradas'
+            }
+          />
+        </SeccionLista>
 
-          <div style={{ borderTop: '1px solid var(--ink-100)', margin: '12px 0' }} />
-          <div className="label" style={{ marginTop: 0 }}>última actividad</div>
-          <div style={{ fontSize: 'var(--text-base)' }}>
-            {semaforo?.ultima_visita
-              ? new Date(semaforo.ultima_visita).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
-              : 'sin visitas registradas'}
-          </div>
-        </div>
-
-        <div className="label">ecosistema</div>
+        <div className="label">Ecosistema</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {ecosistema?.map((item) => (
             <span
@@ -496,9 +497,8 @@ export function FichaCliente() {
           {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin ecosistema registrado todavía</span>}
         </div>
 
-        <div className="label">historial de visitas</div>
         {historialVisitas?.length ? (
-          <SeccionLista>
+          <SeccionLista titulo="Historial de visitas">
             {historialVisitas.map((v) => {
               // La fila solo navega. Descargar informe y Borrar viven dentro
               // de la visita (detalle / Visita Activa) — así el historial no
@@ -537,8 +537,11 @@ export function FichaCliente() {
             })}
           </SeccionLista>
         ) : (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin visitas registradas</div>
+          <SeccionLista titulo="Historial de visitas">
+            <FilaAccion titulo="Sin visitas registradas" tono="neutral" />
+          </SeccionLista>
         )}
+       </div>
       </div>
 
       {planificadaPara && !planificando && (
