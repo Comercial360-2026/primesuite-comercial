@@ -138,12 +138,31 @@ Usa el icono `atras` del registro (flecha con asta, no un chevron: es
 
 Prioridad de la vuelta: `onVolver` → `volverA` → `navigate(-1)`.
 
+#### `EstadoLista` — *implementado*
+
+Los cuatro estados "no hay lista que pintar" en un solo componente:
+`cargando`, `vacio`, `sin-conexion`, `error`. Sustituye a los `<p>Cargando…</p>`
+sueltos, los `<p>Sin resultados</p>` y la tarjeta `card--riesgo` de
+"isPaused" copiada en ~5 pantallas.
+
+Es una unión discriminada por `estado`:
+
+| `estado` | Props | Render |
+|---|---|---|
+| `'cargando'` | `mensaje?` (por defecto `"Cargando…"`) | Texto gris centrado. |
+| `'vacio'` | `mensaje` (obligatorio), `icono?` | Texto gris centrado, con icono opcional encima. |
+| `'sin-conexion'` | `onReintentar`, `mensaje?` | `EstadoError` con texto de red y botón "Reintentar". |
+| `'error'` | `onReintentar`, `mensaje?` | `EstadoError` (texto por defecto si no se pasa `mensaje`). |
+
+`sin-conexion` y `error` reutilizan **`EstadoError`** (la primitiva "algo
+falló, reintenta"), que se mantiene como componente propio. Las pantallas
+que aún llaman a `EstadoError` directo migran a `EstadoLista` al entrar en
+su fase.
+
 #### Reservados en el contrato — *no implementados todavía*
 
 Se construyen cuando la pantalla que los necesita entre en su fase:
 
-- `EstadoLista` — cargando / vacío / sin conexión / error (unifica la
-  tarjeta de "isPaused" repetida en ~5 sitios).
 - `TarjetaAccion` — bloque informativo + 1 botón (p. ej. la copia de
   seguridad, el medidor de espacio).
 - Prop `seleccion?: { activa; marcada; onToggle }` en las filas
