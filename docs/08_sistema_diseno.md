@@ -65,7 +65,7 @@ según qué prop reciba (el tipo obliga a pasar exactamente una):
 | `icono` | `NombreIcono?` | Nombre del registro de `iconos.tsx`. |
 | `titulo` | `string` | Obligatorio. |
 | `subtitulo` | `string?` | Segunda línea, gris pequeña. |
-| `valor` | `string?` | Texto a la derecha, antes de la flecha (p. ej. `"72%"`). |
+| `valor` | `ReactNode?` | Contenido a la derecha, antes de la flecha: texto (`"72%"`), un chip de estado (p. ej. el semáforo en Clientes)… Igual que `FilaDato.valor`. |
 | `badge` | `string \| number?` | Contador pequeño. No se dibuja si es `0`, `''` o `undefined`. |
 | `tono` | `'neutral' \| 'aviso' \| 'riesgo' \| 'ok'` | Por defecto `neutral`. Ver tabla de tonos. |
 | `densidad` | `'normal' \| 'compacta'` | Por defecto `normal` (alto `--fila-min-h`, icono 20). `compacta` = alto 44, icono 18, para listas densas. |

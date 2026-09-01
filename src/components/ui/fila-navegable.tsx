@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icono, type NombreIcono } from './iconos';
 
@@ -21,8 +22,9 @@ interface PropsBase {
   icono?: NombreIcono;
   titulo: string;
   subtitulo?: string;
-  /** Texto a la derecha, antes de la flecha (p. ej. "72%"). */
-  valor?: string;
+  /** Contenido a la derecha, antes de la flecha: texto ("72%"), un chip de
+   *  estado, etc. Igual que `FilaDato.valor`. */
+  valor?: ReactNode;
   /** Contador/etiqueta pequeña. No se dibuja si es 0 o vacío. */
   badge?: string | number;
   tono?: Tono;
