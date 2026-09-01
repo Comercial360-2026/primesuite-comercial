@@ -494,6 +494,17 @@ export function MiEspacio() {
                 tono: listo ? 'brand' : estadoDescarga === 'error' ? 'riesgo' : 'neutral',
               };
 
+              // El botón de descarga es solo icono → sus 3 estados
+              // (generando / listo / error) serían invisibles. Se reflejan
+              // en el subtítulo de la fila para que se vean.
+              const textoDescarga = listo
+                ? `Copia lista (${formatearMB(listo.tamanoBytes)} MB)`
+                : estadoDescarga === 'generando'
+                  ? 'Generando copia…'
+                  : estadoDescarga === 'error'
+                    ? 'Error al generar la copia, toca de nuevo'
+                    : null;
+
               const accionBorrar: AccionFila = {
                 icono: 'borrar',
                 etiqueta: `Borrar visita de ${v.cliente_nombre}`,
@@ -506,7 +517,10 @@ export function MiEspacio() {
                   key={v.visita_id}
                   densidad="compacta"
                   titulo={v.cliente_nombre}
-                  subtitulo={`${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
+                  subtitulo={
+                    `${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB` +
+                    (textoDescarga ? ` · ${textoDescarga}` : '')
+                  }
                   onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
                   acciones={[accionDescargar, accionBorrar]}
                 />

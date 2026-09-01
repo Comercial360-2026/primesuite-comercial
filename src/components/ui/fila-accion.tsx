@@ -21,7 +21,11 @@ export interface AccionFila {
   etiqueta: string;
   onClick?: () => void;
   /** Si está, se dibuja como <a href> real en vez de <button> — necesario
-   *  para descargas (window.open() tras un await lo bloquea el navegador). */
+   *  para descargas (window.open() tras un await lo bloquea el navegador).
+   *  Lleva `download` + `target="_blank"`: si la URL trae
+   *  `Content-Disposition: attachment` el navegador la baja sin salir de la
+   *  app; si no (URL firmada cross-origin), al menos abre en otra pestaña en
+   *  vez de tirar la SPA a la pantalla del fichero. */
   href?: string;
   /** Color del icono. Distinto set que el tono de la fila: aquí es
    *  afordancia (acción destructiva / principal), no estado. */
@@ -122,6 +126,9 @@ export function FilaAccion({
                 <a
                   key={i}
                   href={a.href}
+                  download
+                  target="_blank"
+                  rel="noopener"
                   className={claseBtn}
                   aria-label={a.etiqueta}
                   title={a.etiqueta}
