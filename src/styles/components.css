@@ -120,6 +120,17 @@
   overflow: hidden; /* recorta el fondo de "activa" a las esquinas redondeadas */
 }
 
+/* Sub-cabecera dentro de un grupo, para listas con secciones internas
+   (p. ej. la Agenda: un grupo por día, dentro "Mañana" / "Tarde" / "Sin
+   hora"). Comparte separador y padding con las filas. */
+.seccion-lista__subcabecera {
+  padding: var(--space-2) var(--fila-pad-x) 4px;
+  border-top: var(--fila-separador);
+  background: var(--surface-1);
+  font-size: var(--text-xs); color: var(--seccion-cabecera);
+}
+.seccion-lista__subcabecera:first-child { border-top: none; }
+
 .fila {
   display: flex; align-items: center; gap: var(--space-3);
   width: 100%; min-height: var(--fila-min-h); box-sizing: border-box;

@@ -190,7 +190,7 @@ export function CalendarioMes<T extends { id: string; fecha: string }>({
               return t.charAt(0).toUpperCase() + t.slice(1);
             })()}
           </div>
-          {visitasDiaSel.map((v) => renderVisita(v))}
+          <div className="seccion-lista__grupo">{visitasDiaSel.map((v) => renderVisita(v))}</div>
         </div>
       )}
     </div>

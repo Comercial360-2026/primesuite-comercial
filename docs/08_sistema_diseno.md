@@ -50,6 +50,11 @@ Varias `SeccionLista` se envuelven en `<div className="lista-agrupada">`
 (flex columna, `gap: --space-6`, `max-width: 520px`, centrado) para el
 layout de escritorio.
 
+Para listas con **secciones internas** (la Agenda: un grupo por día, y
+dentro "Mañana" / "Tarde" / "Sin hora"), se intercala un
+`<div className="seccion-lista__subcabecera">` entre las filas — comparte
+separador y padding con ellas.
+
 #### `FilaNavegable` — *implementado*
 
 Fila de una `SeccionLista`. Se dibuja como **enlace** o como **acción**,

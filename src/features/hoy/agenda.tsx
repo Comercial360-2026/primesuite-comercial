@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { EstadoError } from '@/components/ui/estado-error';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
@@ -46,7 +48,6 @@ function etiquetaDia(d: Date) {
 }
 
 export function Agenda() {
-  const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   // Dirección Comercial entra viendo TODO el equipo — si no, una visita que
@@ -159,10 +160,6 @@ export function Agenda() {
     return { atrasadas: atr, dias: listaDias, mias };
   }, [visitas, participantes, soloMias, comercial]);
 
-  function abrir(v: VisitaAgenda) {
-    navigate(`/visita/${v.id}/planificada`);
-  }
-
   function fila(v: VisitaAgenda, conFecha: boolean) {
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
@@ -175,24 +172,13 @@ export function Agenda() {
         ? new Date(v.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
         : 'sin hora fija';
     return (
-      <div
+      <FilaNavegable
         key={v.id}
-        className="card"
-        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
-        onClick={() => abrir(v)}
-      >
-        <div>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>{v.cliente?.nombre ?? 'Cliente'}</div>
-          {v.objetivo && (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>{v.objetivo}</div>
-          )}
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {cuando}
-            {deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}
-          </div>
-        </div>
-        <span style={{ fontSize: 20, color: 'var(--ink-300)', flexShrink: 0 }}>›</span>
-      </div>
+        titulo={v.cliente?.nombre ?? 'Cliente'}
+        subtitulo={v.objetivo ?? undefined}
+        valor={`${cuando}${deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}`}
+        to={`/visita/${v.id}/planificada`}
+      />
     );
   }
 
@@ -200,12 +186,7 @@ export function Agenda() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Agenda</h1>
-      </div>
+      <CabeceraDetalle titulo="Agenda" />
 
       <div style={{ display: 'flex', gap: 6 }}>
         <button type="button" className={`chip${vista === 'lista' ? ' chip--on' : ''}`} onClick={() => setVista('lista')}>
@@ -227,9 +208,12 @@ export function Agenda() {
         </div>
       )}
 
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
-      {(isError || isPaused) && (
-        <EstadoError mensaje="No se pudo cargar la agenda." onReintentar={() => refetch()} />
+      {isLoading && <EstadoLista estado="cargando" />}
+      {!isLoading && !isError && isPaused && (
+        <EstadoLista estado="sin-conexion" onReintentar={() => refetch()} />
+      )}
+      {isError && (
+        <EstadoLista estado="error" mensaje="No se pudo cargar la agenda." onReintentar={() => refetch()} />
       )}
 
       {!isLoading && !isError && vista === 'mes' && (
@@ -237,45 +221,42 @@ export function Agenda() {
       )}
 
       {vista === 'lista' && vacio && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
-          No hay visitas planificadas. Planifica una desde la ficha de un cliente.
-        </p>
+        <EstadoLista
+          estado="vacio"
+          mensaje="No hay visitas planificadas. Planifica una desde la ficha de un cliente."
+        />
       )}
 
-      {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado de
-          inicio para que no empuje hacia abajo los días que sí vas a mirar. */}
-      {vista === 'lista' && atrasadas.length > 0 && (
-        <SeccionColapsable titulo="Atrasadas" cantidad={atrasadas.length}>
-          {atrasadas.map((v) => fila(v, true))}
-        </SeccionColapsable>
-      )}
+      {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
+        <div className="lista-agrupada">
+          {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado
+              de inicio para que no empuje hacia abajo los días que sí miras. */}
+          {atrasadas.length > 0 && (
+            <SeccionColapsable titulo="Atrasadas" cantidad={atrasadas.length}>
+              <div className="seccion-lista__grupo">{atrasadas.map((v) => fila(v, true))}</div>
+            </SeccionColapsable>
+          )}
 
-      {vista === 'lista' && dias.map((dia) => {
-        const porFranja: Record<Franja, VisitaAgenda[]> = { manana: [], tarde: [], sin_hora: [] };
-        for (const v of dia.visitas) porFranja[franjaDe(v.fecha, v.hora_definida, v.franja)].push(v);
-        return (
-          <div key={claveDia(dia.fecha)}>
-            <div className="label">{etiquetaDia(dia.fecha)}</div>
-            {(['manana', 'tarde', 'sin_hora'] as Franja[]).map((fr) =>
-              porFranja[fr].length === 0 ? null : (
-                <div key={fr}>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--ink-400)',
-                      margin: '6px 0 4px',
-                      paddingLeft: 4,
-                    }}
-                  >
-                    {etiquetaFranja(fr)}
-                  </div>
-                  {porFranja[fr].map((v) => fila(v, false))}
-                </div>
-              )
-            )}
-          </div>
-        );
-      })}
+          {dias.map((dia) => {
+            const porFranja: Record<Franja, VisitaAgenda[]> = { manana: [], tarde: [], sin_hora: [] };
+            for (const v of dia.visitas) porFranja[franjaDe(v.fecha, v.hora_definida, v.franja)].push(v);
+            return (
+              <SeccionLista key={claveDia(dia.fecha)} titulo={etiquetaDia(dia.fecha)}>
+                {(['manana', 'tarde', 'sin_hora'] as Franja[]).flatMap((fr) =>
+                  porFranja[fr].length === 0
+                    ? []
+                    : [
+                        <div key={`sub-${fr}`} className="seccion-lista__subcabecera">
+                          {etiquetaFranja(fr)}
+                        </div>,
+                        ...porFranja[fr].map((v) => fila(v, false)),
+                      ]
+                )}
+              </SeccionLista>
+            );
+          })}
+        </div>
+      )}
 
       {buscarCliente === null ? (
         <button className="btn btn-secondary" onClick={() => setBuscarCliente('')}>
@@ -301,16 +282,17 @@ export function Agenda() {
                   Sin resultados. Si es un cliente nuevo, créalo primero en Clientes.
                 </div>
               )}
-              {clientesEncontrados?.map((c) => (
-                <div
-                  key={c.id}
-                  className="card"
-                  style={{ cursor: 'pointer', padding: '10px 12px' }}
-                  onClick={() => navigate(`/clientes/${c.id}?planificar=1`)}
-                >
-                  {c.nombre}
-                </div>
-              ))}
+              {!!clientesEncontrados?.length && (
+                <SeccionLista>
+                  {clientesEncontrados.map((c) => (
+                    <FilaNavegable
+                      key={c.id}
+                      titulo={c.nombre}
+                      to={`/clientes/${c.id}?planificar=1`}
+                    />
+                  ))}
+                </SeccionLista>
+              )}
             </>
           )}
           <button
