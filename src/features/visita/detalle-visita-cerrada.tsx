@@ -5,6 +5,7 @@ import { EstadoError } from '@/components/ui/estado-error';
 import { useDescargarInforme, BotonDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 // Pantalla de solo lectura para repasar una visita ya cerrada — hasta hoy
 // no existía ninguna: /visita/:id siempre abría VisitaActiva (pensada para
@@ -138,20 +139,20 @@ export function DetalleVisitaCerrada() {
 
   return (
     <div className="screen screen--split">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} aria-label="volver" style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{data?.cliente_nombre ?? 'visita'}</div>
-          {data && (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-              {new Date(data.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
-              {data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · {estadoLegible[data.estado_captura] ?? data.estado_captura}
-            </div>
-          )}
-        </div>
-      </div>
+      <CabeceraDetalle
+        titulo={data?.cliente_nombre ?? 'visita'}
+        subtitulo={
+          data
+            ? `${new Date(data.fecha).toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}${data.tipo_visita ? ` · ${data.tipo_visita}` : ''} · ${
+                estadoLegible[data.estado_captura] ?? data.estado_captura
+              }`
+            : undefined
+        }
+      />
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
 

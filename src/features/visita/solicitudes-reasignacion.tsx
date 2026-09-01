@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 interface SolicitudPendiente {
   id: string;
@@ -19,7 +19,6 @@ interface SolicitudPendiente {
 // RLS de solicitud_reasignacion ya lo exige también a nivel de datos, esto
 // es solo para no enseñar un enlace que fallaría al abrirlo.
 export function SolicitudesReasignacion() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [asignandoId, setAsignandoId] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
@@ -112,12 +111,7 @@ export function SolicitudesReasignacion() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Solicitudes de ayuda</h1>
-      </div>
+      <CabeceraDetalle titulo="Solicitudes de ayuda" />
 
       {!solicitudes?.length && (
         <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>No hay solicitudes pendientes.</p>

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { EstadoError } from '@/components/ui/estado-error';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
@@ -17,7 +17,6 @@ function formatearMB(bytes: number) {
 }
 
 export function ConsumoComerciales() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const queryKeyConsumo = ['espacio-por-comercial'];
@@ -80,12 +79,7 @@ export function ConsumoComerciales() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate('/yo')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Consumo por comercial</h1>
-      </div>
+      <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" />
 
       {espacioEquipo && (
         <div

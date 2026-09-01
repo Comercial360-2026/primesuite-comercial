@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 interface TerminoPropuesto {
   id: string;
@@ -43,7 +43,6 @@ interface CategoriaConTerminos {
 // puedan apuntar a ese término. Un DELETE real solo se usa para categorías
 // vacías, donde no hay ese riesgo.
 export function ColaVocabulario() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [vista, setVista] = useState<'pendientes' | 'catalogo'>('pendientes');
@@ -293,12 +292,7 @@ export function ColaVocabulario() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate('/yo')} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Vocabulario</h1>
-      </div>
+      <CabeceraDetalle titulo="Vocabulario" volverA="/yo" />
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
         <button

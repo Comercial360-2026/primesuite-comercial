@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
@@ -154,12 +155,7 @@ export function DetalleVisitaPlanificada() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Visita planificada</h1>
-      </div>
+      <CabeceraDetalle titulo="Visita planificada" />
 
       {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
       {(isError || isPaused) && (

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useUbicacionesCliente } from '@/hooks/use-ubicaciones-cliente';
 import { eliminarOperacion } from '@/lib/offline-queue';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 interface PrevisualizacionBorradoUbicacion {
   num_fotos: number;
@@ -21,7 +22,6 @@ interface PrevisualizacionBorradoUbicacion {
 // borrar), sin depender de estar dentro de una visita activa.
 export function GestionUbicacionesCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
-  const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
   const { ubicaciones, crear, recargarLocales } = useUbicacionesCliente(clienteId, comercial?.id ?? '');
@@ -127,12 +127,7 @@ export function GestionUbicacionesCliente() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Ubicaciones</h1>
-      </div>
+      <CabeceraDetalle titulo="Ubicaciones" />
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         se usan para etiquetar fotos por dónde se tomaron (naves, oficinas…) en Modo Recorrido
       </div>
