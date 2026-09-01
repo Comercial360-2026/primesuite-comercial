@@ -451,159 +451,158 @@ export function ColaVocabulario() {
             </div>
           )}
 
-          {cargandoCatalogo && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+          {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
-          {catalogoAgrupado?.map((cat) => (
-            <div key={cat.categoria_id} className="card">
-              {renombrandoCategoriaId === cat.categoria_id ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                  <input
-                    className="field"
-                    autoFocus
-                    value={textoRenombrarCategoria}
-                    onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 10px' }} onClick={() => setRenombrandoCategoriaId(null)}>
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: 'auto', padding: '0 10px' }}
-                    onClick={() => renombrarCategoria(cat.categoria_id)}
-                  >
-                    Guardar
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div className="label" style={{ marginTop: 0 }}>
-                    {cat.categoria_nombre} ({cat.terminos.length})
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '0 10px' }}
-                      onClick={() => { setRenombrandoCategoriaId(cat.categoria_id); setTextoRenombrarCategoria(cat.categoria_nombre); }}
-                    >
-                      renombrar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '0 10px', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                      onClick={() => borrarCategoria(cat.categoria_id, cat.terminos.length > 0)}
-                    >
-                      Borrar
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {cat.terminos.map((t) => (
-                  <div key={t.id}>
-                    {renombrandoTerminoId === t.id ? (
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input
-                          className="field"
-                          autoFocus
-                          value={textoRenombrarTermino}
-                          onChange={(e) => setTextoRenombrarTermino(e.target.value)}
-                          style={{ flex: 1 }}
-                        />
-                        <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => setRenombrandoTerminoId(null)}>
+          <div className="lista-agrupada">
+            {catalogoAgrupado?.map((cat) => (
+              <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SeccionLista>
+                  {/* Cabecera de la categoría: fila normal (más alta) con
+                      icono, para que destaque frente a los términos compactos. */}
+                  {renombrandoCategoriaId === cat.categoria_id ? (
+                    <div className="fila-confirmacion">
+                      <input
+                        className="field"
+                        autoFocus
+                        value={textoRenombrarCategoria}
+                        onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
+                      />
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
                           Cancelar
                         </button>
-                        <button type="button" className="btn btn-primary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => renombrarTermino(t.id)}>
+                        <button type="button" className="btn btn-primary" onClick={() => renombrarCategoria(cat.categoria_id)}>
                           Guardar
                         </button>
                       </div>
-                    ) : moviendoTerminoId === t.id ? (
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 'var(--text-sm)' }}>{t.nombre} →</span>
-                        {categorias
-                          ?.filter((c) => c.id !== cat.categoria_id)
-                          .map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              className="chip"
-                              onClick={() => moverTermino(t.id, c.id)}
-                            >
-                              {c.nombre}
+                    </div>
+                  ) : (
+                    <FilaAccion
+                      icono="vocabulario"
+                      titulo={cat.categoria_nombre}
+                      subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
+                      acciones={[
+                        {
+                          icono: 'editar',
+                          etiqueta: 'Renombrar categoría',
+                          onClick: () => { setRenombrandoCategoriaId(cat.categoria_id); setTextoRenombrarCategoria(cat.categoria_nombre); },
+                        },
+                        {
+                          icono: 'borrar',
+                          etiqueta: 'Borrar categoría',
+                          tono: 'riesgo',
+                          onClick: () => borrarCategoria(cat.categoria_id, cat.terminos.length > 0),
+                        },
+                      ]}
+                    />
+                  )}
+
+                  {cat.terminos.map((t) => {
+                    if (renombrandoTerminoId === t.id) {
+                      return (
+                        <div key={t.id} className="fila-confirmacion">
+                          <input
+                            className="field"
+                            autoFocus
+                            value={textoRenombrarTermino}
+                            onChange={(e) => setTextoRenombrarTermino(e.target.value)}
+                          />
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
+                              Cancelar
                             </button>
-                          ))}
-                        <button type="button" className="btn btn-secondary" style={{ width: 'auto', padding: '0 8px' }} onClick={() => setMoviendoTerminoId(null)}>
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 'var(--text-sm)' }}>
-                          {t.nombre}
-                          {t.estado_gobierno === 'propuesto' && (
-                            <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · pendiente</span>
-                          )}
-                        </span>
-                        <div style={{ display: 'flex', gap: 4 }}>
+                            <button type="button" className="btn btn-primary" onClick={() => renombrarTermino(t.id)}>
+                              Guardar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (moviendoTerminoId === t.id) {
+                      return (
+                        <div key={t.id} className="fila-confirmacion">
+                          <div style={{ fontSize: 'var(--text-sm)' }}>Mover «{t.nombre}» a:</div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                            {categorias
+                              ?.filter((c) => c.id !== cat.categoria_id)
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className="chip"
+                                  onClick={() => moverTermino(t.id, c.id)}
+                                >
+                                  {c.nombre}
+                                </button>
+                              ))}
+                          </div>
                           <button
                             type="button"
                             className="btn btn-secondary"
-                            style={{ width: 'auto', padding: '0 8px', fontSize: 12 }}
-                            onClick={() => { setRenombrandoTerminoId(t.id); setTextoRenombrarTermino(t.nombre); }}
+                            style={{ marginTop: 8 }}
+                            onClick={() => setMoviendoTerminoId(null)}
                           >
-                            renombrar
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ width: 'auto', padding: '0 8px', fontSize: 12 }}
-                            onClick={() => setMoviendoTerminoId(t.id)}
-                          >
-                            Mover
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ width: 'auto', padding: '0 8px', fontSize: 12, color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                            onClick={() => quitarTermino(t.id)}
-                          >
-                            Quitar
+                            Cancelar
                           </button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {!cat.terminos.length && (
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin términos</span>
-                )}
-              </div>
+                      );
+                    }
+                    return (
+                      <FilaAccion
+                        key={t.id}
+                        densidad="compacta"
+                        titulo={t.nombre}
+                        subtitulo={t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : undefined}
+                        tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
+                        acciones={[
+                          {
+                            icono: 'editar',
+                            etiqueta: 'Renombrar término',
+                            onClick: () => { setRenombrandoTerminoId(t.id); setTextoRenombrarTermino(t.nombre); },
+                          },
+                          {
+                            icono: 'mover',
+                            etiqueta: 'Mover a otra categoría',
+                            onClick: () => setMoviendoTerminoId(t.id),
+                          },
+                          {
+                            icono: 'borrar',
+                            etiqueta: 'Quitar del catálogo',
+                            tono: 'riesgo',
+                            onClick: () => quitarTermino(t.id),
+                          },
+                        ]}
+                      />
+                    );
+                  })}
 
-              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                <input
-                  className="field"
-                  value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
-                  onChange={(e) =>
-                    setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
-                  }
-                  placeholder="+ nuevo término en esta categoría…"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', padding: '0 12px' }}
-                  onClick={() => crearTerminoDirecto(cat.categoria_id)}
-                >
-                  Añadir
-                </button>
+                  {!cat.terminos.length && (
+                    <FilaAccion densidad="compacta" titulo="Sin términos" tono="neutral" />
+                  )}
+                </SeccionLista>
+
+                <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
+                  <input
+                    className="field"
+                    value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
+                    onChange={(e) =>
+                      setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
+                    }
+                    placeholder="+ nuevo término en esta categoría…"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '0 12px' }}
+                    onClick={() => crearTerminoDirecto(cat.categoria_id)}
+                  >
+                    Añadir
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </>
       )}
     </div>
