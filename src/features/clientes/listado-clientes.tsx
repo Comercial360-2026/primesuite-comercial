@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { EstadoError } from '@/components/ui/estado-error';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -134,47 +136,48 @@ export function ListadoClientes() {
       )}
 
       <div className="screen__scroll">
-      {isLoading && <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>}
+      {isLoading && <EstadoLista estado="cargando" />}
 
-      {sinConexion && (
-        <EstadoError
-          mensaje="Sin conexión. Comprueba tu red e inténtalo de nuevo."
-          onReintentar={reintentar}
-        />
-      )}
+      {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
       {isError && (
-        <EstadoError
+        <EstadoLista
+          estado="error"
           mensaje="No se pudo cargar el listado de clientes."
           onReintentar={reintentar}
         />
       )}
 
-      {clientesFiltrados?.map((c) => {
-        const autorId = autores?.[c.cliente_id];
-        const esMio = autorId === comercial?.id;
-        return (
-          <button
-            key={c.cliente_id}
-            className="card"
-            style={{ textAlign: 'left', width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            onClick={() => navigate(`/clientes/${c.cliente_id}`)}
-          >
-            <div>
-              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>{c.cliente_nombre}</div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                {c.ultima_visita && `última visita ${new Date(c.ultima_visita).toLocaleDateString('es-ES')}`}
-                {c.ultima_visita && !esMio && autorId && ' · '}
-                {!esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`}
-              </div>
-            </div>
-            <span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>
-          </button>
-        );
-      })}
+      {!!clientesFiltrados?.length && (
+        <div className="lista-agrupada">
+          <SeccionLista>
+            {clientesFiltrados.map((c) => {
+              const autorId = autores?.[c.cliente_id];
+              const esMio = autorId === comercial?.id;
+              const subtitulo =
+                [
+                  c.ultima_visita &&
+                    `última visita ${new Date(c.ultima_visita).toLocaleDateString('es-ES')}`,
+                  !esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined;
+              return (
+                <FilaNavegable
+                  key={c.cliente_id}
+                  titulo={c.cliente_nombre}
+                  subtitulo={subtitulo}
+                  valor={<span className={`chip chip--${c.semaforo}`}>{c.semaforo}</span>}
+                  to={`/clientes/${c.cliente_id}`}
+                />
+              );
+            })}
+          </SeccionLista>
+        </div>
+      )}
 
       {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Sin resultados.</p>
+        <EstadoLista estado="vacio" mensaje="Sin resultados." />
       )}
       </div>
 
