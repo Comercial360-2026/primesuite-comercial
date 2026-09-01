@@ -2,21 +2,17 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
-import { useAccionAsync } from '@/hooks/use-accion-async';
-import { useDescargarInforme } from '@/hooks/use-descargar-informe';
+import { fechaCorta } from '@/lib/fechas';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
-import type { NivelEspacio } from '@/lib/espacio';
+import { formatearMB, type NivelEspacio } from '@/lib/espacio';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaDato } from '@/components/ui/fila-dato';
-import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
-
-// Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
-// número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
-// según cuántos comerciales activos hay (ver 60_cuota_dinamica_por_comercial.sql).
+import { Aviso } from '@/components/ui/aviso';
 
 type VisitaEspacio = {
   visita_id: string;
@@ -26,60 +22,44 @@ type VisitaEspacio = {
 };
 
 interface PrevisualizacionBorrado {
-  num_fotos: number;
-  num_audios: number;
-  num_notas: number;
-  num_hallazgos: number;
-  num_oportunidades: number;
-  num_proximos_pasos: number;
   rutas_storage: string[] | null;
 }
 
-// Cuántas "más antiguas" se resumen en la pista de liberar espacio.
+// Cuántas "más antiguas" se resumen en la pista de liberar espacio, y a
+// partir de qué fracción del pozo del equipo esa pista aporta algo (por
+// debajo, borrarlas no libera nada útil → es ruido).
 const N_ANTIGUAS = 5;
+const PISTA_ANTIGUAS_MIN_FRAC = 0.05;
 
-function formatearMB(bytes: number) {
-  return (bytes / (1024 * 1024)).toFixed(1);
+// El nivel de espacio del equipo se traduce a un solo aviso. `aviso_mio`
+// (tu parte orientativa alta, pero el pozo del equipo con sitio) no sale
+// aquí: en esta pantalla manda el equipo.
+function avisoDeNivel(nivel: NivelEspacio | undefined): { tipo: 'atencion' | 'error'; texto: string } | null {
+  if (nivel === 'bloqueo')
+    return { tipo: 'error', texto: 'El espacio del equipo está lleno. No se pueden subir fotos ni audios hasta que se libere.' };
+  if (nivel === 'critico_equipo')
+    return { tipo: 'error', texto: 'El espacio del equipo está casi lleno. Libera visitas antiguas cuanto antes.' };
+  if (nivel === 'aviso_equipo')
+    return { tipo: 'atencion', texto: 'El espacio del equipo va alto. Ayuda a liberar borrando visitas antiguas.' };
+  return null;
 }
 
-// Fecha corta ("31 ago") — en las filas compactas el año casi nunca aporta
-// y ocupa sitio; la lista va ordenada, el contexto lo da el orden.
-function formatearFecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+function colorBarra(nivel: NivelEspacio | undefined): string {
+  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'var(--risk-600)';
+  if (nivel === 'aviso_equipo') return 'var(--warning-600)';
+  return 'var(--success-600)';
 }
-
-// Un solo sitio traduce el nivel de espacio a tono de fila y a color del
-// medidor. Mismos umbrales que el resto de la app: gris con holgura, ámbar
-// en aviso (>=85%), rojo en crítico/bloqueo (>=95%).
-function tonoDeNivel(nivel: NivelEspacio | undefined): 'neutral' | 'aviso' | 'riesgo' {
-  if (nivel === 'critico_equipo' || nivel === 'bloqueo') return 'riesgo';
-  if (nivel === 'aviso_mio' || nivel === 'aviso_equipo') return 'aviso';
-  return 'neutral';
-}
-
-const COLOR_TONO: Record<'neutral' | 'aviso' | 'riesgo', string> = {
-  neutral: 'var(--ink-400)',
-  aviso: 'var(--warning-600)',
-  riesgo: 'var(--risk-600)',
-};
 
 export function MiEspacio() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  // Descarga de copia de una visita: misma lógica centralizada que usan Hoy,
-  // la ficha de cliente y el detalle de la visita (use-descargar-informe.tsx).
-  const { estadoDe, descargar } = useDescargarInforme();
-  const [visitaBorrarId, setVisitaBorrarId] = useState<string | null>(null);
-  const [previsualizacion, setPrevisualizacion] = useState<PrevisualizacionBorrado | null>(null);
-  const previsualizando = useAccionAsync();
-  const borrandoVisita = useAccionAsync();
 
   // Modo seleccionar → borrar varias visitas de una pasada. El borrado en
   // lote es N× la operación individual (previsualizar → Storage → RPC) en
-  // bucle: no hay RPC de lote y cada visita arrastra ficheros de Storage
-  // fuera de SQL. Progreso "Borrando 3 de 7…" + parte de fallos parciales.
+  // bucle: no hay RPC de lote y cada visita arrastra ficheros de Storage.
   const [seleccionando, setSeleccionando] = useState(false);
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+  const [confirmandoLote, setConfirmandoLote] = useState(false);
   const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
   const [resultadoLote, setResultadoLote] = useState<string | null>(null);
   const corriendoLote = progresoLote !== null;
@@ -94,8 +74,8 @@ export function MiEspacio() {
   }
 
   function entrarSeleccion() {
-    cancelarBorrado(); // cierra la confirmación individual si estaba abierta
     setResultadoLote(null);
+    setConfirmandoLote(false);
     setMarcadas(new Set());
     setSeleccionando(true);
   }
@@ -103,6 +83,7 @@ export function MiEspacio() {
   function salirSeleccion() {
     if (corriendoLote) return;
     setSeleccionando(false);
+    setConfirmandoLote(false);
     setMarcadas(new Set());
     setResultadoLote(null);
   }
@@ -115,6 +96,7 @@ export function MiEspacio() {
       setResultadoLote('Necesitas conexión para borrar visitas.');
       return;
     }
+    setConfirmandoLote(false);
     setResultadoLote(null);
     setProgresoLote({ hecho: 0, total: ids.length });
     const fallos: string[] = [];
@@ -148,65 +130,9 @@ export function MiEspacio() {
       setSeleccionando(false);
       setMarcadas(new Set());
     } else {
-      // Las que fallaron se quedan marcadas para reintentar.
       setMarcadas(new Set(fallos));
-      setResultadoLote(
-        `Se borraron ${ids.length - fallos.length}. ${fallos.length} no se pudieron borrar.`
-      );
+      setResultadoLote(`Se borraron ${ids.length - fallos.length}. ${fallos.length} no se pudieron borrar.`);
     }
-  }
-
-  async function pedirBorrado(visitaId: string) {
-    setVisitaBorrarId(visitaId);
-    setPrevisualizacion(null);
-    await previsualizando.ejecutar(async () => {
-      const { data, error } = await supabase.rpc('previsualizar_borrado_visita', { p_visita_id: visitaId }).single();
-      if (error) throw new Error(error.message);
-      return data as PrevisualizacionBorrado;
-    }, {
-      onExito: (data) => setPrevisualizacion(data),
-    });
-  }
-
-  function cancelarBorrado() {
-    setVisitaBorrarId(null);
-    setPrevisualizacion(null);
-    previsualizando.limpiarError();
-    borrandoVisita.limpiarError();
-  }
-
-  async function confirmarBorrado() {
-    if (!visitaBorrarId) return;
-    const rutas = previsualizacion?.rutas_storage ?? [];
-
-    await borrandoVisita.ejecutar(
-      async () => {
-        // Orden obligatorio: primero los binarios de Storage, mientras el
-        // comercial todavía es "participante" de la visita (la política de
-        // borrado de Storage lo exige) — el RPC de abajo borra esa fila de
-        // participante como parte de la cascada, así que si se hiciera al
-        // revés, el borrado de ficheros quedaría sin permiso y fallaría.
-        if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
-        }
-        const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: visitaBorrarId });
-        if (error) throw new Error(error.message);
-      },
-      {
-        onExito: () => {
-          setVisitaBorrarId(null);
-          setPrevisualizacion(null);
-          queryClient.invalidateQueries({ queryKey: espacioQueryKey });
-          // Misma "última visita" que se ve en la lista de Clientes puede
-          // cambiar al borrar una visita — mismo hueco corregido en
-          // ficha-cliente.tsx a la vez.
-          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-        },
-      }
-    );
   }
 
   const espacioQueryKey = ['mis-visitas-espacio'];
@@ -219,26 +145,19 @@ export function MiEspacio() {
       return (data ?? []) as VisitaEspacio[];
     },
   });
-  // isPaused: mismo hueco ya corregido en agenda-del-dia.tsx,
-  // listado-clientes.tsx y repaso-cliente.tsx — TanStack Query pausa la
-  // consulta en vez de marcarla como error cuando decide que la red no es
-  // fiable, y sin este caso la pantalla se queda en blanco.
   const sinConexion = isPaused && visitas === undefined;
   function reintentar() {
     queryClient.resetQueries({ queryKey: espacioQueryKey });
     refetch();
   }
 
-  // Reparto blando: tu parte (cuota base) es orientativa; lo que manda es
-  // el pozo del equipo. Ver src/lib/espacio.ts.
   const { estado } = useEspacioEquipo();
 
-  // Si Dirección Comercial pidió que liberes espacio, al abrir esta
-  // pantalla el aviso se da por atendido (has venido a mirarlo). Se guarda
-  // quién lo pidió para dejar una línea visible mientras estás aquí.
+  // Si Dirección Comercial pidió que liberes espacio, al abrir esta pantalla
+  // el aviso se da por atendido. Se guarda quién lo pidió para dejar una
+  // línea visible mientras estás aquí.
   const { aviso: avisoLiberar, marcarAtendido } = useAvisoLiberar();
   const [pidioLiberar, setPidioLiberar] = useState<string | null>(null);
-  // Para liberar espacio interesa ver primero lo viejo (o lo que más pesa).
   const [orden, setOrden] = useState<'antiguas' | 'tamano'>('antiguas');
   useEffect(() => {
     if (avisoLiberar) {
@@ -247,33 +166,24 @@ export function MiEspacio() {
     }
   }, [avisoLiberar, marcarAtendido]);
 
-  const tono = tonoDeNivel(estado?.nivel);
-  const colorAviso = COLOR_TONO[tono];
-
-  const mensajeEspacio =
-    estado?.nivel === 'aviso_mio'
-      ? `Vas usando bastante espacio (${estado.pctMio.toFixed(0)}% de tu parte). Aún hay margen del equipo, pero archiva visitas antiguas cuando puedas.`
-      : estado?.nivel === 'aviso_equipo'
-        ? `El espacio del equipo va al ${estado.pctEquipo.toFixed(0)}%. Ayuda a liberar borrando visitas antiguas.`
-        : estado?.nivel === 'critico_equipo'
-          ? `El espacio del equipo está al ${estado.pctEquipo.toFixed(0)}%. Libera visitas antiguas cuanto antes.`
-          : estado?.nivel === 'bloqueo'
-            ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%). No se pueden subir fotos ni audios hasta que se libere.`
-            : null;
-  // Cuando vas sobrado, una línea tranquila en vez de nada.
-  const textoEstado =
-    mensajeEspacio ??
-    (estado && estado.nivel === 'ok' && estado.pctMio < 70 ? 'Vas sobrado de espacio.' : null);
+  const aviso = avisoDeNivel(estado?.nivel);
 
   const visitasOrdenadas = [...(visitas ?? [])].sort((a, b) =>
     orden === 'tamano' ? b.bytes - a.bytes : a.creado_en.localeCompare(b.creado_en)
   );
-  // Pista de "qué liberar": las N más antiguas, siempre por fecha
-  // independientemente del orden elegido para la lista.
   const masAntiguas = [...(visitas ?? [])]
     .sort((a, b) => a.creado_en.localeCompare(b.creado_en))
     .slice(0, N_ANTIGUAS);
   const bytesMasAntiguas = masAntiguas.reduce((s, v) => s + v.bytes, 0);
+  const pistaAntiguasVale =
+    masAntiguas.length >= 2 &&
+    !!estado &&
+    estado.presupuesto > 0 &&
+    bytesMasAntiguas >= estado.presupuesto * PISTA_ANTIGUAS_MIN_FRAC;
+
+  const bytesMarcadas = (visitas ?? [])
+    .filter((v) => marcadas.has(v.visita_id))
+    .reduce((s, v) => s + v.bytes, 0);
 
   return (
     <div className="screen">
@@ -281,53 +191,37 @@ export function MiEspacio() {
 
       <div className="lista-agrupada">
         {pidioLiberar && (
-          <div className="card card--riesgo" style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
-            {pidioLiberar} te ha pedido que liberes espacio. Descarga copia de las visitas antiguas que
-            quieras conservar y bórralas.
-          </div>
+          <Aviso tipo="atencion" titulo={`${pidioLiberar} te ha pedido liberar espacio`}>
+            Abre y descarga las visitas que quieras conservar, y borra las que ya no necesites.
+          </Aviso>
         )}
 
-        {/* Medidor: barra fina de tu parte + una línea. El desglose numérico
-            (tu parte, equipo) va abajo en filas de dato. */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingInline: 'var(--fila-pad-x)' }}>
-          <div style={{ height: 4, borderRadius: 'var(--radius-chip)', background: 'var(--ink-100)', overflow: 'hidden' }}>
+        {/* Medidor: el espacio del EQUIPO, que es lo que manda. En positivo
+            cuando hay holgura; el Aviso avisa cuando aprieta. */}
+        <div className="medidor">
+          <div className="medidor__lb">Espacio del equipo</div>
+          <div className="medidor__barra">
             <div
+              className="medidor__relleno"
               style={{
-                height: '100%',
-                width: `${Math.min(estado?.pctMio ?? 0, 100)}%`,
-                background: colorAviso,
-                borderRadius: 'var(--radius-chip)',
+                width: `${Math.min(estado?.pctEquipo ?? 0, 100)}%`,
+                background: colorBarra(estado?.nivel),
               }}
             />
           </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-            {estado ? `${formatearMB(estado.miUso)} de ${formatearMB(estado.cuotaBase)} MB usados` : 'Calculando…'}
+          <div className="medidor__cifra">
+            {estado
+              ? `${Math.round(estado.pctEquipo)}% · quedan ${formatearMB(
+                  Math.max(estado.presupuesto - estado.usadoTotal, 0)
+                )} MB de ${formatearMB(estado.presupuesto)} MB`
+              : 'Calculando…'}
           </div>
         </div>
 
-        <SeccionLista titulo="Resumen">
-          <FilaDato
-            etiqueta="Tu parte"
-            valor={estado ? `${estado.pctMio.toFixed(0)}%` : '…'}
-            tono={tono}
-          />
-          <FilaDato
-            etiqueta="Espacio del equipo"
-            valor={estado ? `${estado.pctEquipo.toFixed(0)}%` : '…'}
-            tono={tono}
-          />
-        </SeccionLista>
+        {aviso && <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>}
 
-        {textoEstado && (
-          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, paddingInline: 'var(--fila-pad-x)' }}>
-            {textoEstado}
-          </div>
-        )}
-
-        {isLoading && <div style={{ color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Cargando…</div>}
-
+        {isLoading && <EstadoLista estado="cargando" mensaje="Cargando tus visitas…" />}
         {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
-
         {isError && (
           <EstadoLista
             estado="error"
@@ -335,12 +229,11 @@ export function MiEspacio() {
             onReintentar={reintentar}
           />
         )}
-
         {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
-          <div style={{ color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Todavía no tienes visitas.</div>
+          <EstadoLista estado="vacio" mensaje="Todavía no tienes visitas." />
         )}
 
-        {!!visitas?.length && masAntiguas.length >= 2 && (
+        {pistaAntiguasVale && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
             Las {masAntiguas.length} más antiguas ocupan {formatearMB(bytesMasAntiguas)} MB
           </div>
@@ -362,19 +255,14 @@ export function MiEspacio() {
             >
               Las que más ocupan
             </button>
-            <button
-              type="button"
-              className="chip"
-              style={{ marginLeft: 'auto' }}
-              onClick={entrarSeleccion}
-            >
+            <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccion}>
               Seleccionar
             </button>
           </div>
         )}
 
         {seleccionando && (
-          <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingInline: 'var(--fila-pad-x)' }}>
             <BarraSeleccion
               n={marcadas.size}
               onCancelar={salirSeleccion}
@@ -385,147 +273,66 @@ export function MiEspacio() {
                     : `Borrar (${marcadas.size})`,
                   icono: 'borrar',
                   tono: 'riesgo',
-                  onClick: borrarLote,
+                  onClick: () => setConfirmandoLote(true),
                   disabled: corriendoLote || marcadas.size === 0,
                 },
               ]}
             />
+            {confirmandoLote && (
+              <div className="fila-confirmacion" style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-control)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                  Vas a borrar {marcadas.size} visita{marcadas.size === 1 ? '' : 's'} y todo su contenido (fotos,
+                  audios, notas, hallazgos, oportunidades). Libera {formatearMB(bytesMarcadas)} MB. No se puede
+                  deshacer.
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                  Si quieres conservar alguna, cancela, ábrela y descárgala antes de borrar.
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmandoLote(false)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, background: 'var(--risk-600)' }}
+                    onClick={borrarLote}
+                  >
+                    Sí, borrar {marcadas.size}
+                  </button>
+                </div>
+              </div>
+            )}
+            {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
           </div>
-        )}
-
-        {resultadoLote && (
-          <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>{resultadoLote}</div>
         )}
 
         {!!visitas?.length && (
           <SeccionLista titulo={visitas.length === 1 ? '1 visita' : `${visitas.length} visitas`}>
-            {visitasOrdenadas.map((v) => {
-              const estadoDescarga = estadoDe(v.visita_id);
-              const listo = typeof estadoDescarga === 'object' ? estadoDescarga : null;
-
-              if (seleccionando) {
-                return (
-                  <FilaAccion
-                    key={v.visita_id}
-                    densidad="compacta"
-                    titulo={v.cliente_nombre}
-                    subtitulo={`${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
-                    seleccion={{
-                      activa: true,
-                      marcada: marcadas.has(v.visita_id),
-                      onToggle: () => alternarMarca(v.visita_id),
-                    }}
-                  />
-                );
-              }
-
-              if (visitaBorrarId === v.visita_id) {
-                return (
-                  <div key={v.visita_id} className="fila-confirmacion">
-                    {previsualizando.cargando || !previsualizacion ? (
-                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-                        Calculando qué se va a borrar…
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                          {v.cliente_nombre} — esta visita arrastra: {previsualizacion.num_fotos} foto(s),{' '}
-                          {previsualizacion.num_audios} audio(s), {previsualizacion.num_notas} nota(s),{' '}
-                          {previsualizacion.num_hallazgos} hallazgo(s), {previsualizacion.num_oportunidades} oportunidad(es).
-                          Todo eso se borra también, junto con {previsualizacion.num_proximos_pasos} próximo(s) paso(s)
-                          vinculados. No se puede deshacer.
-                        </div>
-                        {!listo && (
-                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                            ¿Quieres descargar una copia antes de borrar?
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                          <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
-                            Cancelar
-                          </button>
-                          {listo ? (
-                            <a
-                              href={listo.url}
-                              className="btn btn-secondary"
-                              style={{ display: 'inline-flex', alignItems: 'center' }}
-                            >
-                              Descargar de nuevo ({formatearMB(listo.tamanoBytes)} MB)
-                            </a>
-                          ) : (
-                            <button
-                              className="btn btn-secondary"
-                              disabled={estadoDescarga === 'generando'}
-                              onClick={() => descargar(v.visita_id)}
-                            >
-                              {estadoDescarga === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
-                            </button>
-                          )}
-                          <button
-                            className="btn btn-primary"
-                            style={{ background: 'var(--risk-600)' }}
-                            onClick={confirmarBorrado}
-                            disabled={borrandoVisita.cargando}
-                          >
-                            {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado'}
-                          </button>
-                        </div>
-                        {borrandoVisita.error && (
-                          <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              const accionDescargar: AccionFila = {
-                icono: 'descargar',
-                etiqueta: listo
-                  ? `Descargar la copia otra vez (${formatearMB(listo.tamanoBytes)} MB)`
-                  : estadoDescarga === 'generando'
-                    ? 'Generando copia…'
-                    : estadoDescarga === 'error'
-                      ? 'Error al generar la copia, reintentar'
-                      : 'Descargar copia',
-                onClick: listo ? undefined : () => descargar(v.visita_id),
-                href: listo ? listo.url : undefined,
-                disabled: estadoDescarga === 'generando',
-                tono: listo ? 'brand' : estadoDescarga === 'error' ? 'riesgo' : 'neutral',
-              };
-
-              // El botón de descarga es solo icono → sus 3 estados
-              // (generando / listo / error) serían invisibles. Se reflejan
-              // en el subtítulo de la fila para que se vean.
-              const textoDescarga = listo
-                ? `Copia descargada (${formatearMB(listo.tamanoBytes)} MB)`
-                : estadoDescarga === 'generando'
-                  ? 'Generando copia…'
-                  : estadoDescarga === 'error'
-                    ? 'Error al generar la copia, toca de nuevo'
-                    : null;
-
-              const accionBorrar: AccionFila = {
-                icono: 'borrar',
-                etiqueta: `Borrar visita de ${v.cliente_nombre}`,
-                onClick: () => pedirBorrado(v.visita_id),
-                tono: 'riesgo',
-              };
-
-              return (
+            {visitasOrdenadas.map((v) =>
+              seleccionando ? (
                 <FilaAccion
                   key={v.visita_id}
                   densidad="compacta"
                   titulo={v.cliente_nombre}
-                  subtitulo={
-                    `${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB` +
-                    (textoDescarga ? ` · ${textoDescarga}` : '')
-                  }
-                  onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
-                  acciones={[accionDescargar, accionBorrar]}
+                  subtitulo={`${fechaCorta(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
+                  seleccion={{
+                    activa: true,
+                    marcada: marcadas.has(v.visita_id),
+                    onToggle: () => alternarMarca(v.visita_id),
+                  }}
                 />
-              );
-            })}
+              ) : (
+                <FilaNavegable
+                  key={v.visita_id}
+                  densidad="compacta"
+                  titulo={v.cliente_nombre}
+                  subtitulo={fechaCorta(v.creado_en)}
+                  valor={<span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>{formatearMB(v.bytes)} MB</span>}
+                  onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
+                  chevron
+                />
+              )
+            )}
           </SeccionLista>
         )}
       </div>

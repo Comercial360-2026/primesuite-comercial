@@ -186,6 +186,23 @@ body {
 .aviso--exito { border-left-color: var(--success-600); }
 .aviso--exito .aviso__icono, .aviso--exito .aviso__etiqueta { color: var(--success-600); }
 
+/* Medidor de espacio del equipo (pantalla Mi espacio). Barra con
+   presencia, no un sliver; cifra en positivo. */
+.medidor {
+  background: var(--surface-1);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
+}
+.medidor__lb { font-size: var(--text-xs); color: var(--ink-400); }
+.medidor__barra {
+  height: 12px; margin: var(--space-2) 0 6px;
+  border-radius: var(--radius-chip);
+  background: var(--ink-100); overflow: hidden;
+}
+.medidor__relleno { height: 100%; border-radius: var(--radius-chip); }
+.medidor__cifra { font-size: var(--text-sm); font-weight: 500; }
+
 /* Bloque "ahora" de la pantalla Hoy — la acción principal al entrar.
    Ver src/features/hoy/bloque-ahora.tsx. */
 .bloque-ahora {
