@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
@@ -6,7 +6,10 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
-import { IconoDescargar, IconoBorrar } from '@/components/ui/iconos';
+import type { NivelEspacio } from '@/lib/espacio';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 
 // Cuota por comercial (Fase A del sistema de backup/borrado). Ya no es un
 // número fijo — se calcula dinámicamente en fn_cuota_comercial_bytes()
@@ -42,20 +45,19 @@ function formatearFecha(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
 
-// Caja de un botón de acción de fila (⬇ / 🗑). Misma para <button> y <a>.
-const cajaIcono: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 40,
-  height: 40,
-  flexShrink: 0,
-  boxSizing: 'border-box',
-  border: '1px solid var(--ink-200)',
-  borderRadius: 'var(--radius-field)',
-  background: 'var(--surface-1)',
-  color: 'var(--ink-700)',
-  cursor: 'pointer',
+// Un solo sitio traduce el nivel de espacio a tono de fila y a color del
+// medidor. Mismos umbrales que el resto de la app: gris con holgura, ámbar
+// en aviso (>=85%), rojo en crítico/bloqueo (>=95%).
+function tonoDeNivel(nivel: NivelEspacio | undefined): 'neutral' | 'aviso' | 'riesgo' {
+  if (nivel === 'critico_equipo' || nivel === 'bloqueo') return 'riesgo';
+  if (nivel === 'aviso_mio' || nivel === 'aviso_equipo') return 'aviso';
+  return 'neutral';
+}
+
+const COLOR_TONO: Record<'neutral' | 'aviso' | 'riesgo', string> = {
+  neutral: 'var(--ink-400)',
+  aviso: 'var(--warning-600)',
+  riesgo: 'var(--risk-600)',
 };
 
 export function MiEspacio() {
@@ -160,6 +162,9 @@ export function MiEspacio() {
     }
   }, [avisoLiberar, marcarAtendido]);
 
+  const tono = tonoDeNivel(estado?.nivel);
+  const colorAviso = COLOR_TONO[tono];
+
   const mensajeEspacio =
     estado?.nivel === 'aviso_mio'
       ? `Vas usando bastante espacio (${estado.pctMio.toFixed(0)}% de tu parte). Aún hay margen del equipo, pero archiva visitas antiguas cuando puedas.`
@@ -170,15 +175,6 @@ export function MiEspacio() {
           : estado?.nivel === 'bloqueo'
             ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%). No se pueden subir fotos ni audios hasta que se libere.`
             : null;
-  // Color de estado — mismos umbrales que el resto de la app: gris cuando
-  // hay holgura, ámbar en aviso (>=85%), rojo en crítico/bloqueo (>=95%).
-  // Todo por token: otra paleta = tokens.css, esta pantalla no se toca.
-  const colorAviso =
-    estado?.nivel === 'critico_equipo' || estado?.nivel === 'bloqueo'
-      ? 'var(--risk-600)'
-      : estado?.nivel === 'aviso_mio' || estado?.nivel === 'aviso_equipo'
-        ? 'var(--warning-600)'
-        : 'var(--ink-400)';
   // Cuando vas sobrado, una línea tranquila en vez de nada.
   const textoEstado =
     mensajeEspacio ??
@@ -203,232 +199,201 @@ export function MiEspacio() {
         <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Mi espacio</h1>
       </div>
 
-      {pidioLiberar && (
-        <div
-          className="card card--riesgo"
-          style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}
-        >
-          {pidioLiberar} te ha pedido que liberes espacio. Descarga copia de las visitas antiguas que
-          quieras conservar y bórralas.
-        </div>
-      )}
-
-      {/* Resumen: barra fina + una línea. Antes era una tarjeta con una
-          etiqueta por métrica y ocupaba media pantalla. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 'var(--text-sm)' }}>
-          <span style={{ color: 'var(--ink-700)' }}>Tu almacenamiento</span>
-          <span style={{ color: colorAviso, fontWeight: 500 }}>{estado ? `${estado.pctMio.toFixed(0)}%` : '…'}</span>
-        </div>
-        <div style={{ height: 4, borderRadius: 'var(--radius-chip)', background: 'var(--ink-100)', overflow: 'hidden' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${Math.min(estado?.pctMio ?? 0, 100)}%`,
-              background: colorAviso,
-              borderRadius: 'var(--radius-chip)',
-            }}
-          />
-        </div>
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-          {estado
-            ? `${formatearMB(estado.miUso)} de ${formatearMB(estado.cuotaBase)} MB · equipo al ${estado.pctEquipo.toFixed(0)}%`
-            : 'Calculando…'}
-        </div>
-        {textoEstado && (
-          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, marginTop: 2 }}>{textoEstado}</div>
-        )}
-      </div>
-
-      {isLoading && <div style={{ color: 'var(--ink-400)' }}>Cargando…</div>}
-
-      {sinConexion && (
-        <div className="card card--riesgo">
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-            Sin conexión. Comprueba tu red e inténtalo de nuevo.
+      <div className="lista-agrupada">
+        {pidioLiberar && (
+          <div className="card card--riesgo" style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
+            {pidioLiberar} te ha pedido que liberes espacio. Descarga copia de las visitas antiguas que
+            quieras conservar y bórralas.
           </div>
-          <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={reintentar}>
-            Reintentar
-          </button>
-        </div>
-      )}
+        )}
 
-      {isError && (
-        <div className="card card--riesgo">
-          No se pudo cargar tu espacio. Comprueba tu conexión e inténtalo de nuevo.
-        </div>
-      )}
-
-      {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
-        <div style={{ color: 'var(--ink-400)' }}>Todavía no tienes visitas.</div>
-      )}
-
-      {!!visitas?.length && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-          {visitas.length} {visitas.length === 1 ? 'visita' : 'visitas'}
-          {masAntiguas.length >= 2 &&
-            ` · las ${masAntiguas.length} más antiguas ocupan ${formatearMB(bytesMasAntiguas)} MB`}
-        </div>
-      )}
-
-      {!!visitas?.length && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            className={`chip${orden === 'antiguas' ? ' chip--on' : ''}`}
-            onClick={() => setOrden('antiguas')}
-          >
-            Más antiguas primero
-          </button>
-          <button
-            type="button"
-            className={`chip${orden === 'tamano' ? ' chip--on' : ''}`}
-            onClick={() => setOrden('tamano')}
-          >
-            Las que más ocupan
-          </button>
-        </div>
-      )}
-
-      {visitasOrdenadas.map((v) => {
-        const estadoDescarga = estadoDe(v.visita_id);
-        const listo = typeof estadoDescarga === 'object' ? estadoDescarga : null;
-
-        if (visitaBorrarId === v.visita_id) {
-          return (
-            <div key={v.visita_id} className="card card--riesgo">
-              {previsualizando.cargando || !previsualizacion ? (
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-                  Calculando qué se va a borrar…
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                    {v.cliente_nombre} — esta visita arrastra: {previsualizacion.num_fotos} foto(s),{' '}
-                    {previsualizacion.num_audios} audio(s), {previsualizacion.num_notas} nota(s),{' '}
-                    {previsualizacion.num_hallazgos} hallazgo(s), {previsualizacion.num_oportunidades} oportunidad(es).
-                    Todo eso se borra también, junto con {previsualizacion.num_proximos_pasos} próximo(s) paso(s)
-                    vinculados. No se puede deshacer.
-                  </div>
-                  {!listo && (
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                      ¿Quieres descargar una copia antes de borrar?
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                    <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
-                      Cancelar
-                    </button>
-                    {listo ? (
-                      <a
-                        href={listo.url}
-                        className="btn btn-secondary"
-                        style={{ display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
-                      </a>
-                    ) : (
-                      <button
-                        className="btn btn-secondary"
-                        disabled={estadoDescarga === 'generando'}
-                        onClick={() => descargar(v.visita_id)}
-                      >
-                        {estadoDescarga === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-primary"
-                      style={{ background: 'var(--risk-600)' }}
-                      onClick={confirmarBorrado}
-                      disabled={borrandoVisita.cargando}
-                    >
-                      {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado'}
-                    </button>
-                  </div>
-                  {borrandoVisita.error && (
-                    <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        }
-
-        return (
-          <div
-            key={v.visita_id}
-            className="card"
-            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-3)' }}
-          >
+        {/* Medidor: barra fina de tu parte + una línea. El desglose numérico
+            (tu parte, equipo) va abajo en filas de dato. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingInline: 'var(--fila-pad-x)' }}>
+          <div style={{ height: 4, borderRadius: 'var(--radius-chip)', background: 'var(--ink-100)', overflow: 'hidden' }}>
             <div
-              style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
-              onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
-            >
-              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {v.cliente_nombre}
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                {formatearFecha(v.creado_en)} · {formatearMB(v.bytes)} MB
-              </div>
-            </div>
+              style={{
+                height: '100%',
+                width: `${Math.min(estado?.pctMio ?? 0, 100)}%`,
+                background: colorAviso,
+                borderRadius: 'var(--radius-chip)',
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+            {estado ? `${formatearMB(estado.miUso)} de ${formatearMB(estado.cuotaBase)} MB usados` : 'Calculando…'}
+          </div>
+        </div>
 
-            {listo ? (
-              <a
-                href={listo.url}
-                onClick={(e) => e.stopPropagation()}
-                aria-label={`Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`}
-                title={`Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`}
-                style={{ ...cajaIcono, color: 'var(--brand-600)' }}
-              >
-                <IconoDescargar />
-              </a>
-            ) : (
-              <button
-                type="button"
-                aria-label={
-                  estadoDescarga === 'generando'
+        <SeccionLista titulo="Resumen">
+          <FilaDato
+            etiqueta="Tu parte"
+            valor={estado ? `${estado.pctMio.toFixed(0)}%` : '…'}
+            tono={tono}
+          />
+          <FilaDato
+            etiqueta="Espacio del equipo"
+            valor={estado ? `${estado.pctEquipo.toFixed(0)}%` : '…'}
+            tono={tono}
+          />
+        </SeccionLista>
+
+        {textoEstado && (
+          <div style={{ fontSize: 'var(--text-xs)', color: colorAviso, paddingInline: 'var(--fila-pad-x)' }}>
+            {textoEstado}
+          </div>
+        )}
+
+        {isLoading && <div style={{ color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Cargando…</div>}
+
+        {sinConexion && (
+          <div className="card card--riesgo">
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+              Sin conexión. Comprueba tu red e inténtalo de nuevo.
+            </div>
+            <button className="btn btn-secondary" style={{ marginTop: 8, width: 'auto', padding: '0 16px' }} onClick={reintentar}>
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {isError && (
+          <div className="card card--riesgo">
+            No se pudo cargar tu espacio. Comprueba tu conexión e inténtalo de nuevo.
+          </div>
+        )}
+
+        {!isLoading && !isError && !sinConexion && visitas?.length === 0 && (
+          <div style={{ color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>Todavía no tienes visitas.</div>
+        )}
+
+        {!!visitas?.length && masAntiguas.length >= 2 && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
+            Las {masAntiguas.length} más antiguas ocupan {formatearMB(bytesMasAntiguas)} MB
+          </div>
+        )}
+
+        {!!visitas?.length && (
+          <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
+            <button
+              type="button"
+              className={`chip${orden === 'antiguas' ? ' chip--on' : ''}`}
+              onClick={() => setOrden('antiguas')}
+            >
+              Más antiguas primero
+            </button>
+            <button
+              type="button"
+              className={`chip${orden === 'tamano' ? ' chip--on' : ''}`}
+              onClick={() => setOrden('tamano')}
+            >
+              Las que más ocupan
+            </button>
+          </div>
+        )}
+
+        {!!visitas?.length && (
+          <SeccionLista titulo={visitas.length === 1 ? '1 visita' : `${visitas.length} visitas`}>
+            {visitasOrdenadas.map((v) => {
+              const estadoDescarga = estadoDe(v.visita_id);
+              const listo = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+
+              if (visitaBorrarId === v.visita_id) {
+                return (
+                  <div key={v.visita_id} className="fila-confirmacion">
+                    {previsualizando.cargando || !previsualizacion ? (
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+                        Calculando qué se va a borrar…
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                          {v.cliente_nombre} — esta visita arrastra: {previsualizacion.num_fotos} foto(s),{' '}
+                          {previsualizacion.num_audios} audio(s), {previsualizacion.num_notas} nota(s),{' '}
+                          {previsualizacion.num_hallazgos} hallazgo(s), {previsualizacion.num_oportunidades} oportunidad(es).
+                          Todo eso se borra también, junto con {previsualizacion.num_proximos_pasos} próximo(s) paso(s)
+                          vinculados. No se puede deshacer.
+                        </div>
+                        {!listo && (
+                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                            ¿Quieres descargar una copia antes de borrar?
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                          <button className="btn btn-secondary" onClick={cancelarBorrado} disabled={borrandoVisita.cargando}>
+                            Cancelar
+                          </button>
+                          {listo ? (
+                            <a
+                              href={listo.url}
+                              className="btn btn-secondary"
+                              style={{ display: 'inline-flex', alignItems: 'center' }}
+                            >
+                              Descargar zip ({formatearMB(listo.tamanoBytes)} MB)
+                            </a>
+                          ) : (
+                            <button
+                              className="btn btn-secondary"
+                              disabled={estadoDescarga === 'generando'}
+                              onClick={() => descargar(v.visita_id)}
+                            >
+                              {estadoDescarga === 'generando' ? 'Generando copia…' : 'Descargar copia primero'}
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-primary"
+                            style={{ background: 'var(--risk-600)' }}
+                            onClick={confirmarBorrado}
+                            disabled={borrandoVisita.cargando}
+                          >
+                            {borrandoVisita.cargando ? 'Borrando…' : 'Confirmar borrado'}
+                          </button>
+                        </div>
+                        {borrandoVisita.error && (
+                          <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoVisita.error}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              const accionDescargar: AccionFila = {
+                icono: 'descargar',
+                etiqueta: listo
+                  ? `Descargar copia (${formatearMB(listo.tamanoBytes)} MB)`
+                  : estadoDescarga === 'generando'
                     ? 'Generando copia…'
                     : estadoDescarga === 'error'
                       ? 'Error al generar la copia, reintentar'
-                      : 'Descargar copia'
-                }
-                title={
-                  estadoDescarga === 'generando'
-                    ? 'Generando copia…'
-                    : estadoDescarga === 'error'
-                      ? 'Error, reintentar'
-                      : 'Descargar copia'
-                }
-                disabled={estadoDescarga === 'generando'}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  descargar(v.visita_id);
-                }}
-                style={{
-                  ...cajaIcono,
-                  color: estadoDescarga === 'error' ? 'var(--danger-600)' : 'var(--ink-700)',
-                  opacity: estadoDescarga === 'generando' ? 0.45 : 1,
-                }}
-              >
-                <IconoDescargar />
-              </button>
-            )}
+                      : 'Descargar copia',
+                onClick: listo ? undefined : () => descargar(v.visita_id),
+                href: listo ? listo.url : undefined,
+                disabled: estadoDescarga === 'generando',
+                tono: listo ? 'brand' : estadoDescarga === 'error' ? 'riesgo' : 'neutral',
+              };
 
-            <button
-              type="button"
-              aria-label={`Borrar visita de ${v.cliente_nombre}`}
-              title="Borrar visita"
-              onClick={(e) => {
-                e.stopPropagation();
-                pedirBorrado(v.visita_id);
-              }}
-              style={{ ...cajaIcono, color: 'var(--risk-600)' }}
-            >
-              <IconoBorrar />
-            </button>
-          </div>
-        );
-      })}
+              const accionBorrar: AccionFila = {
+                icono: 'borrar',
+                etiqueta: `Borrar visita de ${v.cliente_nombre}`,
+                onClick: () => pedirBorrado(v.visita_id),
+                tono: 'riesgo',
+              };
+
+              return (
+                <FilaAccion
+                  key={v.visita_id}
+                  densidad="compacta"
+                  titulo={v.cliente_nombre}
+                  subtitulo={`${formatearFecha(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
+                  onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
+                  acciones={[accionDescargar, accionBorrar]}
+                />
+              );
+            })}
+          </SeccionLista>
+        )}
+      </div>
     </div>
   );
 }

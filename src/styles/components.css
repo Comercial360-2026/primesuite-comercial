@@ -206,3 +206,14 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 .fila__accion-btn:disabled { opacity: 0.45; cursor: default; }
 .fila__accion-btn--riesgo { color: var(--danger-600); }
 .fila__accion-btn--brand { color: var(--brand-600); }
+
+/* Panel de confirmación que sustituye en su sitio a una fila dentro de un
+   grupo (p. ej. "vas a borrar esta visita" en Mi espacio). A ras del
+   grupo: ancho completo, separador superior como las demás filas, sin
+   caja propia. El tinte riesgo lo ponen los textos/botones de dentro. */
+.fila-confirmacion {
+  padding: var(--fila-pad-y) var(--fila-pad-x);
+  border-top: var(--fila-separador);
+  background: var(--surface-1);
+}
+.fila-confirmacion:first-child { border-top: none; }
