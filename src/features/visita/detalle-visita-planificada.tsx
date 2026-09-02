@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, fechaLarga, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Icono } from '@/components/ui/iconos';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -224,7 +225,8 @@ export function DetalleVisitaPlanificada() {
             </div>
           ) : esHoy ? (
             <button className="btn btn-primary" onClick={empezar}>
-              Iniciar visita →
+              Iniciar visita
+              <Icono nombre="chevron" size={18} />
             </button>
           ) : (
             <button className="btn btn-secondary" onClick={() => setConfirmando('empezar')}>

@@ -17,6 +17,12 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
+import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+
+// Icono por naturaleza para los chips de Ecosistema — el color no puede ser
+// la única señal (usuario daltónico): riesgo lleva ⚠, oportunidad su glifo.
+const ECO_ICONO: Record<string, NombreIcono> = { riesgo: 'atencion', oportunidad: 'oportunidad' };
 
 interface OportunidadActiva {
   id: string;
@@ -381,59 +387,8 @@ export function FichaCliente() {
             : undefined
         }
         volverA="/clientes"
-        derecha={
-          <>
-            {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
-            {!confirmandoBorrarCliente && (
-              <button
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '4px 10px', fontSize: 'var(--text-xs)', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-                onClick={pedirBorradoCliente}
-              >
-                Borrar cliente
-              </button>
-            )}
-          </>
-        }
+        derecha={semaforo ? <EtiquetaSemaforo valor={semaforo.semaforo} /> : undefined}
       />
-
-      {confirmandoBorrarCliente && (
-        <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
-          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
-          ) : (
-            <div>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
-                {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
-                {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
-                {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
-                {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
-                {previsualizacionCliente.num_ubicaciones} ubicación(es). Todo eso se borrará también,
-                para siempre. No se puede deshacer.
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
-                antes desde "mi espacio".
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'var(--risk-600)' }}
-                  onClick={confirmarBorradoCliente}
-                  disabled={borrandoCliente.cargando}
-                >
-                  {borrandoCliente.cargando ? 'Borrando…' : 'Confirmar borrado del cliente completo'}
-                </button>
-              </div>
-              {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="screen__scroll">
        <div className="lista-agrupada">
@@ -443,7 +398,7 @@ export function FichaCliente() {
               <FilaNavegable
                 key={o.id}
                 titulo={o.titulo}
-                valor={o.prioridad}
+                valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
                 to={`/oportunidades/${o.id}`}
               />
             ))
@@ -478,26 +433,30 @@ export function FichaCliente() {
           />
           <FilaDato
             etiqueta="Última actividad"
-            valor={
-              semaforo?.ultima_visita
-                ? fechaCorta(semaforo.ultima_visita)
-                : 'sin visitas registradas'
-            }
+            valor={semaforo?.ultima_visita ? fechaCorta(semaforo.ultima_visita) : '—'}
           />
         </SeccionLista>
 
-        <div className="label">Ecosistema</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema?.map((item) => (
-            <span
-              key={item.termino_id}
-              className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
-            >
-              {item.nombre}
-            </span>
-          ))}
-          {!ecosistema?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin ecosistema registrado todavía</span>}
-        </div>
+        <SeccionLista titulo="Ecosistema">
+          {ecosistema?.length ? (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+              {ecosistema.map((item) => {
+                const ic = ECO_ICONO[item.naturaleza];
+                return (
+                  <span
+                    key={item.termino_id}
+                    className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
+                  >
+                    {ic && <Icono nombre={ic} size={13} />}
+                    {item.nombre}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <FilaAccion titulo="Sin ecosistema registrado todavía" tono="neutral" />
+          )}
+        </SeccionLista>
 
         {historialVisitas?.length ? (
           <SeccionLista titulo="Historial de visitas">
@@ -537,6 +496,56 @@ export function FichaCliente() {
         ) : (
           <SeccionLista titulo="Historial de visitas">
             <FilaAccion titulo="Sin visitas registradas" tono="neutral" />
+          </SeccionLista>
+        )}
+
+        {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
+            la app (detalle de visita, "Cerrar sesión" en Yo). */}
+        {confirmandoBorrarCliente ? (
+          <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+            {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                  Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
+                  {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
+                  {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
+                  {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
+                  {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
+                  {previsualizacionCliente.num_ubicaciones} ubicación(es). Todo eso se borrará también,
+                  para siempre. No se puede deshacer.
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                  Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                  antes desde "mi espacio".
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ background: 'var(--risk-600)' }}
+                    onClick={confirmarBorradoCliente}
+                    disabled={borrandoCliente.cargando}
+                  >
+                    {borrandoCliente.cargando ? 'Borrando…' : 'Confirmar borrado del cliente completo'}
+                  </button>
+                </div>
+                {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
+              </div>
+            )}
+          </div>
+        ) : (
+          <SeccionLista>
+            <FilaNavegable
+              icono="borrar"
+              titulo="Borrar cliente"
+              tono="riesgo"
+              chevron={false}
+              onClick={pedirBorradoCliente}
+            />
           </SeccionLista>
         )}
        </div>
@@ -657,7 +666,8 @@ export function FichaCliente() {
       )}
 
       <button className="btn btn-primary" onClick={pedirIniciarVisitaAdHoc}>
-        Iniciar visita ahora →
+        Iniciar visita ahora
+        <Icono nombre="chevron" size={18} />
       </button>
 
       {enCursoModalAbierto && visitaEnCurso && (

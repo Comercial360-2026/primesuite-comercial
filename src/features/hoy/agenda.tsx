@@ -9,6 +9,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { Icono } from '@/components/ui/iconos';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
 
@@ -393,7 +394,8 @@ export function Agenda() {
 
       {buscarCliente === null ? (
         <button className="btn btn-secondary" onClick={() => setBuscarCliente('')}>
-          + Planificar visita
+          <Icono nombre="mas" size={18} />
+          Planificar visita
         </button>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

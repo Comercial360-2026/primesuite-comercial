@@ -7,6 +7,8 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -210,12 +212,7 @@ export function AltaRapidaCliente() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Nuevo cliente</h1>
-      </div>
+      <CabeceraDetalle titulo="Nuevo cliente" onVolver={() => navigate(-1)} />
 
       <div className="label" style={{ marginTop: 0 }}>nombre</div>
       <input
@@ -276,7 +273,8 @@ export function AltaRapidaCliente() {
           disabled={!nombre.trim() || creacionCliente.cargando}
           onClick={() => setObjetivoModal({ modo: 'nuevo' })}
         >
-          Guardar e iniciar visita ahora →
+          Guardar e iniciar visita ahora
+          <Icono nombre="chevron" size={18} />
         </button>
         <button
           className="btn btn-secondary"

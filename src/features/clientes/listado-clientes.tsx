@@ -9,6 +9,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Icono } from '@/components/ui/iconos';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -183,7 +184,8 @@ export function ListadoClientes() {
       </div>
 
       <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
-        + Nuevo cliente
+        <Icono nombre="mas" size={18} />
+        Nuevo cliente
       </button>
     </div>
   );
