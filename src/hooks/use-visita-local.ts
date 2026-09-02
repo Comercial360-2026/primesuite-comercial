@@ -47,7 +47,6 @@ export function useVisitaLocal(visitaId: string | undefined) {
 
       if (!cancelado) {
         if (error || !data) {
-          // eslint-disable-next-line no-console
           console.error(`No se pudo resolver la visita ${visitaId}: ni local ni en Supabase.`, error);
           setDatos(null);
         } else {

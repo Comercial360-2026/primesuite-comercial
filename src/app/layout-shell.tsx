@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
 import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
@@ -12,6 +13,11 @@ import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/i
 // Vocabulario ahora vive dentro de la pantalla Yo, no en el menú.
 export function LayoutShell() {
   const { visitaEnCurso } = useVisitaActivaContext();
+  // Aviso "libera espacio" que Dirección me haya mandado y no haya mirado.
+  // La LÍNEA en la cáscara ya la pinta <AvisoEspacio /> (tiene prioridad
+  // sobre los avisos de pozo). Lo que faltaba era que se notase también
+  // desde otra pantalla: un punto en la pestaña "Yo".
+  const { aviso: avisoLiberar } = useAvisoLiberar();
 
   return (
     <div className="app-shell">
@@ -48,6 +54,7 @@ export function LayoutShell() {
         <NavLink to="/yo">
           <IconoYo />
           Yo
+          {avisoLiberar && <span className="bottom-nav__dot" aria-label="Tienes un aviso" />}
         </NavLink>
       </nav>
     </div>

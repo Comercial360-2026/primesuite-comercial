@@ -80,7 +80,6 @@ export function EditorCaptura({ capturaId, onCerrar }: EditorCapturaProps) {
             const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
             const { error: errStorage } = await supabase.storage.from(bucket).remove([fila.storage_path]);
             if (errStorage) {
-              // eslint-disable-next-line no-console
               console.error('No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:', errStorage.message);
             }
           }

@@ -35,11 +35,34 @@ async function mensajeDeError(error: unknown, reserva: string): Promise<string> 
   return error instanceof Error && error.message ? error.message : reserva;
 }
 
+// En una conexión que se muere a media petición, functions.invoke() puede
+// no resolver NUNCA: el usuario se queda con el botón en "Dando de baja…"
+// para siempre, sin error y sin poder reintentar. A los 30 s se da por
+// fallida. Reintentar es seguro: `desactivar`/`reactivar` son idempotentes
+// y `fn_traspasar_cartera` no mueve nada en la segunda pasada (ya no queda
+// cartera del comercial de origen). 30 s da margen de sobra a la cadena
+// más lenta (traspaso de cartera + update + ban de Auth).
+const TIMEOUT_MS = 30_000;
+
 async function invocar<T>(body: Record<string, unknown>, reservaError: string): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('gestionar-comercial', { body });
-  if (error) throw new Error(await mensajeDeError(error, reservaError));
-  if (data?.error) throw new Error(data.error as string);
-  return data as T;
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<never>((_, reject) => {
+    temporizador = setTimeout(
+      () => reject(new Error('La operación ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.')),
+      TIMEOUT_MS
+    );
+  });
+  try {
+    const { data, error } = await Promise.race([
+      supabase.functions.invoke('gestionar-comercial', { body }),
+      limite,
+    ]);
+    if (error) throw new Error(await mensajeDeError(error, reservaError));
+    if (data?.error) throw new Error(data.error as string);
+    return data as T;
+  } finally {
+    clearTimeout(temporizador);
+  }
 }
 
 // `window.location.origin` para que la Edge Function componga el

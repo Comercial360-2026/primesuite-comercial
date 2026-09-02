@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "gen:types": "supabase gen types typescript --linked --schema public > src/types/database.ts.tmp && mv src/types/database.ts.tmp src/types/database.ts"
   },

@@ -171,7 +171,7 @@ según qué prop reciba (el tipo obliga a pasar exactamente una):
 | `subtitulo` | `string?` | Segunda línea, gris pequeña. |
 | `valor` | `ReactNode?` | Contenido a la derecha, antes de la flecha: texto (`"72%"`), un chip de estado (p. ej. el semáforo en Clientes)… Igual que `FilaDato.valor`. |
 | `badge` | `string \| number?` | Contador pequeño. No se dibuja si es `0`, `''` o `undefined`. |
-| `tono` | `'neutral' \| 'aviso' \| 'riesgo' \| 'ok'` | Por defecto `neutral`. Ver tabla de tonos. |
+| `tono` | `'neutral' \| 'aviso' \| 'riesgo' \| 'ok' \| 'alerta'` | Por defecto `neutral`. Ver tabla de tonos. `alerta` solo en `FilaNavegable`. |
 | `densidad` | `'normal' \| 'compacta'` | Por defecto `normal` (alto `--fila-min-h`, icono 20). `compacta` = alto 44, icono 18, para listas densas. |
 | `chevron` | `boolean?` | Fuerza mostrar/ocultar la flecha. Por defecto: visible solo con `to`. |
 | `disabled` | `boolean?` | Solo efectivo en la variante `onClick`. |
@@ -431,11 +431,12 @@ Los tonos **solo tiñen texto e icono**, nunca ponen fondo de color
 | `aviso` | `--warning-600` | icono, `valor`, `badge` | Algo que revisar, sin urgencia (p. ej. "Solicitudes de ayuda (3)"). |
 | `riesgo` | `--danger-600` | icono, `valor`, `badge` **y el título** | Grave / destructivo (p. ej. "Cerrar sesión", "N sin sincronizar"). |
 | `ok` | `--success-600` | icono, `valor`, `badge` | Confirmación positiva. |
+| `alerta` | `--fila-tono-riesgo` | **solo la barra** de 3px a la izquierda | "Míralo" sin gritar: el título se lee normal, la barra llama la atención en una lista larga. Para el cliente frío ("Sin visitar") de la lista de Clientes, donde el nombre no debe ir en rojo. Solo `FilaNavegable`. |
 
 El tono **no puede ser la única señal** (el usuario es daltónico, ver
-§"Color y accesibilidad"): una fila con tono `aviso`/`riesgo`/`ok` debe
-llevar además un icono o un `badge` con texto que la distinga de una fila
-neutral.
+§"Color y accesibilidad"): una fila con tono `aviso`/`riesgo`/`ok`/`alerta`
+debe llevar además un icono, un `badge` o un `valor` con texto (p. ej. el
+semáforo con forma+palabra en Clientes) que la distinga de una fila neutral.
 
 ### Reglas de estilo
 

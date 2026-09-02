@@ -119,7 +119,6 @@ export function DetalleCaptura() {
             // mitigado con revisión manual) que dejar la fila sin poder
             // borrarla nunca por un fallo puntual del bucket.
             if (errStorage) {
-              // eslint-disable-next-line no-console
               console.error('No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:', errStorage.message);
             }
           }
