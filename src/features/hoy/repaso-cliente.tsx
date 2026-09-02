@@ -326,11 +326,14 @@ export function RepasoCliente() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {ecosistema.map((item) => {
             const ic = ECO_ICONO[item.naturaleza];
+            const clase =
+              item.naturaleza === 'riesgo'
+                ? 'eco-tag--riesgo'
+                : item.naturaleza === 'oportunidad'
+                  ? 'eco-tag--oportunidad'
+                  : 'eco-tag--neutro';
             return (
-              <span
-                key={item.termino_id}
-                className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
-              >
+              <span key={item.termino_id} className={`eco-tag ${clase}`}>
                 {ic && <Icono nombre={ic} size={13} />}
                 {item.nombre}
               </span>

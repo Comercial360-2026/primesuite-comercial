@@ -27,6 +27,10 @@ export interface AccionTarjeta {
   /** Mientras corre: deshabilita el botón y muestra `etiquetaCargando`. */
   cargando?: boolean;
   etiquetaCargando?: string;
+  /** Peso del botón. `primario` (relleno) cuando la acción urge — p. ej.
+   *  la copia de seguridad cuando lleva demasiados días. Por defecto
+   *  `secundario` (borde). */
+  enfasis?: 'primario' | 'secundario';
 }
 
 interface Props {
@@ -37,11 +41,14 @@ interface Props {
   tono?: Tono;
   /** El botón único, abajo. Sin `accion` = tarjeta solo informativa. */
   accion?: AccionTarjeta;
+  /** Barra fina de progreso/antigüedad (0–100), entre el cuerpo y el botón.
+   *  El relleno lo tiñe el `tono`. */
+  barra?: number;
   /** Línea de error bajo el botón. */
   error?: string;
 }
 
-export function TarjetaAccion({ titulo, children, tono = 'neutral', accion, error }: Props) {
+export function TarjetaAccion({ titulo, children, tono = 'neutral', accion, barra, error }: Props) {
   const clases = ['tarjeta-accion', tono !== 'neutral' && `tarjeta-accion--${tono}`]
     .filter(Boolean)
     .join(' ');
@@ -50,10 +57,15 @@ export function TarjetaAccion({ titulo, children, tono = 'neutral', accion, erro
     <div className={clases}>
       <div className="tarjeta-accion__titulo">{titulo}</div>
       <div className="tarjeta-accion__cuerpo">{children}</div>
+      {barra != null && (
+        <div className="tarjeta-accion__barra">
+          <span style={{ width: `${Math.min(Math.max(barra, 0), 100)}%` }} />
+        </div>
+      )}
       {accion && (
         <button
           type="button"
-          className="btn btn-secondary tarjeta-accion__boton"
+          className={`btn ${accion.enfasis === 'primario' ? 'btn-primary' : 'btn-secondary'} tarjeta-accion__boton`}
           disabled={accion.disabled || accion.cargando}
           onClick={accion.onClick}
         >

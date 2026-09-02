@@ -61,11 +61,10 @@ body {
   white-space: nowrap; flex-shrink: 0;
 }
 .chip--on { border-color: var(--brand-600); color: var(--brand-600); background: var(--brand-050); font-weight: 500; }
-.chip--riesgo { border-color: var(--risk-600); color: var(--risk-600); }
-.chip--oportunidad { border-color: var(--signal-600); color: var(--signal-600); }
-.chip--verde { border-color: var(--success-600); color: var(--success-600); }
-.chip--amarillo { border-color: var(--warning-600); color: var(--warning-600); }
-.chip--rojo { border-color: var(--danger-600); color: var(--danger-600); }
+/* Los modificadores de color del chip (riesgo/oportunidad para Ecosistema,
+   verde/amarillo/rojo para el semáforo) se retiraron: esas etiquetas pasaron
+   a .eco-tag / .sem-tag (fondo suave, se leen como estado y no como filtro
+   pulsable). El chip solo es un filtro: base + .chip--on. */
 
 /* Etiqueta de ESTADO (semáforo del cliente). Antes era un `chip` con borde,
    igual que los chips de filtro — competían. Ahora: fondo suave + texto
@@ -79,6 +78,21 @@ body {
 .sem-tag--verde { color: var(--success-600); background: var(--success-050); }
 .sem-tag--amarillo { color: var(--warning-600); background: var(--warning-050); }
 .sem-tag--rojo { color: var(--danger-600); background: var(--danger-050); }
+
+/* Etiqueta de Ecosistema — un término del cliente con su naturaleza
+   (riesgo / oportunidad / neutro). Mismo principio que .sem-tag: fondo
+   suave + texto fuerte, SIN borde, para que se lea como estado y no como
+   un chip de filtro pulsable (que sí llevan borde). Color + icono de forma
+   + palabra: el usuario es daltónico. Se usa en la ficha de cliente y en
+   el repaso de cliente. */
+.eco-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--radius-chip);
+  font-size: var(--text-xs); font-weight: 600;
+}
+.eco-tag--riesgo { color: var(--risk-600); background: var(--danger-050); }
+.eco-tag--oportunidad { color: var(--signal-600); background: var(--signal-050); }
+.eco-tag--neutro { color: var(--ink-700); background: var(--surface-0); }
 
 .card {
   background: var(--surface-1); border: 1px solid var(--ink-100);
@@ -607,6 +621,17 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 
 .tarjeta-accion__boton { width: auto; padding: 0 16px; align-self: flex-start; }
 .tarjeta-accion__error { margin-top: 0; }
+
+/* Barra fina de "antigüedad" (p. ej. días desde la última copia de
+   seguridad). El relleno lo tiñe el tono de la tarjeta; el canal es gris.
+   Presencia, no un sliver — misma altura que .medidor__barra. */
+.tarjeta-accion__barra {
+  height: 8px; border-radius: var(--radius-chip);
+  background: var(--ink-100); overflow: hidden;
+}
+.tarjeta-accion__barra > span { display: block; height: 100%; border-radius: var(--radius-chip); background: var(--ink-400); }
+.tarjeta-accion--aviso .tarjeta-accion__barra > span { background: var(--warning-600); }
+.tarjeta-accion--riesgo .tarjeta-accion__barra > span { background: var(--risk-600); }
 
 /* BarraSeleccion — cabecera del modo seleccionar. Arriba de la lista,
    dentro del .screen. Ver 08_sistema_diseno.md §"Sistema de filas". */

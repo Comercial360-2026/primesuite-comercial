@@ -6,12 +6,14 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
+import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { formatearMB } from '@/lib/espacio';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
-const LIMITE_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB, techo real del plan gratuito de Supabase
 const DIAS_AVISO_BACKUP = 7;
 
 // Tablas incluidas en la copia completa. Solo datos (filas), no los
@@ -41,24 +43,25 @@ const ETIQUETA_ROL: Record<string, string> = {
   direccion_comercial: 'Dirección comercial',
 };
 
-function formatearMB(bytes: number) {
-  return (bytes / (1024 * 1024)).toFixed(0);
-}
-
 // Pantalla "Yo" — mismo sitio en el bottom nav para cualquier rol, siempre.
 // El acceso a Vocabulario (antes ocupaba este mismo hueco del menú solo
 // para direccion_comercial, quitándole a ese rol su propio acceso a "Yo" y
 // por tanto al cierre de sesión) vive ahora dentro de esta pantalla, como
 // una fila más — no compite por la posición fija del menú.
 //
-// Distribución (ver 08_sistema_diseno.md §"Sistema de filas"):
+// Distribución por intención (ver 08_sistema_diseno.md §"Sistema de filas"):
 //   · cabecera de identidad (nombre + rol), sin sección
 //   · aviso rojo "N sin sincronizar" si lo hay — destaca, no es una fila
-//   · SeccionLista "Almacenamiento": Mi espacio + (dir. comercial) las
-//     tarjetas de medidor de espacio y copia de seguridad, que llevan su
-//     propio contenido rico y no encajan en una fila
-//   · SeccionLista "Dirección comercial": accesos exclusivos de ese rol
+//   · "Tu espacio": Mi espacio (con lo que ocupan tus visitas como dato)
+//   · "Salud del equipo" (solo dir. comercial): el % del pozo del equipo
+//     como dato de fila, Consumo por comercial, y la copia de seguridad
+//     (TarjetaAccion — lleva barra de antigüedad y su propio botón)
+//   · "Gestión" (solo dir. comercial): accesos de administración
 //   · SeccionLista suelta: Cerrar sesión (fila roja, al final)
+//
+// El % del equipo salía además como una TarjetaAccion aparte ("Espacio de
+// almacenamiento") con el mismo dato que el medidor de dentro de "Mi
+// espacio" — repetido. Ahora es una sola fila de dato.
 export function Yo() {
   const { comercial } = useSesionActual();
   const { cerrarVisita } = useVisitaActivaContext();
@@ -146,6 +149,10 @@ export function Yo() {
     ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
+  // Barra de "antigüedad" de la copia: 0 recién hecha, 100 al llegar al
+  // umbral de aviso (o si nunca se ha hecho una).
+  const backupBarra =
+    diasDesdeBackup === null ? 100 : Math.min(diasDesdeBackup / DIAS_AVISO_BACKUP, 1) * 100;
 
   async function hacerCopiaCompleta() {
     setExportando(true);
@@ -188,29 +195,19 @@ export function Yo() {
     }
   }
 
-  // Aviso de espacio de Storage — solo visible para Dirección Comercial,
-  // que es quien puede actuar (subir de plan, archivar, etc.). El plan
-  // gratuito de Supabase da 1 GB fijo para siempre, no se renueva cada
-  // mes — sin aviso previo, un comercial se encontraría un error al subir
-  // una foto en mitad de una visita real, sin ningún margen de reacción.
-  const { data: bytesUsados } = useQuery({
-    queryKey: ['espacio-storage-usado'],
-    enabled: esDireccionComercial,
-    refetchOnMount: 'always',
-    queryFn: async () => {
-      const { data, error: err } = await supabase.rpc('fn_espacio_storage_usado');
-      if (err) throw err;
-      return data as number;
-    },
-  });
-
-  const porcentajeUsado = bytesUsados != null ? (bytesUsados / LIMITE_STORAGE_BYTES) * 100 : null;
-  const tonoEspacio =
-    porcentajeUsado == null || porcentajeUsado < 70
+  // Espacio del equipo (el pozo común de Storage). Misma fuente que el
+  // medidor de "Mi espacio" y el banner de la cáscara — antes esta pantalla
+  // lo pedía por su cuenta con fn_espacio_storage_usado y lo pintaba como
+  // una tarjeta aparte con el mismo número.
+  const { estado: espacioEquipo } = useEspacioEquipo();
+  const tonoEquipo: 'neutral' | 'aviso' | 'riesgo' =
+    espacioEquipo == null
       ? 'neutral'
-      : porcentajeUsado < 90
-        ? 'aviso'
-        : 'riesgo';
+      : espacioEquipo.nivel === 'bloqueo' || espacioEquipo.nivel === 'critico_equipo'
+        ? 'riesgo'
+        : espacioEquipo.nivel === 'aviso_equipo'
+          ? 'aviso'
+          : 'neutral';
 
   async function cerrarSesion() {
     setCerrando(true);
@@ -270,60 +267,71 @@ export function Yo() {
           </div>
         )}
 
-        <SeccionLista titulo="Almacenamiento">
+        <SeccionLista titulo="Tu espacio">
           <FilaNavegable
             icono="almacenamiento"
             titulo="Mi espacio"
-            subtitulo="Ver tu cuota y el tamaño de tus visitas"
+            subtitulo="Tus visitas y lo que ocupan"
+            valor={
+              espacioEquipo ? (
+                <span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>
+                  {formatearMB(espacioEquipo.miUso)} MB
+                </span>
+              ) : undefined
+            }
             to="/mi-espacio"
           />
         </SeccionLista>
 
-        {esDireccionComercial && bytesUsados != null && (
-          <TarjetaAccion titulo="Espacio de almacenamiento" tono={tonoEspacio}>
-            <div style={{ fontSize: 'var(--text-base)' }}>
-              {formatearMB(bytesUsados)} MB de 1024 MB usados ({porcentajeUsado!.toFixed(0)}%)
-            </div>
-            {porcentajeUsado! >= 70 && (
-              <div className="tarjeta-accion__estado">
-                {porcentajeUsado! >= 90
-                  ? 'Crítico — actúa pronto o los comerciales no podrán subir fotos ni audios.'
-                  : 'Acercándose al límite del plan gratuito de Supabase.'}
+        {esDireccionComercial && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SeccionLista titulo="Salud del equipo">
+              <FilaDato
+                icono="almacenamiento"
+                etiqueta="Espacio del equipo"
+                tono={tonoEquipo}
+                valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+              />
+              <FilaNavegable
+                icono="consumo"
+                titulo="Consumo por comercial"
+                subtitulo="Cuánto ocupa cada uno"
+                to="/consumo-comerciales"
+              />
+            </SeccionLista>
+
+            <TarjetaAccion
+              titulo="Copia de seguridad"
+              tono={backupPendiente ? 'aviso' : 'neutral'}
+              barra={backupBarra}
+              accion={{
+                etiqueta: 'Hacer copia ahora',
+                icono: 'descargar',
+                onClick: hacerCopiaCompleta,
+                cargando: exportando,
+                etiquetaCargando: 'Preparando copia…',
+                enfasis: backupPendiente ? 'primario' : 'secundario',
+              }}
+              error={errorExportacion ?? undefined}
+            >
+              <div>
+                {diasDesdeBackup === null
+                  ? 'Todavía no has hecho ninguna copia completa.'
+                  : diasDesdeBackup === 0
+                    ? 'Última copia: hoy.'
+                    : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
               </div>
-            )}
-          </TarjetaAccion>
+              {backupPendiente && (
+                <div className="tarjeta-accion__estado">
+                  Supabase gratuito no hace copias automáticas — conviene descargar una ya.
+                </div>
+              )}
+            </TarjetaAccion>
+          </div>
         )}
 
         {esDireccionComercial && (
-          <TarjetaAccion
-            titulo="Copia de seguridad completa"
-            tono={backupPendiente ? 'aviso' : 'neutral'}
-            accion={{
-              etiqueta: 'Hacer copia completa ahora',
-              icono: 'descargar',
-              onClick: hacerCopiaCompleta,
-              cargando: exportando,
-              etiquetaCargando: 'Preparando copia…',
-            }}
-            error={errorExportacion ?? undefined}
-          >
-            <div>
-              {diasDesdeBackup === null
-                ? 'Todavía no has hecho ninguna copia completa.'
-                : diasDesdeBackup === 0
-                  ? 'Última copia: hoy.'
-                  : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
-            </div>
-            {backupPendiente && (
-              <div className="tarjeta-accion__estado">
-                Supabase gratuito no hace copias automáticas — te recomendamos descargar una ahora.
-              </div>
-            )}
-          </TarjetaAccion>
-        )}
-
-        {esDireccionComercial && (
-          <SeccionLista titulo="Dirección comercial">
+          <SeccionLista titulo="Gestión">
             <FilaNavegable
               icono="clientes"
               titulo="Equipo"
@@ -332,7 +340,7 @@ export function Yo() {
             />
             <FilaNavegable
               icono="vocabulario"
-              titulo="Gestionar vocabulario"
+              titulo="Vocabulario"
               subtitulo="Revisar propuestas y organizar el catálogo"
               to="/vocabulario"
             />
@@ -343,12 +351,6 @@ export function Yo() {
               badge={numSolicitudesPendientes || undefined}
               tono={numSolicitudesPendientes ? 'aviso' : 'neutral'}
               to="/solicitudes-reasignacion"
-            />
-            <FilaNavegable
-              icono="consumo"
-              titulo="Consumo por comercial"
-              subtitulo="Ver cuánto espacio usa cada comercial"
-              to="/consumo-comerciales"
             />
             {!!numGruposDuplicados && (
               <FilaNavegable

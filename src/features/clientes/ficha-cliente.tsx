@@ -15,7 +15,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
-import { FilaAccion } from '@/components/ui/fila-accion';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
@@ -195,7 +195,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector')
+        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -316,6 +316,27 @@ export function FichaCliente() {
     (v) => v.estado_captura === 'agendada' && new Date(v.fecha).getTime() >= new Date().setHours(0, 0, 0, 0)
   );
 
+  // Ficha "vacía" = nada que un comercial haya registrado (ni oportunidades,
+  // ni próximos pasos, ni ecosistema, ni visitas). Las secciones vacías no
+  // se dibujan — antes cada una metía una fila "Sin …" de relleno. Si TODO
+  // está vacío, una sola línea con presencia (EstadoLista). `listasCargadas`
+  // evita el parpadeo de "vacía" mientras las cuatro queries resuelven.
+  const listasCargadas =
+    oportunidades !== undefined &&
+    proximosPasos !== undefined &&
+    ecosistema !== undefined &&
+    historialVisitas !== undefined;
+  const fichaVacia =
+    !oportunidades?.length &&
+    !proximosPasos?.length &&
+    !ecosistema?.length &&
+    !historialVisitas?.length;
+  const hayBasicos =
+    !!cliente?.sector ||
+    !!cliente?.ubicacion_general ||
+    !!cliente?.tamano_aprox ||
+    !!semaforo?.ultima_visita;
+
   // Al llegar con ?planificar=1 el formulario ya está abierto, pero vive al
   // final de la pantalla — se acerca a la vista para que se vea.
   useEffect(() => {
@@ -392,112 +413,116 @@ export function FichaCliente() {
 
       <div className="screen__scroll">
        <div className="lista-agrupada">
-        <SeccionLista titulo="Oportunidades activas">
-          {oportunidades?.length ? (
-            oportunidades.map((o) => (
-              <FilaNavegable
-                key={o.id}
-                titulo={o.titulo}
-                valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
-                to={`/oportunidades/${o.id}`}
-              />
-            ))
-          ) : (
-            <FilaAccion titulo="Ninguna oportunidad activa" tono="neutral" />
-          )}
-        </SeccionLista>
-
-        <SeccionLista titulo="Próximos pasos">
-          {proximosPasos?.length ? (
-            proximosPasos.map((p) => (
-              <FilaNavegable
-                key={p.id}
-                titulo={p.descripcion}
-                valor={
-                  p.fecha_objetivo
-                    ? fechaCorta(p.fecha_objetivo)
-                    : undefined
-                }
-                to={`/proximos-pasos/${p.id}`}
-              />
-            ))
-          ) : (
-            <FilaAccion titulo="Sin próximos pasos pendientes" tono="neutral" />
-          )}
-        </SeccionLista>
-
-        <SeccionLista titulo="Más">
-          <FilaNavegable
-            titulo="Ubicaciones"
-            to={`/clientes/${clienteId}/ubicaciones`}
-          />
-          <FilaDato
-            etiqueta="Última actividad"
-            valor={semaforo?.ultima_visita ? fechaCorta(semaforo.ultima_visita) : '—'}
-          />
-        </SeccionLista>
-
-        <SeccionLista titulo="Ecosistema">
-          {ecosistema?.length ? (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {ecosistema.map((item) => {
-                const ic = ECO_ICONO[item.naturaleza];
-                return (
-                  <span
-                    key={item.termino_id}
-                    className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
-                  >
-                    {ic && <Icono nombre={ic} size={13} />}
-                    {item.nombre}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <FilaAccion titulo="Sin ecosistema registrado todavía" tono="neutral" />
-          )}
-        </SeccionLista>
-
-        {historialVisitas?.length ? (
-          <SeccionLista titulo="Historial de visitas">
-            {historialVisitas.map((v) => {
-              // La fila solo navega. Descargar informe y Borrar viven dentro
-              // de la visita (detalle / Visita Activa) — así el historial no
-              // es un muro de botones.
-              const estadoLegible =
-                v.estado_captura === 'agendada'
-                  ? 'planificada'
-                  : v.estado_captura === 'en_curso'
-                    ? 'en curso'
-                    : 'cerrada';
-              const accion =
-                v.estado_captura === 'agendada'
-                  ? 'gestionar'
-                  : v.estado_captura === 'en_curso'
-                    ? 'continuar visita'
-                    : 'ver contenido';
-              const to =
-                v.estado_captura === 'agendada'
-                  ? `/visita/${v.id}/planificada`
-                  : v.estado_captura === 'en_curso'
-                    ? `/visita/${v.id}`
-                    : `/visita/${v.id}/detalle`;
-              return (
-                <FilaNavegable
-                  key={v.id}
-                  titulo={fechaCorta(v.fecha)}
-                  subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
-                  valor={accion}
-                  to={to}
-                />
-              );
-            })}
-          </SeccionLista>
-        ) : (
-          <SeccionLista titulo="Historial de visitas">
-            <FilaAccion titulo="Sin visitas registradas" tono="neutral" />
+        {hayBasicos && (
+          <SeccionLista titulo="Datos">
+            {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
+            {cliente?.ubicacion_general && (
+              <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
+            )}
+            {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
+            {semaforo?.ultima_visita && (
+              <FilaDato etiqueta="Última actividad" valor={fechaCorta(semaforo.ultima_visita)} />
+            )}
           </SeccionLista>
         )}
+
+        {listasCargadas && fichaVacia ? (
+          <EstadoLista
+            estado="vacio"
+            mensaje="Todavía no hay nada registrado. Empieza una visita para llenar la ficha."
+          />
+        ) : (
+          <>
+            {!!oportunidades?.length && (
+              <SeccionLista titulo="Oportunidades activas">
+                {oportunidades.map((o) => (
+                  <FilaNavegable
+                    key={o.id}
+                    titulo={o.titulo}
+                    valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
+                    to={`/oportunidades/${o.id}`}
+                  />
+                ))}
+              </SeccionLista>
+            )}
+
+            {!!proximosPasos?.length && (
+              <SeccionLista titulo="Próximos pasos">
+                {proximosPasos.map((p) => (
+                  <FilaNavegable
+                    key={p.id}
+                    titulo={p.descripcion}
+                    valor={p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : undefined}
+                    to={`/proximos-pasos/${p.id}`}
+                  />
+                ))}
+              </SeccionLista>
+            )}
+
+            {!!ecosistema?.length && (
+              <SeccionLista titulo="Ecosistema">
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+                  {ecosistema.map((item) => {
+                    const ic = ECO_ICONO[item.naturaleza];
+                    const clase =
+                      item.naturaleza === 'riesgo'
+                        ? 'eco-tag--riesgo'
+                        : item.naturaleza === 'oportunidad'
+                          ? 'eco-tag--oportunidad'
+                          : 'eco-tag--neutro';
+                    return (
+                      <span key={item.termino_id} className={`eco-tag ${clase}`}>
+                        {ic && <Icono nombre={ic} size={13} />}
+                        {item.nombre}
+                      </span>
+                    );
+                  })}
+                </div>
+              </SeccionLista>
+            )}
+
+            {!!historialVisitas?.length && (
+              <SeccionLista titulo="Historial de visitas">
+                {historialVisitas.map((v) => {
+                  // La fila solo navega. Descargar informe y Borrar viven
+                  // dentro de la visita (detalle / Visita Activa) — así el
+                  // historial no es un muro de botones.
+                  const estadoLegible =
+                    v.estado_captura === 'agendada'
+                      ? 'planificada'
+                      : v.estado_captura === 'en_curso'
+                        ? 'en curso'
+                        : 'cerrada';
+                  const accion =
+                    v.estado_captura === 'agendada'
+                      ? 'gestionar'
+                      : v.estado_captura === 'en_curso'
+                        ? 'continuar visita'
+                        : 'ver contenido';
+                  const to =
+                    v.estado_captura === 'agendada'
+                      ? `/visita/${v.id}/planificada`
+                      : v.estado_captura === 'en_curso'
+                        ? `/visita/${v.id}`
+                        : `/visita/${v.id}/detalle`;
+                  return (
+                    <FilaNavegable
+                      key={v.id}
+                      titulo={fechaCorta(v.fecha)}
+                      subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
+                      valor={accion}
+                      to={to}
+                    />
+                  );
+                })}
+              </SeccionLista>
+            )}
+          </>
+        )}
+
+        <SeccionLista titulo="Más">
+          <FilaNavegable titulo="Ubicaciones" to={`/clientes/${clienteId}/ubicaciones`} />
+        </SeccionLista>
 
         {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
             la app (detalle de visita, "Cerrar sesión" en Yo). */}

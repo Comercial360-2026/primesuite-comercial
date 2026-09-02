@@ -203,7 +203,8 @@ que lleva su propia acción. Las listas de accesos/datos siguen siendo
 |---|---|---|
 | `titulo` | `string` | Cabecera pequeña gris (la `.label` de arriba). |
 | `children` | `ReactNode` | Cuerpo: texto, cifras, una barra fina… Para la línea de estado que el tono debe teñir, usar `<div className="tarjeta-accion__estado">`. |
-| `tono` | `'neutral' \| 'aviso' \| 'riesgo'` | Por defecto `neutral`. Tiñe **borde + título + `tarjeta-accion__estado`**. No hay `ok` (una tarjeta con acción nunca es "todo correcto"). |
+| `tono` | `'neutral' \| 'aviso' \| 'riesgo'` | Por defecto `neutral`. Tiñe **borde + título + `tarjeta-accion__estado` + relleno de `barra`**. No hay `ok` (una tarjeta con acción nunca es "todo correcto"). |
+| `barra` | `number?` (0–100) | Barra fina de progreso/antigüedad entre el cuerpo y el botón (p. ej. días desde la última copia de seguridad). El relleno lo tiñe el `tono`. |
 | `accion` | `AccionTarjeta?` | El botón único, abajo. Sin `accion` = tarjeta solo informativa. |
 | `error` | `string?` | Línea de error bajo el botón (`field-error-text`). |
 
@@ -217,6 +218,7 @@ que lleva su propia acción. Las listas de accesos/datos siguen siendo
 | `disabled` | `boolean?` | |
 | `cargando` | `boolean?` | Deshabilita el botón y muestra `etiquetaCargando`. |
 | `etiquetaCargando` | `string?` | Por defecto `"Un momento…"`. |
+| `enfasis` | `'primario' \| 'secundario'?` | Peso del botón. `primario` (relleno) cuando la acción urge — p. ej. la copia de seguridad cuando lleva demasiados días. Por defecto `secundario` (borde). |
 
 Sin `href` (las descargas de **Yo** generan el blob en JS, no navegan). Si
 alguna tarjeta necesitase descargar tras un `await`, se añade igual que en
@@ -242,6 +244,15 @@ Es una unión discriminada por `estado`:
 falló, reintenta"), que se mantiene como componente propio. Las pantallas
 que aún llaman a `EstadoError` directo migran a `EstadoLista` al entrar en
 su fase.
+
+**Secciones vacías: no se dibujan.** Una `SeccionLista` sin contenido
+desaparece — nada de una fila "Sin X" de relleno que pese lo mismo que una
+llena (rompe el punto 4 de la §"Prueba de usuario"). Si al quitar las
+secciones vacías la pantalla se queda sin nada que un usuario haya
+registrado, se pone **un** `EstadoLista` `vacio` con una frase que dice qué
+hacer para llenarla (ej. ficha de cliente nueva: "Empieza una visita para
+llenar la ficha"). Los accesos estructurales fijos (Ubicaciones, Borrar) y
+la acción principal siguen visibles.
 
 #### `FilaToggle` + prop `seleccion?` — *implementado*
 
@@ -512,6 +523,7 @@ Dónde aplica y con qué segunda pista:
 | Punto | Color | Segunda pista |
 |---|---|---|
 | Semáforo del cliente | verde / amarillo / rojo | `EtiquetaSemaforo`: icono de forma propia (✓ / – / △) + palabra ("Al día" / "Seguimiento" / "En riesgo") |
+| Etiquetas de Ecosistema (`.eco-tag`) | rojo (riesgo) / rojo señal (oportunidad) / gris | fondo suave (no borde, no es un chip pulsable) + icono de forma (`atencion` / `oportunidad`) + el propio nombre del término |
 | Mensajes (`Aviso`) | azul / ámbar / rojo / verde | icono de forma propia + palabra de tipo ("ATENCIÓN"…) |
 | Tono de fila (`aviso` / `riesgo` / `ok`) | ámbar / rojo / verde | **la fila también debe llevar** un icono o un `badge` con texto que la distinga; el tono por sí solo no basta |
 | "Oportunidad" (rojo `--signal-600`) | rojo | icono `oportunidad` (destello) delante del texto |
