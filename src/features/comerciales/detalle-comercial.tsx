@@ -8,11 +8,13 @@ import {
   editarComercial,
   desactivarComercial,
   reactivarComercial,
+  enlaceAcceso,
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
+import { Icono } from '@/components/ui/iconos';
 
 const ROLES: { valor: RolComercial; etiqueta: string }[] = [
   { valor: 'comercial', etiqueta: 'Comercial' },
@@ -46,6 +48,55 @@ export function DetalleComercial() {
   const [error, setError] = useState<string | null>(null);
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  // Reenviar enlace de acceso (contraseña perdida / enlace caducado).
+  const [reenviando, setReenviando] = useState(false);
+  const [enlaceReenviado, setEnlaceReenviado] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
+
+  // Petición de acceso pendiente de este comercial (la deja el propio
+  // comercial desde el login cuando no puede entrar).
+  const { data: peticionAcceso } = useQuery({
+    queryKey: ['solicitud-acceso', comercialId],
+    enabled: !!comercialId,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('solicitud_acceso')
+        .select('creado_en')
+        .eq('comercial_id', comercialId!)
+        .eq('estado', 'pendiente')
+        .maybeSingle();
+      if (err) throw err;
+      return data;
+    },
+  });
+
+  async function reenviarEnlace() {
+    if (reenviando) return;
+    setReenviando(true);
+    setError(null);
+    try {
+      const { action_link } = await enlaceAcceso(comercialId!);
+      setEnlaceReenviado(action_link);
+      queryClient.invalidateQueries({ queryKey: ['solicitud-acceso', comercialId] });
+      queryClient.invalidateQueries({ queryKey: ['num-solicitudes-acceso'] });
+      queryClient.invalidateQueries({ queryKey: ['solicitudes-acceso-pendientes'] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo generar el enlace.');
+    } finally {
+      setReenviando(false);
+    }
+  }
+
+  async function copiarEnlace() {
+    if (!enlaceReenviado) return;
+    try {
+      await navigator.clipboard.writeText(enlaceReenviado);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      /* se ve igual en pantalla */
+    }
+  }
 
   useEffect(() => {
     if (!data) return;
@@ -123,6 +174,12 @@ export function DetalleComercial() {
         </Aviso>
       )}
 
+      {data.activo && peticionAcceso && !enlaceReenviado && (
+        <Aviso tipo="atencion" titulo="Ha pedido acceso">
+          El {fechaCorta(peticionAcceso.creado_en)}. Reenvíale el enlace y se marcará como resuelto.
+        </Aviso>
+      )}
+
       <div className="label" style={{ marginTop: data.activo ? 0 : undefined }}>nombre</div>
       <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
 
@@ -157,6 +214,42 @@ export function DetalleComercial() {
       >
         {guardando ? 'Guardando…' : 'Guardar cambios'}
       </button>
+
+      {/* Reenviar enlace de acceso — contraseña perdida o enlace de alta
+          caducado. Solo tiene sentido con el comercial activo. */}
+      {data.activo && (
+        enlaceReenviado ? (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Aviso tipo="exito" titulo="Enlace nuevo listo">
+              Pásaselo a {data.nombre}. La petición queda resuelta.
+            </Aviso>
+            <div className="enlace-copia">{enlaceReenviado}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiarEnlace}>
+                {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+              </button>
+              {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', padding: '0 16px' }}
+                  onClick={() =>
+                    navigator
+                      .share({ title: 'Acceso a PrimeNotes', url: enlaceReenviado })
+                      .catch(() => {})
+                  }
+                >
+                  Compartir
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-secondary" disabled={reenviando} onClick={reenviarEnlace}>
+            <Icono nombre="solicitudes" size={18} />
+            {reenviando ? 'Generando enlace…' : 'Reenviar enlace de acceso'}
+          </button>
+        )
+      )}
 
       {/* Baja / reactivación — al fondo, tono riesgo, con confirmación. */}
       {data.activo ? (

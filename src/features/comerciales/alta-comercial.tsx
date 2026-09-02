@@ -20,7 +20,7 @@ export function AltaComercial() {
   const [zona, setZona] = useState('');
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [passwordTemporal, setPasswordTemporal] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<{ action_link: string | null; aviso?: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
 
   const puedeGuardar = nombre.trim() && email.trim().includes('@') && !creando;
@@ -30,7 +30,7 @@ export function AltaComercial() {
     setCreando(true);
     setError(null);
     try {
-      const { password_temporal } = await crearComercial({
+      const { action_link, aviso } = await crearComercial({
         nombre: nombre.trim(),
         email: email.trim(),
         rol,
@@ -38,7 +38,7 @@ export function AltaComercial() {
       });
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
       queryClient.invalidateQueries({ queryKey: ['nombres-comerciales'] });
-      setPasswordTemporal(password_temporal);
+      setResultado({ action_link, aviso });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo crear el comercial.');
     } finally {
@@ -47,42 +47,66 @@ export function AltaComercial() {
   }
 
   async function copiar() {
-    if (!passwordTemporal) return;
+    if (!resultado?.action_link) return;
     try {
-      await navigator.clipboard.writeText(passwordTemporal);
+      await navigator.clipboard.writeText(resultado.action_link);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      /* si el navegador no deja copiar, la contraseña se ve igual en pantalla */
+      /* si el navegador no deja copiar, el enlace se ve igual en pantalla */
     }
   }
 
-  // Alta hecha: se enseña la contraseña temporal para dársela al comercial.
-  // No se puede volver a ver — de ahí el aviso.
-  if (passwordTemporal) {
+  async function compartir() {
+    if (!resultado?.action_link || typeof navigator.share !== 'function') return;
+    try {
+      await navigator.share({
+        title: 'Acceso a PrimeNotes',
+        text: `${nombre.trim()}, entra en PrimeNotes y elige tu contraseña con este enlace (caduca en 1 hora):`,
+        url: resultado.action_link,
+      });
+    } catch {
+      /* el usuario canceló el diálogo de compartir */
+    }
+  }
+
+  // Alta hecha: se enseña el enlace de un solo uso para dárselo al
+  // comercial (WhatsApp, en persona…). Con él elige su contraseña.
+  if (resultado) {
+    const puedeCompartir = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Comercial creado" />
         <div className="lista-agrupada">
-          <Aviso tipo="exito" titulo={`${nombre.trim()} ya puede entrar`}>
-            Pásale estos datos. La contraseña temporal <strong>no se vuelve a mostrar</strong>; si se pierde,
-            tendrás que restablecerla.
+          <Aviso tipo="exito" titulo={`${nombre.trim()} está dada de alta`}>
+            {resultado.action_link
+              ? 'Pásale este enlace (WhatsApp, en persona…). Con él elige su contraseña. Caduca en 1 hora; si hace falta, se reenvía desde su ficha.'
+              : (resultado.aviso ?? 'El comercial está creado. Reenvíale el enlace de acceso desde su ficha.')}
           </Aviso>
 
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
               <div className="label" style={{ marginTop: 0 }}>correo</div>
               <div style={{ fontSize: 'var(--text-base)' }}>{email.trim()}</div>
             </div>
-            <div>
-              <div className="label">contraseña temporal</div>
-              <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, letterSpacing: '0.02em' }}>
-                {passwordTemporal}
-              </div>
-            </div>
-            <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiar}>
-              {copiado ? 'Copiada ✓' : 'Copiar contraseña'}
-            </button>
+            {resultado.action_link && (
+              <>
+                <div>
+                  <div className="label">enlace de acceso</div>
+                  <div className="enlace-copia">{resultado.action_link}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiar}>
+                    {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+                  </button>
+                  {puedeCompartir && (
+                    <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={compartir}>
+                      Compartir
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

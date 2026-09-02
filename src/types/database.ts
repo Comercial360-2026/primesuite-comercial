@@ -315,6 +315,7 @@ export type Database = {
           fusionado_en_id: string | null
           id: string
           nombre: string
+          responsable_id: string | null
           sector: string | null
           tamano_aprox: string | null
           ubicacion_general: string | null
@@ -328,6 +329,7 @@ export type Database = {
           fusionado_en_id?: string | null
           id?: string
           nombre: string
+          responsable_id?: string | null
           sector?: string | null
           tamano_aprox?: string | null
           ubicacion_general?: string | null
@@ -341,6 +343,7 @@ export type Database = {
           fusionado_en_id?: string | null
           id?: string
           nombre?: string
+          responsable_id?: string | null
           sector?: string | null
           tamano_aprox?: string | null
           ubicacion_general?: string | null
@@ -1078,6 +1081,36 @@ export type Database = {
           creado_en?: string
           creado_por?: string
           id?: string
+        }
+        Relationships: []
+      }
+      solicitud_acceso: {
+        Row: {
+          comercial_id: string
+          creado_en: string
+          email: string
+          estado: string
+          id: string
+          resuelto_en: string | null
+          resuelto_por: string | null
+        }
+        Insert: {
+          comercial_id: string
+          creado_en?: string
+          email: string
+          estado?: string
+          id?: string
+          resuelto_en?: string | null
+          resuelto_por?: string | null
+        }
+        Update: {
+          comercial_id?: string
+          creado_en?: string
+          email?: string
+          estado?: string
+          id?: string
+          resuelto_en?: string | null
+          resuelto_por?: string | null
         }
         Relationships: []
       }

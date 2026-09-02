@@ -13,15 +13,23 @@
 // Auth — si solo se pusiera `activo=false`, el comercial dado de baja
 // seguiría pudiendo entrar (nada filtra `activo` al resolver la sesión).
 //
+// Fase 6a — el alta ya no devuelve una contraseña: devuelve un enlace de
+// un solo uso (`type: recovery`) con el que el comercial elige su
+// contraseña en la pantalla /establecer-contrasena. `enlace_acceso`
+// regenera ese enlace (contraseña perdida, enlace caducado).
+// `solicitar_acceso` la usa el propio comercial SIN sesión desde el login.
+//
 // Contrato (POST JSON):
-//   { accion: 'crear',      nombre, email, rol, zona_cartera? }
-//     -> { id, password_temporal }
+//   { accion: 'crear',      nombre, email, rol, zona_cartera?, app_url? }
+//     -> { id, action_link }
 //   { accion: 'editar',     id, nombre, rol, zona_cartera? }   -> { ok: true }
 //   { accion: 'desactivar', id }                               -> { ok: true }
 //   { accion: 'reactivar',  id }                               -> { ok: true }
+//   { accion: 'enlace_acceso', id, app_url? }                  -> { action_link }
+//   { accion: 'solicitar_acceso', email }                      -> { ok: true }  (SIN auth)
 //
-// Todas exigen que quien llama sea direccion_comercial. No se puede uno
-// desactivar a sí mismo (candado anti-bloqueo).
+// Todas menos `solicitar_acceso` exigen que quien llama sea
+// direccion_comercial. No se puede uno desactivar a sí mismo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -42,14 +50,19 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-// Contraseña temporal legible para dictar por teléfono: "Prime-" + 8
-// caracteres de un alfabeto sin ambigüedades (sin 0/O, 1/l/I) + un dígito.
-function contrasenaTemporal(): string {
-  const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  const cuerpo = [...bytes].map((b) => alfabeto[b % alfabeto.length]).join('');
-  const digito = crypto.getRandomValues(new Uint8Array(1))[0] % 10;
-  return `Prime-${cuerpo}${digito}`;
+// Contraseña interna aleatoria — el usuario NO la ve nunca (elige la suya
+// con el enlace). Solo existe porque createUser necesita una.
+function contrasenaAleatoria(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Solo se acepta un app_url http(s); si no, se omite y Supabase usa su
+// Site URL por defecto. El allowlist de "Redirect URLs" lo valida Supabase.
+function redireccionEstablecer(appUrl: unknown): string | undefined {
+  const s = typeof appUrl === 'string' ? appUrl.trim().replace(/\/$/, '') : '';
+  if (!/^https?:\/\/[^\s]+$/i.test(s)) return undefined;
+  return `${s}/establecer-contrasena`;
 }
 
 Deno.serve(async (req) => {
@@ -63,18 +76,51 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Cuerpo de la petición inválido' }, 400);
   }
   const accion = body.accion;
-  if (accion !== 'crear' && accion !== 'editar' && accion !== 'desactivar' && accion !== 'reactivar') {
+  const ACCIONES = ['crear', 'editar', 'desactivar', 'reactivar', 'enlace_acceso', 'solicitar_acceso'];
+  if (typeof accion !== 'string' || !ACCIONES.includes(accion)) {
     return jsonResponse({ error: 'Acción no reconocida' }, 400);
   }
-
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return jsonResponse({ error: 'No autenticado' }, 401);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const admin = createClient(supabaseUrl, serviceRoleKey);
 
-  // Cliente "como el usuario que llama" — solo para saber quién es.
+  // --------------------------------------------------- SOLICITAR ACCESO (SIN auth)
+  // La pide el propio comercial desde el login, sin sesión. Respuesta
+  // SIEMPRE la misma (no se puede sondear qué correos existen).
+  if (accion === 'solicitar_acceso') {
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (email && email.includes('@')) {
+      try {
+        // El equipo es pequeño: una página basta para encontrar el correo.
+        const { data: lista } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const usuario = lista?.users?.find((u) => (u.email ?? '').toLowerCase() === email);
+        if (usuario) {
+          const { data: fila } = await admin
+            .from('comercial')
+            .select('id, activo')
+            .eq('id', usuario.id)
+            .maybeSingle();
+          if (fila?.activo) {
+            // Ignora el choque con el índice único parcial (ya hay una
+            // pendiente): volver a pedirlo no crea otra.
+            await admin
+              .from('solicitud_acceso')
+              .insert({ comercial_id: fila.id, email });
+          }
+        }
+      } catch {
+        /* se responde ok igualmente — no se filtra nada */
+      }
+    }
+    return jsonResponse({ ok: true });
+  }
+
+  // --------------------------------------------------------- AUTORIZACIÓN
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) return jsonResponse({ error: 'No autenticado' }, 401);
+
   const clienteUsuario = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
@@ -82,9 +128,6 @@ Deno.serve(async (req) => {
   if (userError || !userData.user) return jsonResponse({ error: 'Sesión no válida' }, 401);
   const quienLlamaId = userData.user.id;
 
-  const admin = createClient(supabaseUrl, serviceRoleKey);
-
-  // Autorización: solo Dirección Comercial.
   const { data: quienLlama } = await admin
     .from('comercial')
     .select('rol')
@@ -105,10 +148,9 @@ Deno.serve(async (req) => {
     if (!email || !email.includes('@')) return jsonResponse({ error: 'El correo no es válido.' }, 400);
     if (!ROLES_VALIDOS.includes(rol)) return jsonResponse({ error: 'Rol no válido.' }, 400);
 
-    const password = contrasenaTemporal();
     const { data: creado, error: errCrear } = await admin.auth.admin.createUser({
       email,
-      password,
+      password: contrasenaAleatoria(),
       email_confirm: true,
       user_metadata: { nombre },
     });
@@ -127,13 +169,55 @@ Deno.serve(async (req) => {
       activo: true,
     });
     if (errFila) {
-      // Sin fila `comercial` el usuario de Auth no sirve para nada y
-      // dejaría un correo "ocupado" — se revierte.
       await admin.auth.admin.deleteUser(creado.user.id);
       return jsonResponse({ error: `No se pudo guardar el comercial: ${errFila.message}` }, 400);
     }
 
-    return jsonResponse({ id: creado.user.id, password_temporal: password });
+    const { data: enlace, error: errEnlace } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: redireccionEstablecer(body.app_url) },
+    });
+    if (errEnlace || !enlace?.properties?.action_link) {
+      // El comercial está creado; solo falló el enlace. Se puede reenviar
+      // desde su ficha con `enlace_acceso`.
+      return jsonResponse(
+        { id: creado.user.id, action_link: null, aviso: 'El comercial está creado, pero no se pudo generar el enlace. Reenvíalo desde su ficha.' },
+        200
+      );
+    }
+
+    return jsonResponse({ id: creado.user.id, action_link: enlace.properties.action_link });
+  }
+
+  // ---------------------------------------------------------- ENLACE ACCESO
+  if (accion === 'enlace_acceso') {
+    const id = String(body.id ?? '');
+    if (!id) return jsonResponse({ error: 'Falta el id del comercial.' }, 400);
+
+    const { data: usuario, error: errUsuario } = await admin.auth.admin.getUserById(id);
+    if (errUsuario || !usuario.user?.email) {
+      return jsonResponse({ error: 'No se encontró el usuario de ese comercial.' }, 400);
+    }
+
+    const { data: enlace, error: errEnlace } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email: usuario.user.email,
+      options: { redirectTo: redireccionEstablecer(body.app_url) },
+    });
+    if (errEnlace || !enlace?.properties?.action_link) {
+      return jsonResponse({ error: `No se pudo generar el enlace: ${errEnlace?.message ?? 'error desconocido'}` }, 400);
+    }
+
+    // Si había una petición de acceso pendiente de este comercial, queda
+    // resuelta al reenviarle el enlace.
+    await admin
+      .from('solicitud_acceso')
+      .update({ estado: 'resuelta', resuelto_por: quienLlamaId, resuelto_en: new Date().toISOString() })
+      .eq('comercial_id', id)
+      .eq('estado', 'pendiente');
+
+    return jsonResponse({ action_link: enlace.properties.action_link });
   }
 
   // ---------------------------------------------------------------- EDITAR
@@ -175,8 +259,6 @@ Deno.serve(async (req) => {
     .eq('id', id);
   if (errFila) return jsonResponse({ error: `No se pudo actualizar: ${errFila.message}` }, 400);
 
-  // Bloquea (o desbloquea) el login del usuario de Auth. Sin esto, un
-  // comercial dado de baja seguiría entrando en la app.
   const { error: errBan } = await admin.auth.admin.updateUserById(id, {
     ban_duration: desactivar ? BAN_LARGO : 'none',
   });

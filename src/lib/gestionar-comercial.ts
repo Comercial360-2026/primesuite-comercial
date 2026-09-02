@@ -42,10 +42,33 @@ async function invocar<T>(body: Record<string, unknown>, reservaError: string): 
   return data as T;
 }
 
+// `window.location.origin` para que la Edge Function componga el
+// `redirect_to` del enlace hacia ESTA instalación (localhost / producción).
+function origenApp(): string {
+  return typeof window !== 'undefined' ? window.location.origin : '';
+}
+
 export function crearComercial(p: CrearParams) {
-  return invocar<{ id: string; password_temporal: string }>(
-    { accion: 'crear', ...p },
+  return invocar<{ id: string; action_link: string | null; aviso?: string }>(
+    { accion: 'crear', ...p, app_url: origenApp() },
     'No se pudo crear el comercial.'
+  );
+}
+
+// Regenera el enlace de acceso de un comercial (contraseña perdida, enlace
+// caducado). Si tenía una petición de acceso pendiente, la marca resuelta.
+export function enlaceAcceso(id: string) {
+  return invocar<{ action_link: string }>(
+    { accion: 'enlace_acceso', id, app_url: origenApp() },
+    'No se pudo generar el enlace de acceso.'
+  );
+}
+
+// La llama el comercial SIN sesión desde el login. Respuesta siempre igual.
+export function solicitarAcceso(email: string) {
+  return invocar<{ ok: true }>(
+    { accion: 'solicitar_acceso', email },
+    'No se pudo enviar el aviso.'
   );
 }
 

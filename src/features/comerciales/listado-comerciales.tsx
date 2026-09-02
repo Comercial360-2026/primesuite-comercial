@@ -47,6 +47,33 @@ export function ListadoComerciales() {
     refetch();
   }
 
+  // Comerciales que han pedido acceso desde el login (contraseña perdida).
+  // Se muestran arriba del todo; cada fila abre su ficha, donde está el
+  // botón "Reenviar enlace de acceso".
+  const { data: peticionesAcceso } = useQuery({
+    queryKey: ['solicitudes-acceso-pendientes'],
+    queryFn: async (): Promise<{ comercial_id: string; nombre: string; creado_en: string }[]> => {
+      const { data, error } = await supabase
+        .from('solicitud_acceso')
+        .select('comercial_id, creado_en')
+        .eq('estado', 'pendiente')
+        .order('creado_en');
+      if (error) throw error;
+      const filas = data ?? [];
+      if (!filas.length) return [];
+      const { data: comerciales } = await supabase
+        .from('comercial')
+        .select('id, nombre')
+        .in('id', filas.map((f) => f.comercial_id));
+      const nombrePorId = new Map((comerciales ?? []).map((c) => [c.id, c.nombre]));
+      return filas.map((f) => ({
+        comercial_id: f.comercial_id,
+        creado_en: f.creado_en,
+        nombre: nombrePorId.get(f.comercial_id) ?? '—',
+      }));
+    },
+  });
+
   const lista = (data ?? []).filter((c) => verTodos || c.activo);
   const nBaja = (data ?? []).filter((c) => !c.activo).length;
 
@@ -64,6 +91,21 @@ export function ListadoComerciales() {
           <EstadoLista estado="error" mensaje="No se pudo cargar el equipo." onReintentar={reintentar} />
         ) : (
           <>
+            {!!peticionesAcceso?.length && (
+              <SeccionLista titulo="⚠ Piden acceso">
+                {peticionesAcceso.map((p) => (
+                  <FilaNavegable
+                    key={p.comercial_id}
+                    icono="solicitudes"
+                    titulo={p.nombre}
+                    subtitulo={`lo pidió el ${fechaCorta(p.creado_en)} · reenviar enlace`}
+                    tono="aviso"
+                    onClick={() => navigate(`/comerciales/${p.comercial_id}`)}
+                  />
+                ))}
+              </SeccionLista>
+            )}
+
             {nBaja > 0 && (
               <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
                 <button type="button" className={`chip${!verTodos ? ' chip--on' : ''}`} onClick={() => setVerTodos(false)}>

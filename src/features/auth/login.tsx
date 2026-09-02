@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
+import { solicitarAcceso } from '@/lib/gestionar-comercial';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { Aviso } from '@/components/ui/aviso';
@@ -18,6 +19,25 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const acceso = useAccionAsync();
+
+  // "He perdido el acceso" — el comercial no puede entrar y avisa a
+  // Dirección Comercial, que le reenvía el enlace. `enviado` fija el
+  // mensaje final (siempre el mismo, exista o no el correo).
+  const [recuperarAbierto, setRecuperarAbierto] = useState(false);
+  const [emailRecuperar, setEmailRecuperar] = useState('');
+  const [avisoEnviado, setAvisoEnviado] = useState(false);
+  const recuperar = useAccionAsync();
+
+  async function enviarAviso() {
+    if (!emailRecuperar.trim().includes('@')) return;
+    await recuperar.ejecutar(
+      () => solicitarAcceso(emailRecuperar.trim()),
+      {
+        onExito: () => setAvisoEnviado(true),
+        mensajeError: () => 'No se pudo enviar el aviso. Comprueba tu conexión e inténtalo de nuevo.',
+      }
+    );
+  }
 
   const destino = (location.state as { desde?: string } | null)?.desde ?? '/';
 
@@ -100,6 +120,63 @@ export function Login() {
         {acceso.cargando ? 'Entrando…' : 'Entrar'}
       </button>
       <AvisoTardando visible={acceso.tardando} />
+
+      {avisoEnviado ? (
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <Aviso tipo="exito" titulo="Aviso enviado">
+            Si el correo es de un comercial activo, tu responsable lo verá en la app y te reenviará el enlace de
+            acceso. Vuelve a intentarlo cuando lo tengas.
+          </Aviso>
+        </div>
+      ) : recuperarAbierto ? (
+        <div style={{ marginTop: 'var(--space-4)', borderTop: '1px solid var(--ink-100)', paddingTop: 'var(--space-3)' }}>
+          <div className="label" style={{ marginTop: 0 }}>tu correo</div>
+          <input
+            className="field"
+            type="email"
+            autoCapitalize="none"
+            value={emailRecuperar}
+            onChange={(e) => setEmailRecuperar(e.target.value)}
+            placeholder="nombre@primion.com"
+          />
+          {recuperar.error && (
+            <div style={{ marginTop: 'var(--space-2)' }}>
+              <Aviso tipo="error">{recuperar.error}</Aviso>
+            </div>
+          )}
+          <button
+            className="btn btn-secondary"
+            style={{ marginTop: 'var(--space-3)' }}
+            disabled={!emailRecuperar.trim().includes('@') || recuperar.cargando}
+            onClick={enviarAviso}
+          >
+            {recuperar.cargando ? 'Enviando…' : 'Avisar a mi responsable'}
+          </button>
+          <button
+            type="button"
+            className="btn-enlace"
+            style={{ display: 'block', margin: 'var(--space-3) auto 0' }}
+            onClick={() => {
+              setRecuperarAbierto(false);
+              recuperar.limpiarError();
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="btn-enlace"
+          style={{ display: 'block', margin: 'var(--space-4) auto 0' }}
+          onClick={() => {
+            setEmailRecuperar(email.trim());
+            setRecuperarAbierto(true);
+          }}
+        >
+          He perdido el acceso
+        </button>
+      )}
     </div>
     </div>
   );

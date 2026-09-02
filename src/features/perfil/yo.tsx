@@ -88,6 +88,21 @@ export function Yo() {
     },
   });
 
+  // Comerciales que han pulsado "He perdido el acceso" en el login y
+  // esperan que Dirección les reenvíe el enlace.
+  const { data: numPeticionesAcceso } = useQuery({
+    queryKey: ['num-solicitudes-acceso'],
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { count, error: err } = await supabase
+        .from('solicitud_acceso')
+        .select('id', { count: 'exact', head: true })
+        .eq('estado', 'pendiente');
+      if (err) throw err;
+      return count ?? 0;
+    },
+  });
+
   // Nº de grupos de fichas de cliente duplicadas (mismo criterio de
   // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
   // fila — que Dirección Comercial vea que hay algo que revisar sin tener
@@ -332,6 +347,16 @@ export function Yo() {
 
         {esDireccionComercial && (
           <SeccionLista titulo="Gestión">
+            {!!numPeticionesAcceso && (
+              <FilaNavegable
+                icono="solicitudes"
+                titulo="Peticiones de acceso"
+                subtitulo="Comerciales que han perdido su contraseña"
+                badge={numPeticionesAcceso}
+                tono="aviso"
+                to="/comerciales"
+              />
+            )}
             <FilaNavegable
               icono="clientes"
               titulo="Equipo"

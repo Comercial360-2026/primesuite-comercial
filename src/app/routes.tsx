@@ -1,9 +1,12 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { LayoutShell } from '@/app/layout-shell';
 import { RequireRole } from '@/app/require-role';
 import { RequireSession } from '@/app/require-session';
 import { VisitaActivaProvider } from '@/hooks/use-visita-activa-context';
+import { supabase } from '@/lib/supabase-client';
 import { Login } from '@/features/auth/login';
+import { EstablecerContrasena } from '@/features/auth/establecer-contrasena';
 
 // Pantallas — cada import se resuelve a un stub inicial en su carpeta de
 // feature (ver 09_arquitectura_tecnica.md §3). Se construyen en el orden del
@@ -36,11 +39,29 @@ import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
 import { AltaComercial } from '@/features/comerciales/alta-comercial';
 import { DetalleComercial } from '@/features/comerciales/detalle-comercial';
 
+// El enlace de un solo uso (Fase 6a) es de tipo `recovery`: al abrirlo,
+// Supabase crea una sesión temporal y dispara `PASSWORD_RECOVERY`. El
+// propio enlace ya apunta a /establecer-contrasena, pero esto cubre la
+// carrera y un futuro "olvidé mi contraseña" desde el login.
+function useRedirigirRecuperacion() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'PASSWORD_RECOVERY') {
+        navigate('/establecer-contrasena', { replace: true });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [navigate]);
+}
+
 export function AppRoutes() {
+  useRedirigirRecuperacion();
   return (
     <VisitaActivaProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/establecer-contrasena" element={<EstablecerContrasena />} />
 
         <Route
           element={
