@@ -24,9 +24,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
       },
       manifest: {
-        name: 'PrimeSuite Comercial',
-        short_name: 'PrimeSuite',
-        description: 'Aplicación comercial de venta consultiva PrimeSuite / Primion',
+        name: 'PrimeNotes',
+        short_name: 'PrimeNotes',
+        description: 'App comercial de venta consultiva — Primion',
+        lang: 'es',
         theme_color: '#1A3654',
         background_color: '#F4F5F7',
         display: 'standalone',

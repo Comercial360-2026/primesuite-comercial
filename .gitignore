@@ -14,3 +14,7 @@ graphify-out/
 .claude/launch.json
 # lockfile de Deno espurio (el proyecto es npm/Vite)
 deno.lock
+
+# artefactos de comprobaciones locales con Playwright
+.playwright-mcp/
+login-check.png
