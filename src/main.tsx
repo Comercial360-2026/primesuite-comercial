@@ -57,7 +57,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       }
     >
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        {/* Flags de React Router v7 adoptados ya (son su comportamiento por
+            defecto en v7): `v7_startTransition` envuelve el cambio de ruta en
+            startTransition (navegación no urgente, mejor con Suspense);
+            `v7_relativeSplatPath` cambia la resolución de rutas relativas
+            dentro de rutas comodín — esta app no tiene ninguna, así que solo
+            calla el aviso. Adoptarlos ahora achica el salto futuro a v7. */}
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppRoutes />
         </BrowserRouter>
       </QueryClientProvider>
