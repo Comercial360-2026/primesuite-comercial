@@ -972,7 +972,7 @@ export function VisitaActiva() {
                   </button>
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: 'var(--text-sm)', width: 'auto', color: 'var(--signal-600)', borderColor: 'var(--signal-600)' }}
+                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
                     onClick={() => setOportunidadAbierta(true)}
                   >
                     <Icono nombre="oportunidad" size={18} />
@@ -1150,7 +1150,7 @@ export function VisitaActiva() {
           <Icono nombre="nota" size={22} />
           Nota
         </button>
-        <button className="capture-btn capture-btn--oportunidad" onClick={() => setOportunidadAbierta(true)}>
+        <button className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
           <Icono nombre="oportunidad" size={22} />
           Oportunidad
         </button>
