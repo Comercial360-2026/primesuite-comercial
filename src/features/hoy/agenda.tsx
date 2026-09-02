@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
+import { fechaDiaMes, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -11,7 +11,9 @@ import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { Icono } from '@/components/ui/iconos';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
-import { franjaDe, etiquetaFranja, ordenFranja, type Franja } from '@/lib/franja-visita';
+import { franjaDe, ordenFranja } from '@/lib/franja-visita';
+
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 // Pantalla de planificación: todo lo que está agendado (agendada), pasado y
 // futuro. "Hoy" solo enseña el día de hoy y un enlace aquí; el detalle de
@@ -41,13 +43,17 @@ function claveDia(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+// Cabecera de día: siempre el mismo formato y con la fecha real. El prefijo
+// "Hoy"/"Mañana" ayuda, pero nunca va suelto — así no choca con la franja
+// "mañana" ni con "viernes, 4 de septiembre de 2026" en la de al lado.
 function etiquetaDia(d: Date) {
   const hoy = inicioDeHoy();
   const manana = new Date(hoy);
   manana.setDate(manana.getDate() + 1);
-  if (claveDia(d) === claveDia(hoy)) return 'Hoy';
-  if (claveDia(d) === claveDia(manana)) return 'Mañana';
-  return fechaLarga(d);
+  const fecha = cap(fechaDiaMes(d)); // "Mié 2 sept"
+  if (claveDia(d) === claveDia(hoy)) return `Hoy · ${fecha}`;
+  if (claveDia(d) === claveDia(manana)) return `Mañana · ${fecha}`;
+  return fecha;
 }
 
 // Listas que refrescar tras cancelar visitas (mismo juego que
@@ -251,23 +257,26 @@ export function Agenda() {
     for (const k of CLAVES_LISTAS_VISITAS) queryClient.invalidateQueries({ queryKey: k });
   }
 
-  function fila(v: VisitaAgenda, conFecha: boolean) {
+  // `atrasada` = fila de la sección Atrasadas: icono ⚠, tono aviso, y en vez
+  // de la hora, para cuándo estaba. Las filas de un día llevan icono de
+  // calendario y su hora (ya no hay subcabecera de franja que lo diga).
+  function fila(v: VisitaAgenda, atrasada: boolean) {
     const resp = responsables?.[v.id];
     const deOtro = resp && resp !== comercial?.id;
-    // En los días la fila va bajo una cabecera de franja, así que solo
-    // enseña la hora (o "sin hora fija"). En "Atrasadas" no hay cabecera de
-    // día, así que enseña la fecha.
-    const cuando = conFecha
-      ? fechaDiaMes(v.fecha)
-      : v.hora_definida
-        ? hora(v.fecha)
-        : 'sin hora fija';
+    const deQuien = deOtro ? `de ${nombresComerciales?.[resp] ?? '…'}` : '';
+    const horaTexto = v.hora_definida ? hora(v.fecha) : 'sin hora';
     return (
       <FilaNavegable
         key={v.id}
+        icono={atrasada ? 'atencion' : 'hoy'}
+        tono={atrasada ? 'aviso' : 'neutral'}
         titulo={v.cliente?.nombre ?? 'Cliente'}
-        subtitulo={v.objetivo ?? undefined}
-        valor={`${cuando}${deOtro ? ` · de ${nombresComerciales?.[resp] ?? '…'}` : ''}`}
+        subtitulo={
+          atrasada
+            ? [v.objetivo, `era para el ${cap(fechaDiaMes(v.fecha))}`].filter(Boolean).join(' · ')
+            : (v.objetivo ?? undefined)
+        }
+        valor={atrasada ? (deQuien || undefined) : `${horaTexto}${deQuien ? ` · ${deQuien}` : ''}`}
         to={`/visita/${v.id}/planificada`}
         seleccion={
           seleccionando
@@ -364,31 +373,22 @@ export function Agenda() {
       {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
         <div className="lista-agrupada">
           {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado
-              de inicio para que no empuje hacia abajo los días que sí miras. */}
+              de inicio para que no empuje hacia abajo los días que sí miras.
+              Cabecera ámbar + ⚠, igual que en "Hoy". */}
           {atrasadas.length > 0 && (
-            <SeccionColapsable titulo="Atrasadas" cantidad={atrasadas.length}>
+            <SeccionColapsable titulo="⚠ Atrasadas" cantidad={atrasadas.length}>
               <div className="seccion-lista__grupo">{atrasadas.map((v) => fila(v, true))}</div>
             </SeccionColapsable>
           )}
 
-          {dias.map((dia) => {
-            const porFranja: Record<Franja, VisitaAgenda[]> = { manana: [], tarde: [], sin_hora: [] };
-            for (const v of dia.visitas) porFranja[franjaDe(v.fecha, v.hora_definida, v.franja)].push(v);
-            return (
-              <SeccionLista key={claveDia(dia.fecha)} titulo={etiquetaDia(dia.fecha)}>
-                {(['manana', 'tarde', 'sin_hora'] as Franja[]).flatMap((fr) =>
-                  porFranja[fr].length === 0
-                    ? []
-                    : [
-                        <div key={`sub-${fr}`} className="seccion-lista__subcabecera">
-                          {etiquetaFranja(fr)}
-                        </div>,
-                        ...porFranja[fr].map((v) => fila(v, false)),
-                      ]
-                )}
-              </SeccionLista>
-            );
-          })}
+          {/* Un grupo por día. Dentro, las visitas ya vienen ordenadas
+              mañana → tarde → sin hora (useMemo); cada fila lleva su hora, así
+              que no hacen falta subcabeceras de franja. */}
+          {dias.map((dia) => (
+            <SeccionLista key={claveDia(dia.fecha)} titulo={etiquetaDia(dia.fecha)}>
+              {dia.visitas.map((v) => fila(v, false))}
+            </SeccionLista>
+          ))}
         </div>
       )}
 
