@@ -18,12 +18,9 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
-import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { EcoTag } from '@/components/ui/eco-tag';
+import { Icono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
-
-// Icono por naturaleza para los chips de Ecosistema — el color no puede ser
-// la única señal (usuario daltónico): riesgo lleva ⚠, oportunidad su glifo.
-const ECO_ICONO: Record<string, NombreIcono> = { riesgo: 'atencion', oportunidad: 'oportunidad' };
 
 interface OportunidadActiva {
   id: string;
@@ -87,6 +84,8 @@ export function FichaCliente() {
     else setObjetivoAdHocAbierto(true);
   }
 
+  const [ecoTodos, setEcoTodos] = useState(false);
+  const ECO_VISIBLE = 10;
   const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
   const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
   const previsualizandoCliente = useAccionAsync();
@@ -470,11 +469,11 @@ export function FichaCliente() {
                     titulo={o.titulo}
                     subtitulo={
                       [
-                        etiqueta(ETAPA_LABEL, o.etapa),
+                        o.etapa ? etiqueta(ETAPA_LABEL, o.etapa) : null,
                         o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : null,
                       ]
                         .filter(Boolean)
-                        .join(' · ')
+                        .join(' · ') || undefined
                     }
                     valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
                     to={`/oportunidades/${o.id}`}
@@ -511,21 +510,23 @@ export function FichaCliente() {
             {!!ecosistema?.length && (
               <SeccionLista titulo="Ecosistema">
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-                  {ecosistema.map((item) => {
-                    const ic = ECO_ICONO[item.naturaleza];
-                    const clase =
-                      item.naturaleza === 'riesgo'
-                        ? 'eco-tag--riesgo'
-                        : item.naturaleza === 'oportunidad'
-                          ? 'eco-tag--oportunidad'
-                          : 'eco-tag--neutro';
-                    return (
-                      <span key={item.termino_id} className={`eco-tag ${clase}`}>
-                        {ic && <Icono nombre={ic} size={13} />}
-                        {item.nombre}
-                      </span>
-                    );
-                  })}
+                  {/* Riesgos y oportunidades primero — es lo que mira el
+                      comercial de un vistazo. Se recorta a ECO_VISIBLE. */}
+                  {[...ecosistema]
+                    .sort(
+                      (a, b) =>
+                        (a.naturaleza === 'riesgo' ? 0 : a.naturaleza === 'oportunidad' ? 1 : 2) -
+                        (b.naturaleza === 'riesgo' ? 0 : b.naturaleza === 'oportunidad' ? 1 : 2)
+                    )
+                    .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
+                    .map((item) => (
+                      <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
+                    ))}
+                  {ecosistema.length > ECO_VISIBLE && (
+                    <button type="button" className="btn-enlace" onClick={() => setEcoTodos((v) => !v)}>
+                      {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
+                    </button>
+                  )}
                 </div>
               </SeccionLista>
             )}

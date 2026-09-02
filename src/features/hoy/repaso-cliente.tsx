@@ -9,13 +9,10 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { EcoTag } from '@/components/ui/eco-tag';
+import { Icono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
 import { uuid } from '@/lib/uuid';
-
-// Icono por naturaleza en los chips de Ecosistema — el color no es señal
-// suficiente (usuario daltónico), igual que en la ficha del cliente.
-const ECO_ICONO: Record<string, NombreIcono> = { riesgo: 'atencion', oportunidad: 'oportunidad' };
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
@@ -325,21 +322,9 @@ export function RepasoCliente() {
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
       ) : (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema.map((item) => {
-            const ic = ECO_ICONO[item.naturaleza];
-            const clase =
-              item.naturaleza === 'riesgo'
-                ? 'eco-tag--riesgo'
-                : item.naturaleza === 'oportunidad'
-                  ? 'eco-tag--oportunidad'
-                  : 'eco-tag--neutro';
-            return (
-              <span key={item.termino_id} className={`eco-tag ${clase}`}>
-                {ic && <Icono nombre={ic} size={13} />}
-                {item.nombre}
-              </span>
-            );
-          })}
+          {ecosistema.map((item) => (
+            <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
+          ))}
           {!ecosistema.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
         </div>
       )}

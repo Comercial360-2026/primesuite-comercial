@@ -57,6 +57,14 @@ propaga a toda la app):
   `--ink-900` / 500 por defecto (un número, un estado, una prioridad, un
   importe). Solo un valor de contexto secundario —una fecha— usa
   `valorTenue` (prop de `FilaNavegable` / `FilaDato` → `.fila__valor--tenue`).
+- **El texto libre en una lista NUNCA crece.** Títulos y descripciones que
+  escribe el comercial pueden tener 5 palabras o 1000 caracteres. En una
+  lista se recortan: `.fila__titulo` a 2 líneas, `.fila__subtitulo` y
+  `.cabecera-detalle__subtitulo` a 1, con "…". El texto entero se ve al
+  tocar la fila (que ya navega al elemento). Lo que no navega y puede ser
+  largo (etiquetas de Ecosistema) es un `<button>` que se despliega al
+  tocarlo (`EcoTag`). Toda lista de contenido cuenta con un tope de
+  elementos visibles + "+N más".
 - **Un idioma de acento, tres trabajos, siempre forma + palabra.** Azul de
   marca = acción principal · «lleva a otra pantalla» (`.fila-ir`) ·
   informativo/de sistema (`.info-tag`, p. ej. «Heredado»). Semántico
