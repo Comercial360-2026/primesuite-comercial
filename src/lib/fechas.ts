@@ -36,3 +36,22 @@ export function hora(v: Entrada): string {
   const d = aDate(v);
   return d ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
 }
+
+/** "hoy" / "ayer" / "hace 5 días" / "hace 3 semanas" / "hace 4 meses" — para
+ *  el de un vistazo ("última visita hace 6 semanas", "vencido hace 9 días").
+ *  Siempre en pasado; para fechas futuras devuelve "" (usar `fechaCorta`). */
+export function haceRelativo(v: Entrada): string {
+  const d = aDate(v);
+  if (!d) return '';
+  const dias = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (dias < 0) return '';
+  if (dias === 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 7) return `hace ${dias} días`;
+  if (dias < 60) {
+    const sem = Math.round(dias / 7);
+    return sem === 1 ? 'hace 1 semana' : `hace ${sem} semanas`;
+  }
+  const meses = Math.round(dias / 30);
+  return meses === 1 ? 'hace 1 mes' : `hace ${meses} meses`;
+}

@@ -427,6 +427,19 @@ body {
   color: var(--brand-600); background: var(--brand-050);
 }
 
+/* Línea de contexto de la ficha de cliente — "lo de un vistazo" justo bajo
+   la cabecera: última visita (relativa) y responsable. Datos ya guardados,
+   sin caja, sin inputs. El dato en negro; la etiqueta en gris. */
+.ficha-vitals {
+  display: flex; flex-wrap: wrap; gap: 2px var(--space-4);
+  padding: 0 var(--fila-pad-x) var(--space-3);
+  font-size: var(--text-sm); color: var(--ink-400);
+}
+.ficha-vitals b { color: var(--ink-900); font-weight: 500; }
+.ficha-creada {
+  padding: 0 var(--fila-pad-x); font-size: var(--text-xs); color: var(--ink-400);
+}
+
 /* Fila "ir a" — lleva a otra pantalla/lista completa (p. ej. "Ver toda la
    agenda"). Aspecto propio, distinto de una fila de contenido: fondo azul
    muy suave y texto de marca, para que se lea "esto navega". */

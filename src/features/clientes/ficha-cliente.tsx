@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -19,7 +19,7 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
-import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
 
 // Icono por naturaleza para los chips de Ecosistema — el color no puede ser
 // la única señal (usuario daltónico): riesgo lleva ⚠, oportunidad su glifo.
@@ -29,6 +29,8 @@ interface OportunidadActiva {
   id: string;
   titulo: string;
   prioridad: string;
+  etapa: string;
+  valor_estimado: number | null;
 }
 
 interface ProximoPasoPendiente {
@@ -196,11 +198,22 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox')
+        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Nombres de responsable y creador de la ficha — para la línea de
+  // contexto de la cabecera y "ficha creada por X". Una sola consulta.
+  const { data: nombresComerciales } = useQuery({
+    queryKey: ['nombres-comerciales'],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('comercial').select('id, nombre');
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
     },
   });
 
@@ -224,7 +237,7 @@ export function FichaCliente() {
     queryFn: async (): Promise<OportunidadActiva[]> => {
       const { data, error } = await supabase
         .from('oportunidad')
-        .select('id, titulo, prioridad')
+        .select('id, titulo, prioridad, etapa, valor_estimado')
         .eq('cliente_id', clienteId!)
         .not('etapa', 'in', '(ganada,perdida,descartada)')
         .order('creado_en', { ascending: false })
@@ -333,10 +346,18 @@ export function FichaCliente() {
     !ecosistema?.length &&
     !historialVisitas?.length;
   const hayBasicos =
-    !!cliente?.sector ||
-    !!cliente?.ubicacion_general ||
-    !!cliente?.tamano_aprox ||
-    !!semaforo?.ultima_visita;
+    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
+
+  // Línea de contexto de la cabecera ("lo de un vistazo"). Todo sale de
+  // datos ya guardados — no se pide rellenar nada.
+  const responsableNombre = cliente?.responsable_id
+    ? nombresComerciales?.[cliente.responsable_id] ?? null
+    : null;
+  const creadorNombre = cliente?.creado_por
+    ? nombresComerciales?.[cliente.creado_por] ?? null
+    : null;
+  const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
+  const hoyMs = new Date().setHours(0, 0, 0, 0);
 
   // Al llegar con ?planificar=1 el formulario ya está abierto, pero vive al
   // final de la pantalla — se acerca a la vista para que se vea.
@@ -413,6 +434,16 @@ export function FichaCliente() {
       />
 
       <div className="screen__scroll">
+       {(ultimaVisitaRel || responsableNombre) && (
+         <div className="ficha-vitals">
+           {ultimaVisitaRel && (
+             <span>Última visita <b>{ultimaVisitaRel}</b></span>
+           )}
+           {responsableNombre && (
+             <span>Responsable <b>{responsableNombre}</b></span>
+           )}
+         </div>
+       )}
        <div className="lista-agrupada">
         {hayBasicos && (
           <SeccionLista titulo="Datos" prominencia="tenue">
@@ -421,9 +452,6 @@ export function FichaCliente() {
               <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
             )}
             {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
-            {semaforo?.ultima_visita && (
-              <FilaDato etiqueta="Última actividad" valor={fechaCorta(semaforo.ultima_visita)} />
-            )}
           </SeccionLista>
         )}
 
@@ -440,6 +468,14 @@ export function FichaCliente() {
                   <FilaNavegable
                     key={o.id}
                     titulo={o.titulo}
+                    subtitulo={
+                      [
+                        etiqueta(ETAPA_LABEL, o.etapa),
+                        o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    }
                     valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
                     to={`/oportunidades/${o.id}`}
                   />
@@ -449,15 +485,26 @@ export function FichaCliente() {
 
             {!!proximosPasos?.length && (
               <SeccionLista titulo="Próximos pasos">
-                {proximosPasos.map((p) => (
-                  <FilaNavegable
-                    key={p.id}
-                    titulo={p.descripcion}
-                    valor={p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : undefined}
-                    valorTenue
-                    to={`/proximos-pasos/${p.id}`}
-                  />
-                ))}
+                {proximosPasos.map((p) => {
+                  const vencido =
+                    !!p.fecha_objetivo && new Date(p.fecha_objetivo).getTime() < hoyMs;
+                  return (
+                    <FilaNavegable
+                      key={p.id}
+                      titulo={p.descripcion}
+                      tono={vencido ? 'riesgo' : 'neutral'}
+                      valor={
+                        p.fecha_objetivo
+                          ? vencido
+                            ? `vencido ${haceRelativo(p.fecha_objetivo)}`
+                            : fechaCorta(p.fecha_objetivo)
+                          : undefined
+                      }
+                      valorTenue={!vencido}
+                      to={`/proximos-pasos/${p.id}`}
+                    />
+                  );
+                })}
               </SeccionLista>
             )}
 
@@ -526,6 +573,10 @@ export function FichaCliente() {
         <SeccionLista titulo="Más" prominencia="tenue">
           <FilaNavegable titulo="Ubicaciones" to={`/clientes/${clienteId}/ubicaciones`} />
         </SeccionLista>
+
+        {creadorNombre && (
+          <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
+        )}
 
         {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
             la app (detalle de visita, "Cerrar sesión" en Yo). */}
