@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
@@ -284,6 +284,7 @@ export function AgendaDelDia() {
 
         {visitas && !isError && !sinConexion && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {(hoyEnCurso.length > 0 || proxima) && <div className="lbl-seccion">Ahora</div>}
             <BloqueAhora
               enCurso={hoyEnCurso}
               proxima={proxima}
@@ -359,16 +360,17 @@ export function AgendaDelDia() {
               </SeccionLista>
             )}
 
-            {proximas.length > 0 ? (
+            {proximas.length > 0 && (
               <SeccionLista titulo="Próximas">
                 {proximas.slice(0, 3).map((v) => renderVisita(v, true))}
-                <FilaNavegable titulo="Ver toda la agenda" to="/agenda" />
-              </SeccionLista>
-            ) : (
-              <SeccionLista>
-                <FilaNavegable titulo="Ver toda la agenda" to="/agenda" />
               </SeccionLista>
             )}
+
+            {/* "Ir a" — no es contenido del día, lleva a otra pantalla. */}
+            <Link className="fila-ir" to="/agenda">
+              Ver toda la agenda
+              <Icono nombre="chevron" size={16} />
+            </Link>
 
             {sinNada && (
               <EstadoLista

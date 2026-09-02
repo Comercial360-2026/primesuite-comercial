@@ -67,6 +67,19 @@ body {
 .chip--amarillo { border-color: var(--warning-600); color: var(--warning-600); }
 .chip--rojo { border-color: var(--danger-600); color: var(--danger-600); }
 
+/* Etiqueta de ESTADO (semáforo del cliente). Antes era un `chip` con borde,
+   igual que los chips de filtro — competían. Ahora: fondo suave + texto
+   fuerte + sin borde, se lee como estado y no como algo pulsable.
+   Color + forma (icono) + palabra: daltónico. */
+.sem-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--radius-chip);
+  font-size: var(--text-xs); font-weight: 600; white-space: nowrap; flex-shrink: 0;
+}
+.sem-tag--verde { color: var(--success-600); background: var(--success-050); }
+.sem-tag--amarillo { color: var(--warning-600); background: var(--warning-050); }
+.sem-tag--rojo { color: var(--danger-600); background: var(--danger-050); }
+
 .card {
   background: var(--surface-1); border: 1px solid var(--ink-100);
   border-radius: var(--radius-control); padding: var(--space-3) var(--space-4);
@@ -326,8 +339,32 @@ body {
 .seccion-lista { display: flex; flex-direction: column; gap: 6px; }
 .seccion-lista__cabecera {
   margin: 0; padding: 0 var(--fila-pad-x);
-  font-size: var(--text-xs); font-weight: 400; color: var(--seccion-cabecera);
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.02em;
+  color: var(--ink-500);
 }
+
+/* Etiqueta de sección para bloques que NO son una SeccionLista (p. ej. el
+   "Ahora" que precede al bloque grande de Hoy). Mismo peso que la cabecera
+   de sección para que el ojo agrupe igual. `--tenue` para lo secundario. */
+.lbl-seccion {
+  padding: 0 var(--fila-pad-x); margin: var(--space-3) 0 6px;
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.02em;
+  color: var(--ink-500);
+}
+.lbl-seccion--tenue { font-weight: 400; color: var(--ink-400); }
+
+/* Fila "ir a" — lleva a otra pantalla/lista completa (p. ej. "Ver toda la
+   agenda"). Aspecto propio, distinto de una fila de contenido: fondo azul
+   muy suave y texto de marca, para que se lea "esto navega". */
+.fila-ir {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  width: 100%; padding: 11px var(--fila-pad-x);
+  background: var(--brand-050); color: var(--brand-600);
+  border: none; border-radius: var(--radius-control);
+  font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 600;
+  text-decoration: none; cursor: pointer;
+}
+.fila-ir:active { transform: scale(0.995); }
 .seccion-lista__grupo {
   background: var(--surface-1);
   border: 1px solid var(--ink-100);
@@ -411,18 +448,26 @@ body {
 }
 .fila__chevron { flex-shrink: 0; display: flex; color: var(--fila-chevron); }
 
-/* Tonos — solo tiñen icono/valor/badge (y el título en `riesgo`, que es
-   grave). Sin fondo de color: regla "sin degradados, sin opacity". */
+/* Tonos — tiñen icono/valor/badge (y el título en `riesgo`, que es grave)
+   y añaden una BARRA sólida de 3px a la izquierda para que la fila salte a
+   la vista en una lista larga. Barra plana, sin degradado ni opacity. */
+.fila--aviso { box-shadow: inset 3px 0 0 var(--fila-tono-aviso); }
 .fila--aviso .fila__icono,
 .fila--aviso .fila__valor { color: var(--fila-tono-aviso); }
 .fila--aviso .fila__badge { border-color: var(--fila-tono-aviso); color: var(--fila-tono-aviso); }
 .fila--ok .fila__icono,
 .fila--ok .fila__valor { color: var(--fila-tono-ok); }
 .fila--ok .fila__badge { border-color: var(--fila-tono-ok); color: var(--fila-tono-ok); }
+.fila--riesgo { box-shadow: inset 3px 0 0 var(--fila-tono-riesgo); }
 .fila--riesgo .fila__icono,
 .fila--riesgo .fila__valor,
 .fila--riesgo .fila__titulo { color: var(--fila-tono-riesgo); }
 .fila--riesgo .fila__badge { border-color: var(--fila-tono-riesgo); color: var(--fila-tono-riesgo); }
+
+/* Solo la barra de atención, sin teñir el título — para listas donde la
+   fila "pide un vistazo" pero el título (nombre de cliente) debe leerse
+   normal. La razón concreta va en la etiqueta de estado de la derecha. */
+.fila--alerta { box-shadow: inset 3px 0 0 var(--fila-tono-riesgo); }
 
 /* FilaDato — etiqueta + valor a la derecha, solo lectura. No navega ni
    acciona: es un <div>, sin hover, sin flecha. El valor es el dato

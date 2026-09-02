@@ -19,17 +19,17 @@ type Semaforo = 'verde' | 'amarillo' | 'rojo';
 // Palabras cortas — el chip va al lado del nombre del cliente en una lista
 // estrecha, no puede partirse en dos líneas.
 const MAPA: Record<Semaforo, { icono: NombreIcono; palabra: string; clase: string }> = {
-  verde: { icono: 'check-circulo', palabra: 'Con oportunidad', clase: 'chip--verde' },
-  amarillo: { icono: 'guion', palabra: 'En seguimiento', clase: 'chip--amarillo' },
-  rojo: { icono: 'atencion', palabra: 'Sin visitar', clase: 'chip--rojo' },
+  verde: { icono: 'check-circulo', palabra: 'Con oportunidad', clase: 'sem-tag--verde' },
+  amarillo: { icono: 'guion', palabra: 'En seguimiento', clase: 'sem-tag--amarillo' },
+  rojo: { icono: 'atencion', palabra: 'Sin visitar', clase: 'sem-tag--rojo' },
 };
 
 export function EtiquetaSemaforo({ valor }: { valor: string | null | undefined }) {
   const conf = valor ? MAPA[valor as Semaforo] : undefined;
   if (!conf) return null;
   return (
-    <span className={`chip ${conf.clase}`}>
-      <Icono nombre={conf.icono} size={14} />
+    <span className={`sem-tag ${conf.clase}`}>
+      <Icono nombre={conf.icono} size={13} />
       {conf.palabra}
     </span>
   );

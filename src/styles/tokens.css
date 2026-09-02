@@ -31,6 +31,13 @@
   --warning-600: #A87A12;    /* Semáforo amarillo */
   --danger-600: #B23A3A;     /* Errores de formulario / semáforo rojo */
 
+  /* Fondos suaves de estado — para etiquetas de estado (semáforo) que se
+     leen como estado y no como botón. Planos, sin degradado. */
+  --success-050: #E7F1EB;
+  --warning-050: #F5EFE0;
+  --danger-050: #F6E9E9;
+  --ink-500: #5A6270;        /* cabeceras de sección con algo de peso */
+
   /* Ancho máximo de la app — en escritorio queda como una columna de móvil
      centrada sobre el fondo gris. Se toca SOLO aquí. */
   --app-max-w: 500px;

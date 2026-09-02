@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaDiaMes } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -159,8 +159,7 @@ export function ListadoClientes() {
               const esMio = autorId === comercial?.id;
               const subtitulo =
                 [
-                  c.ultima_visita &&
-                    `última visita ${fechaCorta(c.ultima_visita)}`,
+                  c.ultima_visita && `última visita ${fechaDiaMes(c.ultima_visita)}`,
                   !esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`,
                 ]
                   .filter(Boolean)
@@ -170,6 +169,9 @@ export function ListadoClientes() {
                   key={c.cliente_id}
                   titulo={c.cliente_nombre}
                   subtitulo={subtitulo}
+                  // Solo el cliente frío ("Sin visitar") lleva barra de
+                  // atención — lo sano (verde/amarillo) no distrae.
+                  tono={c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
                   valor={<EtiquetaSemaforo valor={c.semaforo} />}
                   to={`/clientes/${c.cliente_id}`}
                 />

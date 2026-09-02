@@ -28,7 +28,9 @@ const ANCHO_SWIPE = 96;
 // Aspecto en components.css (.fila*) sobre el bloque "Filas" de tokens.css.
 // Ver 08_sistema_diseno.md §"Sistema de filas".
 
-type Tono = 'neutral' | 'aviso' | 'riesgo' | 'ok';
+// `alerta` = solo la barra de atención a la izquierda, sin teñir el título
+// (para listas de clientes: el nombre se lee normal, la barra dice "míralo").
+type Tono = 'neutral' | 'aviso' | 'riesgo' | 'ok' | 'alerta';
 
 interface PropsBase {
   icono?: NombreIcono;
