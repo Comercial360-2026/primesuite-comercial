@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { crearComercial, type RolComercial } from '@/lib/gestionar-comercial';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase-client';
+import { crearComercial, traspasarCartera, type RolComercial } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { Aviso } from '@/components/ui/aviso';
 
@@ -18,10 +19,30 @@ export function AltaComercial() {
   const [email, setEmail] = useState('');
   const [rol, setRol] = useState<RolComercial>('comercial');
   const [zona, setZona] = useState('');
+  // Heredar la cartera de otro comercial (normalmente uno que se va).
+  const [heredarDe, setHeredarDe] = useState('');
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ action_link: string | null; aviso?: string } | null>(null);
+  const [resultado, setResultado] = useState<{
+    action_link: string | null;
+    aviso?: string;
+    heredado?: { nombre: string; clientes: number; visitas: number; pasos: number };
+  } | null>(null);
   const [copiado, setCopiado] = useState(false);
+
+  // Todos los comerciales (activos y de baja) — se hereda casi siempre de
+  // uno que se ha ido.
+  const { data: comerciales } = useQuery({
+    queryKey: ['comerciales-equipo'],
+    queryFn: async (): Promise<{ id: string; nombre: string; activo: boolean }[]> => {
+      const { data, error: err } = await supabase
+        .from('comercial')
+        .select('id, nombre, activo')
+        .order('nombre');
+      if (err) throw err;
+      return data ?? [];
+    },
+  });
 
   const puedeGuardar = nombre.trim() && email.trim().includes('@') && !creando;
 
@@ -30,15 +51,26 @@ export function AltaComercial() {
     setCreando(true);
     setError(null);
     try {
-      const { action_link, aviso } = await crearComercial({
+      const { id, action_link, aviso } = await crearComercial({
         nombre: nombre.trim(),
         email: email.trim(),
         rol,
         zona_cartera: zona.trim() || null,
       });
+
+      let heredado: { nombre: string; clientes: number; visitas: number; pasos: number } | undefined;
+      if (heredarDe) {
+        const r = await traspasarCartera(heredarDe, id);
+        heredado = {
+          nombre: comerciales?.find((c) => c.id === heredarDe)?.nombre ?? 'otro comercial',
+          ...r,
+        };
+      }
+
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
       queryClient.invalidateQueries({ queryKey: ['nombres-comerciales'] });
-      setResultado({ action_link, aviso });
+      queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+      setResultado({ action_link, aviso, heredado });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo crear el comercial.');
     } finally {
@@ -83,6 +115,14 @@ export function AltaComercial() {
               ? 'Pásale este enlace (WhatsApp, en persona…). Con él elige su contraseña. Caduca en 1 hora; si hace falta, se reenvía desde su ficha.'
               : (resultado.aviso ?? 'El comercial está creado. Reenvíale el enlace de acceso desde su ficha.')}
           </Aviso>
+
+          {resultado.heredado && (
+            <Aviso tipo="info" titulo="Cartera heredada">
+              De {resultado.heredado.nombre}: {resultado.heredado.clientes} cliente(s),{' '}
+              {resultado.heredado.visitas} visita(s) planificada(s) y {resultado.heredado.pasos}{' '}
+              próximo(s) paso(s).
+            </Aviso>
+          )}
 
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
@@ -161,6 +201,22 @@ export function AltaComercial() {
         onChange={(e) => setZona(e.target.value)}
         placeholder="p. ej. Cataluña, Grandes cuentas…"
       />
+
+      <div className="label">heredar la cartera de (opcional)</div>
+      <select className="field" value={heredarDe} onChange={(e) => setHeredarDe(e.target.value)}>
+        <option value="">nadie</option>
+        {comerciales?.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nombre}
+            {c.activo ? '' : ' (de baja)'}
+          </option>
+        ))}
+      </select>
+      {heredarDe && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+          Al crearlo se le pasan los clientes, visitas planificadas y próximos pasos de ese comercial.
+        </div>
+      )}
 
       {error && (
         <div style={{ marginTop: 'var(--space-3)' }}>
