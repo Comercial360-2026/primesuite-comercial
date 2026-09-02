@@ -444,7 +444,14 @@ export function VisitaActiva() {
     }
   }, [objetivoActual, objetivoBorrador]);
 
-  if (!visitaId || !comercial) return null;
+  // NOTA: la guarda `if (!visitaId || !comercial) return null` va AL FINAL de
+  // los hooks (justo antes del primer `return` de JSX), no aquí. Si va aquí,
+  // los hooks siguientes (useRef del timeout de audio, useEffect de
+  // visibilitychange, useQuery de capturas de compañeros, etc.) quedan
+  // "después de un return condicional" y violan las reglas de Hooks: en el
+  // render en que `comercial` sea null se llamarían menos hooks y React
+  // lanza "Rendered more hooks than during the previous render". Todos los
+  // hooks se llaman siempre; la guarda solo decide si se pinta contenido.
 
   // Límite de seguridad, por debajo del límite real del servidor (15 MB)
   // — con margen, para que el aviso llegue aquí y no como un fallo opaco
@@ -777,8 +784,16 @@ export function VisitaActiva() {
 
   // Para las cabeceras "Nave 1 (3)" del agrupado de miniaturas en Modo
   // Recorrido — sin esto, cada grupo solo tendría el id en bruto.
-  const { ubicaciones: ubicacionesCliente } = useUbicacionesCliente(visitaLocal?.clienteId, comercial.id);
+  const { ubicaciones: ubicacionesCliente } = useUbicacionesCliente(
+    visitaLocal?.clienteId,
+    comercial?.id ?? ''
+  );
   const nombresUbicacionesVisita = Object.fromEntries(ubicacionesCliente.map((u) => [u.id, u.nombre]));
+
+  // Guarda al final de los hooks (ver nota más arriba). Sin `visitaId` no hay
+  // pantalla que pintar; sin `comercial`, `RequireSession` ya habría
+  // redirigido, pero se comprueba igual por si acaso.
+  if (!visitaId || !comercial) return null;
 
   if (modoRecorrido) {
     const zonaElegida = !!ubicacionActual || sinZona;
