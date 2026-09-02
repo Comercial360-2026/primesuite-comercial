@@ -57,7 +57,7 @@ export function Login() {
     <div className="pantalla-suelta">
     <div className="screen" style={{ justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-        <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>PrimeSuite</div>
+        <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>PrimeNotes</div>
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>inicia sesión para continuar</div>
       </div>
 
