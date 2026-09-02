@@ -9,6 +9,7 @@ import {
   desactivarComercial,
   reactivarComercial,
   enlaceAcceso,
+  traspasarCartera,
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -46,8 +47,64 @@ export function DetalleComercial() {
   const [zona, setZona] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  // `modo`: qué tarjeta de acción grande está abierta abajo.
+  const [modo, setModo] = useState<null | 'baja' | 'traspaso'>(null);
+  const [traspasoA, setTraspasoA] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [traspasoHecho, setTraspasoHecho] = useState<string | null>(null);
+
+  const activo = !!data?.activo;
+
+  // Cartera del comercial — clientes de los que es responsable, visitas
+  // planificadas futuras que lleva, y próximos pasos pendientes. Hace falta
+  // para el resumen antes de la baja y para "Traspasar cartera".
+  const { data: cartera } = useQuery({
+    queryKey: ['cartera-comercial', comercialId],
+    enabled: !!comercialId && activo,
+    queryFn: async () => {
+      const inicioHoy = new Date(new Date().toDateString()).toISOString();
+      const [cli, pas, vp] = await Promise.all([
+        supabase
+          .from('cliente')
+          .select('id', { count: 'exact', head: true })
+          .eq('responsable_id', comercialId!)
+          .eq('estado_fusion', 'activo'),
+        supabase
+          .from('proximo_paso')
+          .select('id', { count: 'exact', head: true })
+          .eq('comercial_responsable_id', comercialId!)
+          .eq('estado', 'pendiente'),
+        supabase
+          .from('visita_participante')
+          .select('visita:visita_id!inner(estado_captura, fecha)')
+          .eq('comercial_id', comercialId!)
+          .eq('rol', 'responsable')
+          .eq('visita.estado_captura', 'agendada')
+          .gte('visita.fecha', inicioHoy),
+      ]);
+      return {
+        clientes: cli.count ?? 0,
+        pasos: pas.count ?? 0,
+        visitas: vp.data?.length ?? 0,
+      };
+    },
+  });
+  const totalCartera = (cartera?.clientes ?? 0) + (cartera?.visitas ?? 0) + (cartera?.pasos ?? 0);
+
+  const { data: comercialesActivos } = useQuery({
+    queryKey: ['comerciales-activos'],
+    enabled: activo,
+    queryFn: async () => {
+      const { data: d, error: err } = await supabase
+        .from('comercial')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (err) throw err;
+      return d ?? [];
+    },
+  });
+  const destinos = (comercialesActivos ?? []).filter((x) => x.id !== comercialId);
   // Reenviar enlace de acceso (contraseña perdida / enlace caducado).
   const [reenviando, setReenviando] = useState(false);
   const [enlaceReenviado, setEnlaceReenviado] = useState<string | null>(null);
@@ -148,13 +205,39 @@ export function DetalleComercial() {
     setCambiandoEstado(true);
     setError(null);
     try {
-      await (activar ? reactivarComercial(c.id) : desactivarComercial(c.id));
+      if (activar) {
+        await reactivarComercial(c.id);
+      } else {
+        await desactivarComercial(c.id, totalCartera > 0 ? traspasoA : undefined);
+      }
       queryClient.invalidateQueries({ queryKey: ['comercial', comercialId] });
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
-      setConfirmandoBaja(false);
+      queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+      setModo(null);
       navigate('/comerciales');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.');
+    } finally {
+      setCambiandoEstado(false);
+    }
+  }
+
+  async function traspasarSuelto() {
+    if (!traspasoA || cambiandoEstado) return;
+    setCambiandoEstado(true);
+    setError(null);
+    try {
+      const r = await traspasarCartera(c.id, traspasoA);
+      const nombreDestino = destinos.find((d) => d.id === traspasoA)?.nombre ?? 'el comercial elegido';
+      setTraspasoHecho(
+        `${r.clientes} cliente(s), ${r.visitas} visita(s) planificada(s) y ${r.pasos} próximo(s) paso(s) pasan a ${nombreDestino}.`
+      );
+      setModo(null);
+      setTraspasoA('');
+      queryClient.invalidateQueries({ queryKey: ['cartera-comercial', comercialId] });
+      queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo traspasar la cartera.');
     } finally {
       setCambiandoEstado(false);
     }
@@ -251,30 +334,83 @@ export function DetalleComercial() {
         )
       )}
 
+      {traspasoHecho && (
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <Aviso tipo="exito" titulo="Cartera traspasada">
+            {traspasoHecho} {data.nombre} sigue activo.
+          </Aviso>
+        </div>
+      )}
+
+      {/* Traspasar cartera SIN dar de baja — solo si está activo y lleva algo. */}
+      {activo && totalCartera > 0 && modo !== 'baja' && (
+        modo === 'traspaso' ? (
+          <div className="card">
+            <ResumenCartera cartera={cartera} nombre={data.nombre} />
+            <div className="label">traspasar todo a</div>
+            <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
+              <option value="">— elige un comercial —</option>
+              {destinos.map((d) => (
+                <option key={d.id} value={d.id}>{d.nombre}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} disabled={cambiandoEstado} onClick={() => { setModo(null); setTraspasoA(''); }}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={cambiandoEstado || !traspasoA} onClick={traspasarSuelto}>
+                {cambiandoEstado ? 'Traspasando…' : 'Traspasar'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-secondary" onClick={() => { setTraspasoHecho(null); setModo('traspaso'); }}>
+            <Icono nombre="clientes" size={18} />
+            Traspasar cartera
+          </button>
+        )
+      )}
+
       {/* Baja / reactivación — al fondo, tono riesgo, con confirmación. */}
-      {data.activo ? (
-        confirmandoBaja ? (
+      {activo ? (
+        modo === 'baja' ? (
           <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+            {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
               {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan. Se
               puede reactivar más tarde.
             </div>
+            {totalCartera > 0 && (
+              <>
+                <div className="label">traspasar todo a</div>
+                <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
+                  <option value="">— elige un comercial —</option>
+                  {destinos.map((d) => (
+                    <option key={d.id} value={d.id}>{d.nombre}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button
                 className="btn btn-secondary"
                 style={{ flex: 1 }}
                 disabled={cambiandoEstado}
-                onClick={() => setConfirmandoBaja(false)}
+                onClick={() => { setModo(null); setTraspasoA(''); }}
               >
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
                 style={{ flex: 1, background: 'var(--risk-600)' }}
-                disabled={cambiandoEstado}
+                disabled={cambiandoEstado || (totalCartera > 0 && !traspasoA)}
                 onClick={() => cambiarEstado(false)}
               >
-                {cambiandoEstado ? 'Dando de baja…' : 'Sí, dar de baja'}
+                {cambiandoEstado
+                  ? 'Dando de baja…'
+                  : totalCartera > 0
+                    ? 'Traspasar y dar de baja'
+                    : 'Sí, dar de baja'}
               </button>
             </div>
           </div>
@@ -284,7 +420,7 @@ export function DetalleComercial() {
             style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
             disabled={esYo}
             title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}
-            onClick={() => setConfirmandoBaja(true)}
+            onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
           >
             Dar de baja
           </button>
@@ -294,6 +430,24 @@ export function DetalleComercial() {
           {cambiandoEstado ? 'Reactivando…' : 'Reactivar comercial'}
         </button>
       )}
+    </div>
+  );
+}
+
+function ResumenCartera({
+  cartera,
+  nombre,
+}: {
+  cartera?: { clientes: number; visitas: number; pasos: number };
+  nombre: string;
+}) {
+  if (!cartera) return null;
+  return (
+    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-900)', marginBottom: 4 }}>
+      {nombre} lleva{' '}
+      <b>{cartera.clientes} cliente{cartera.clientes === 1 ? '' : 's'}</b>,{' '}
+      <b>{cartera.visitas} visita{cartera.visitas === 1 ? '' : 's'} planificada{cartera.visitas === 1 ? '' : 's'}</b>{' '}
+      y <b>{cartera.pasos} próximo{cartera.pasos === 1 ? '' : 's'} paso{cartera.pasos === 1 ? '' : 's'} pendiente{cartera.pasos === 1 ? '' : 's'}</b>.
     </div>
   );
 }

@@ -34,7 +34,10 @@ type Tono = 'neutral' | 'aviso' | 'riesgo' | 'ok' | 'alerta';
 
 interface PropsBase {
   icono?: NombreIcono;
-  titulo: string;
+  /** Normalmente un string. Acepta ReactNode para casos como el nombre de
+   *  cliente + una etiqueta "Heredado" al lado. El recorte a 2 líneas
+   *  (`.fila__titulo`) sigue aplicando sobre el conjunto. */
+  titulo: ReactNode;
   subtitulo?: string;
   /** Contenido a la derecha, antes de la flecha: texto ("72%"), un chip de
    *  estado, etc. Igual que `FilaDato.valor`. Por defecto va con peso (es el

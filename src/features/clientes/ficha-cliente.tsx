@@ -9,6 +9,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
@@ -108,11 +109,16 @@ export function FichaCliente() {
   const planificacion = useAccionAsync();
   const hoyISO = new Date().toISOString().slice(0, 10);
 
-  // Solo Dirección Comercial puede planificar una visita para otro comercial;
-  // el resto planifica siempre para sí mismo, así que ni se pide la lista.
+  // Cambiar responsable del cliente (Fase 6b) — solo Dirección Comercial.
+  const [cambiandoResp, setCambiandoResp] = useState(false);
+  const [respNuevo, setRespNuevo] = useState('');
+  const cambioResp = useAccionAsync();
+
+  // Solo Dirección Comercial: lista de comerciales activos para "planificar
+  // para otro" y para "cambiar responsable".
   const { data: comercialesActivos } = useQuery({
     queryKey: ['comerciales-activos'],
-    enabled: esDireccionComercial && planificando,
+    enabled: esDireccionComercial && (planificando || cambiandoResp),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('comercial')
@@ -189,6 +195,20 @@ export function FichaCliente() {
         },
       }
     );
+  }
+
+  async function cambiarResponsable() {
+    if (!respNuevo) return;
+    await cambioResp.ejecutar(() => reasignarCliente(clienteId!, respNuevo), {
+      onExito: () => {
+        setCambiandoResp(false);
+        setRespNuevo('');
+        queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+        queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+        queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
+      },
+      mensajeError: (e) => (e instanceof Error ? e.message : 'No se pudo cambiar el responsable.'),
+    });
   }
 
   const { data: cliente } = useQuery({
@@ -433,25 +453,78 @@ export function FichaCliente() {
       />
 
       <div className="screen__scroll">
-       {(ultimaVisitaRel || responsableNombre) && (
+       {ultimaVisitaRel && (
          <div className="ficha-vitals">
-           {ultimaVisitaRel && (
-             <span>Última visita <b>{ultimaVisitaRel}</b></span>
-           )}
-           {responsableNombre && (
-             <span>Responsable <b>{responsableNombre}</b></span>
-           )}
+           <span>Última visita <b>{ultimaVisitaRel}</b></span>
          </div>
        )}
        <div className="lista-agrupada">
-        {hayBasicos && (
+        {(hayBasicos || responsableNombre || esDireccionComercial) && (
           <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
               <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
             )}
             {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
+            {esDireccionComercial ? (
+              <FilaNavegable
+                titulo="Responsable"
+                valor={responsableNombre ?? 'Sin asignar'}
+                valorTenue={!responsableNombre}
+                chevron
+                onClick={() => {
+                  setRespNuevo(cliente?.responsable_id ?? '');
+                  setCambiandoResp(true);
+                }}
+              />
+            ) : (
+              responsableNombre && <FilaDato etiqueta="Responsable" valor={responsableNombre} />
+            )}
           </SeccionLista>
+        )}
+
+        {cambiandoResp && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>responsable del cliente</div>
+            <select
+              className="field"
+              value={respNuevo}
+              onChange={(e) => setRespNuevo(e.target.value)}
+            >
+              <option value="">— elige un comercial —</option>
+              {comercialesActivos?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+              Sus visitas planificadas y próximos pasos pendientes de este cliente pasan también. El historial
+              no cambia.
+            </div>
+            {cambioResp.error && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={cambioResp.cargando}
+                onClick={() => {
+                  setCambiandoResp(false);
+                  cambioResp.limpiarError();
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={cambioResp.cargando || !respNuevo || respNuevo === cliente?.responsable_id}
+                onClick={cambiarResponsable}
+              >
+                {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
+              </button>
+            </div>
+          </div>
         )}
 
         {listasCargadas && fichaVacia ? (

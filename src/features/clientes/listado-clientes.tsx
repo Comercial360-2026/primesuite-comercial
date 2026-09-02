@@ -66,21 +66,24 @@ export function ListadoClientes() {
     },
   });
 
-  // El "quién lo creó" no vive en vw_semaforo_cliente (ni en la vista de la
-  // que depende, vw_cliente_resuelto) — se trae aparte de `cliente` y se
-  // cruza aquí, en vez de tocar esas vistas SQL ya cerradas y usadas en
-  // más sitios. Todo comercial ve todos los clientes por diseño (no hay
-  // "cartera" en el modelo, confirmado el 24/8); esto es solo un filtro
-  // visual para encontrar los propios más rápido — cualquiera puede seguir
-  // viendo y trabajando el cliente de otro si hace falta.
+  // Responsable (Fase 6b) y creador de cada cliente — no viven en
+  // vw_semaforo_cliente, se traen aparte de `cliente`. "Solo míos" filtra
+  // por RESPONSABLE (la cartera); si además NO lo creé yo, es un cliente
+  // "heredado" (traspasado a mí) y se marca. Cualquiera puede seguir viendo
+  // y trabajando el cliente de otro.
   const idsClientes = clientes?.map((c) => c.cliente_id) ?? [];
-  const { data: autores } = useQuery({
-    queryKey: ['autores-clientes', idsClientes.join(',')],
+  const { data: meta } = useQuery({
+    queryKey: ['meta-clientes', idsClientes.join(',')],
     enabled: idsClientes.length > 0,
-    queryFn: async (): Promise<Record<string, string>> => {
-      const { data, error } = await supabase.from('cliente').select('id, creado_por').in('id', idsClientes);
+    queryFn: async (): Promise<Record<string, { creado_por: string | null; responsable_id: string | null }>> => {
+      const { data, error } = await supabase
+        .from('cliente')
+        .select('id, creado_por, responsable_id')
+        .in('id', idsClientes);
       if (error) throw error;
-      return Object.fromEntries((data ?? []).map((c) => [c.id, c.creado_por as string]));
+      return Object.fromEntries(
+        (data ?? []).map((c) => [c.id, { creado_por: c.creado_por, responsable_id: c.responsable_id }])
+      );
     },
   });
 
@@ -94,7 +97,7 @@ export function ListadoClientes() {
   });
 
   const clientesFiltrados = clientes?.filter(
-    (c) => !soloMios || autores?.[c.cliente_id] === comercial?.id
+    (c) => !soloMios || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );
 
   const sinConexion = isPaused && clientes === undefined;
@@ -155,23 +158,39 @@ export function ListadoClientes() {
         <div className="lista-agrupada">
           <SeccionLista>
             {clientesFiltrados.map((c) => {
-              const autorId = autores?.[c.cliente_id];
-              const esMio = autorId === comercial?.id;
+              const m = meta?.[c.cliente_id];
+              const respId = m?.responsable_id ?? null;
+              const creadorId = m?.creado_por ?? null;
+              // "Heredado": es de mi cartera (responsable) pero NO lo creé yo
+              // → me lo traspasaron. Marca azul para no confundirlo con los
+              // míos de siempre.
+              const heredado = respId === comercial?.id && !!creadorId && creadorId !== comercial?.id;
+              const sinResponsable = !soloMios && !respId;
               const subtitulo =
                 [
-                  c.ultima_visita && `última visita ${fechaDiaMes(c.ultima_visita)}`,
-                  !esMio && autorId && `de ${nombresComerciales?.[autorId] ?? '…'}`,
+                  // En "Todos" (Dirección): quién lleva la cuenta, o el aviso.
+                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : '⚠ Sin responsable') : null,
+                  heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
+                  c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
                 ]
                   .filter(Boolean)
                   .join(' · ') || undefined;
               return (
                 <FilaNavegable
                   key={c.cliente_id}
-                  titulo={c.cliente_nombre}
+                  titulo={
+                    heredado ? (
+                      <>
+                        {c.cliente_nombre} <span className="info-tag">Heredado</span>
+                      </>
+                    ) : (
+                      c.cliente_nombre
+                    )
+                  }
                   subtitulo={subtitulo}
-                  // Solo el cliente frío ("Sin visitar") lleva barra de
-                  // atención — lo sano (verde/amarillo) no distrae.
-                  tono={c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
+                  // Cliente frío ("Sin visitar") o sin responsable → barra de
+                  // atención; lo sano (verde/amarillo) no distrae.
+                  tono={sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
                   valor={<EtiquetaSemaforo valor={c.semaforo} />}
                   to={`/clientes/${c.cliente_id}`}
                 />
