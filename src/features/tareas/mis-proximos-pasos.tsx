@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Icono } from '@/components/ui/iconos';
 
 interface ProximoPaso {
   id: string;
@@ -114,9 +115,12 @@ export function MisProximosPasos() {
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
   }
 
+  const inicioHoy = new Date(new Date().toDateString()).getTime();
+  const en7dias = inicioHoy + 7 * 86_400_000;
+
   function esVencido(fechaObjetivo: string | null) {
     if (!fechaObjetivo) return false;
-    return new Date(fechaObjetivo) < new Date(new Date().toDateString());
+    return new Date(fechaObjetivo).getTime() < inicioHoy;
   }
 
   // Fecha de la primera visita planificada del cliente de este paso, o
@@ -124,6 +128,60 @@ export function MisProximosPasos() {
   function revisitaDe(p: ProximoPaso): string | null {
     const cid = p.visita?.cliente?.id;
     return (cid && revisitasPorCliente?.[cid]) || null;
+  }
+
+  // Cubo de urgencia para el filtro "pendiente" — lo primero que quiere
+  // ver el comercial es qué está vencido y qué es de esta semana.
+  function cuboDe(p: ProximoPaso): 'revisita' | 'vencida' | 'semana' | 'adelante' {
+    if (revisitaDe(p)) return 'revisita';
+    if (esVencido(p.fecha_objetivo)) return 'vencida';
+    const t = p.fecha_objetivo ? new Date(p.fecha_objetivo).getTime() : Infinity;
+    return t <= en7dias ? 'semana' : 'adelante';
+  }
+  const pendientesPorCubo = (cubo: string) =>
+    (pasos ?? []).filter((p) => cuboDe(p) === cubo);
+
+  function renderFila(p: ProximoPaso) {
+    const revisita = revisitaDe(p);
+    const vencido = filtro === 'pendiente' && !revisita && esVencido(p.fecha_objetivo);
+    const guardandoEsta = guardandoId === p.id;
+    const cliente = p.visita?.cliente?.nombre ?? 'Cliente';
+    const cuando = p.fecha_objetivo
+      ? ` · ${vencido ? `vencido ${haceRelativo(p.fecha_objetivo)}` : fechaCorta(p.fecha_objetivo)}`
+      : '';
+    const notaRevisita = revisita ? ` · revisita ${fechaCorta(revisita)}` : '';
+    const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
+
+    if (filtro === 'completado') {
+      return (
+        <FilaNavegable
+          key={p.id}
+          titulo={p.descripcion}
+          subtitulo={subtitulo}
+          to={`/proximos-pasos/${p.id}`}
+        />
+      );
+    }
+
+    // El cuerpo abre el detalle; la marca de verificación a la derecha lo
+    // cierra como completado (hermanos FilaAccion, marcar no abre el detalle).
+    const completar: AccionFila = {
+      icono: 'check',
+      etiqueta: 'Marcar como completado',
+      onClick: () => marcarCompletado(p.id),
+      tono: 'brand',
+      disabled: guardandoEsta,
+    };
+    return (
+      <FilaAccion
+        key={p.id}
+        titulo={p.descripcion}
+        subtitulo={subtitulo}
+        tono={vencido ? 'riesgo' : 'neutral'}
+        onClick={() => navigate(`/proximos-pasos/${p.id}`)}
+        acciones={[completar]}
+      />
+    );
   }
 
   return (
@@ -165,58 +223,38 @@ export function MisProximosPasos() {
 
       {!sinConexion && !isError && !!pasos?.length && (
         <div className="lista-agrupada">
-          <SeccionLista>
-            {[...pasos]
-              // Los que ya tienen una revisita planificada bajan al final
-              // (orden estable: dentro de cada grupo se mantiene el de fecha).
-              .sort((a, b) => Number(!!revisitaDe(a)) - Number(!!revisitaDe(b)))
-              .map((p) => {
-              const revisita = revisitaDe(p);
-              const vencido = filtro === 'pendiente' && !revisita && esVencido(p.fecha_objetivo);
-              const guardandoEsta = guardandoId === p.id;
-              const cliente = p.visita?.cliente?.nombre ?? 'Cliente';
-              const cuando = p.fecha_objetivo
-                ? ` · ${vencido ? 'vencido' : fechaCorta(p.fecha_objetivo)}`
-                : '';
-              const notaRevisita = revisita
-                ? ` · revisita planificada ${fechaCorta(revisita)}`
-                : '';
-              const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
-
-              // 'completado' → sin acción, solo se abre el detalle.
-              if (filtro === 'completado') {
-                return (
-                  <FilaNavegable
-                    key={p.id}
-                    titulo={p.descripcion}
-                    subtitulo={subtitulo}
-                    to={`/proximos-pasos/${p.id}`}
-                  />
-                );
-              }
-
-              // 'pendiente' → el cuerpo abre el detalle; la marca de
-              // verificación a la derecha lo cierra como completado. Son
-              // hermanos (FilaAccion), así que marcar no abre el detalle.
-              const completar: AccionFila = {
-                icono: 'check',
-                etiqueta: 'Marcar como completado',
-                onClick: () => marcarCompletado(p.id),
-                tono: 'brand',
-                disabled: guardandoEsta,
-              };
-              return (
-                <FilaAccion
-                  key={p.id}
-                  titulo={p.descripcion}
-                  subtitulo={subtitulo}
-                  tono={vencido ? 'riesgo' : 'neutral'}
-                  onClick={() => navigate(`/proximos-pasos/${p.id}`)}
-                  acciones={[completar]}
-                />
-              );
-            })}
-          </SeccionLista>
+          {filtro === 'completado' ? (
+            <SeccionLista>{pasos.map((p) => renderFila(p))}</SeccionLista>
+          ) : (
+            <>
+              {pendientesPorCubo('vencida').length > 0 && (
+                <div>
+                  <div className="hoy-atrasadas-cab">
+                    <Icono nombre="atencion" size={13} />
+                    Vencidas
+                  </div>
+                  <div className="seccion-lista__grupo">
+                    {pendientesPorCubo('vencida').map((p) => renderFila(p))}
+                  </div>
+                </div>
+              )}
+              {pendientesPorCubo('semana').length > 0 && (
+                <SeccionLista titulo="Esta semana">
+                  {pendientesPorCubo('semana').map((p) => renderFila(p))}
+                </SeccionLista>
+              )}
+              {pendientesPorCubo('adelante').length > 0 && (
+                <SeccionLista titulo="Más adelante">
+                  {pendientesPorCubo('adelante').map((p) => renderFila(p))}
+                </SeccionLista>
+              )}
+              {pendientesPorCubo('revisita').length > 0 && (
+                <SeccionLista titulo="Con revisita planificada" prominencia="tenue">
+                  {pendientesPorCubo('revisita').map((p) => renderFila(p))}
+                </SeccionLista>
+              )}
+            </>
+          )}
         </div>
       )}
 
