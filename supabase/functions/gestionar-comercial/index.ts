@@ -23,7 +23,7 @@
 //   { accion: 'crear',      nombre, email, rol, zona_cartera?, app_url? }
 //     -> { id, action_link }
 //   { accion: 'editar',     id, nombre, rol, zona_cartera? }   -> { ok: true }
-//   { accion: 'desactivar', id }                               -> { ok: true }
+//   { accion: 'desactivar', id, traspasar_a? }                 -> { ok: true }
 //   { accion: 'reactivar',  id }                               -> { ok: true }
 //   { accion: 'enlace_acceso', id, app_url? }                  -> { action_link }
 //   { accion: 'solicitar_acceso', email }                      -> { ok: true }  (SIN auth)
@@ -249,6 +249,25 @@ Deno.serve(async (req) => {
   }
 
   const desactivar = accion === 'desactivar';
+
+  // Baja con traspaso de cartera (Fase 6b) — antes de bloquear el acceso,
+  // pasa clientes / visitas planificadas / próximos pasos a otro comercial.
+  // La RPC se llama COMO el usuario (no con service role) para que su guard
+  // de rol `fn_rol_actual()` siga viendo a Dirección Comercial.
+  const traspasarA = desactivar && body.traspasar_a ? String(body.traspasar_a) : null;
+  if (traspasarA) {
+    const { error: errTraspaso } = await clienteUsuario.rpc('fn_traspasar_cartera', {
+      p_de: id,
+      p_a: traspasarA,
+    });
+    if (errTraspaso) {
+      return jsonResponse(
+        { error: `No se pudo traspasar la cartera, no se ha dado de baja: ${errTraspaso.message}` },
+        400
+      );
+    }
+  }
+
   const { error: errFila } = await admin
     .from('comercial')
     .update({

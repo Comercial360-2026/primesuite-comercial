@@ -76,10 +76,42 @@ export function editarComercial(p: EditarParams) {
   return invocar<{ ok: true }>({ accion: 'editar', ...p }, 'No se pudo guardar el comercial.');
 }
 
-export function desactivarComercial(id: string) {
-  return invocar<{ ok: true }>({ accion: 'desactivar', id }, 'No se pudo dar de baja al comercial.');
+// `traspasarA` (Fase 6b): antes de bloquear el acceso, pasa la cartera del
+// comercial (clientes + visitas planificadas + próximos pasos) a otro.
+export function desactivarComercial(id: string, traspasarA?: string) {
+  return invocar<{ ok: true }>(
+    { accion: 'desactivar', id, ...(traspasarA ? { traspasar_a: traspasarA } : {}) },
+    'No se pudo dar de baja al comercial.'
+  );
 }
 
 export function reactivarComercial(id: string) {
   return invocar<{ ok: true }>({ accion: 'reactivar', id }, 'No se pudo reactivar al comercial.');
+}
+
+export interface RecuentoTraspaso {
+  clientes: number;
+  visitas: number;
+  pasos: number;
+}
+
+// Traspaso de cartera SIN dar de baja (redistribuir carga, o preparar una
+// baja). RPC de Postgres — la llama Dirección Comercial directamente.
+export async function traspasarCartera(de: string, a: string): Promise<RecuentoTraspaso> {
+  const { data, error } = await supabase.rpc('fn_traspasar_cartera', { p_de: de, p_a: a });
+  if (error) throw new Error(error.message);
+  const r = data?.[0];
+  return { clientes: r?.clientes ?? 0, visitas: r?.visitas ?? 0, pasos: r?.pasos ?? 0 };
+}
+
+// Cambia el responsable de UN cliente (y arrastra sus visitas planificadas
+// y pasos pendientes del responsable anterior).
+export async function reasignarCliente(
+  clienteId: string,
+  a: string
+): Promise<{ visitas: number; pasos: number }> {
+  const { data, error } = await supabase.rpc('fn_reasignar_cliente', { p_cliente: clienteId, p_a: a });
+  if (error) throw new Error(error.message);
+  const r = data?.[0];
+  return { visitas: r?.visitas ?? 0, pasos: r?.pasos ?? 0 };
 }

@@ -1923,8 +1923,16 @@ export type Database = {
           visita_id: string
         }[]
       }
+      fn_reasignar_cliente: {
+        Args: { p_a: string; p_cliente: string }
+        Returns: { pasos: number; visitas: number }[]
+      }
       fn_rol_actual: { Args: never; Returns: string }
       fn_rol_lectura_ampliada: { Args: never; Returns: boolean }
+      fn_traspasar_cartera: {
+        Args: { p_a: string; p_de: string }
+        Returns: { clientes: number; pasos: number; visitas: number }[]
+      }
       fn_visita_sin_participantes: {
         Args: { p_visita_id: string }
         Returns: boolean
