@@ -120,19 +120,20 @@ export function ListadoClientes() {
 
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            className={`chip${!soloMios ? ' chip--on' : ''}`}
-            onClick={() => setSoloMios(false)}
-          >
-            Todos
-          </button>
+          {/* El seleccionado por defecto (Solo míos) va primero. */}
           <button
             type="button"
             className={`chip${soloMios ? ' chip--on' : ''}`}
             onClick={() => setSoloMios(true)}
           >
             Solo míos
+          </button>
+          <button
+            type="button"
+            className={`chip${!soloMios ? ' chip--on' : ''}`}
+            onClick={() => setSoloMios(false)}
+          >
+            Todos
           </button>
         </div>
       )}

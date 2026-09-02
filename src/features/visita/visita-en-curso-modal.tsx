@@ -1,4 +1,5 @@
 import { Modal } from '@/components/ui/modal';
+import { Icono } from '@/components/ui/iconos';
 
 interface VisitaEnCursoModalProps {
   clienteNombre?: string;
@@ -32,7 +33,8 @@ export function VisitaEnCursoModal({
       )}
 
       <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onContinuar}>
-        Continuar esa visita →
+        Continuar esa visita
+        <Icono nombre="chevron" size={18} />
       </button>
       <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onEmpezarOtra}>
         Empezar otra

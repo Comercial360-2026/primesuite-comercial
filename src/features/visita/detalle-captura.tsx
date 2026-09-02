@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
 // El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
@@ -152,9 +153,7 @@ export function DetalleCaptura() {
   if (!operacion) {
     return (
       <div className="screen">
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', alignSelf: 'flex-start' }}>
-          ←
-        </button>
+        <CabeceraDetalle titulo="Captura" onVolver={() => navigate(-1)} />
         <p style={{ color: 'var(--ink-400)' }}>No se ha encontrado esta captura.</p>
       </div>
     );
@@ -164,17 +163,10 @@ export function DetalleCaptura() {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button
-          onClick={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
-          style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>
-          {payload.tipo === 'nota' ? 'nota' : payload.tipo === 'foto' ? 'foto' : 'audio'}
-        </h1>
-      </div>
+      <CabeceraDetalle
+        titulo={payload.tipo === 'nota' ? 'Nota' : payload.tipo === 'foto' ? 'Foto' : 'Audio'}
+        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+      />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         {new Date(operacion.creadoEn).toLocaleString('es-ES')} · {operacion.estado}

@@ -8,6 +8,13 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+
+// Icono por naturaleza en los chips de Ecosistema — el color no es señal
+// suficiente (usuario daltónico), igual que en la ficha del cliente.
+const ECO_ICONO: Record<string, NombreIcono> = { riesgo: 'atencion', oportunidad: 'oportunidad' };
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
@@ -265,17 +272,17 @@ export function RepasoCliente() {
 
   return (
     <div className="screen screen--split">
-      <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', alignSelf: 'flex-start' }}>
-        ←
-      </button>
+      <CabeceraDetalle
+        titulo={cliente?.nombre ?? '…'}
+        subtitulo="Preparar la visita"
+        onVolver={() => navigate(-1)}
+      />
       <div className="screen__scroll">
-      {isErrorCliente || sinConexionCliente ? (
+      {(isErrorCliente || sinConexionCliente) && (
         <EstadoError
           mensaje={sinConexionCliente ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el cliente.'}
           onReintentar={reintentarCliente}
         />
-      ) : (
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>{cliente?.nombre ?? '…'}</h1>
       )}
 
       {visitaIdAgendada && (
@@ -317,14 +324,18 @@ export function RepasoCliente() {
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
       ) : (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema.map((item) => (
-            <span
-              key={item.termino_id}
-              className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
-            >
-              {item.nombre}
-            </span>
-          ))}
+          {ecosistema.map((item) => {
+            const ic = ECO_ICONO[item.naturaleza];
+            return (
+              <span
+                key={item.termino_id}
+                className={`chip${item.naturaleza === 'riesgo' ? ' chip--riesgo' : item.naturaleza === 'oportunidad' ? ' chip--oportunidad' : ''}`}
+              >
+                {ic && <Icono nombre={ic} size={13} />}
+                {item.nombre}
+              </span>
+            );
+          })}
           {!ecosistema.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
         </div>
       )}
@@ -338,7 +349,11 @@ export function RepasoCliente() {
         <div className="card">
           <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {oportunidad === undefined ? 'Cargando…' : oportunidad ? `${oportunidad.titulo} · ${oportunidad.prioridad}` : 'ninguna oportunidad activa'}
+            {oportunidad === undefined
+              ? 'Cargando…'
+              : oportunidad
+                ? `${oportunidad.titulo} · ${etiqueta(PRIORIDAD_LABEL, oportunidad.prioridad).toLowerCase()}`
+                : 'ninguna oportunidad activa'}
           </div>
         </div>
       )}
@@ -364,7 +379,14 @@ export function RepasoCliente() {
         onClick={visitaIdAgendada ? iniciarVisitaPlanificada : pedirIniciarVisitaAdHoc}
         disabled={iniciandoVisita.cargando}
       >
-        {iniciandoVisita.cargando ? 'Iniciando…' : 'Iniciar visita →'}
+        {iniciandoVisita.cargando ? (
+          'Iniciando…'
+        ) : (
+          <>
+            Iniciar visita
+            <Icono nombre="chevron" size={18} />
+          </>
+        )}
       </button>
       {iniciandoVisita.error && <div className="field-error-text">{iniciandoVisita.error}</div>}
       <AvisoTardando visible={iniciandoVisita.tardando} />

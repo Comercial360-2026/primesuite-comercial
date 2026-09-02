@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta, fechaLarga, hora } from '@/lib/fechas';
+import { fechaCorta, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
@@ -182,7 +182,7 @@ export function DetalleVisitaPlanificada() {
               />
               <FilaDato
                 etiqueta="Fecha"
-                valor={fechaLarga(fechaVisita!)}
+                valor={fechaCorta(fechaVisita!)}
               />
               <FilaDato
                 etiqueta="Cuándo"
@@ -229,7 +229,9 @@ export function DetalleVisitaPlanificada() {
               <Icono nombre="chevron" size={18} />
             </button>
           ) : (
+            // Visita futura: empezarla hoy es la excepción, va en secundario.
             <button className="btn btn-secondary" onClick={() => setConfirmando('empezar')}>
+              <Icono nombre="chevron" size={18} />
               Empezar ahora de todos modos
             </button>
           )}
@@ -295,8 +297,11 @@ export function DetalleVisitaPlanificada() {
               </div>
             </div>
           ) : (
+            // En una visita futura, ajustar la fecha es lo más habitual →
+            // acción principal (relleno). En una visita de hoy ya manda
+            // "Iniciar visita", así que aquí baja a secundario.
             <button
-              className="btn btn-secondary"
+              className={esHoy ? 'btn btn-secondary' : 'btn btn-primary'}
               onClick={() => {
                 setConfirmando(null);
                 // Prefijar con la fecha/hora actuales para que reprogramar sea
@@ -311,6 +316,7 @@ export function DetalleVisitaPlanificada() {
                 setReprogramando(true);
               }}
             >
+              <Icono nombre="hoy" size={18} />
               Reprogramar
             </button>
           )}
@@ -346,6 +352,7 @@ export function DetalleVisitaPlanificada() {
                 setConfirmando('cancelar');
               }}
             >
+              <Icono nombre="borrar" size={18} />
               Cancelar visita planificada
             </button>
           )}

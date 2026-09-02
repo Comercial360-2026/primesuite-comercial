@@ -297,9 +297,11 @@ body {
   cursor: pointer;
 }
 .bloque-ahora__cta:active { transform: scale(0.98); }
-.bloque-ahora--prox .bloque-ahora__cta {
-  background: var(--surface-1); color: var(--ink-900); border: 1px solid var(--ink-200);
-}
+/* "Ver preparación" / "Continuar visita" son la acción principal de la
+   pantalla Hoy — las dos van rellenas en azul. Antes la de "próxima visita"
+   iba en borde gris y un usuario daltónico no la distinguía de un botón
+   secundario. La urgencia la marca el borde de la tarjeta (1.5px azul en
+   curso vs 1px gris próxima), no el botón. */
 
 /* Cabecera de la sección "Atrasadas" en Hoy — señal de atención (forma +
    palabra, no solo color: el usuario es daltónico). */

@@ -264,11 +264,13 @@ export function AgendaDelDia() {
 
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todas
-          </button>
+          {/* El seleccionado por defecto (Solo mías) va primero — es la
+              vista natural; "Todas" es abrir el foco, va después. */}
           <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
             Solo mías
+          </button>
+          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
+            Todas
           </button>
         </div>
       )}
