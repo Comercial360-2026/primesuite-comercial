@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -112,7 +113,7 @@ export function DetalleProximoPaso() {
     setPlanificando(true);
     setErrorPlan(null);
     try {
-      const nuevaId = crypto.randomUUID();
+      const nuevaId = uuid();
       const { error: err } = await crearVisitaConResponsable({
         pVisitaId: nuevaId,
         pClienteId: clienteId,

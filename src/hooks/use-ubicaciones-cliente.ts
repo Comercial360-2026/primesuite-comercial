@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { uuid } from '@/lib/uuid';
 import {
   encolarOperacion,
   obtenerUbicacionesPorCliente,
@@ -74,7 +75,7 @@ export function useUbicacionesCliente(clienteId: string | undefined, comercialId
   const crear = useCallback(
     async (nombre: string): Promise<UbicacionSeleccionable> => {
       if (!clienteId) throw new Error('Falta el cliente para crear la ubicación.');
-      const id = crypto.randomUUID();
+      const id = uuid();
       await encolarOperacion({
         id,
         entidad: 'ubicacion',

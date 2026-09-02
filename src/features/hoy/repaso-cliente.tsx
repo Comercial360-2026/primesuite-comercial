@@ -11,6 +11,7 @@ import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+import { uuid } from '@/lib/uuid';
 
 // Icono por naturaleza en los chips de Ecosistema — el color no es señal
 // suficiente (usuario daltónico), igual que en la ficha del cliente.
@@ -259,7 +260,7 @@ export function RepasoCliente() {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
-    const visitaId = crypto.randomUUID();
+    const visitaId = uuid();
     await encolar(visitaId, 'visita', {
       clienteId: cliente.id,
       comercialResponsableId: comercial.id,

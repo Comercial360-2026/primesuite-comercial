@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -136,7 +137,7 @@ export function FichaCliente() {
         // la visita tardaría en llegar al servidor y no aparecería en "Hoy"
         // hasta que algo volviera a pedir la lista — daba sensación de que
         // no se guardaba.
-        const visitaId = crypto.randomUUID();
+        const visitaId = uuid();
         const { error } = await crearVisitaConResponsable({
           pVisitaId: visitaId,
           pClienteId: cliente.id,
@@ -284,7 +285,7 @@ export function FichaCliente() {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
-    const visitaId = crypto.randomUUID();
+    const visitaId = uuid();
     await encolar(visitaId, 'visita', {
       clienteId: cliente.id,
       comercialResponsableId: comercial.id,

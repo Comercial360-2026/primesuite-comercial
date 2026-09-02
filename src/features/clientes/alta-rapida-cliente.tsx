@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -93,7 +94,7 @@ export function AltaRapidaCliente() {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
-    const clienteId = crypto.randomUUID();
+    const clienteId = uuid();
     const nombreLimpio = nombre.trim();
 
     if (navigator.onLine) {
@@ -125,7 +126,7 @@ export function AltaRapidaCliente() {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
-    const visitaId = crypto.randomUUID();
+    const visitaId = uuid();
     await encolar(
       visitaId,
       'visita',

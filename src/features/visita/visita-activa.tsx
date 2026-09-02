@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -484,7 +485,7 @@ export function VisitaActiva() {
       await capturaFoto.ejecutar(
         () =>
           encolar(
-            crypto.randomUUID(),
+            uuid(),
             'captura_libre',
             {
               visitaId: visitaId!,
@@ -507,7 +508,7 @@ export function VisitaActiva() {
       await capturaAudio.ejecutar(
         () =>
           encolar(
-            crypto.randomUUID(),
+            uuid(),
             'captura_libre',
             {
               visitaId: visitaId!,
@@ -635,7 +636,7 @@ export function VisitaActiva() {
 
   async function guardarNota() {
     if (!notaTexto.trim()) return;
-    const capturaId = crypto.randomUUID();
+    const capturaId = uuid();
     await guardadoNota.ejecutar(
       () =>
         encolar(
@@ -691,13 +692,13 @@ export function VisitaActiva() {
   }
 
   async function guardarHallazgo(payload: HallazgoPayload) {
-    const hallazgoId = crypto.randomUUID();
+    const hallazgoId = uuid();
     await encolar(hallazgoId, 'hallazgo', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
     setTimeout(() => setHallazgoAbierto(false), 700);
   }
 
   async function guardarOportunidad(payload: OportunidadPayload) {
-    const oportunidadId = crypto.randomUUID();
+    const oportunidadId = uuid();
     await encolar(oportunidadId, 'oportunidad', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
     // Retraso para que "guardado ✓" del modal sea visible antes de que
     // desaparezca — sin esto, la confirmación pasa demasiado rápido.
@@ -1442,14 +1443,14 @@ export function VisitaActiva() {
           visitaId={visitaId}
           comercialId={comercial.id}
           onGuardar={async (payload) => {
-            const pasoId = crypto.randomUUID();
+            const pasoId = uuid();
             await encolar(pasoId, 'proximo_paso', payload, { dependeDe: visitaId });
             setTimeout(() => setPasoAbierto(false), 700);
           }}
           onPlanificarVisita={async ({ fecha, hora, franja, objetivo }) => {
             // Llamada directa, NO por la cola offline: igual que planificar
             // desde la ficha, para que aparezca en la agenda al momento.
-            const nuevaId = crypto.randomUUID();
+            const nuevaId = uuid();
             const { error } = await crearVisitaConResponsable({
               pVisitaId: nuevaId,
               pClienteId: visitaLocal.clienteId,
