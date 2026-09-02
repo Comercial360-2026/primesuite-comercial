@@ -380,7 +380,9 @@ export function AgendaDelDia() {
         )}
       </div>
 
-      <button className="btn btn-secondary" onClick={() => navigate('/clientes')}>
+      {/* Acción de pantalla anclada abajo, misma pinta que "Nuevo cliente"
+          en Clientes: primaria (relleno azul) y fija, no se va con el scroll. */}
+      <button className="btn btn-primary" onClick={() => navigate('/clientes')}>
         <Icono nombre="mas" size={18} />
         Empezar visita sin planificar
       </button>

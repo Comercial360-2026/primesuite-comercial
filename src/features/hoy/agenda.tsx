@@ -75,7 +75,10 @@ export function Agenda() {
   // Dirección Comercial entra viendo TODO el equipo — si no, una visita que
   // planificó para un compañero le desaparecería de la vista. Un comercial
   // normal solo ve lo suyo y no puede cambiarlo.
-  const [soloMiasElegido, setSoloMias] = useState(false);
+  // Igual que Hoy y Clientes: se entra viendo lo tuyo; "Todas" es abrir el
+  // foco al equipo, un toque. (Antes esta pantalla entraba en "Todas" y
+  // rompía la coherencia con el resto.)
+  const [soloMiasElegido, setSoloMias] = useState(true);
   const soloMias = esDireccionComercial ? soloMiasElegido : true;
 
   // Lista (por defecto) o rejilla de mes. La lista es mejor para "qué toca
@@ -323,11 +326,12 @@ export function Agenda() {
 
       {esDireccionComercial && !seleccionando && (
         <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todas
-          </button>
+          {/* El seleccionado por defecto (Solo mías) va primero. */}
           <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
             Solo mías
+          </button>
+          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
+            Todas
           </button>
         </div>
       )}

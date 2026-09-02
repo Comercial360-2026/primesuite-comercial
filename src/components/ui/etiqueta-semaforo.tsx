@@ -16,10 +16,12 @@ import { Icono, type NombreIcono } from './iconos';
 
 type Semaforo = 'verde' | 'amarillo' | 'rojo';
 
+// Palabras cortas — el chip va al lado del nombre del cliente en una lista
+// estrecha, no puede partirse en dos líneas.
 const MAPA: Record<Semaforo, { icono: NombreIcono; palabra: string; clase: string }> = {
-  verde: { icono: 'check-circulo', palabra: 'Oportunidad activa', clase: 'chip--verde' },
+  verde: { icono: 'check-circulo', palabra: 'Con oportunidad', clase: 'chip--verde' },
   amarillo: { icono: 'guion', palabra: 'En seguimiento', clase: 'chip--amarillo' },
-  rojo: { icono: 'atencion', palabra: 'Sin visita reciente', clase: 'chip--rojo' },
+  rojo: { icono: 'atencion', palabra: 'Sin visitar', clase: 'chip--rojo' },
 };
 
 export function EtiquetaSemaforo({ valor }: { valor: string | null | undefined }) {
