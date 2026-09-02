@@ -32,6 +32,43 @@ falla uno, no está terminada:
    escriben igual en toda la app.
 6. **¿No hay nada repetido ni decorativo de más?** Un dato o una acción
    aparece una vez.
+7. **¿Tiene jerarquía o es plana?** ¿El ojo sabe por dónde empezar? Las
+   cabeceras guían (no son etiquetas pálidas), el valor que importa pesa,
+   lo secundario es pequeño y gris. Ver §"Jerarquía". «Repasado» = repasada
+   la jerarquía, no solo que la estructura sea correcta.
+
+---
+
+## Jerarquía — que el ojo sepa por dónde empezar
+
+La app se construye de un solo patrón (`SeccionLista` + tarjeta + filas)
+repetido en pila. Sin ayuda, todas las pantallas pesan lo mismo y un dato
+menor ocupa lo mismo que el importante. Reglas, casi todas en
+`components.css` + los componentes compartidos (cambio en un sitio,
+propaga a toda la app):
+
+- **Cabeceras de sección que guían.** `.seccion-lista__cabecera` es
+  `--text-sm` / 600 / `--ink-700` — legible y con peso, no una etiqueta
+  pálida. Tres niveles con la prop `prominencia` de `SeccionLista`:
+  `principal` (la sección del dinero o de la acción: `--text-base` /
+  `--ink-900`), `normal` (def.), `tenue` (metadatos: Datos, Más — pequeña
+  y gris).
+- **El valor de la fila pesa cuando es el objetivo.** `.fila__valor` va en
+  `--ink-900` / 500 por defecto (un número, un estado, una prioridad, un
+  importe). Solo un valor de contexto secundario —una fecha— usa
+  `valorTenue` (prop de `FilaNavegable` / `FilaDato` → `.fila__valor--tenue`).
+- **Un idioma de acento, tres trabajos, siempre forma + palabra.** Azul de
+  marca = acción principal · «lleva a otra pantalla» (`.fila-ir`) ·
+  informativo/de sistema (`.info-tag`, p. ej. «Heredado»). Semántico
+  (verde/ámbar/rojo) = estado que hay que leer, con icono de forma +
+  palabra (daltónico). Neutro = todo lo demás.
+- **El ritmo agrupa.** `.grupo` (hueco `--space-2`) envuelve secciones
+  relacionadas; `.lista-agrupada` (`--space-6`) separa grupos sin relación.
+- **Lo escaso no lleva tarjeta.** Un solo dato trivial suelto →
+  `.dato-inline` (etiqueta + valor en una línea, sin caja). Una tarjeta
+  entera para una fila se lee como un error.
+- **Una acción principal por pantalla.** Un solo `.btn-primary` (azul
+  relleno); el resto `.btn-secondary` (borde) o `.btn-enlace` (texto).
 
 ---
 

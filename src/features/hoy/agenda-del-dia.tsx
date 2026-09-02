@@ -250,6 +250,7 @@ export function AgendaDelDia() {
         titulo={visita.cliente?.nombre ?? 'Cliente'}
         subtitulo={subtitulo}
         valor={cuando || undefined}
+        valorTenue
         onClick={() => abrirVisita(visita)}
         chevron
       />

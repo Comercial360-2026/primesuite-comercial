@@ -371,10 +371,24 @@ body {
 }
 
 .seccion-lista { display: flex; flex-direction: column; gap: 6px; }
+
+/* Cabecera de sección — GUÍA la lectura, no es una etiqueta pálida.
+   Tres niveles (prop `prominencia` de SeccionLista):
+     · principal → la sección del dinero / de la acción (más grande y oscura)
+     · normal    → por defecto: legible, con peso, oscura
+     · tenue     → metadatos de referencia (Datos, Más): pequeña y gris
+   Ver 08_sistema_diseno.md §"Jerarquía". */
 .seccion-lista__cabecera {
   margin: 0; padding: 0 var(--fila-pad-x);
-  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.02em;
-  color: var(--ink-500);
+  font-size: var(--text-sm); font-weight: 600; letter-spacing: -0.003em;
+  color: var(--ink-700);
+}
+.seccion-lista--principal > .seccion-lista__cabecera {
+  font-size: var(--text-base); color: var(--ink-900);
+}
+.seccion-lista--tenue > .seccion-lista__cabecera {
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.02em;
+  color: var(--ink-400);
 }
 
 /* Etiqueta de sección para bloques que NO son una SeccionLista (p. ej. el
@@ -382,10 +396,36 @@ body {
    de sección para que el ojo agrupe igual. `--tenue` para lo secundario. */
 .lbl-seccion {
   padding: 0 var(--fila-pad-x); margin: var(--space-3) 0 6px;
-  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.02em;
-  color: var(--ink-500);
+  font-size: var(--text-sm); font-weight: 600; letter-spacing: -0.003em;
+  color: var(--ink-700);
 }
-.lbl-seccion--tenue { font-weight: 400; color: var(--ink-400); }
+.lbl-seccion--tenue { font-weight: 400; color: var(--ink-400); font-size: var(--text-xs); }
+
+/* Agrupa secciones relacionadas con un hueco menor que el de
+   `.lista-agrupada`, para que el ojo las lea como un bloque (una
+   SeccionLista + su `.fila-ir`, o "Salud del equipo" + su tarjeta en Yo). */
+.grupo { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* Un solo dato suelto — etiqueta + valor en una línea, SIN tarjeta. Para
+   secciones que solo tienen un dato trivial (Última actividad, Responsable
+   sin cambios): una tarjeta entera para una fila se lee como un error. */
+.dato-inline {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--space-3); padding: 4px var(--fila-pad-x);
+  font-size: var(--text-sm);
+}
+.dato-inline__lb { color: var(--ink-400); }
+.dato-inline__v { color: var(--ink-900); font-weight: 500; text-align: right; }
+
+/* Etiqueta informativa / de sistema — azul suave, hermana de `.sem-tag` y
+   `.eco-tag`. Fondo suave, sin borde: se lee como etiqueta, no como algo
+   pulsable. Azul = "de sistema / informativo" (p. ej. "Heredado"). */
+.info-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: var(--radius-chip);
+  font-size: var(--text-xs); font-weight: 600;
+  color: var(--brand-600); background: var(--brand-050);
+}
 
 /* Fila "ir a" — lleva a otra pantalla/lista completa (p. ej. "Ver toda la
    agenda"). Aspecto propio, distinto de una fila de contenido: fondo azul
@@ -473,7 +513,15 @@ body {
    ancho: si el valor es largo (p. ej. "sin hora · de Fulano" en la Agenda),
    sin el tope se comía toda la fila y el título se partía letra a letra en
    un iPhone estrecho. Con tope, es el valor el que hace 2 líneas, no el título. */
-.fila__valor { flex-shrink: 0; max-width: 45%; text-align: right; font-size: var(--text-sm); color: var(--ink-400); }
+/* El valor de una fila carga peso cuando ES el objetivo (un número, un
+   estado, un importe, una prioridad). Un valor de contexto de verdad
+   secundario —una fecha— usa `.fila__valor--tenue`. Los tonos de estado
+   (aviso/riesgo/ok) lo siguen tiñendo por encima. */
+.fila__valor {
+  flex-shrink: 0; max-width: 45%; text-align: right;
+  font-size: var(--text-sm); color: var(--ink-900); font-weight: 500;
+}
+.fila__valor--tenue { color: var(--ink-400); font-weight: 400; }
 .fila__badge {
   flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 20px; padding: 0 6px;

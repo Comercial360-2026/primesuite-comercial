@@ -415,7 +415,7 @@ export function FichaCliente() {
       <div className="screen__scroll">
        <div className="lista-agrupada">
         {hayBasicos && (
-          <SeccionLista titulo="Datos">
+          <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
               <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
@@ -435,7 +435,7 @@ export function FichaCliente() {
         ) : (
           <>
             {!!oportunidades?.length && (
-              <SeccionLista titulo="Oportunidades activas">
+              <SeccionLista titulo="Oportunidades activas" prominencia="principal">
                 {oportunidades.map((o) => (
                   <FilaNavegable
                     key={o.id}
@@ -454,6 +454,7 @@ export function FichaCliente() {
                     key={p.id}
                     titulo={p.descripcion}
                     valor={p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : undefined}
+                    valorTenue
                     to={`/proximos-pasos/${p.id}`}
                   />
                 ))}
@@ -512,6 +513,7 @@ export function FichaCliente() {
                       titulo={fechaCorta(v.fecha)}
                       subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
                       valor={accion}
+                      valorTenue
                       to={to}
                     />
                   );
@@ -521,7 +523,7 @@ export function FichaCliente() {
           </>
         )}
 
-        <SeccionLista titulo="Más">
+        <SeccionLista titulo="Más" prominencia="tenue">
           <FilaNavegable titulo="Ubicaciones" to={`/clientes/${clienteId}/ubicaciones`} />
         </SeccionLista>
 

@@ -18,13 +18,15 @@ interface Props {
   etiqueta: string;
   /** Valor a la derecha (texto, porcentaje, un <span>…). */
   valor: ReactNode;
+  /** El valor es contexto secundario (una fecha) → gris, sin peso. */
+  valorTenue?: boolean;
   /** Icono opcional a la izquierda, por simetría con la familia de filas. */
   icono?: NombreIcono;
   tono?: Tono;
   densidad?: 'normal' | 'compacta';
 }
 
-export function FilaDato({ etiqueta, valor, icono, tono = 'neutral', densidad = 'normal' }: Props) {
+export function FilaDato({ etiqueta, valor, valorTenue, icono, tono = 'neutral', densidad = 'normal' }: Props) {
   const clases = [
     'fila',
     'fila--dato',
@@ -46,7 +48,7 @@ export function FilaDato({ etiqueta, valor, icono, tono = 'neutral', densidad = 
       <span className="fila__cuerpo">
         <span className="fila__titulo">{etiqueta}</span>
       </span>
-      <span className="fila__valor">{valor}</span>
+      <span className={`fila__valor${valorTenue ? ' fila__valor--tenue' : ''}`}>{valor}</span>
     </div>
   );
 }

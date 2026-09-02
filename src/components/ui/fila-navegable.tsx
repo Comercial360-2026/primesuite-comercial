@@ -37,8 +37,11 @@ interface PropsBase {
   titulo: string;
   subtitulo?: string;
   /** Contenido a la derecha, antes de la flecha: texto ("72%"), un chip de
-   *  estado, etc. Igual que `FilaDato.valor`. */
+   *  estado, etc. Igual que `FilaDato.valor`. Por defecto va con peso (es el
+   *  objetivo de la fila). */
   valor?: ReactNode;
+  /** El valor es contexto secundario (una fecha) → gris, sin peso. */
+  valorTenue?: boolean;
   /** Contador/etiqueta pequeña. No se dibuja si es 0 o vacío. */
   badge?: string | number;
   tono?: Tono;
@@ -63,6 +66,7 @@ export function FilaNavegable({
   titulo,
   subtitulo,
   valor,
+  valorTenue,
   badge,
   tono = 'neutral',
   densidad = 'normal',
@@ -101,7 +105,7 @@ export function FilaNavegable({
         <span className="fila__titulo">{titulo}</span>
         {subtitulo && <span className="fila__subtitulo">{subtitulo}</span>}
       </span>
-      {valor && <span className="fila__valor">{valor}</span>}
+      {valor && <span className={`fila__valor${valorTenue ? ' fila__valor--tenue' : ''}`}>{valor}</span>}
       {!!badge && <span className="fila__badge">{badge}</span>}
       {mostrarChevron && (
         <span className="fila__chevron">

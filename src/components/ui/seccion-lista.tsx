@@ -10,14 +10,21 @@ import type { ReactNode } from 'react';
 // sección.
 
 interface Props {
-  /** Cabecera gris. En frase ("Dirección comercial"), no en Mayúsculas. */
+  /** Cabecera. En frase ("Dirección comercial"), no en Mayúsculas. */
   titulo?: string;
+  /** Peso de la cabecera en la jerarquía de la pantalla:
+   *  `principal` = la sección del dinero o de la acción · `normal` (def.) ·
+   *  `tenue` = metadatos de referencia (Datos, Más). Ver 08 §"Jerarquía". */
+  prominencia?: 'principal' | 'normal' | 'tenue';
   children: ReactNode;
 }
 
-export function SeccionLista({ titulo, children }: Props) {
+export function SeccionLista({ titulo, prominencia = 'normal', children }: Props) {
+  const clase = ['seccion-lista', prominencia !== 'normal' && `seccion-lista--${prominencia}`]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <section className="seccion-lista">
+    <section className={clase}>
       {titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>}
       <div className="seccion-lista__grupo">{children}</div>
     </section>
