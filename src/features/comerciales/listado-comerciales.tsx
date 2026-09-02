@@ -51,10 +51,11 @@ export function ListadoComerciales() {
   const nBaja = (data ?? []).filter((c) => !c.activo).length;
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle titulo="Equipo" volverA="/yo" />
 
-      <div className="lista-agrupada">
+      <div className="screen__scroll">
+       <div className="lista-agrupada">
         {isLoading ? (
           <EstadoLista estado="cargando" />
         ) : sinConexion ? (
@@ -100,6 +101,7 @@ export function ListadoComerciales() {
             )}
           </>
         )}
+       </div>
       </div>
 
       <button className="btn btn-primary" onClick={() => navigate('/comerciales/nuevo')}>

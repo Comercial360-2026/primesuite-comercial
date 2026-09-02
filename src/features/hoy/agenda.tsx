@@ -272,11 +272,17 @@ export function Agenda() {
         tono={atrasada ? 'aviso' : 'neutral'}
         titulo={v.cliente?.nombre ?? 'Cliente'}
         subtitulo={
-          atrasada
-            ? [v.objetivo, `era para el ${cap(fechaDiaMes(v.fecha))}`].filter(Boolean).join(' · ')
-            : (v.objetivo ?? undefined)
+          // El "de X" (visita de otro comercial) va en el subtítulo, NO en
+          // `valor`: ahí es largo y en un iPhone estrecho aplasta el título
+          // hasta partirlo en varias líneas. `valor` se queda solo con la hora.
+          (atrasada
+            ? [v.objetivo, `era para el ${cap(fechaDiaMes(v.fecha))}`, deQuien]
+            : [v.objetivo, deQuien]
+          )
+            .filter(Boolean)
+            .join(' · ') || undefined
         }
-        valor={atrasada ? (deQuien || undefined) : `${horaTexto}${deQuien ? ` · ${deQuien}` : ''}`}
+        valor={atrasada ? undefined : horaTexto}
         to={`/visita/${v.id}/planificada`}
         seleccion={
           seleccionando
@@ -296,7 +302,7 @@ export function Agenda() {
   const vacio = !isLoading && !isError && atrasadas.length === 0 && dias.length === 0;
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle titulo="Agenda" />
 
       {!seleccionando && (
@@ -351,49 +357,54 @@ export function Agenda() {
         <div className="field-error-text">{resultadoLote}</div>
       )}
 
-      {isLoading && <EstadoLista estado="cargando" />}
-      {!isLoading && !isError && isPaused && (
-        <EstadoLista estado="sin-conexion" onReintentar={() => refetch()} />
-      )}
-      {isError && (
-        <EstadoLista estado="error" mensaje="No se pudo cargar la agenda." onReintentar={() => refetch()} />
-      )}
+      <div className="screen__scroll">
+        {isLoading && <EstadoLista estado="cargando" />}
+        {!isLoading && !isError && isPaused && (
+          <EstadoLista estado="sin-conexion" onReintentar={() => refetch()} />
+        )}
+        {isError && (
+          <EstadoLista estado="error" mensaje="No se pudo cargar la agenda." onReintentar={() => refetch()} />
+        )}
 
-      {!isLoading && !isError && vista === 'mes' && (
-        <CalendarioMes visitas={mias} renderVisita={(v) => fila(v, false)} />
-      )}
+        {!isLoading && !isError && vista === 'mes' && (
+          <CalendarioMes visitas={mias} renderVisita={(v) => fila(v, false)} />
+        )}
 
-      {vista === 'lista' && vacio && (
-        <EstadoLista
-          estado="vacio"
-          mensaje="No hay visitas planificadas. Planifica una desde la ficha de un cliente."
-        />
-      )}
+        {vista === 'lista' && vacio && (
+          <EstadoLista
+            estado="vacio"
+            mensaje="No hay visitas planificadas. Planifica una desde la ficha de un cliente."
+          />
+        )}
 
-      {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
-        <div className="lista-agrupada">
-          {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado
-              de inicio para que no empuje hacia abajo los días que sí miras.
-              Cabecera ámbar + ⚠, igual que en "Hoy". */}
-          {atrasadas.length > 0 && (
-            <SeccionColapsable titulo="⚠ Atrasadas" cantidad={atrasadas.length}>
-              <div className="seccion-lista__grupo">{atrasadas.map((v) => fila(v, true))}</div>
-            </SeccionColapsable>
-          )}
+        {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
+          <div className="lista-agrupada">
+            {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado
+                de inicio para que no empuje hacia abajo los días que sí miras.
+                Cabecera ámbar + ⚠, igual que en "Hoy". */}
+            {atrasadas.length > 0 && (
+              <SeccionColapsable titulo="⚠ Atrasadas" cantidad={atrasadas.length}>
+                <div className="seccion-lista__grupo">{atrasadas.map((v) => fila(v, true))}</div>
+              </SeccionColapsable>
+            )}
 
-          {/* Un grupo por día. Dentro, las visitas ya vienen ordenadas
-              mañana → tarde → sin hora (useMemo); cada fila lleva su hora, así
-              que no hacen falta subcabeceras de franja. */}
-          {dias.map((dia) => (
-            <SeccionLista key={claveDia(dia.fecha)} titulo={etiquetaDia(dia.fecha)}>
-              {dia.visitas.map((v) => fila(v, false))}
-            </SeccionLista>
-          ))}
-        </div>
-      )}
+            {/* Un grupo por día. Dentro, las visitas ya vienen ordenadas
+                mañana → tarde → sin hora (useMemo); cada fila lleva su hora, así
+                que no hacen falta subcabeceras de franja. */}
+            {dias.map((dia) => (
+              <SeccionLista key={claveDia(dia.fecha)} titulo={etiquetaDia(dia.fecha)}>
+                {dia.visitas.map((v) => fila(v, false))}
+              </SeccionLista>
+            ))}
+          </div>
+        )}
+      </div>
 
+      {/* Acción principal anclada abajo, igual que "Nuevo cliente" en
+          Clientes: botón primario (relleno, no solo borde — el usuario es
+          daltónico) y siempre visible, no se va con el scroll. */}
       {buscarCliente === null ? (
-        <button className="btn btn-secondary" onClick={() => setBuscarCliente('')}>
+        <button className="btn btn-primary" onClick={() => setBuscarCliente('')}>
           <Icono nombre="mas" size={18} />
           Planificar visita
         </button>
