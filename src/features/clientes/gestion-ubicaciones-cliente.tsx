@@ -120,6 +120,11 @@ export function GestionUbicacionesCliente() {
     invalidar();
   }
 
+  // Con una fila en modo renombrar / confirmar borrado, ese panel inline es
+  // el foco: "+ Añadir" (arriba) baja a secundario y se desactiva para no
+  // dejar dos primarios a la vez.
+  const filaInlineAbierta = renombrandoId !== null || confirmandoBorrarId !== null;
+
   const total = previsualizacion
     ? previsualizacion.num_fotos +
       previsualizacion.num_audios +
@@ -144,9 +149,9 @@ export function GestionUbicacionesCliente() {
           placeholder="nueva ubicación…"
         />
         <button
-          className="btn btn-primary"
+          className={`btn ${filaInlineAbierta ? 'btn-secondary' : 'btn-primary'}`}
           style={{ width: 'auto', padding: '0 16px' }}
-          disabled={!nuevoTexto.trim() || creando}
+          disabled={!nuevoTexto.trim() || creando || filaInlineAbierta}
           onClick={crearUbicacion}
         >
           {creando ? 'Creando…' : '+ Añadir'}

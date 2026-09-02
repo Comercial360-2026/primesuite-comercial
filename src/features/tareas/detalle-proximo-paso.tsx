@@ -229,8 +229,10 @@ export function DetalleProximoPaso() {
         )
       )}
 
+      {/* Mientras la confirmación de borrado está abierta, ella es el foco:
+          "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
-        className="btn btn-primary"
+        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
         disabled={!descripcion.trim() || guardando || guardadoConExito}
         onClick={guardar}

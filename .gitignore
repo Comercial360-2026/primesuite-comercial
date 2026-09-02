@@ -9,3 +9,8 @@ tsconfig.tsbuildinfo
 
 # graphify knowledge graph (regenerated locally)
 graphify-out/
+
+# config local de preview (no compartida)
+.claude/launch.json
+# lockfile de Deno espurio (el proyecto es npm/Vite)
+deno.lock

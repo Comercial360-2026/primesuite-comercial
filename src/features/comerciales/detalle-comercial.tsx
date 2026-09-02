@@ -289,8 +289,11 @@ export function DetalleComercial() {
         </div>
       )}
 
+      {/* Con una tarjeta de acción grande abierta abajo (baja / traspaso),
+          ese panel es el foco: "Guardar cambios" baja a secundario para no
+          dejar dos primarios azules a la vez. */}
       <button
-        className="btn btn-primary"
+        className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
         disabled={!nombre.trim() || !hayCambios || guardando}
         onClick={guardar}

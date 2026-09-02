@@ -6,6 +6,7 @@ import { formatearMB, type NivelEspacio } from '@/lib/espacio';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { Aviso } from '@/components/ui/aviso';
@@ -168,9 +169,7 @@ export function ConsumoComerciales() {
             {espacioEquipo
               ? `${Math.round(espacioEquipo.pctEquipo)}% · quedan ${formatearMB(
                   Math.max(espacioEquipo.presupuesto - espacioEquipo.usadoTotal, 0)
-                )} MB de ${formatearMB(espacioEquipo.presupuesto)} MB · parte orientativa ${formatearMB(
-                  espacioEquipo.cuotaBase
-                )} MB por comercial`
+                )} MB de ${formatearMB(espacioEquipo.presupuesto)} MB`
               : 'Calculando…'}
           </div>
         </div>
@@ -241,37 +240,62 @@ export function ConsumoComerciales() {
                 const ultimo = avisos?.[c.comercial_id];
                 const pendienteSinMirar = !!ultimo && !ultimo.atendido_en;
 
+                // Jerarquía: la cifra (MB · % de su parte) es EL dato de la
+                // pantalla → valor a la derecha, en negro. La pista de estado
+                // (por qué mirar esta fila, o si ya se le avisó) va debajo en
+                // gris pequeño. El tono + su icono `atencion` marcan la fila
+                // sin depender del color (usuario daltónico).
                 let tono: 'neutral' | 'aviso' | 'riesgo' = 'neutral';
-                let texto: string;
+                let motivo: string | null = null;
                 if (cuotaBytes && pct >= 100) {
                   tono = 'riesgo';
-                  texto = `⚠ ${mb} MB · ${Math.round(pct)}% — pasado de su parte`;
+                  motivo = 'pasado de su parte';
                 } else if (cuotaBytes && pct >= 85) {
                   tono = 'aviso';
-                  texto = `⚠ ${mb} MB · ${Math.round(pct)}% — cerca del límite`;
-                } else {
-                  texto = cuotaBytes ? `${mb} MB · ${Math.round(pct)}% de su parte` : `${mb} MB`;
+                  motivo = 'cerca del límite';
                 }
+                const nota = esYo
+                  ? 'eres tú'
+                  : pendienteSinMirar
+                    ? `avisado ${fechaCorta(ultimo!.creado_en)}, sin mirar`
+                    : ultimo?.atendido_en
+                      ? `lo miró ${fechaCorta(ultimo.atendido_en)}`
+                      : motivo;
 
-                if (esYo) texto += ' · eres tú';
-                else if (pendienteSinMirar) texto += ` · avisado ${fechaCorta(ultimo!.creado_en)}, sin mirar`;
-                else if (ultimo?.atendido_en) texto += ` · lo miró ${fechaCorta(ultimo.atendido_en)}`;
-
+                const cifra = cuotaBytes ? `${mb} MB · ${Math.round(pct)}%` : `${mb} MB`;
                 const puedo = elegible(c);
-                const fila = (
+
+                const fila = seleccionando ? (
                   <FilaAccion
                     key={c.comercial_id}
                     titulo={c.nombre}
-                    subtitulo={texto}
+                    subtitulo={`${cuotaBytes ? `${cifra} de su parte` : cifra}${nota ? ` · ${nota}` : ''}`}
                     tono={tono}
                     seleccion={
-                      seleccionando && puedo
+                      puedo
                         ? {
                             activa: true,
                             marcada: marcadas.has(c.comercial_id),
                             onToggle: () => alternarMarca(c.comercial_id),
                           }
                         : undefined
+                    }
+                  />
+                ) : (
+                  <FilaDato
+                    key={c.comercial_id}
+                    etiqueta={c.nombre}
+                    icono={tono === 'neutral' ? undefined : 'atencion'}
+                    tono={tono}
+                    valor={
+                      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                        <span>{cifra}</span>
+                        {nota && (
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400 }}>
+                            {nota}
+                          </span>
+                        )}
+                      </span>
                     }
                   />
                 );

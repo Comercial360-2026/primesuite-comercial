@@ -103,10 +103,13 @@ export function BotonDescargarInforme({
     : { width: 'auto', padding: '0 16px' };
 
   if (typeof estado === 'object') {
+    // "Descargar otra vez" es una acción menor de repetición — nunca el
+    // primario de la pantalla. Va en secundario (borde), igual que el
+    // estado de reposo.
     return (
       <a
         href={estado.url}
-        className="btn btn-primary"
+        className="btn btn-secondary"
         style={{ ...estilo, display: 'inline-block', textAlign: 'center' }}
         onClick={(e) => e.stopPropagation()}
       >

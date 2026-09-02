@@ -349,7 +349,14 @@ export function DetalleOportunidad() {
 
       {error && <div className="field-error-text">{error}</div>}
 
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={guardando || guardadoConExito} onClick={guardar}>
+      {/* Mientras la confirmación de borrado está abierta, ella es el foco:
+          "Guardar" baja a secundario para no competir (un solo primario). */}
+      <button
+        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        style={{ marginTop: 'auto' }}
+        disabled={guardando || guardadoConExito}
+        onClick={guardar}
+      >
         {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 

@@ -108,15 +108,6 @@ export function Deduplicacion() {
     },
   });
 
-  const { data: nombresComerciales } = useQuery({
-    queryKey: ['nombres-comerciales'],
-    queryFn: async (): Promise<Record<string, string>> => {
-      const { data, error: err } = await supabase.from('comercial').select('id, nombre');
-      if (err) throw err;
-      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
-    },
-  });
-
   const grupos = useMemo<Grupo[]>(() => {
     if (!clientes) return [];
     const porClave: Record<string, ClienteDup[]> = {};
@@ -221,18 +212,31 @@ export function Deduplicacion() {
             <SeccionLista titulo={`${g.clientes.length} fichas parecidas · toca la que se queda`}>
               {g.clientes.map((c) => {
                 const esMaestro = c.id === maestroId;
-                const meta =
-                  `${c.visitas} visita${c.visitas === 1 ? '' : 's'} · ${c.oportunidades} oportunidad${c.oportunidades === 1 ? '' : 'es'} · ${c.interlocutores} contacto${c.interlocutores === 1 ? '' : 's'}` +
-                  ` · ${c.sector ? c.sector : 'sector sin definir'}${c.ubicacion ? ` · ${c.ubicacion}` : ''}` +
-                  ` · creada ${fechaCorta(c.creado_en)}${
-                    c.creado_por && nombresComerciales?.[c.creado_por] ? ` por ${nombresComerciales[c.creado_por]}` : ''
-                  }`;
+                // Jerarquía: lo que pesa para elegir superviviente —cuánta
+                // visita lleva cada ficha— va como valor a la derecha; el
+                // subtítulo se queda con lo justo para distinguirlas (sector
+                // · ubicación · antigüedad). Contactos y "creada por X" se
+                // ven en la ficha si hacen falta, aquí eran ruido.
+                const meta = [
+                  c.sector || 'sector sin definir',
+                  c.ubicacion || null,
+                  c.oportunidades ? `${c.oportunidades} oportunidad${c.oportunidades === 1 ? '' : 'es'}` : null,
+                  `creada ${fechaCorta(c.creado_en)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                const valor = esMaestro
+                  ? 'se queda'
+                  : esVacia(c)
+                    ? 'sin datos'
+                    : `${c.visitas} visita${c.visitas === 1 ? '' : 's'}`;
                 return (
                   <FilaNavegable
                     key={c.id}
                     titulo={c.nombre}
                     subtitulo={meta}
-                    valor={esMaestro ? 'se queda' : esVacia(c) ? 'sin datos' : undefined}
+                    valor={valor}
+                    valorTenue={!esMaestro && !esVacia(c)}
                     tono={esMaestro ? 'ok' : 'neutral'}
                     chevron={false}
                     disabled={bloqueado || enConfirmacion}
@@ -288,9 +292,12 @@ export function Deduplicacion() {
                       : `Quitar ${vaciasQuitables.length} sin datos`}
                   </button>
                 )}
+                {/* Una pantalla con N grupos de duplicados no tiene UNA
+                    acción principal: fusionar es una decisión por grupo, así
+                    que va en secundario (no un muro de botones azules). */}
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-secondary"
                   style={{ width: 'auto', padding: '0 16px' }}
                   disabled={bloqueado}
                   onClick={() => {

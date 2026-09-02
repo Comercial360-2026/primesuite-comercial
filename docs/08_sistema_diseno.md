@@ -76,7 +76,15 @@ propaga a toda la app):
   `.dato-inline` (etiqueta + valor en una línea, sin caja). Una tarjeta
   entera para una fila se lee como un error.
 - **Una acción principal por pantalla.** Un solo `.btn-primary` (azul
-  relleno); el resto `.btn-secondary` (borde) o `.btn-enlace` (texto).
+  relleno) **visible a la vez**; el resto `.btn-secondary` (borde) o
+  `.btn-enlace` (texto). Cuando se abre un panel de confirmación o edición
+  inline (planificar, reprogramar, cambiar responsable, dar de baja,
+  confirmar borrado…), **ese panel es el foco**: su botón de confirmar es
+  el `.btn-primary` y cualquier otra CTA persistente de la pantalla (la
+  anclada abajo, "Guardar" arriba…) baja a `.btn-secondary` mientras el
+  panel está abierto. Una pantalla puede tener **cero** primarios (listas
+  de monitorización o de administración con una decisión por fila, p. ej.
+  Consumo por comercial o Clientes duplicados): ahí no se fuerza uno.
 
 ---
 

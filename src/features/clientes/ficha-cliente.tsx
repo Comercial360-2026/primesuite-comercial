@@ -818,7 +818,15 @@ export function FichaCliente() {
         </button>
       )}
 
-      <button className="btn btn-primary" onClick={pedirIniciarVisitaAdHoc}>
+      {/* Con un panel inline abierto (planificar / cambiar responsable /
+          confirmar borrado), ese panel es el foco: "Iniciar visita ahora"
+          baja a secundario para dejar un solo primario azul en pantalla. */}
+      <button
+        className={`btn ${
+          planificando || cambiandoResp || confirmandoBorrarCliente ? 'btn-secondary' : 'btn-primary'
+        }`}
+        onClick={pedirIniciarVisitaAdHoc}
+      >
         Iniciar visita ahora
         <Icono nombre="chevron" size={18} />
       </button>

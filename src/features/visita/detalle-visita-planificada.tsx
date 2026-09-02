@@ -224,7 +224,12 @@ export function DetalleVisitaPlanificada() {
               </div>
             </div>
           ) : esHoy ? (
-            <button className="btn btn-primary" onClick={empezar}>
+            // Con un sub-panel abierto (reprogramar / cancelar), ese panel
+            // es el foco: "Iniciar visita" baja a secundario mientras tanto.
+            <button
+              className={`btn ${reprogramando || confirmando ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={empezar}
+            >
               Iniciar visita
               <Icono nombre="chevron" size={18} />
             </button>
@@ -299,9 +304,10 @@ export function DetalleVisitaPlanificada() {
           ) : (
             // En una visita futura, ajustar la fecha es lo más habitual →
             // acción principal (relleno). En una visita de hoy ya manda
-            // "Iniciar visita", así que aquí baja a secundario.
+            // "Iniciar visita", y con una confirmación abierta manda esa,
+            // así que en ambos casos baja a secundario.
             <button
-              className={esHoy ? 'btn btn-secondary' : 'btn btn-primary'}
+              className={esHoy || confirmando ? 'btn btn-secondary' : 'btn btn-primary'}
               onClick={() => {
                 setConfirmando(null);
                 // Prefijar con la fecha/hora actuales para que reprogramar sea
