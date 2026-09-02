@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icono, type NombreIcono } from './iconos';
+import { BotonAyuda } from './boton-ayuda';
+import type { PantallaAyudaId } from '@/lib/ayuda';
 
 // Cabecera de las 4 pantallas del menú de abajo (Hoy / Clientes / Tareas /
 // Yo). Antes cada una ponía un `<h1>` suelto con estilos inline y sin
@@ -11,11 +13,13 @@ interface CabeceraSeccionProps {
   icono: NombreIcono;
   /** Línea pequeña bajo el título (p. ej. la fecha de hoy). */
   subtitulo?: string;
+  /** Si se pasa, añade el "?" de ayuda junto al título. Id de `ayuda.ts`. */
+  ayuda?: PantallaAyudaId;
   /** Acción o filtro a la derecha del título (opcional). */
   derecha?: ReactNode;
 }
 
-export function CabeceraSeccion({ titulo, icono, subtitulo, derecha }: CabeceraSeccionProps) {
+export function CabeceraSeccion({ titulo, icono, subtitulo, ayuda, derecha }: CabeceraSeccionProps) {
   return (
     <header className="cabecera-seccion">
       <span className="cabecera-seccion__icono">
@@ -25,6 +29,7 @@ export function CabeceraSeccion({ titulo, icono, subtitulo, derecha }: CabeceraS
         <h1 className="cabecera-seccion__titulo">{titulo}</h1>
         {subtitulo && <p className="cabecera-seccion__subtitulo">{subtitulo}</p>}
       </div>
+      {ayuda && <BotonAyuda pantalla={ayuda} />}
       {derecha && <div className="cabecera-seccion__derecha">{derecha}</div>}
     </header>
   );

@@ -269,6 +269,16 @@ const registro = {
     </>
   ),
 
+  // Ayuda — "?" en círculo. El punto de abajo es un trazo mínimo
+  // (`h.01`) con extremo redondeado, como el resto del set.
+  ayuda: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.4a2.4 2.4 0 0 1 4.7.7c0 1.6-2.3 1.9-2.3 3.2" />
+      <path d="M12 17h.01" />
+    </>
+  ),
+
   // Recorrido — punto de partida, rastro de puntos y chincheta de destino.
   recorrido: (
     <>

@@ -246,7 +246,7 @@ export function Yo() {
 
   return (
     <div className="screen">
-      <CabeceraSeccion titulo="Yo" icono="yo" />
+      <CabeceraSeccion titulo="Yo" icono="yo" ayuda="yo" />
 
       <div className="lista-agrupada">
         <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
@@ -393,6 +393,15 @@ export function Yo() {
             )}
           </SeccionLista>
         )}
+
+        <SeccionLista>
+          <FilaNavegable
+            icono="ayuda"
+            titulo="Cómo funciona PrimeNotes"
+            subtitulo="Manual de la app, pantalla por pantalla"
+            to="/ayuda"
+          />
+        </SeccionLista>
 
         <SeccionLista>
           <FilaNavegable

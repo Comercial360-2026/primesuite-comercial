@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Modal } from '@/components/ui/modal';
 
 interface HallazgoRapidoModalProps {
@@ -90,6 +91,7 @@ export function HallazgoRapidoModal({
         )}
 
         <div className="label">naturaleza</div>
+        <AyudaNota concepto="naturaleza-hallazgo" />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {NATURALEZAS.map((n) => (
             <button

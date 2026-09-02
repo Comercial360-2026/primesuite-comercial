@@ -1,0 +1,112 @@
+// Fuente única de la ayuda in-app. De este fichero salen, sin divergir:
+//
+//   1. El "?" de la cabecera de una pantalla → <BotonAyuda> abre un Modal
+//      con la EntradaPantalla ("qué es / cuándo / ojo").
+//   2. Las notas al pie de un campo que no se explica solo →
+//      <AyudaNota concepto="…" /> muestra el `queEs` del EntradaConcepto.
+//   3. La pantalla /ayuda ("Cómo funciona PrimeNotes") → recorre estos dos
+//      mapas, los agrupa y deja buscar.
+//
+// Añadir ayuda a algo nuevo = una entrada aquí, EN EL MISMO COMMIT que el
+// cambio de comportamiento. Un texto de ayuda que ya no es cierto es un bug
+// (ver CLAUDE.md y docs/08_sistema_diseno.md §"Prueba de usuario").
+//
+// Escrito para el comercial —- la persona que visita clientes-—, no para
+// quien programa: nada de jerga de producto ni de base de datos.
+//
+// `npm run ayuda:cobertura` lista qué pantallas con cabecera todavía no
+// tienen entrada aquí.
+
+export interface EntradaPantalla {
+  /** Nombre visible en /ayuda. En frase: "Cerrar una visita". */
+  titulo: string;
+  /** Qué es esta pantalla, en una o dos frases. */
+  queEs: string;
+  /** Qué haces aquí / cuándo la usas. */
+  cuando: string;
+  /** Un aviso: el error que la gente comete, algo que no se puede deshacer. */
+  ojo?: string;
+  /** Solo la usa Dirección Comercial → no sale en el manual de un comercial. */
+  soloDireccion?: boolean;
+}
+
+export interface EntradaConcepto {
+  /** Nombre visible en /ayuda. En frase: "Naturaleza de un hallazgo". */
+  titulo: string;
+  /** Qué significa. Es también el texto que sale como <AyudaNota>. */
+  queEs: string;
+  /** Cuándo aplica, si no es evidente. */
+  cuando?: string;
+  /** Un caso concreto que lo aterriza. */
+  ejemplo?: string;
+  /** Solo lo maneja Dirección Comercial. */
+  soloDireccion?: boolean;
+}
+
+// Clave = un id estable y legible. Se usa tal cual en `ayuda="…"` de las
+// cabeceras, así que cambiar una clave obliga a cambiar la pantalla que la
+// referencia (lo cazaría el compilador).
+//
+// El objeto `_PANTALLAS` con `satisfies` conserva las claves literales (de
+// ahí sale `PantallaAyudaId`); `PANTALLAS` lo re-expone con valor uniforme
+// `EntradaPantalla` para poder leer `.ojo` sin que TS estreche de más.
+const _PANTALLAS = {
+  yo: {
+    titulo: 'Yo',
+    queEs:
+      'Tu pantalla personal: quién eres, cuánto ocupan tus visitas y, si diriges el equipo, los accesos de gestión.',
+    cuando:
+      'Para cerrar sesión, ver si tienes algo sin sincronizar, o entrar a las herramientas del equipo.',
+  },
+  deduplicacion: {
+    titulo: 'Clientes duplicados',
+    queEs:
+      'La lista de fichas que parecen del mismo cliente porque el nombre está escrito de varias formas.',
+    cuando:
+      'Cuando aparece el aviso de duplicados: repasas cada grupo y juntas en una sola las fichas que de verdad son el mismo cliente.',
+    ojo: 'Juntar dos fichas no se deshace desde la app. Comprueba que sean el mismo cliente antes de confirmar.',
+    soloDireccion: true,
+  },
+  'cierre-visita': {
+    titulo: 'Cerrar una visita',
+    queEs:
+      'El repaso final de todo lo capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
+    cuando:
+      'Al salir del cliente. Revisas el recuento (zona por zona si usaste el recorrido) y pulsas para consolidar.',
+    ojo: 'Si cierras sin conexión, la visita se guarda en el móvil y se confirma sola al recuperar red —no tienes que hacer nada más—. Una vez consolidada, para añadir algo hay que reabrir la visita.',
+  },
+} satisfies Record<string, EntradaPantalla>;
+
+const _CONCEPTOS = {
+  'naturaleza-hallazgo': {
+    titulo: 'Naturaleza de un hallazgo',
+    queEs:
+      'Qué tipo de cosa has observado en el cliente: contexto (información de fondo), oportunidad (algo que podrías venderle), riesgo (algo que te puede hacer perder la cuenta), competencia (producto de otro proveedor), fortaleza (algo que juega a tu favor) o proyecto activo (una obra o cambio en marcha).',
+    ejemplo:
+      'Ves lectores de otra marca en las puertas → competencia. El cliente comenta que abren otra nave → oportunidad.',
+  },
+  'tipo-fecha-proximo-paso': {
+    titulo: 'Tipo de fecha de un próximo paso',
+    queEs:
+      'Cada próximo paso lleva una fecha y qué significa esa fecha: cuándo quieres hacerlo tú, la fecha límite que ha puesto el cliente, o cuándo espera él una respuesta.',
+    ejemplo:
+      '"El cliente decide antes del día 30" es una fecha límite; "llamar la semana que viene" es cuándo lo harás tú.',
+  },
+  'semaforo-cliente': {
+    titulo: 'El estado del cliente',
+    queEs:
+      'La etiqueta que resume cómo va cada cliente: con oportunidad abierta, en seguimiento, o sin visitar. Manda la palabra; el color solo acompaña.',
+  },
+  'modo-recorrido': {
+    titulo: 'Modo recorrido',
+    queEs:
+      'Una forma de hacer la visita andando por zonas del cliente (entrada, almacén, oficinas…). Todo lo que capturas queda atado a la zona en la que estás, y al cerrar lo repasas zona por zona.',
+    cuando: 'Útil en clientes grandes o cuando visitas varias áreas y quieres el informe ordenado por sitio.',
+  },
+} satisfies Record<string, EntradaConcepto>;
+
+export type PantallaAyudaId = keyof typeof _PANTALLAS;
+export type ConceptoAyudaId = keyof typeof _CONCEPTOS;
+
+export const PANTALLAS: Record<PantallaAyudaId, EntradaPantalla> = _PANTALLAS;
+export const CONCEPTOS: Record<ConceptoAyudaId, EntradaConcepto> = _CONCEPTOS;

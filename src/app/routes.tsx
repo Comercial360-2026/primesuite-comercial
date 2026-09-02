@@ -33,6 +33,7 @@ import { DetalleProximoPaso } from '@/features/tareas/detalle-proximo-paso';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
 import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignacion';
 import { Yo } from '@/features/perfil/yo';
+import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
 import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
@@ -100,6 +101,8 @@ export function AppRoutes() {
               el principio del proyecto sin que la ruta existiera nunca. */}
           <Route path="/yo" element={<Yo />} />
           <Route path="/mi-espacio" element={<MiEspacio />} />
+          {/* Manual in-app — "Cómo funciona PrimeNotes". Cualquier rol. */}
+          <Route path="/ayuda" element={<AyudaManual />} />
 
           {/* Nivel 0 — Consumo por comercial — exclusivo de Dirección Comercial */}
           <Route

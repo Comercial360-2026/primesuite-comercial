@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icono } from './iconos';
+import { BotonAyuda } from './boton-ayuda';
+import type { PantallaAyudaId } from '@/lib/ayuda';
 
 // La fila "‹ Título" de las pantallas de detalle. Sustituye al
 // `<button>←</button>` + `<h1>` copiado a mano en ~13 pantallas
@@ -24,11 +26,13 @@ interface Props {
   onVolver?: () => void;
   /** Ruta fija a la que volver en vez de `navigate(-1)`. */
   volverA?: string;
+  /** Si se pasa, añade el "?" de ayuda junto al título. Id de `ayuda.ts`. */
+  ayuda?: PantallaAyudaId;
   /** Ranura a la derecha: chip de estado, botón de acción… */
   derecha?: ReactNode;
 }
 
-export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, derecha }: Props) {
+export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, derecha }: Props) {
   const navigate = useNavigate();
   const volver = onVolver ?? (() => (volverA ? navigate(volverA) : navigate(-1)));
 
@@ -46,6 +50,7 @@ export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, derecha 
         <h1 className="cabecera-detalle__titulo">{titulo}</h1>
         {subtitulo && <p className="cabecera-detalle__subtitulo">{subtitulo}</p>}
       </div>
+      {ayuda && <BotonAyuda pantalla={ayuda} />}
       {derecha && <div className="cabecera-detalle__derecha">{derecha}</div>}
     </header>
   );

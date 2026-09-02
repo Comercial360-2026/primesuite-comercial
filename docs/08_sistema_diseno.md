@@ -36,6 +36,11 @@ falla uno, no está terminada:
    cabeceras guían (no son etiquetas pálidas), el valor que importa pesa,
    lo secundario es pequeño y gris. Ver §"Jerarquía". «Repasado» = repasada
    la jerarquía, no solo que la estructura sea correcta.
+8. **¿La ayuda sigue diciendo la verdad?** Si la pantalla tiene entrada en
+   `src/lib/ayuda.ts` (el "?" de la cabecera) o hay una `<AyudaNota>` en un
+   campo, y este cambio altera qué hace la pantalla o el campo, la entrada
+   se actualiza EN ESTE MISMO COMMIT. Pantalla o concepto nuevo con
+   fricción real → se le añade su entrada. Ver §"Ayuda in-app".
 
 ---
 
@@ -560,10 +565,47 @@ Dos componentes, uno por nivel:
   pantallas del menú de abajo (Hoy / Clientes / Tareas / Yo). Icono +
   título `--text-xl` peso 600, a la izquierda. Antes cada una ponía un
   `<h1>` suelto con estilos inline y sin icono. Props: `titulo`, `icono`,
-  `derecha?`.
+  `subtitulo?`, `ayuda?`, `derecha?`.
 - **`CabeceraDetalle`** (`src/components/ui/cabecera-detalle.tsx`) — las
   pantallas de detalle: flecha `‹` de volver + título (+ `subtitulo?`,
-  `derecha?`). Ver la tabla de props en §"Sistema de filas".
+  `ayuda?`, `derecha?`). Ver la tabla de props en §"Sistema de filas".
+
+`ayuda="<id>"` (una clave de `PANTALLAS` en `src/lib/ayuda.ts`) añade el "?"
+que abre el `Modal` de ayuda de esa pantalla. Solo lo llevan las pantallas
+con un concepto que se puede entender mal (un modo, un ciclo de vida, un
+"mío vs del equipo"); las hojas de detalle que solo muestran un registro,
+no. Ver §"Ayuda in-app".
+
+## Ayuda in-app
+
+Toda la ayuda al usuario —- textos escritos para el comercial, no para quien
+programa-— sale de un único fichero: **`src/lib/ayuda.ts`**. Dos mapas
+tipados, `PANTALLAS` (`EntradaPantalla`: `queEs` / `cuando` / `ojo?` /
+`soloDireccion?`) y `CONCEPTOS` (`EntradaConcepto`: `queEs` / `cuando?` /
+`ejemplo?` / `soloDireccion?`). Las claves son literales: un `ayuda="x"` o
+`concepto="x"` que no exista no compila.
+
+Tres superficies, todas leen de ese fichero (no tienen texto propio):
+
+| Superficie | Componente | De dónde sale |
+|---|---|---|
+| "?" en la cabecera | `BotonAyuda` (lo montan `CabeceraSeccion` / `CabeceraDetalle` con la prop `ayuda`) → abre `Modal` | una entrada de `PANTALLAS` |
+| Nota gris al pie de un campo | `<AyudaNota concepto="…" />` — `--text-xs` / `--ink-400`, una frase | el `queEs` de un `CONCEPTOS` |
+| Manual completo `/ayuda` ("Cómo funciona PrimeNotes", fila en Yo) | `AyudaManual` — recorre los dos mapas, agrupa, busca, filtra por rol | ambos mapas |
+
+Reglas:
+
+- **Contenido por fricción, no por catálogo.** Se documenta lo que se
+  entiende mal (cierre de visita, duplicados, naturaleza de hallazgo, tipo
+  de fecha, semáforo, modo recorrido), no todas las pantallas por igual.
+- **`soloDireccion: true`** en lo que solo maneja Dirección Comercial → no
+  aparece en el manual de un comercial.
+- **Se actualiza en el mismo commit** que el cambio de comportamiento
+  (punto 8 de §"Prueba de usuario"). Un texto de ayuda que ya no es cierto
+  es un bug.
+- `npm run ayuda:cobertura` lista qué pantallas con cabecera aún no piden
+  ayuda y qué entradas del diccionario no las usa nadie. Es un informe, no
+  falla el build.
 
 ## Color y accesibilidad — nada se entiende solo por el color
 

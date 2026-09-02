@@ -77,6 +77,15 @@ npm run lint
 npm run build
 ```
 
+## Ayuda in-app
+
+Toda la ayuda al usuario sale de `src/lib/ayuda.ts` (diccionario tipado
+único). Al añadir una pantalla o cambiar qué hace una, si tiene "?" de
+ayuda o una `<AyudaNota>`, su entrada en `ayuda.ts` se actualiza **en el
+mismo commit** — un texto de ayuda que ya no es cierto es un bug. Detalle y
+reglas en `docs/08_sistema_diseno.md` §"Ayuda in-app". `npm run
+ayuda:cobertura` = informe de qué falta por cubrir.
+
 ## graphify
 
 El repositorio tiene un grafo de conocimiento en `graphify-out/` (no versionado).

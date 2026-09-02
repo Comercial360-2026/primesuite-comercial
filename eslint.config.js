@@ -27,6 +27,16 @@ export default [
   },
   js.configs.recommended,
   {
+    // Scripts de mantenimiento que se ejecutan con Node, no en el navegador
+    // (p. ej. scripts/ayuda-cobertura.mjs): globals de Node.
+    files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsparser,

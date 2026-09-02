@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "ayuda:cobertura": "node scripts/ayuda-cobertura.mjs",
     "gen:types": "supabase gen types typescript --linked --schema public > src/types/database.ts.tmp && mv src/types/database.ts.tmp src/types/database.ts"
   },
   "dependencies": {

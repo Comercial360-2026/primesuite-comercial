@@ -186,7 +186,7 @@ export function Deduplicacion() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Clientes duplicados" />
+      <CabeceraDetalle titulo="Clientes duplicados" ayuda="deduplicacion" />
 
       {cargando ? (
         <EstadoLista estado="cargando" />
