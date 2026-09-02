@@ -20,8 +20,13 @@ import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
-import { Icono } from '@/components/ui/iconos';
+import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
 // Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
@@ -74,8 +79,40 @@ function CapturasPorUbicacion({
     claves.add(claveDe(op))
   );
 
-  const tag = (t: string) => (
-    <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginRight: 6 }}>{t}</span>
+  // Fila de un elemento capturado dentro de una zona / "General": icono a la
+  // izquierda (foto/audio/nota/hallazgo), texto, y una coletilla gris
+  // opcional. Sustituye a la etiqueta "audio ·" / "nota ·" gris de antes.
+  const itemFila = (icono: NombreIcono, texto: string, sub?: string, onClick?: () => void, acento?: boolean) => (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 0',
+        fontSize: 'var(--text-sm)',
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+    >
+      <span style={{ color: 'var(--ink-400)', flexShrink: 0, display: 'flex' }}>
+        <Icono nombre={icono} size={16} />
+      </span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          ...(acento ? { color: 'var(--signal-600)', fontWeight: 500 } : {}),
+        }}
+      >
+        {texto}
+      </span>
+      {sub && (
+        <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', flexShrink: 0 }}>{sub}</span>
+      )}
+    </div>
   );
 
   const contenidoDe = (clave: string) => {
@@ -128,48 +165,30 @@ function CapturasPorUbicacion({
           })}
         </div>
       )}
-      {c.audios.map((a) => (
-        <div
-          key={a.id}
-          onClick={() => onTocarCaptura(a.id)}
-          style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
-        >
-          {tag('audio')}
-          {(a.payload as { titulo?: string }).titulo || 'sin título'}
+      {c.audios.map((a) =>
+        <div key={a.id}>
+          {itemFila('audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))}
         </div>
-      ))}
+      )}
       {c.notas.map((n) => {
         const p = n.payload as { titulo?: string; contenidoTexto?: string };
         return (
-          <div
-            key={n.id}
-            onClick={() => onTocarCaptura(n.id)}
-            style={{ fontSize: 'var(--text-sm)', padding: '4px 0', cursor: 'pointer' }}
-          >
-            {tag('nota')}
-            {p.titulo || p.contenidoTexto || '(nota vacía)'}
+          <div key={n.id}>
+            {itemFila('nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id))}
           </div>
         );
       })}
       {c.hz.map((h) => {
         const p = h.payload as { terminoId: string; naturaleza: string };
         return (
-          <div key={h.id} style={{ fontSize: 'var(--text-sm)', padding: '4px 0' }}>
-            {tag('hallazgo')}
-            {nombresTerminos?.[p.terminoId] ?? '…'}
-            <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', marginLeft: 6 }}>
-              {p.naturaleza.replace('_', ' ')}
-            </span>
+          <div key={h.id}>
+            {itemFila('hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza))}
           </div>
         );
       })}
       {c.op.map((o) => (
-        <div
-          key={o.id}
-          style={{ fontSize: 'var(--text-sm)', padding: '4px 0', color: 'var(--signal-600)', fontWeight: 500 }}
-        >
-          {tag('oportunidad')}
-          {(o.payload as { titulo: string }).titulo}
+        <div key={o.id}>
+          {itemFila('oportunidad', (o.payload as { titulo: string }).titulo, undefined, undefined, true)}
         </div>
       ))}
     </>
@@ -237,7 +256,7 @@ function CapturasPorUbicacion({
           onClick={() => alternar(clave)}
           style={{
             display: 'flex',
-            alignItems: 'baseline',
+            alignItems: 'center',
             gap: 6,
             border: 'none',
             background: 'none',
@@ -247,9 +266,21 @@ function CapturasPorUbicacion({
             textAlign: 'left',
           }}
         >
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{abierta ? '▾' : '▸'}</span>
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{opts.nombre}</span>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>· {c.resumen}</span>
+          <span
+            style={{
+              fontSize: 18,
+              lineHeight: 1,
+              color: 'var(--ink-400)',
+              display: 'inline-block',
+              transform: abierta ? 'rotate(90deg)' : 'none',
+              transition: 'transform 120ms ease',
+              flexShrink: 0,
+            }}
+          >
+            ›
+          </span>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{opts.nombre}</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.resumen}</span>
         </button>
         {abierta && <div style={{ marginTop: 6 }}>{renderItems(c)}</div>}
       </div>
@@ -1039,33 +1070,21 @@ export function VisitaActiva() {
 
   return (
     <div className="screen screen--split">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
-            aria-label="volver"
-            style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}
-          >
-            ←
-          </button>
-          <div>
-            <div className="label" style={{ marginTop: 0 }}>visita en curso</div>
-            <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{cliente?.nombre ?? '…'}</div>
-          </div>
-        </div>
+      <CabeceraDetalle
+        titulo={cliente?.nombre ?? '…'}
+        subtitulo="Visita en curso"
+        onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+      />
+
+      <div style={{ display: 'flex', gap: 6 }}>
         <button
           type="button"
           className={`chip${numInterlocutores ? ' chip--on' : ''}`}
           onClick={() => setInterlocutoresAbierto(true)}
         >
-          Interlocutores{numInterlocutores ? ` (${numInterlocutores})` : ''}
+          Interlocutores{numInterlocutores ? ` · ${numInterlocutores}` : ''}
         </button>
-        <button
-          type="button"
-          className="chip"
-          style={{ marginLeft: 6 }}
-          onClick={() => setParticipantesAbierto(true)}
-        >
+        <button type="button" className="chip" onClick={() => setParticipantesAbierto(true)}>
           Participantes
         </button>
       </div>
@@ -1129,6 +1148,10 @@ export function VisitaActiva() {
         }}
       />
 
+      {/* Todas las formas de añadir algo a la visita, juntas. Antes iban
+          repartidas: Foto/Audio/Nota/Oportunidad arriba y Hallazgo/Próximo
+          paso abajo, sin criterio visible. */}
+      <div className="label" style={{ marginTop: 0 }}>añadir a la visita</div>
       <div className="capture-grid">
         <button
           className="capture-btn"
@@ -1150,9 +1173,17 @@ export function VisitaActiva() {
           <Icono nombre="nota" size={22} />
           Nota
         </button>
+        <button className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
+          <Icono nombre="hallazgo" size={22} />
+          Hallazgo
+        </button>
         <button className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
           <Icono nombre="oportunidad" size={22} />
           Oportunidad
+        </button>
+        <button className="capture-btn" onClick={() => setPasoAbierto(true)}>
+          <Icono nombre="paso" size={22} />
+          Próximo paso
         </button>
       </div>
 
@@ -1262,38 +1293,27 @@ export function VisitaActiva() {
         {/* Oportunidades: sección propia (es el negocio de la visita), con
             etiqueta de la zona donde se detectó, si la hay. */}
         {oportunidades.length > 0 && (
-          <>
-            <div className="label">oportunidades ({oportunidades.length})</div>
+          <SeccionLista titulo={`Oportunidades (${oportunidades.length})`}>
             {oportunidades.map((o) => {
               const p = o.payload as { titulo: string; prioridad?: string; ubicacionId?: string };
               const zona = p.ubicacionId ? nombresUbicacionesVisita[p.ubicacionId] : null;
+              const sub = [p.prioridad, zona ? `en: ${zona}` : null].filter(Boolean).join(' · ');
               return (
-                <div
+                <FilaNavegable
                   key={o.id}
-                  className="card card--oportunidad"
-                  style={{ cursor: 'pointer' }}
+                  icono="oportunidad"
+                  titulo={p.titulo}
+                  subtitulo={sub || undefined}
                   onClick={() => navigate(`/oportunidades/${o.id}`)}
-                >
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-                    {p.titulo}
-                  </span>
-                  {(p.prioridad || zona) && (
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                      {p.prioridad ?? ''}
-                      {p.prioridad && zona ? ' · ' : ''}
-                      {zona ? `en: ${zona}` : ''}
-                    </span>
-                  )}
-                </div>
+                />
               );
             })}
-          </>
+          </SeccionLista>
         )}
 
         {/* Próximos pasos: lo que va a pasar después de la visita. */}
         {pasos.length > 0 && (
-          <>
-            <div className="label">próximos pasos ({pasos.length})</div>
+          <SeccionLista titulo={`Próximos pasos (${pasos.length})`}>
             {pasos.map((p) => {
               const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
               // OJO: p.estado es el estado de SINCRONIZACIÓN de la cola
@@ -1309,91 +1329,68 @@ export function VisitaActiva() {
                 completado: 'guardado en el servidor',
                 error: 'error al sincronizar',
               };
+              const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
               return (
-                <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontSize: 'var(--text-sm)' }}>{payload.descripcion}</span>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                    {payload.fechaObjetivo
-                      ? fechaCorta(payload.fechaObjetivo)
-                      : 'sin fecha objetivo'}
-                    {' · '}
-                    {etiquetaSync[p.estado] ?? p.estado}
-                  </span>
-                </div>
+                <FilaAccion
+                  key={p.id}
+                  icono="paso"
+                  titulo={payload.descripcion}
+                  subtitulo={`${fecha} · ${etiquetaSync[p.estado] ?? p.estado}`}
+                />
               );
             })}
-          </>
+          </SeccionLista>
         )}
 
         {/* De compañeros: todo lo que ha capturado otro comercial en esta
             misma visita, en una sola sección. */}
         {hayCompaneros && (
-          <>
-            <div className="label">de compañeros</div>
+          <SeccionLista titulo="De compañeros">
             {notasCompaneros.map((c) => (
-              <div
+              <FilaNavegable
                 key={c.id}
-                className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                icono="nota"
+                titulo={c.titulo || c.contenido_texto || '(nota vacía)'}
+                subtitulo={`Nota · de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`}
                 onClick={() => navigate(`/capturas/${c.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)' }}>
-                  nota · {c.titulo || c.contenido_texto || '(nota vacía)'}
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
+              />
             ))}
             {audiosCompaneros.map((c) => (
-              <div
+              <FilaNavegable
                 key={c.id}
-                className="card"
-                style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
+                icono="audio"
+                titulo={c.titulo || 'sin título'}
+                subtitulo={`Audio · de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`}
                 onClick={() => navigate(`/capturas/${c.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)' }}>audio · {c.titulo || 'sin título'}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  de {nombresComerciales?.[c.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
+              />
             ))}
             {hallazgosCompaneros.map((h) => (
-              <div key={h.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/hallazgos/${h.id}`)}>
-                <span style={{ fontSize: 'var(--text-sm)' }}>
-                  hallazgo · {(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                  {h.naturaleza.replace('_', ' ')} · de {nombresComerciales?.[h.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
+              <FilaNavegable
+                key={h.id}
+                icono="hallazgo"
+                titulo={(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
+                subtitulo={`${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`}
+                onClick={() => navigate(`/hallazgos/${h.id}`)}
+              />
             ))}
             {oportunidadesCompaneros.map((o) => (
-              <div
+              <FilaNavegable
                 key={o.id}
-                className="card card--oportunidad"
-                style={{ cursor: 'pointer' }}
+                icono="oportunidad"
+                titulo={o.titulo}
+                subtitulo={`Oportunidad · de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`}
                 onClick={() => navigate(`/oportunidades/${o.id}`)}
-              >
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--signal-600)', fontWeight: 500 }}>
-                  oportunidad · {o.titulo}
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginLeft: 6 }}>
-                  de {nombresComerciales?.[o.comercial_autor_id] ?? '…'}
-                </span>
-              </div>
+              />
             ))}
             {pasosCompaneros.map((p) => (
-              <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 'var(--text-sm)' }}>próximo paso · {p.descripcion}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  {p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha objetivo'}
-                  {' · de '}
-                  {nombresComerciales?.[p.comercial_responsable_id] ?? '…'}
-                </span>
-              </div>
+              <FilaAccion
+                key={p.id}
+                icono="paso"
+                titulo={p.descripcion}
+                subtitulo={`${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha objetivo'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`}
+              />
             ))}
-          </>
+          </SeccionLista>
         )}
 
         {!capturas.length &&
@@ -1407,32 +1404,16 @@ export function VisitaActiva() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-600)', borderColor: 'var(--brand-600)' }}
-          onClick={() => setModoRecorrido(true)}
-        >
-          <Icono nombre="recorrido" size={18} />
-          Iniciar recorrido
-        </button>
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 'var(--text-sm)' }}
-          onClick={() => setHallazgoAbierto(true)}
-        >
-          <Icono nombre="hallazgo" size={18} />
-          Hallazgo
-        </button>
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 'var(--text-sm)' }}
-          onClick={() => setPasoAbierto(true)}
-        >
-          <Icono nombre="paso" size={18} />
-          Próximo paso
-        </button>
-      </div>
+      {/* Lo que NO es "añadir": el recorrido es un modo, y cerrar es el
+          final. Van aparte de la rejilla de arriba. */}
+      <button
+        className="btn btn-secondary"
+        style={{ color: 'var(--brand-600)', borderColor: 'var(--brand-600)' }}
+        onClick={() => setModoRecorrido(true)}
+      >
+        <Icono nombre="recorrido" size={18} />
+        Iniciar recorrido
+      </button>
       <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
         Cerrar visita
       </button>
