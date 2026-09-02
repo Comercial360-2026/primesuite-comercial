@@ -325,6 +325,12 @@ export function Yo() {
         {esDireccionComercial && (
           <SeccionLista titulo="Dirección comercial">
             <FilaNavegable
+              icono="clientes"
+              titulo="Equipo"
+              subtitulo="Dar de alta, editar o dar de baja comerciales"
+              to="/comerciales"
+            />
+            <FilaNavegable
               icono="vocabulario"
               titulo="Gestionar vocabulario"
               subtitulo="Revisar propuestas y organizar el catálogo"

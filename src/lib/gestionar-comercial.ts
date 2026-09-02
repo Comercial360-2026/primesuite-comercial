@@ -1,0 +1,62 @@
+import { supabase } from '@/lib/supabase-client';
+
+// Envoltorio de la Edge Function `gestionar-comercial` (Fase 5). Todas las
+// altas/bajas/ediciones de comerciales pasan por aquí: el alta necesita la
+// clave de servicio (crea el usuario de Auth), y la baja bloquea además el
+// login. Ver supabase/functions/gestionar-comercial/index.ts.
+
+export type RolComercial = 'comercial' | 'direccion_comercial';
+
+interface CrearParams {
+  nombre: string;
+  email: string;
+  rol: RolComercial;
+  zona_cartera?: string | null;
+}
+interface EditarParams {
+  id: string;
+  nombre: string;
+  rol: RolComercial;
+  zona_cartera?: string | null;
+}
+
+// supabase-js mete el cuerpo de un error 4xx/5xx en `error.context`; se
+// intenta sacar el mensaje real de la función, con un texto de reserva.
+async function mensajeDeError(error: unknown, reserva: string): Promise<string> {
+  try {
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') {
+      const cuerpo = await ctx.json();
+      if (cuerpo?.error) return cuerpo.error as string;
+    }
+  } catch {
+    /* se usa la reserva */
+  }
+  return error instanceof Error && error.message ? error.message : reserva;
+}
+
+async function invocar<T>(body: Record<string, unknown>, reservaError: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('gestionar-comercial', { body });
+  if (error) throw new Error(await mensajeDeError(error, reservaError));
+  if (data?.error) throw new Error(data.error as string);
+  return data as T;
+}
+
+export function crearComercial(p: CrearParams) {
+  return invocar<{ id: string; password_temporal: string }>(
+    { accion: 'crear', ...p },
+    'No se pudo crear el comercial.'
+  );
+}
+
+export function editarComercial(p: EditarParams) {
+  return invocar<{ ok: true }>({ accion: 'editar', ...p }, 'No se pudo guardar el comercial.');
+}
+
+export function desactivarComercial(id: string) {
+  return invocar<{ ok: true }>({ accion: 'desactivar', id }, 'No se pudo dar de baja al comercial.');
+}
+
+export function reactivarComercial(id: string) {
+  return invocar<{ ok: true }>({ accion: 'reactivar', id }, 'No se pudo reactivar al comercial.');
+}

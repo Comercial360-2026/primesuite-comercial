@@ -32,6 +32,9 @@ import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignac
 import { Yo } from '@/features/perfil/yo';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
+import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
+import { AltaComercial } from '@/features/comerciales/alta-comercial';
+import { DetalleComercial } from '@/features/comerciales/detalle-comercial';
 
 export function AppRoutes() {
   return (
@@ -83,6 +86,34 @@ export function AppRoutes() {
             element={
               <RequireRole roles={['direccion_comercial']}>
                 <ConsumoComerciales />
+              </RequireRole>
+            }
+          />
+
+          {/* Equipo — alta/edición/baja de comerciales, exclusivo de
+              Dirección Comercial (crear un comercial crea un usuario de Auth
+              vía la Edge Function gestionar-comercial). */}
+          <Route
+            path="/comerciales"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <ListadoComerciales />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/comerciales/nuevo"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <AltaComercial />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/comerciales/:comercialId"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <DetalleComercial />
               </RequireRole>
             }
           />
