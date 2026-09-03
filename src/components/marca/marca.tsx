@@ -4,8 +4,14 @@
 // inline y recoloreado a `currentColor` para que herede el azul de marca
 // y se pueda animar por partes. El icono —el punto + el doble chevron— es
 // la forma compartida: PrimeNotes reusa ese mismo icono y pone su palabra
-// al lado. La palabra "primenotes" va como texto (misma caja, minúsculas,
-// geométrica) hasta que exista un logotipo propio de PrimeNotes.
+// al lado.
+//
+// La palabra "PrimeNotes" va como texto en Avenir Next (la que más se
+// parece al logotipo de Primion — sans geométrica de x-alta grande, punto
+// de la "i" redondo; ver comparativa que se hizo con el SVG real). Es
+// fuente de sistema en Apple (destino principal); en Android/Windows cae a
+// system-ui. Provisional hasta que exista un logotipo propio de PrimeNotes.
+const FUENTE_MARCA = "'Avenir Next', 'Avenir', system-ui, sans-serif";
 
 interface Props {
   /** Alto en píxeles del lockup. El ancho se ajusta solo. */
@@ -62,9 +68,10 @@ export function LogoPrimeNotes({ alto = 40, className }: Props) {
       <IconoMarca size={alto} />
       <span
         style={{
-          fontSize: alto * 0.62,
+          fontFamily: FUENTE_MARCA,
+          fontSize: alto * 0.6,
           fontWeight: 500,
-          letterSpacing: '-0.015em',
+          letterSpacing: '-0.01em',
           lineHeight: 1,
         }}
       >
