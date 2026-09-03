@@ -576,6 +576,14 @@ body {
 .fila--compacta {
   min-height: 44px; padding-top: var(--space-2); padding-bottom: var(--space-2);
 }
+/* Fila hija dentro de un grupo (p. ej. un modelo colgando de un término). */
+.fila--sangria { padding-left: calc(var(--fila-pad-x) + 22px); }
+.fila--sangria .fila__cuerpo-accion::before {
+  content: ""; flex-shrink: 0;
+  width: 6px; height: 6px; margin-right: 8px;
+  border-left: 1.5px solid var(--ink-200); border-bottom: 1.5px solid var(--ink-200);
+  align-self: center; margin-top: -4px;
+}
 
 /* Modo seleccionar — casilla circular a la izquierda + fondo de fila
    marcada. La pinta FilaNavegable/FilaAccion cuando recibe `seleccion`. */

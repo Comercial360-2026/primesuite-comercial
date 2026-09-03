@@ -48,6 +48,9 @@ interface Props {
    *  `onClick`, y los botones de acción se ocultan. Sin esta prop, o con
    *  `activa:false`, la fila es exactamente la de hoy. */
   seleccion?: EstadoSeleccion;
+  /** Sangra la fila a la derecha: para filas hijas dentro de un grupo
+   *  (p. ej. los modelos de un término en el catálogo de vocabulario). */
+  sangria?: boolean;
 }
 
 export function FilaAccion({
@@ -60,6 +63,7 @@ export function FilaAccion({
   disabled,
   acciones = [],
   seleccion,
+  sangria,
 }: Props) {
   const seleccionando = seleccion?.activa ?? false;
 
@@ -67,6 +71,7 @@ export function FilaAccion({
     'fila',
     'fila--accion',
     densidad === 'compacta' && 'fila--compacta',
+    sangria && 'fila--sangria',
     tono !== 'neutral' && `fila--${tono}`,
     seleccionando && seleccion!.marcada && 'fila--marcada',
   ]

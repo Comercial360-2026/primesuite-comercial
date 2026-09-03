@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
@@ -25,16 +25,26 @@ interface TerminoCorporativo {
   nombre: string;
 }
 
-interface TerminoDelCatalogo {
+interface TerminoNodo {
   id: string;
   nombre: string;
   estado_gobierno: string;
+  categoria_id: string;
+  orden: number;
+  parent_id: string | null;
+  rol_funcional: string;
+  /** Nº de hallazgos + oportunidades que ya lo usan (para avisar antes de
+   *  renombrar / descartar / mover). */
+  usos: number;
+  /** Modelos que cuelgan de este término. Solo los de primer nivel los tienen. */
+  hijos: TerminoNodo[];
 }
 
 interface CategoriaConTerminos {
   categoria_id: string;
   categoria_nombre: string;
-  terminos: TerminoDelCatalogo[];
+  /** Solo términos de primer nivel; sus modelos van en `.hijos`. */
+  terminos: TerminoNodo[];
 }
 
 // Resuelve las propuestas de vocabulario semiabierto (pestaña "Pendientes")
@@ -79,6 +89,10 @@ export function ColaVocabulario() {
   const [renombrandoTerminoId, setRenombrandoTerminoId] = useState<string | null>(null);
   const [textoRenombrarTermino, setTextoRenombrarTermino] = useState('');
   const [nuevoTerminoPorCategoria, setNuevoTerminoPorCategoria] = useState<Record<string, string>>({});
+  // "+ modelo dentro de X": texto por id de término padre.
+  const [nuevoModeloPorPadre, setNuevoModeloPorPadre] = useState<Record<string, string>>({});
+  // Buscador del catálogo: filtra términos/modelos y abre las ramas que casan.
+  const [busqueda, setBusqueda] = useState('');
 
   // Categoría cuyo panel de "borrar" está abierto, y su nº REAL de términos
   // (incluye los descartados, que la lista oculta pero siguen referenciando
@@ -184,26 +198,51 @@ export function ColaVocabulario() {
     queryKey: ['catalogo-completo-agrupado'],
     enabled: vista === 'catalogo',
     queryFn: async (): Promise<CategoriaConTerminos[]> => {
-      const { data: cats, error: errCat } = await supabase
-        .from('categoria_vocabulario')
-        .select('id, nombre')
-        .order('orden')
-        .order('nombre');
-      if (errCat) throw errCat;
+      const [cats, terms, usoH, usoO] = await Promise.all([
+        supabase.from('categoria_vocabulario').select('id, nombre').order('orden').order('nombre'),
+        supabase
+          .from('termino')
+          .select('id, nombre, categoria_id, parent_id, orden, rol_funcional, estado_gobierno')
+          .neq('estado_gobierno', 'descartado')
+          .order('orden')
+          .order('nombre'),
+        supabase.from('hallazgo').select('termino_id'),
+        supabase.from('oportunidad_termino').select('termino_id'),
+      ]);
+      if (cats.error) throw cats.error;
+      if (terms.error) throw terms.error;
 
-      const { data: terminos, error: errTerm } = await supabase
-        .from('termino')
-        .select('id, nombre, categoria_id, estado_gobierno')
-        .neq('estado_gobierno', 'descartado')
-        .order('nombre');
-      if (errTerm) throw errTerm;
+      // Recuento de uso: cuántos hallazgos + oportunidades apuntan a cada término.
+      const usos = new Map<string, number>();
+      for (const r of [...(usoH.data ?? []), ...(usoO.data ?? [])]) {
+        const id = (r as { termino_id: string | null }).termino_id;
+        if (id) usos.set(id, (usos.get(id) ?? 0) + 1);
+      }
 
-      return (cats ?? []).map((c) => ({
+      const nodos: TerminoNodo[] = (terms.data ?? []).map((t) => ({
+        id: t.id,
+        nombre: t.nombre,
+        estado_gobierno: t.estado_gobierno,
+        categoria_id: t.categoria_id,
+        orden: t.orden ?? 0,
+        parent_id: t.parent_id,
+        rol_funcional: t.rol_funcional,
+        usos: usos.get(t.id) ?? 0,
+        hijos: [],
+      }));
+      const porId = new Map(nodos.map((n) => [n.id, n]));
+      const primerNivel: TerminoNodo[] = [];
+      for (const n of nodos) {
+        const padre = n.parent_id ? porId.get(n.parent_id) : undefined;
+        if (padre) padre.hijos.push(n);
+        else primerNivel.push(n); // sin padre, o padre descartado → sube a primer nivel
+      }
+      // El orden ya viene de la consulta (orden, nombre) para hermanos y modelos.
+
+      return (cats.data ?? []).map((c) => ({
         categoria_id: c.id,
         categoria_nombre: c.nombre,
-        terminos: (terminos ?? [])
-          .filter((t) => t.categoria_id === c.id)
-          .map((t) => ({ id: t.id, nombre: t.nombre, estado_gobierno: t.estado_gobierno })),
+        terminos: primerNivel.filter((t) => t.categoria_id === c.id),
       }));
     },
   });
@@ -221,6 +260,26 @@ export function ColaVocabulario() {
     ]) {
       queryClient.invalidateQueries({ queryKey: k });
     }
+  }
+
+  // Busca un nombre ya existente en el catálogo (término o modelo), sin
+  // distinguir mayúsculas. Solo para AVISAR al crear, no bloquea.
+  function nombreDuplicado(texto: string): string | null {
+    const n = texto.trim().toLowerCase();
+    if (!n) return null;
+    for (const c of catalogoAgrupado ?? []) {
+      for (const t of c.terminos) {
+        if (t.nombre.trim().toLowerCase() === n) return c.categoria_nombre;
+        for (const h of t.hijos) {
+          if (h.nombre.trim().toLowerCase() === n) return `${c.categoria_nombre} › ${t.nombre}`;
+        }
+      }
+    }
+    return null;
+  }
+  function categoriaDuplicada(texto: string): boolean {
+    const n = texto.trim().toLowerCase();
+    return !!n && (categorias ?? []).some((c) => c.nombre.trim().toLowerCase() === n);
   }
 
   async function resolver(
@@ -419,13 +478,23 @@ export function ColaVocabulario() {
     setErrorCatalogo(null);
     setSeleccionandoCat(false);
     setRenombrandoCategoriaId(null);
+    setRenombrandoTerminoId(null);
     setCreandoCategoria(false);
+    setBusqueda('');
     cerrarPanelBorrarCat();
+    // Con todo desplegado se ven las flechas de términos y modelos.
+    setExpandidas(
+      new Set([
+        ...(catalogoAgrupado?.map((c) => c.categoria_id) ?? []),
+        ...(catalogoAgrupado?.flatMap((c) => c.terminos.filter((t) => t.hijos.length).map((t) => t.id)) ?? []),
+      ])
+    );
   }
 
   function salirOrden() {
     setOrdenandoCat(false);
     setOrdenLocal(null);
+    setExpandidas(new Set());
     invalidarCatalogo();
   }
 
@@ -488,9 +557,15 @@ export function ColaVocabulario() {
     setErrorPorCategoria(null);
     setRenombrandoTerminoId(null);
     setRenombrandoCategoriaId(null);
-    // Se entra con todas desplegadas (para marcar), pero se pueden plegar
-    // las que no interesen.
-    setExpandidas(new Set(catalogoAgrupado?.map((c) => c.categoria_id) ?? []));
+    setBusqueda('');
+    // Se entra con todo desplegado (categorías y términos con modelos) para
+    // poder marcar; se puede plegar lo que no interese.
+    setExpandidas(
+      new Set([
+        ...(catalogoAgrupado?.map((c) => c.categoria_id) ?? []),
+        ...(catalogoAgrupado?.flatMap((c) => c.terminos.filter((t) => t.hijos.length).map((t) => t.id)) ?? []),
+      ])
+    );
   }
 
   function salirSeleccionCat() {
@@ -528,7 +603,14 @@ export function ColaVocabulario() {
   // fallos parciales (08_sistema_diseno.md §"Modo seleccionar"). No hay RPC
   // de lote.
   async function quitarLote() {
-    const ids = [...marcadosTerm];
+    // Descartar un término padre arrastra sus modelos.
+    const marcados = new Set(marcadosTerm);
+    for (const c of catalogoAgrupado ?? []) {
+      for (const t of c.terminos) {
+        if (marcados.has(t.id)) for (const h of t.hijos) marcados.add(h.id);
+      }
+    }
+    const ids = [...marcados];
     if (!ids.length) return;
     setCorriendoLote(true);
     setResultadoLote(null);
@@ -555,19 +637,27 @@ export function ColaVocabulario() {
     }
   }
 
-  async function moverLote(categoriaId: string) {
+  // Destino de "Mover a…": una categoría (el término pasa a primer nivel) o
+  // un término padre (el término se anida como modelo). El trigger de BD
+  // rechaza anidar un término que ya tiene modelos; aquí esas opciones
+  // salen deshabilitadas para no llegar al error.
+  async function moverLote(destino: { categoriaId: string } | { parentId: string }) {
     const ids = [...marcadosTerm];
     if (!ids.length) return;
     setCorriendoLote(true);
     setResultadoLote(null);
     setErrorCatalogo(null);
+    const payload =
+      'parentId' in destino
+        ? { parent_id: destino.parentId }
+        : { parent_id: null as string | null, categoria_id: destino.categoriaId };
     let ok = 0;
     let fallo = 0;
     for (let i = 0; i < ids.length; i++) {
       setProgresoLote({ hecho: i, total: ids.length });
       const { error: err, count } = await supabase
         .from('termino')
-        .update({ categoria_id: categoriaId }, { count: 'exact' })
+        .update(payload, { count: 'exact' })
         .eq('id', ids[i]);
       if (err || !count) fallo++;
       else ok++;
@@ -577,7 +667,7 @@ export function ColaVocabulario() {
     setMoverLoteAbierto(false);
     invalidarCatalogo();
     if (fallo) {
-      setResultadoLote(`Movidos ${ok} · ${fallo} con error (solo Dirección Comercial puede editar el vocabulario).`);
+      setResultadoLote(`Movidos ${ok} · ${fallo} con error (revisa que no anides un término que ya tiene modelos).`);
       setMarcadosTerm(new Set());
     } else {
       salirSeleccionCat();
@@ -588,15 +678,201 @@ export function ColaVocabulario() {
     const texto = (nuevoTerminoPorCategoria[categoriaId] ?? '').trim();
     if (!texto) return;
     setErrorCatalogo(null);
-    const { error: err } = await supabase
-      .from('termino')
-      .insert({ nombre: texto, categoria_id: categoriaId, rol_funcional: 'ambos', estado_gobierno: 'corporativo' });
+    const cat = (catalogoAgrupado ?? []).find((c) => c.categoria_id === categoriaId);
+    const ordenNuevo = Math.max(-1, ...(cat?.terminos ?? []).map((t) => t.orden)) + 1;
+    const { error: err } = await supabase.from('termino').insert({
+      nombre: texto,
+      categoria_id: categoriaId,
+      rol_funcional: 'ambos',
+      estado_gobierno: 'corporativo',
+      orden: ordenNuevo,
+    });
     if (err) {
       setErrorCatalogo(err.message);
       return;
     }
     setNuevoTerminoPorCategoria((prev) => ({ ...prev, [categoriaId]: '' }));
     invalidarCatalogo();
+  }
+
+  // Crea un modelo colgando de un término padre. Hereda su categoría (lo
+  // fuerza también el trigger) y su rol_funcional; nace corporativo.
+  async function crearModelo(padre: TerminoNodo) {
+    const texto = (nuevoModeloPorPadre[padre.id] ?? '').trim();
+    if (!texto) return;
+    setErrorCatalogo(null);
+    const ordenNuevo = Math.max(-1, ...padre.hijos.map((h) => h.orden)) + 1;
+    const { error: err } = await supabase.from('termino').insert({
+      nombre: texto,
+      categoria_id: padre.categoria_id,
+      parent_id: padre.id,
+      rol_funcional: padre.rol_funcional,
+      estado_gobierno: 'corporativo',
+      orden: ordenNuevo,
+    });
+    if (err) {
+      setErrorCatalogo(err.message);
+      return;
+    }
+    setNuevoModeloPorPadre((prev) => ({ ...prev, [padre.id]: '' }));
+    invalidarCatalogo();
+  }
+
+  // Reordena un grupo de hermanos (términos de una categoría, o modelos de
+  // un padre) reescribiendo `orden` = 0..n-1 de golpe (como moverCat).
+  async function moverTermino(grupo: TerminoNodo[], t: TerminoNodo, dir: -1 | 1) {
+    const idx = grupo.findIndex((x) => x.id === t.id);
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= grupo.length) return;
+    const next = [...grupo];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setGuardandoOrden(true);
+    setErrorCatalogo(null);
+    const { error: err } = await supabase.from('termino').upsert(
+      next.map((x, i) => ({
+        id: x.id,
+        nombre: x.nombre,
+        categoria_id: x.categoria_id,
+        rol_funcional: x.rol_funcional,
+        orden: i,
+      })),
+      { onConflict: 'id' }
+    );
+    setGuardandoOrden(false);
+    if (err) {
+      setErrorCatalogo(`No se ha podido guardar el orden: ${err.message}`);
+      return;
+    }
+    invalidarCatalogo();
+  }
+
+  // --- buscador del catálogo ---
+  const q = busqueda.trim().toLowerCase();
+  const buscando = q.length > 0;
+  const casa = (t: TerminoNodo) => t.nombre.toLowerCase().includes(q);
+  function filtrarCats(cats: CategoriaConTerminos[]): CategoriaConTerminos[] {
+    if (!buscando) return cats;
+    return cats
+      .map((c) => ({
+        ...c,
+        terminos: c.terminos
+          .map((t) => (casa(t) ? t : { ...t, hijos: t.hijos.filter(casa) }))
+          .filter((t) => casa(t) || t.hijos.length > 0),
+      }))
+      .filter((c) => c.terminos.length > 0 || c.categoria_nombre.toLowerCase().includes(q));
+  }
+
+  // Fila de un término: primer nivel o modelo (recursivo, 1 nivel).
+  function filaTermino(t: TerminoNodo, grupo: TerminoNodo[], esModelo: boolean) {
+    if (renombrandoTerminoId === t.id) {
+      return (
+        <div key={t.id} className="fila-confirmacion">
+          <input
+            className="field"
+            autoFocus
+            value={textoRenombrarTermino}
+            onChange={(e) => setTextoRenombrarTermino(e.target.value)}
+          />
+          {t.usos > 0 && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              Se usa en {t.usos} {t.usos === 1 ? 'ficha' : 'fichas'} ya guardadas; el nombre cambia también ahí.
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
+              Cancelar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => renombrarTermino(t.id)}>
+              Guardar
+            </button>
+          </div>
+        </div>
+      );
+    }
+    const tieneModelos = t.hijos.length > 0;
+    const plegado = tieneModelos && !buscando && !expandidas.has(t.id);
+    const idx = grupo.findIndex((x) => x.id === t.id);
+    const sub =
+      [
+        !esModelo && tieneModelos ? `${t.hijos.length} ${t.hijos.length === 1 ? 'modelo' : 'modelos'}` : null,
+        t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : null,
+        t.usos > 0 ? `en ${t.usos} ${t.usos === 1 ? 'ficha' : 'fichas'}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || undefined;
+    const avisoModelo = tieneModelos ? nombreDuplicado(nuevoModeloPorPadre[t.id] ?? '') : null;
+
+    return (
+      <Fragment key={t.id}>
+        <FilaAccion
+          densidad="compacta"
+          sangria={esModelo}
+          icono={tieneModelos ? (plegado ? 'chevron' : 'bajar') : undefined}
+          titulo={t.nombre}
+          subtitulo={sub}
+          tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
+          onClick={tieneModelos && !seleccionandoCat && !buscando ? () => alternarColapso(t.id) : undefined}
+          seleccion={
+            seleccionandoCat
+              ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
+              : undefined
+          }
+          acciones={
+            ordenandoCat && !buscando
+              ? ([
+                  {
+                    icono: 'subir',
+                    etiqueta: 'Subir',
+                    onClick: () => void moverTermino(grupo, t, -1),
+                    disabled: idx <= 0 || guardandoOrden,
+                  },
+                  {
+                    icono: 'bajar',
+                    etiqueta: 'Bajar',
+                    onClick: () => void moverTermino(grupo, t, 1),
+                    disabled: idx === grupo.length - 1 || guardandoOrden,
+                  },
+                ] as AccionFila[])
+              : undefined
+          }
+        />
+        {tieneModelos && !plegado && t.hijos.map((h) => filaTermino(h, t.hijos, true))}
+        {tieneModelos && !plegado && !seleccionandoCat && !ordenandoCat && !buscando && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              paddingInline: 'var(--fila-pad-x)',
+              paddingLeft: 'calc(var(--fila-pad-x) + 22px)',
+            }}
+          >
+            <input
+              className="field"
+              style={{ flex: 1 }}
+              value={nuevoModeloPorPadre[t.id] ?? ''}
+              onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
+              placeholder={`+ modelo dentro de ${t.nombre}…`}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: 'auto', padding: '0 12px' }}
+              onClick={() => crearModelo(t)}
+            >
+              Añadir
+            </button>
+          </div>
+        )}
+        {avisoModelo && (
+          <div
+            className="field-error-text"
+            style={{ paddingInline: 'var(--fila-pad-x)', color: 'var(--ink-400)' }}
+          >
+            «{(nuevoModeloPorPadre[t.id] ?? '').trim()}» ya existe en {avisoModelo}.
+          </div>
+        )}
+      </Fragment>
+    );
   }
 
   return (
@@ -769,7 +1045,7 @@ export function ColaVocabulario() {
           {ordenandoCat ? (
             <div className="barra-seleccion">
               <span className="barra-seleccion__cuenta">
-                {guardandoOrden ? 'Guardando…' : 'Ordena las categorías con las flechas'}
+                {guardandoOrden ? 'Guardando…' : 'Ordena con las flechas (categorías, términos y modelos)'}
               </span>
               <div className="barra-seleccion__acciones">
                 <button type="button" className="barra-seleccion__cancelar" onClick={salirOrden}>
@@ -787,7 +1063,9 @@ export function ColaVocabulario() {
                   icono: 'editar',
                   onClick: () => {
                     const id = [...marcadosTerm][0];
-                    const term = catalogoAgrupado?.flatMap((c) => c.terminos).find((t) => t.id === id);
+                    const term = catalogoAgrupado
+                      ?.flatMap((c) => c.terminos.flatMap((t) => [t, ...t.hijos]))
+                      .find((t) => t.id === id);
                     if (term) {
                       setRenombrandoTerminoId(term.id);
                       setTextoRenombrarTermino(term.nombre);
@@ -848,6 +1126,11 @@ export function ColaVocabulario() {
                 onChange={(e) => setNuevaCategoriaTexto(e.target.value)}
                 placeholder="nombre de la categoría nueva"
               />
+              {categoriaDuplicada(nuevaCategoriaTexto) && (
+                <div className="field-error-text" style={{ color: 'var(--ink-400)', marginTop: 4 }}>
+                  «{nuevaCategoriaTexto.trim()}» ya existe como categoría.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreandoCategoria(false); setNuevaCategoriaTexto(''); }}>
                   Cancelar
@@ -859,53 +1142,104 @@ export function ColaVocabulario() {
             </div>
           )}
 
-          {moverLoteAbierto && (
-            <div className="card">
-              <div className="label" style={{ marginTop: 0 }}>
-                Mover {marcadosTerm.size} término{marcadosTerm.size === 1 ? '' : 's'} a:
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {categorias?.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className="chip"
-                    disabled={corriendoLote}
-                    onClick={() => moverLote(c.id)}
-                  >
-                    {c.nombre}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                onClick={() => setMoverLoteAbierto(false)}
-              >
-                Cancelar
-              </button>
-            </div>
+          {!ordenandoCat && !seleccionandoCat && !creandoCategoria && !!catalogoAgrupado?.length && (
+            <input
+              className="field"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="buscar término o modelo…"
+            />
           )}
+
+          {moverLoteAbierto && (() => {
+            // Un término marcado que YA tiene modelos no se puede anidar bajo
+            // otro (crearía un nieto): para esos, solo destino categoría.
+            const marcadosConModelos = (catalogoAgrupado ?? [])
+              .flatMap((c) => c.terminos)
+              .some((t) => marcadosTerm.has(t.id) && t.hijos.length > 0);
+            return (
+              <div className="card">
+                <div className="label" style={{ marginTop: 0 }}>
+                  Mover {marcadosTerm.size} término{marcadosTerm.size === 1 ? '' : 's'} a:
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                  Elige una categoría (pasa a primer nivel) o un término (se anida como modelo).
+                </div>
+                {(catalogoAgrupado ?? []).map((c) => {
+                  // Destino "dentro de": cualquier término de primer nivel que
+                  // no esté marcado. Anidar bajo un modelo lo impide el trigger.
+                  const destinosTermino = c.terminos.filter((t) => !marcadosTerm.has(t.id));
+                  return (
+                    <div key={c.categoria_id} style={{ marginTop: 10 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="chip chip--on"
+                          disabled={corriendoLote}
+                          onClick={() => moverLote({ categoriaId: c.categoria_id })}
+                        >
+                          {c.categoria_nombre}
+                        </button>
+                        {destinosTermino.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className="chip"
+                            disabled={corriendoLote || marcadosConModelos}
+                            title={
+                              marcadosConModelos ? 'Un término que ya tiene modelos no se puede anidar' : undefined
+                            }
+                            onClick={() => moverLote({ parentId: t.id })}
+                          >
+                            › {t.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {marcadosConModelos && (
+                  <div className="field-error-text" style={{ color: 'var(--ink-400)', marginTop: 8 }}>
+                    Has marcado un término que ya tiene modelos: solo puede ir a una categoría, no dentro de otro término.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 8 }}
+                  onClick={() => setMoverLoteAbierto(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            );
+          })()}
 
           <div className="screen__scroll">
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
+          {buscando && !filtrarCats(catalogoAgrupado ?? []).length && (
+            <EstadoLista estado="vacio" mensaje={`Nada coincide con «${busqueda.trim()}».`} />
+          )}
+
           {(() => {
             // En modo ordenar manda `ordenLocal` (movimiento al instante);
-            // fuera de él, el orden que trae la consulta.
-            const catsMostradas =
+            // fuera de él, el orden que trae la consulta. El buscador filtra
+            // el árbol y fuerza que se vea todo lo que casa.
+            const base =
               ordenandoCat && ordenLocal
                 ? ordenLocal
                     .map((o) => catalogoAgrupado?.find((c) => c.categoria_id === o.id))
                     .filter((c): c is CategoriaConTerminos => Boolean(c))
-                : catalogoAgrupado;
+                : (catalogoAgrupado ?? []);
+            const catsMostradas = filtrarCats(base);
             return (
           <div className="lista-agrupada">
             {catsMostradas?.map((cat, idxCat) => {
               // Plegada por defecto; se despliega si el usuario la abrió
-              // (también en "modo seleccionar", que entra con todas abiertas).
-              const colapsada = !expandidas.has(cat.categoria_id);
+              // (también en "seleccionar"/"ordenar", que entran con todo
+              // abierto). Buscando, siempre abierta.
+              const colapsada = !buscando && !expandidas.has(cat.categoria_id);
               return (
               <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <SeccionLista>
@@ -994,7 +1328,10 @@ export function ColaVocabulario() {
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
                           «{cat.categoria_nombre}» tiene {borrandoCatTotal} término
                           {borrandoCatTotal === 1 ? '' : 's'}
-                          {borrandoCatTotal !== cat.terminos.length ? ' (algunos descartados que no se ven en la lista)' : ''}.
+                          {borrandoCatTotal !== cat.terminos.reduce((n, t) => n + 1 + t.hijos.length, 0)
+                            ? ' (algunos descartados que no se ven en la lista)'
+                            : ''}
+                          .
                           Elige a qué categoría pasan; después se borra esta.
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
@@ -1033,68 +1370,44 @@ export function ColaVocabulario() {
                     </div>
                   )}
 
-                  {!colapsada && cat.terminos.map((t) => {
-                    if (renombrandoTerminoId === t.id) {
-                      return (
-                        <div key={t.id} className="fila-confirmacion">
-                          <input
-                            className="field"
-                            autoFocus
-                            value={textoRenombrarTermino}
-                            onChange={(e) => setTextoRenombrarTermino(e.target.value)}
-                          />
-                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                            <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
-                              Cancelar
-                            </button>
-                            <button type="button" className="btn btn-primary" onClick={() => renombrarTermino(t.id)}>
-                              Guardar
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <FilaAccion
-                        key={t.id}
-                        densidad="compacta"
-                        titulo={t.nombre}
-                        subtitulo={t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : undefined}
-                        tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
-                        seleccion={
-                          seleccionandoCat
-                            ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
+                  {!colapsada && cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
 
                   {!colapsada && !cat.terminos.length && (
                     <FilaAccion densidad="compacta" titulo="Sin términos" tono="neutral" />
                   )}
                 </SeccionLista>
 
-                {!colapsada && !seleccionandoCat && !ordenandoCat && (
-                  <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
-                    <input
-                      className="field"
-                      value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
-                      onChange={(e) =>
-                        setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
-                      }
-                      placeholder="+ nuevo término en esta categoría…"
-                      style={{ flex: 1 }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ width: 'auto', padding: '0 12px' }}
-                      onClick={() => crearTerminoDirecto(cat.categoria_id)}
-                    >
-                      Añadir
-                    </button>
-                  </div>
+                {!colapsada && !seleccionandoCat && !ordenandoCat && !buscando && (
+                  <>
+                    <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
+                      <input
+                        className="field"
+                        value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
+                        onChange={(e) =>
+                          setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
+                        }
+                        placeholder="+ nuevo término en esta categoría…"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ width: 'auto', padding: '0 12px' }}
+                        onClick={() => crearTerminoDirecto(cat.categoria_id)}
+                      >
+                        Añadir
+                      </button>
+                    </div>
+                    {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '') && (
+                      <div
+                        className="field-error-text"
+                        style={{ paddingInline: 'var(--fila-pad-x)', color: 'var(--ink-400)' }}
+                      >
+                        «{(nuevoTerminoPorCategoria[cat.categoria_id] ?? '').trim()}» ya existe en{' '}
+                        {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '')}.
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               );

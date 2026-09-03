@@ -138,7 +138,9 @@ const _PANTALLAS = {
     queEs:
       'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
     cuando:
-      'Para aprobar, renombrar o descartar lo que se propone, y mantener el catálogo ordenado: en «Catálogo completo» puedes crear categorías, ordenarlas a tu gusto con las flechas y desplegar cada una para ver sus términos (entran plegadas). Cuanto más limpio, más se parecen entre sí los informes de todo el equipo.',
+      'En «Pendientes» apruebas, fusionas o descartas lo que se propone (con «Seleccionar» puedes hacerlo en lote). En «Catálogo completo» creas categorías y términos, los ordenas a tu gusto con las flechas, y buscas cualquiera con la caja de arriba. Un término puede tener modelos dentro (p. ej. «MIFARE» con «DESFire EV2»): los añades con «+ modelo dentro de…», o marcas un término y lo mueves «dentro de» otro. Al lado de cada término se ve en cuántas fichas se usa ya.',
+    ojo:
+      'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas.',
     soloDireccion: true,
   },
   'solicitudes-reasignacion': {
@@ -297,6 +299,13 @@ const _CONCEPTOS = {
     titulo: 'Mañana, tarde o sin hora fija',
     queEs:
       'Cuando planificas una visita sin hora concreta, eliges la franja: «Mañana» o «Tarde» la colocan en ese tramo del día en la agenda; «Sin hora fija» la deja en el día, sin tramo.',
+  },
+  'termino-modelo': {
+    titulo: 'Términos y modelos del vocabulario',
+    queEs:
+      'Un término es cómo el equipo nombra una tecnología, una solución o un fabricante (biometría, control de accesos, MIFARE…). Algunos tienen modelos dentro: «MIFARE» agrupa «DESFire EV2», «EV1»… Al etiquetar un hallazgo o una oportunidad puedes elegir el término a secas si no sabes el modelo, o el modelo concreto. Si no encuentras el tuyo, proponlo y Dirección lo revisa y lo coloca.',
+    ejemplo:
+      'Ves lectores MIFARE pero no sabes la versión → etiquetas «MIFARE». Lo confirmas como DESFire EV2 → etiquetas ese modelo.',
   },
 } satisfies Record<string, EntradaConcepto>;
 
