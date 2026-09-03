@@ -1451,11 +1451,7 @@ export function VisitaActiva() {
 
       {/* Lo que NO es "añadir": el recorrido es un modo, y cerrar es el
           final. Van aparte de la rejilla de arriba. */}
-      <button
-        className="btn btn-secondary"
-        style={{ color: 'var(--brand-600)', borderColor: 'var(--brand-600)' }}
-        onClick={() => setModoRecorrido(true)}
-      >
+      <button className="btn btn-secondary" onClick={() => setModoRecorrido(true)}>
         <Icono nombre="recorrido" size={18} />
         Iniciar recorrido
       </button>
