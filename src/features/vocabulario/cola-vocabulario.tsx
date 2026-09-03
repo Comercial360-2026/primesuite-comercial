@@ -8,6 +8,7 @@ import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Icono } from '@/components/ui/iconos';
 import { esCategoriaSinClasificar } from '@/lib/vocabulario';
 
 interface TerminoPropuesto {
@@ -785,7 +786,11 @@ export function ColaVocabulario() {
   }
 
   // Fila de un término: primer nivel o modelo (recursivo, 1 nivel).
-  function filaTermino(t: TerminoNodo, grupo: TerminoNodo[], esModelo: boolean) {
+  //  - término (esModelo=false): fila blanca normal; si tiene modelos,
+  //    insignia con el número y chevron para plegar su rama.
+  //  - modelo (esModelo=true): cuelga de `.voc-rama` (raíl vertical),
+  //    texto menor y en gris; al buscar, lleva la ruta "Padre › Modelo".
+  function filaTermino(t: TerminoNodo, grupo: TerminoNodo[], esModelo: boolean, padreNombre?: string) {
     if (renombrandoTerminoId === t.id) {
       return (
         <div key={t.id} className="fila-confirmacion">
@@ -816,22 +821,23 @@ export function ColaVocabulario() {
     const idx = grupo.findIndex((x) => x.id === t.id);
     const sub =
       [
-        !esModelo && tieneModelos ? `${t.hijos.length} ${t.hijos.length === 1 ? 'modelo' : 'modelos'}` : null,
         t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : null,
         t.usos > 0 ? `en ${t.usos} ${t.usos === 1 ? 'ficha' : 'fichas'}` : null,
       ]
         .filter(Boolean)
         .join(' · ') || undefined;
     const avisoModelo = tieneModelos ? nombreDuplicado(nuevoModeloPorPadre[t.id] ?? '') : null;
+    // Al buscar, un modelo se muestra con su ruta para no quedar suelto.
+    const titulo = esModelo && buscando && padreNombre ? `${padreNombre} › ${t.nombre}` : t.nombre;
 
     return (
       <Fragment key={t.id}>
         <FilaAccion
-          densidad="compacta"
-          sangria={esModelo}
+          densidad={esModelo ? 'compacta' : 'normal'}
           icono={tieneModelos ? (plegado ? 'chevron' : 'bajar') : undefined}
-          titulo={t.nombre}
+          titulo={titulo}
           subtitulo={sub}
+          badge={!esModelo && tieneModelos ? String(t.hijos.length) : undefined}
           tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
           onClick={tieneModelos && !seleccionandoCat && !buscando ? () => alternarColapso(t.id) : undefined}
           seleccion={
@@ -858,38 +864,26 @@ export function ColaVocabulario() {
               : undefined
           }
         />
-        {tieneModelos && !plegado && t.hijos.map((h) => filaTermino(h, t.hijos, true))}
-        {tieneModelos && !plegado && !seleccionandoCat && !ordenandoCat && !buscando && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 6,
-              paddingInline: 'var(--fila-pad-x)',
-              paddingLeft: 'calc(var(--fila-pad-x) + 22px)',
-            }}
-          >
-            <input
-              className="field"
-              style={{ flex: 1 }}
-              value={nuevoModeloPorPadre[t.id] ?? ''}
-              onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
-              placeholder={`+ modelo dentro de ${t.nombre}…`}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '0 12px' }}
-              onClick={() => crearModelo(t)}
-            >
-              Añadir
-            </button>
+        {tieneModelos && !plegado && (
+          <div className="voc-rama">
+            {t.hijos.map((h) => filaTermino(h, t.hijos, true, t.nombre))}
+            {!seleccionandoCat && !ordenandoCat && !buscando && (
+              <div className="voc-fila-input">
+                <input
+                  className="field"
+                  value={nuevoModeloPorPadre[t.id] ?? ''}
+                  onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
+                  placeholder={`+ modelo dentro de ${t.nombre}…`}
+                />
+                <button type="button" className="btn btn-secondary" onClick={() => crearModelo(t)}>
+                  Añadir
+                </button>
+              </div>
+            )}
           </div>
         )}
         {avisoModelo && (
-          <div
-            className="field-error-text"
-            style={{ paddingInline: 'var(--fila-pad-x)', color: 'var(--ink-400)' }}
-          >
+          <div className="voc-aviso-dup">
             «{(nuevoModeloPorPadre[t.id] ?? '').trim()}» ya existe en {avisoModelo}.
           </div>
         )}
@@ -1157,30 +1151,35 @@ export function ColaVocabulario() {
               ]}
             />
           ) : !creandoCategoria ? (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '0 16px' }}
-                onClick={() => setCreandoCategoria(true)}
-              >
-                + Nueva categoría
+            // Todas las acciones de pantalla son chips del mismo peso — nada
+            // de un botón-caja suelto que rompe el ritmo y se parte en móvil.
+            <div className="voc-acciones">
+              <button type="button" className="chip" onClick={() => setCreandoCategoria(true)}>
+                <span className="voc-acciones__mas">+</span> Categoría
               </button>
               {(categorias?.length ?? 0) >= 2 && (
-                <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarOrden}>
+                <button type="button" className="chip" onClick={entrarOrden}>
                   Ordenar
                 </button>
               )}
               {!!catalogoAgrupado?.some((c) => c.terminos.length > 0) && (
-                <button
-                  type="button"
-                  className="chip"
-                  style={{ marginLeft: (categorias?.length ?? 0) >= 2 ? undefined : 'auto' }}
-                  onClick={entrarSeleccionCat}
-                >
+                <button type="button" className="chip" onClick={entrarSeleccionCat}>
                   Seleccionar
                 </button>
               )}
+              {!buscando && !!catalogoAgrupado?.length && (() => {
+                const ids = idsDesplegables();
+                const todoAbierto = ids.length > 0 && ids.every((id) => expandidas.has(id));
+                return (
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => setExpandidas(todoAbierto ? new Set() : new Set(ids))}
+                  >
+                    {todoAbierto ? 'Plegar todo' : 'Desplegar todo'}
+                  </button>
+                );
+              })()}
             </div>
           ) : (
             <div className="card">
@@ -1208,29 +1207,12 @@ export function ColaVocabulario() {
           )}
 
           {!ordenandoCat && !seleccionandoCat && !creandoCategoria && !!catalogoAgrupado?.length && (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input
-                className="field"
-                style={{ flex: 1 }}
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="buscar término o modelo…"
-              />
-              {!buscando && (() => {
-                const ids = idsDesplegables();
-                const todoAbierto = ids.length > 0 && ids.every((id) => expandidas.has(id));
-                return (
-                  <button
-                    type="button"
-                    className="chip"
-                    style={{ whiteSpace: 'nowrap' }}
-                    onClick={() => setExpandidas(todoAbierto ? new Set() : new Set(ids))}
-                  >
-                    {todoAbierto ? 'Plegar todo' : 'Desplegar todo'}
-                  </button>
-                );
-              })()}
-            </div>
+            <input
+              className="field"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="buscar término o modelo…"
+            />
           )}
 
           {moverLoteAbierto && (() => {
@@ -1323,79 +1305,108 @@ export function ColaVocabulario() {
               // abierto). Buscando, siempre abierta.
               const colapsada = !buscando && !expandidas.has(cat.categoria_id);
               return (
-              <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <SeccionLista>
-                  {/* Cabecera de la categoría: fila normal (más alta) con
-                      chevron de plegar/desplegar, para que destaque frente a
-                      los términos compactos. */}
-                  {renombrandoCategoriaId === cat.categoria_id ? (
-                    <div className="fila-confirmacion">
-                      <input
-                        className="field"
-                        autoFocus
-                        value={textoRenombrarCategoria}
-                        onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
-                      />
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
-                          Cancelar
-                        </button>
-                        <button type="button" className="btn btn-primary" onClick={() => renombrarCategoria(cat.categoria_id)}>
-                          Guardar
-                        </button>
+              <div key={cat.categoria_id} className="voc-cat-bloque">
+                {/* Nivel 1 — la categoría es una BANDA, no una fila de
+                    contenido: fondo gris y nombre con peso, para separarla a
+                    la primera de los términos que cuelgan de ella. */}
+                {renombrandoCategoriaId === cat.categoria_id ? (
+                  <div className="voc-grupo">
+                    <div className="seccion-lista__grupo">
+                      <div className="fila-confirmacion">
+                        <input
+                          className="field"
+                          autoFocus
+                          value={textoRenombrarCategoria}
+                          onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
+                            Cancelar
+                          </button>
+                          <button type="button" className="btn btn-primary" onClick={() => renombrarCategoria(cat.categoria_id)}>
+                            Guardar
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <FilaAccion
-                      icono={colapsada ? 'chevron' : 'bajar'}
-                      titulo={cat.categoria_nombre}
-                      subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
+                  </div>
+                ) : (
+                  <div className="voc-cat">
+                    <button
+                      type="button"
+                      className="voc-cat__tw"
                       onClick={() => alternarColapso(cat.categoria_id)}
-                      acciones={
-                        ordenandoCat
-                          ? ([
-                              {
-                                icono: 'subir',
-                                etiqueta: 'Subir',
-                                onClick: () => void moverCat(idxCat, -1),
-                                disabled: idxCat === 0 || guardandoOrden,
-                              },
-                              {
-                                icono: 'bajar',
-                                etiqueta: 'Bajar',
-                                onClick: () => void moverCat(idxCat, 1),
-                                disabled: idxCat === (catsMostradas?.length ?? 0) - 1 || guardandoOrden,
-                              },
-                            ] as AccionFila[])
-                          : seleccionandoCat
-                          ? undefined
-                          : esCategoriaSinClasificar(cat.categoria_nombre)
-                          ? // "Sin clasificar" es fija: no se renombra ni se
-                            // borra (el SelectorTermino la busca por nombre
-                            // para dejar ahí las propuestas sobre la marcha).
-                            undefined
-                          : ([
-                              {
-                                icono: 'editar',
-                                etiqueta: 'Renombrar categoría',
-                                onClick: () => {
-                                  setErrorPorCategoria(null);
-                                  setRenombrandoCategoriaId(cat.categoria_id);
-                                  setTextoRenombrarCategoria(cat.categoria_nombre);
-                                },
-                              },
-                              {
-                                icono: 'borrar',
-                                etiqueta: 'Borrar categoría',
-                                tono: 'riesgo',
-                                onClick: () => { setErrorPorCategoria(null); void abrirPanelBorrarCat(cat.categoria_id); },
-                              },
-                            ] as AccionFila[])
-                      }
-                    />
-                  )}
+                      aria-expanded={!colapsada}
+                    >
+                      <span className="fila__icono">
+                        <Icono nombre={colapsada ? 'chevron' : 'bajar'} size={18} />
+                      </span>
+                      <span className="voc-cat__nombre">{cat.categoria_nombre}</span>
+                      <span className="voc-cat__cuenta">
+                        {cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
+                      </span>
+                    </button>
+                    {ordenandoCat ? (
+                      <div className="voc-cat__acciones">
+                        <button
+                          type="button"
+                          className="voc-cat__ic"
+                          aria-label="Subir"
+                          title="Subir"
+                          disabled={idxCat === 0 || guardandoOrden}
+                          onClick={() => void moverCat(idxCat, -1)}
+                        >
+                          <Icono nombre="subir" size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          className="voc-cat__ic"
+                          aria-label="Bajar"
+                          title="Bajar"
+                          disabled={idxCat === (catsMostradas?.length ?? 0) - 1 || guardandoOrden}
+                          onClick={() => void moverCat(idxCat, 1)}
+                        >
+                          <Icono nombre="bajar" size={18} />
+                        </button>
+                      </div>
+                    ) : seleccionandoCat ? null : esCategoriaSinClasificar(cat.categoria_nombre) ? (
+                      // "Sin clasificar" es fija: no se renombra ni se borra
+                      // (el SelectorTermino la busca por nombre para dejar ahí
+                      // las propuestas sobre la marcha).
+                      <span className="voc-cat__fija">fija</span>
+                    ) : (
+                      <div className="voc-cat__acciones">
+                        <button
+                          type="button"
+                          className="voc-cat__ic"
+                          aria-label="Renombrar categoría"
+                          title="Renombrar categoría"
+                          onClick={() => {
+                            setErrorPorCategoria(null);
+                            setRenombrandoCategoriaId(cat.categoria_id);
+                            setTextoRenombrarCategoria(cat.categoria_nombre);
+                          }}
+                        >
+                          <Icono nombre="editar" size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          className="voc-cat__ic voc-cat__ic--del"
+                          aria-label="Borrar categoría"
+                          title="Borrar categoría"
+                          onClick={() => {
+                            setErrorPorCategoria(null);
+                            void abrirPanelBorrarCat(cat.categoria_id);
+                          }}
+                        >
+                          <Icono nombre="borrar" size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                  {borrandoCatId === cat.categoria_id &&
+                {borrandoCatId === cat.categoria_id &&
                     (borrandoCatTotal === null ? (
                       <div className="card">
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Comprobando…</div>
@@ -1451,50 +1462,50 @@ export function ColaVocabulario() {
                       </div>
                     ))}
 
-                  {borrandoCatId !== cat.categoria_id && errorPorCategoria?.id === cat.categoria_id && (
-                    <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
-                      {errorPorCategoria.msg}
-                    </div>
-                  )}
+                {borrandoCatId !== cat.categoria_id && errorPorCategoria?.id === cat.categoria_id && (
+                  <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                    {errorPorCategoria.msg}
+                  </div>
+                )}
 
-                  {!colapsada && cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
+                {!colapsada && (
+                  <div className="voc-grupo">
+                    <SeccionLista>
+                      {cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
 
-                  {!colapsada && !cat.terminos.length && (
-                    <FilaAccion densidad="compacta" titulo="Sin términos" tono="neutral" />
-                  )}
-                </SeccionLista>
+                      {!cat.terminos.length && (
+                        <FilaAccion densidad="compacta" titulo="Sin términos" tono="neutral" />
+                      )}
 
-                {!colapsada && !seleccionandoCat && !ordenandoCat && !buscando && (
-                  <>
-                    <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
-                      <input
-                        className="field"
-                        value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
-                        onChange={(e) =>
-                          setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
-                        }
-                        placeholder="+ nuevo término en esta categoría…"
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ width: 'auto', padding: '0 12px' }}
-                        onClick={() => crearTerminoDirecto(cat.categoria_id)}
-                      >
-                        Añadir
-                      </button>
-                    </div>
-                    {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '') && (
-                      <div
-                        className="field-error-text"
-                        style={{ paddingInline: 'var(--fila-pad-x)', color: 'var(--ink-400)' }}
-                      >
-                        «{(nuevoTerminoPorCategoria[cat.categoria_id] ?? '').trim()}» ya existe en{' '}
-                        {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '')}.
-                      </div>
-                    )}
-                  </>
+                      {!seleccionandoCat && !ordenandoCat && !buscando && (
+                        <>
+                          <div className="voc-fila-input">
+                            <input
+                              className="field"
+                              value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
+                              onChange={(e) =>
+                                setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
+                              }
+                              placeholder="+ nuevo término en esta categoría…"
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => crearTerminoDirecto(cat.categoria_id)}
+                            >
+                              Añadir
+                            </button>
+                          </div>
+                          {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '') && (
+                            <div className="voc-aviso-dup">
+                              «{(nuevoTerminoPorCategoria[cat.categoria_id] ?? '').trim()}» ya existe en{' '}
+                              {nombreDuplicado(nuevoTerminoPorCategoria[cat.categoria_id] ?? '')}.
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </SeccionLista>
+                  </div>
                 )}
               </div>
               );

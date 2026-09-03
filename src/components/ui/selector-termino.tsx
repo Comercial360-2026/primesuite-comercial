@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
@@ -94,6 +94,11 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
     const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
     return padre ? `${padre.nombre} › ${t.nombre}` : t.nombre;
   }
+  // La ruta partida en dos para pintarla: el padre en gris, el modelo con peso.
+  function partesRuta(t: Termino): { lead: string; tail: string } {
+    const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
+    return padre ? { lead: `${padre.nombre} › `, tail: t.nombre } : { lead: '', tail: t.nombre };
+  }
 
   const q = textoBusqueda.trim().toLowerCase();
 
@@ -170,20 +175,24 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
 
       {textoBusqueda.trim() ? (
         <>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
-            {resultadosBusqueda.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className="chip"
-                onClick={() => onSeleccionar({ id: t.id, nombre: rutaDe(t) })}
-              >
-                {rutaDe(t)}
-                {t.estado_gobierno === 'propuesto' && (
-                  <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · pendiente</span>
-                )}
-              </button>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', marginTop: 8, maxHeight: 200, overflowY: 'auto' }}>
+            {resultadosBusqueda.map((t) => {
+              const { lead, tail } = partesRuta(t);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="selector-opt"
+                  onClick={() => onSeleccionar({ id: t.id, nombre: rutaDe(t) })}
+                >
+                  {lead && <span className="selector-opt__lead">{lead}</span>}
+                  <span className="selector-opt__tail">{tail}</span>
+                  {t.estado_gobierno === 'propuesto' && (
+                    <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · pendiente</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           {!existeExacto && (
             <button
@@ -213,44 +222,44 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
                 >
                   {c.nombre} ({primerNivel.length})
                 </button>
-                {abierta && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, paddingLeft: 8 }}>
-                    {primerNivel.length ? (
-                      primerNivel.map((t) => {
+                {abierta &&
+                  (primerNivel.length ? (
+                    <div className="selector-pick">
+                      {primerNivel.map((t) => {
                         const hijos = hijosPorPadre.get(t.id) ?? [];
                         return (
-                          <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                className="chip"
-                                onClick={() => onSeleccionar({ id: t.id, nombre: t.nombre })}
-                              >
-                                {t.nombre}
-                              </button>
-                            </div>
+                          <Fragment key={t.id}>
+                            <button
+                              type="button"
+                              className="selector-term"
+                              onClick={() => onSeleccionar({ id: t.id, nombre: t.nombre })}
+                            >
+                              <span className="selector-term__n">{t.nombre}</span>
+                              {hijos.length > 0 && <span className="fila__badge">{hijos.length}</span>}
+                            </button>
                             {hijos.length > 0 && (
-                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 12 }}>
+                              <div className="selector-rama">
                                 {hijos.map((h) => (
                                   <button
                                     key={h.id}
                                     type="button"
-                                    className="chip"
+                                    className="selector-model"
                                     onClick={() => onSeleccionar({ id: h.id, nombre: rutaDe(h) })}
                                   >
-                                    › {h.nombre}
+                                    {h.nombre}
                                   </button>
                                 ))}
                               </div>
                             )}
-                          </div>
+                          </Fragment>
                         );
-                      })
-                    ) : (
-                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin términos</span>
-                    )}
-                  </div>
-                )}
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 6, paddingLeft: 8 }}>
+                      Sin términos
+                    </div>
+                  ))}
               </div>
             );
           })}

@@ -44,13 +44,13 @@ interface Props {
   /** Desactiva el `onClick` del cuerpo (no las acciones). */
   disabled?: boolean;
   acciones?: AccionFila[];
+  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones
+   *  (p. ej. el nº de modelos de un término en el catálogo de vocabulario). */
+  badge?: string;
   /** Modo seleccionar. Con `activa`, el cuerpo marca/desmarca en vez de su
    *  `onClick`, y los botones de acción se ocultan. Sin esta prop, o con
    *  `activa:false`, la fila es exactamente la de hoy. */
   seleccion?: EstadoSeleccion;
-  /** Sangra la fila a la derecha: para filas hijas dentro de un grupo
-   *  (p. ej. los modelos de un término en el catálogo de vocabulario). */
-  sangria?: boolean;
 }
 
 export function FilaAccion({
@@ -62,8 +62,8 @@ export function FilaAccion({
   densidad = 'normal',
   disabled,
   acciones = [],
+  badge,
   seleccion,
-  sangria,
 }: Props) {
   const seleccionando = seleccion?.activa ?? false;
 
@@ -71,7 +71,6 @@ export function FilaAccion({
     'fila',
     'fila--accion',
     densidad === 'compacta' && 'fila--compacta',
-    sangria && 'fila--sangria',
     tono !== 'neutral' && `fila--${tono}`,
     seleccionando && seleccion!.marcada && 'fila--marcada',
   ]
@@ -92,6 +91,7 @@ export function FilaAccion({
         <span className="fila__titulo">{titulo}</span>
         {subtitulo && <span className="fila__subtitulo">{subtitulo}</span>}
       </span>
+      {badge != null && <span className="fila__badge">{badge}</span>}
     </>
   );
 

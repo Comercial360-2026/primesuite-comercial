@@ -576,14 +576,129 @@ body {
 .fila--compacta {
   min-height: 44px; padding-top: var(--space-2); padding-bottom: var(--space-2);
 }
-/* Fila hija dentro de un grupo (p. ej. un modelo colgando de un término). */
-.fila--sangria { padding-left: calc(var(--fila-pad-x) + 22px); }
-.fila--sangria .fila__cuerpo-accion::before {
-  content: ""; flex-shrink: 0;
-  width: 6px; height: 6px; margin-right: 8px;
-  border-left: 1.5px solid var(--ink-200); border-bottom: 1.5px solid var(--ink-200);
-  align-self: center; margin-top: -4px;
+/* ── Vocabulario: árbol categoría › término › modelo ───────────────────
+   Tres pesos que el ojo separa sin esfuerzo:
+     1) categoría → BANDA gris (.voc-cat), no una fila de contenido más
+     2) término   → fila blanca normal (FilaAccion) + insignia si tiene modelos
+     3) modelo    → cuelga de un RAÍL vertical, sangrado y en gris (.voc-rama) */
+
+/* fila de acciones de la pantalla: chips homogéneos, con wrap en móvil */
+.voc-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.voc-acciones__mas { color: var(--brand-600); font-weight: 800; }
+
+/* cada categoría + su grupo de términos */
+.voc-cat-bloque { display: flex; flex-direction: column; }
+
+/* 1 — banda de categoría: gris y perfilada, nombre grande con peso. NO es
+   una fila blanca de contenido; el grupo de términos cuelga en blanco,
+   sangrado, debajo. */
+.voc-cat {
+  display: flex; align-items: center;
+  background: var(--surface-0);
+  border: 1px solid var(--ink-200);
+  border-radius: var(--radius-control);
 }
+.voc-cat__tw {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--fila-pad-x);
+  background: none; border: none; font-family: var(--font-sans);
+  text-align: left; cursor: pointer;
+}
+.voc-cat__tw .fila__icono { color: var(--ink-400); flex-shrink: 0; }
+.voc-cat__nombre {
+  font-size: var(--text-md); font-weight: 700; color: var(--ink-900);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.voc-cat__cuenta { font-size: var(--text-xs); color: var(--ink-400); flex-shrink: 0; }
+.voc-cat__acciones {
+  flex-shrink: 0; display: flex; align-items: center; gap: var(--space-1);
+  padding-right: var(--space-2);
+}
+.voc-cat__ic {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border: none; background: none; border-radius: 8px;
+  color: var(--ink-400); cursor: pointer;
+}
+.voc-cat__ic:hover:not(:disabled) { background: var(--surface-1); }
+.voc-cat__ic:disabled { opacity: 0.4; cursor: default; }
+.voc-cat__ic--del { color: var(--risk-600); }
+.voc-cat__fija {
+  flex-shrink: 0; padding-right: var(--fila-pad-x);
+  font-size: var(--text-xs); font-style: italic; color: var(--ink-400);
+}
+
+/* el grupo de términos cuelga en blanco, sangrado y con aire, de su banda */
+.voc-grupo { margin: 6px 0 0 var(--space-2); }
+
+/* 3 — rama de modelos: raíl vertical continuo bajo el término padre */
+.voc-rama {
+  margin-left: calc(var(--fila-pad-x) + 5px);
+  border-left: 1.5px solid var(--ink-200);
+  background: var(--surface-1);
+}
+.voc-rama .fila { border-top: none; }
+.voc-rama .fila__cuerpo-accion { padding-left: var(--space-3); }
+.voc-rama .fila__titulo { font-size: var(--text-sm); color: var(--ink-700); }
+/* la "L" que sale del raíl hacia cada modelo */
+.voc-rama .fila__cuerpo-accion::before {
+  content: ""; flex-shrink: 0; align-self: center;
+  width: 12px; height: 8px; margin-top: -7px; margin-right: 2px;
+  border-left: 1.5px solid var(--ink-200);
+  border-bottom: 1.5px solid var(--ink-200);
+  border-bottom-left-radius: 6px;
+}
+
+/* el selector de término (Hallazgo / Oportunidad) habla el mismo idioma:
+   términos en filas, modelos colgando de un raíl, y la ruta en cada
+   coincidencia — no chips sueltos sin jerarquía. */
+.selector-pick {
+  border: 1px solid var(--ink-100); border-radius: var(--radius-field);
+  overflow: hidden; margin-top: 6px; background: var(--surface-1);
+}
+.selector-term, .selector-model {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%; padding: 10px var(--space-3);
+  border: none; border-top: var(--fila-separador); background: none;
+  font-family: var(--font-sans); font-size: var(--text-sm);
+  text-align: left; color: var(--ink-900); cursor: pointer;
+}
+.selector-pick > .selector-term:first-child { border-top: none; }
+.selector-term:hover, .selector-model:hover { background: var(--fila-activa-bg); }
+.selector-term__n { flex: 1; min-width: 0; }
+.selector-rama { margin-left: 13px; border-left: 1.5px solid var(--ink-200); }
+.selector-rama .selector-model { border-top: none; padding-left: var(--space-2); color: var(--ink-700); }
+.selector-model::before {
+  content: ""; flex-shrink: 0; align-self: center;
+  width: 10px; height: 7px; margin-top: -6px; margin-right: 4px;
+  border-left: 1.5px solid var(--ink-200); border-bottom: 1.5px solid var(--ink-200);
+  border-bottom-left-radius: 5px;
+}
+.selector-opt {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--ink-100); border-radius: var(--radius-field);
+  background: var(--surface-1); padding: 9px 12px; font-size: var(--text-sm);
+  font-family: var(--font-sans); color: var(--ink-900);
+}
+.selector-opt + .selector-opt { margin-top: 4px; }
+.selector-opt:hover { background: var(--fila-activa-bg); }
+.selector-opt__lead { color: var(--ink-400); }
+.selector-opt__tail { color: var(--ink-900); font-weight: 600; }
+
+/* filas de input dentro de un grupo del catálogo ("+ modelo", "+ término") */
+.voc-fila-input {
+  display: flex; gap: var(--space-2);
+  padding: var(--space-2) var(--fila-pad-x);
+  border-top: var(--fila-separador); background: var(--surface-1);
+}
+.voc-rama .voc-fila-input { border-top: none; padding-left: var(--space-3); }
+.voc-fila-input .field { flex: 1; }
+.voc-fila-input .btn { width: auto; padding: 0 14px; flex-shrink: 0; }
+.voc-aviso-dup {
+  padding: 2px var(--fila-pad-x) var(--space-2);
+  font-size: var(--text-xs); color: var(--ink-400); background: var(--surface-1);
+}
+.voc-rama + .voc-aviso-dup { padding-left: calc(var(--fila-pad-x) + var(--space-3)); }
 
 /* Modo seleccionar — casilla circular a la izquierda + fondo de fila
    marcada. La pinta FilaNavegable/FilaAccion cuando recibe `seleccion`. */
