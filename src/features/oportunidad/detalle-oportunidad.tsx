@@ -79,10 +79,15 @@ export function DetalleOportunidad() {
     if (!rels?.length) return [];
     const { data: terminos, error: errT } = await supabase
       .from('termino')
-      .select('id, nombre')
+      .select('id, nombre, parent:parent_id(nombre)')
       .in('id', rels.map((r) => r.termino_id));
     if (errT) throw errT;
-    return (terminos ?? []).map((t) => ({ termino_id: t.id, nombre: t.nombre }));
+    // Si el término es un modelo, el chip muestra la ruta "MIFARE › DESFire
+    // EV2" (mismo criterio que SelectorTermino), para que se vea de qué
+    // familia es sin abrir el catálogo.
+    return ((terminos ?? []) as unknown as { id: string; nombre: string; parent: { nombre: string } | null }[]).map(
+      (t) => ({ termino_id: t.id, nombre: t.parent ? `${t.parent.nombre} › ${t.nombre}` : t.nombre })
+    );
   }
 
   const { data: soluciones } = useQuery({

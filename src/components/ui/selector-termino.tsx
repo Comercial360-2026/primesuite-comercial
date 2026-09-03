@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 interface Termino {
   id: string;
   nombre: string;
   categoria_id: string;
   estado_gobierno: string;
+  parent_id: string | null;
+  orden: number;
 }
 
 interface Categoria {
   id: string;
   nombre: string;
+  orden: number;
 }
 
 interface SelectorTerminoProps {
@@ -27,6 +31,13 @@ interface SelectorTerminoProps {
 // buscador arriba (para cuando sabes el nombre) + categorías desplegables
 // debajo (para cuando no lo sabes) — reutiliza el mismo patrón categoría→
 // términos ya construido en Cola de vocabulario.
+//
+// Jerarquía (fase 2): un término puede tener modelos dentro (1 nivel:
+// "MIFARE" › "DESFire EV2"). Padre y modelo son tags independientes, los
+// dos seleccionables. Al elegir un modelo, `nombre` lleva la ruta completa
+// "MIFARE › DESFire EV2" — sólo es etiqueta para mostrar (aguas abajo sólo
+// se usa el `id`), así el chip del hallazgo / la oportunidad enseña de qué
+// familia es el modelo sin tener que volver a consultar el padre.
 export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTerminoProps) {
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [categoriaAbiertaId, setCategoriaAbiertaId] = useState<string | null>(null);
@@ -36,7 +47,14 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
   const { data: categorias } = useQuery({
     queryKey: ['categorias'],
     queryFn: async (): Promise<Categoria[]> => {
-      const { data, error: err } = await supabase.from('categoria_vocabulario').select('id, nombre').order('nombre');
+      // Mismo orden que el catálogo (`cola-vocabulario.tsx`): primero el
+      // `orden` manual, el nombre sólo desempata. Antes esto ordenaba sólo
+      // por nombre e ignoraba el orden que Dirección fija a mano.
+      const { data, error: err } = await supabase
+        .from('categoria_vocabulario')
+        .select('id, nombre, orden')
+        .order('orden')
+        .order('nombre');
       if (err) throw err;
       return data ?? [];
     },
@@ -47,19 +65,51 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
     queryFn: async (): Promise<Termino[]> => {
       const { data, error: err } = await supabase
         .from('termino')
-        .select('id, nombre, categoria_id, estado_gobierno')
+        .select('id, nombre, categoria_id, estado_gobierno, parent_id, orden')
         .neq('estado_gobierno', 'descartado')
+        .order('orden')
         .order('nombre');
       if (err) throw err;
       return data ?? [];
     },
   });
 
-  const resultadosBusqueda = textoBusqueda.trim()
-    ? (terminos ?? []).filter((t) => t.nombre.toLowerCase().includes(textoBusqueda.trim().toLowerCase())).slice(0, 10)
+  const terminosLista = useMemo(() => terminos ?? [], [terminos]);
+  const porId = useMemo(() => new Map(terminosLista.map((t) => [t.id, t])), [terminosLista]);
+  const hijosPorPadre = useMemo(() => {
+    const m = new Map<string, Termino[]>();
+    for (const t of terminosLista) {
+      if (!t.parent_id) continue;
+      const arr = m.get(t.parent_id) ?? [];
+      arr.push(t);
+      m.set(t.parent_id, arr);
+    }
+    return m;
+  }, [terminosLista]);
+
+  // "MIFARE › DESFire EV2" para un modelo; sólo el nombre para un término
+  // de primer nivel (o si el padre está descartado y no aparece).
+  function rutaDe(t: Termino): string {
+    const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
+    return padre ? `${padre.nombre} › ${t.nombre}` : t.nombre;
+  }
+
+  const q = textoBusqueda.trim().toLowerCase();
+
+  // El buscador casa por el nombre del término Y por el de su padre: buscar
+  // "MIFARE" saca también sus modelos; buscar "DESFire" saca el modelo con
+  // su ruta.
+  const resultadosBusqueda = q
+    ? terminosLista
+        .filter((t) => {
+          if (t.nombre.toLowerCase().includes(q)) return true;
+          const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
+          return padre ? padre.nombre.toLowerCase().includes(q) : false;
+        })
+        .slice(0, 10)
     : [];
 
-  const existeExacto = (terminos ?? []).some((t) => t.nombre.toLowerCase() === textoBusqueda.trim().toLowerCase());
+  const existeExacto = terminosLista.some((t) => t.nombre.toLowerCase() === q);
 
   async function proponerYSeleccionar() {
     if (!textoBusqueda.trim()) return;
@@ -108,15 +158,21 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
         autoFocus
         value={textoBusqueda}
         onChange={(e) => setTextoBusqueda(e.target.value)}
-        placeholder="buscar término…"
+        placeholder="buscar término o modelo…"
       />
+      <AyudaNota concepto="termino-modelo" />
 
       {textoBusqueda.trim() ? (
         <>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, maxHeight: 140, overflowY: 'auto' }}>
             {resultadosBusqueda.map((t) => (
-              <button key={t.id} type="button" className="chip" onClick={() => onSeleccionar(t)}>
-                {t.nombre}
+              <button
+                key={t.id}
+                type="button"
+                className="chip"
+                onClick={() => onSeleccionar({ id: t.id, nombre: rutaDe(t) })}
+              >
+                {rutaDe(t)}
                 {t.estado_gobierno === 'propuesto' && (
                   <span style={{ color: 'var(--ink-400)', fontSize: 11 }}> · pendiente</span>
                 )}
@@ -138,7 +194,9 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
       ) : (
         <div style={{ marginTop: 8 }}>
           {categorias?.map((c) => {
-            const terminosDeCategoria = (terminos ?? []).filter((t) => t.categoria_id === c.id);
+            const primerNivel = terminosLista.filter(
+              (t) => t.categoria_id === c.id && (!t.parent_id || !porId.get(t.parent_id))
+            );
             const abierta = categoriaAbiertaId === c.id;
             return (
               <div key={c.id} style={{ marginBottom: 6 }}>
@@ -147,16 +205,41 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
                   className={`chip${abierta ? ' chip--on' : ''}`}
                   onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
                 >
-                  {c.nombre} ({terminosDeCategoria.length})
+                  {c.nombre} ({primerNivel.length})
                 </button>
                 {abierta && (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, paddingLeft: 8 }}>
-                    {terminosDeCategoria.length ? (
-                      terminosDeCategoria.map((t) => (
-                        <button key={t.id} type="button" className="chip" onClick={() => onSeleccionar(t)}>
-                          {t.nombre}
-                        </button>
-                      ))
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, paddingLeft: 8 }}>
+                    {primerNivel.length ? (
+                      primerNivel.map((t) => {
+                        const hijos = hijosPorPadre.get(t.id) ?? [];
+                        return (
+                          <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="chip"
+                                onClick={() => onSeleccionar({ id: t.id, nombre: t.nombre })}
+                              >
+                                {t.nombre}
+                              </button>
+                            </div>
+                            {hijos.length > 0 && (
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingLeft: 12 }}>
+                                {hijos.map((h) => (
+                                  <button
+                                    key={h.id}
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => onSeleccionar({ id: h.id, nombre: rutaDe(h) })}
+                                  >
+                                    › {h.nombre}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     ) : (
                       <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin términos</span>
                     )}
