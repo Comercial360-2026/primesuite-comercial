@@ -87,7 +87,11 @@ export function ColaVocabulario() {
         .eq('estado_gobierno', 'propuesto')
         .order('fecha_propuesta', { ascending: true });
       if (err) throw err;
-      return (data ?? []).map((t: any) => ({
+      type FilaPropuesta = Omit<TerminoPropuesto, 'categoria_nombre' | 'propuesto_por_nombre'> & {
+        categoria: { nombre: string } | null;
+        comercial: { nombre: string } | null;
+      };
+      return ((data ?? []) as unknown as FilaPropuesta[]).map((t) => ({
         id: t.id,
         nombre: t.nombre,
         categoria_id: t.categoria_id,

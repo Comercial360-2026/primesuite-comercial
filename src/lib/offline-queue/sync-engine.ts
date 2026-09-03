@@ -151,9 +151,9 @@ async function sincronizarInsertSimple(
   // resulte en tiempo de ejecución (no hay forma de expresar "el shape
   // correcto según el valor de esta variable" con `.from(tabla)` dinámico).
   // La corrección real de tipos vive en `PayloadPorEntidad` (types.ts) y en
-  // `aPayloadSnakeCase`, no aquí — este `as any` es el único punto de puente
+  // `aPayloadSnakeCase`, no aquí — este `as never` es el único punto de puente
   // deliberado entre esa capa tipada y la llamada genérica a Supabase.
-  const { error } = await supabase.from(tabla).insert({ id: operacion.id, ...fila } as any);
+  const { error } = await supabase.from(tabla).insert({ id: operacion.id, ...fila } as never);
   if (error) throw new Error(error.message);
 }
 
@@ -189,11 +189,11 @@ async function sincronizarCapturaLibre(
   }
 
   const fila = aPayloadSnakeCase(operacion);
-  // Mismo puente deliberado que en sincronizarInsertSimple — ver comentario
+  // Mismo puente `as never` deliberado que en sincronizarInsertSimple — ver comentario
   // de arriba.
   const { error } = await supabase
     .from('captura_libre')
-    .insert({ id: operacion.id, ...fila, storage_path: storagePath } as any);
+    .insert({ id: operacion.id, ...fila, storage_path: storagePath } as never);
   if (error) throw new Error(error.message);
 }
 

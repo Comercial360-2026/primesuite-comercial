@@ -25,7 +25,10 @@ export interface UbicacionSeleccionable {
 //     seleccionar y usar de inmediato sin esperar a que sincronice.
 // Se deduplica por id (el id se genera en cliente y se reutiliza como PK
 // real al sincronizar, mismo patrón que el resto de la cola).
-export function useUbicacionesCliente(clienteId: string | undefined, comercialId: string) {
+// `_comercialId` se conserva en la firma (lo pasan los llamantes) pero no
+// se usa: la tabla `ubicacion` no tiene columna de comercial y la RLS
+// autoriza por sesión (ver offline-queue/types.ts §UbicacionPayload).
+export function useUbicacionesCliente(clienteId: string | undefined, _comercialId?: string) {
   const queryClient = useQueryClient();
   const [locales, setLocales] = useState<OperacionPendiente<'ubicacion'>[]>([]);
 
@@ -93,7 +96,7 @@ export function useUbicacionesCliente(clienteId: string | undefined, comercialId
       });
       return { id, nombre, sincronizada: false };
     },
-    [clienteId, comercialId, recargarLocales, queryClient]
+    [clienteId, recargarLocales, queryClient]
   );
 
   return { ubicaciones, crear, recargarLocales };
