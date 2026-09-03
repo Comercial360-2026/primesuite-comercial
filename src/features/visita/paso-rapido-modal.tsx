@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
 import { Modal } from '@/components/ui/modal';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 interface PasoRapidoModalProps {
   visitaId: string;
@@ -185,6 +186,7 @@ export function PasoRapidoModal({
                     </button>
                   ))}
                 </div>
+                <AyudaNota concepto="franja-visita" />
               </>
             )}
           </>

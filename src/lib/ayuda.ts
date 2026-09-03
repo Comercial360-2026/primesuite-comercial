@@ -301,6 +301,11 @@ const _CONCEPTOS = {
     queEs:
       'Cuánto foco merece: baja, media, alta o estratégica. Ordena tu lista de oportunidades y ayuda a Dirección Comercial a ver dónde está lo importante. No la confundas con el horizonte de decisión, que es el «cuándo».',
   },
+  'franja-visita': {
+    titulo: 'Mañana, tarde o sin hora fija',
+    queEs:
+      'Cuando planificas una visita sin hora concreta, eliges la franja: «Mañana» o «Tarde» la colocan en ese tramo del día en la agenda; «Sin hora fija» la deja en el día, sin tramo.',
+  },
 } satisfies Record<string, EntradaConcepto>;
 
 export type PantallaAyudaId = keyof typeof _PANTALLAS;
