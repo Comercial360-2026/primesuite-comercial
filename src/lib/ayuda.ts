@@ -79,14 +79,14 @@ const _PANTALLAS = {
     queEs:
       'Todas tus visitas planificadas, en lista por días o en vista de mes, con las atrasadas agrupadas aparte.',
     cuando:
-      'Para ver más allá de hoy, reprogramar o anular. «Planificar visita» abre un buscador de cliente para dejar una agendada; «Seleccionar» permite anular varias a la vez.',
+      'Para ver más allá de hoy, reprogramar o anular. «Planificar visita» abre un buscador de cliente para dejar una visita agendada; «Seleccionar» permite anular varias a la vez.',
   },
   'repaso-cliente': {
     titulo: 'Preparar la visita',
     queEs:
       'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, su ecosistema, la oportunidad activa y el próximo paso pendiente.',
     cuando:
-      'Al llegar al cliente, antes de darle a «Iniciar visita». Desde aquí arranca la visita en curso.',
+      'Al llegar al cliente, antes de pulsar «Iniciar visita». Desde aquí arranca la visita en curso.',
   },
   'mis-proximos-pasos': {
     titulo: 'Mis próximos pasos',
@@ -177,7 +177,7 @@ const _PANTALLAS = {
     queEs:
       'Los datos de un miembro del equipo: nombre, rol y zona de cartera. Desde aquí se le da de baja o se reactiva, y se traspasa su cartera a otra persona.',
     cuando:
-      'Para editarlo o para el offboarding: al dar de baja puedes traspasar en el mismo paso sus clientes, visitas planificadas y próximos pasos a otro comercial.',
+      'Para editarlo o cuando alguien deja el equipo: al dar de baja puedes traspasar en el mismo paso sus clientes, visitas planificadas y próximos pasos a otro comercial.',
     ojo: 'Dar de baja bloquea el acceso de esa persona, pero conserva todo lo que registró. Se puede reactivar después.',
     soloDireccion: true,
   },
@@ -231,7 +231,7 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar la previsión, o cerrarla como ganada o perdida (ahí se pide el motivo).',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada o perdida (ahí se pide el motivo).',
   },
   'proximo-paso': {
     titulo: 'Próximo paso',
@@ -246,9 +246,9 @@ const _CONCEPTOS = {
   'naturaleza-hallazgo': {
     titulo: 'Naturaleza de un hallazgo',
     queEs:
-      'Qué tipo de cosa has observado en el cliente: contexto (información de fondo), oportunidad (algo que podrías venderle), riesgo (algo que te puede hacer perder la cuenta), competencia (producto de otro proveedor), fortaleza (algo que juega a tu favor) o proyecto activo (una obra o cambio en marcha).',
+      'Qué tipo de cosa has observado en el cliente: contexto (información de fondo), señal de oportunidad (algo que podrías venderle), riesgo (algo que te puede hacer perder la cuenta), competencia (producto de otro proveedor), fortaleza (algo que juega a tu favor) o proyecto activo (una obra o cambio en marcha).',
     ejemplo:
-      'Ves lectores de otra marca en las puertas → competencia. El cliente comenta que abren otra nave → oportunidad.',
+      'Ves lectores de otra marca en las puertas → competencia. El cliente comenta que abren otra nave → señal de oportunidad.',
   },
   'tipo-fecha-hallazgo': {
     titulo: 'Fecha relevante de un hallazgo',
@@ -299,7 +299,7 @@ const _CONCEPTOS = {
   'prioridad-oportunidad': {
     titulo: 'Prioridad de una oportunidad',
     queEs:
-      'Cuánto foco merece: baja, media, alta o estratégica. Ordena tu lista de oportunidades y ayuda a Dirección a ver dónde está lo importante. No la confundas con el horizonte de decisión, que es el «cuándo».',
+      'Cuánto foco merece: baja, media, alta o estratégica. Ordena tu lista de oportunidades y ayuda a Dirección Comercial a ver dónde está lo importante. No la confundas con el horizonte de decisión, que es el «cuándo».',
   },
 } satisfies Record<string, EntradaConcepto>;
 
