@@ -219,10 +219,10 @@ export function DetalleOportunidad() {
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
 
-      <div className="label" style={{ marginTop: 0 }}>título</div>
+      <div className="label" style={{ marginTop: 0 }}>Título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
 
-      <div className="label">etapa</div>
+      <div className="label">Etapa</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {ETAPAS.map((e) => (
           <button key={e} type="button" className={`chip${etapa === e ? ' chip--on' : ''}`} onClick={() => setEtapa(e)}>
@@ -232,7 +232,7 @@ export function DetalleOportunidad() {
       </div>
       <AyudaNota concepto="etapa-oportunidad" />
 
-      <div className="label">prioridad</div>
+      <div className="label">Prioridad</div>
       <div style={{ display: 'flex', gap: 6 }}>
         {PRIORIDADES.map((p) => (
           <button key={p} type="button" className={`chip${prioridad === p ? ' chip--on' : ''}`} onClick={() => setPrioridad(p)}>
@@ -242,9 +242,9 @@ export function DetalleOportunidad() {
       </div>
       <AyudaNota concepto="prioridad-oportunidad" />
 
-      <div className="label">horizonte de decisión</div>
+      <div className="label">Horizonte de decisión</div>
       <select className="field" value={horizonte} onChange={(e) => setHorizonte(e.target.value)}>
-        <option value="">sin especificar</option>
+        <option value="">Sin especificar</option>
         {HORIZONTES.map((h) => (
           <option key={h} value={h}>
             {h}
@@ -258,7 +258,7 @@ export function DetalleOportunidad() {
           nuestro software (solución propuesta)": son dos términos, cada uno
           con su papel, en la misma Oportunidad, sin forzar una entidad
           "integración" aparte. */}
-      <div className="label">lo que el cliente ya tiene (motiva la oportunidad)</div>
+      <div className="label">Lo que el cliente ya tiene (motiva la oportunidad)</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {motivadoras?.map((t) => (
           <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -273,7 +273,7 @@ export function DetalleOportunidad() {
             </button>
           </span>
         ))}
-        {!motivadoras?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>ninguno asociado</span>}
+        {!motivadoras?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ninguno asociado</span>}
         <button
           type="button"
           className="chip"
@@ -283,7 +283,7 @@ export function DetalleOportunidad() {
         </button>
       </div>
 
-      <div className="label">solución que le proponemos</div>
+      <div className="label">Solución que le proponemos</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {soluciones?.map((t) => (
           <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -298,7 +298,7 @@ export function DetalleOportunidad() {
             </button>
           </span>
         ))}
-        {!soluciones?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>ninguna asociada</span>}
+        {!soluciones?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ninguna asociada</span>}
         <button
           type="button"
           className="chip"
@@ -317,7 +317,7 @@ export function DetalleOportunidad() {
       )}
       {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
 
-      <div className="label">descripción</div>
+      <div className="label">Descripción</div>
       <textarea
         className="field"
         style={{ height: 'auto', padding: 8 }}
@@ -328,7 +328,7 @@ export function DetalleOportunidad() {
 
       {esCierreNegativo && (
         <div className="card card--riesgo">
-          <div className="label" style={{ marginTop: 0 }}>motivo de cierre</div>
+          <div className="label" style={{ marginTop: 0 }}>Motivo de cierre</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {MOTIVOS_CIERRE.map((m) => (
               <button
@@ -341,7 +341,7 @@ export function DetalleOportunidad() {
               </button>
             ))}
           </div>
-          <div className="label">comentario (opcional)</div>
+          <div className="label">Comentario (opcional)</div>
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8 }}

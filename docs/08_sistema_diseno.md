@@ -445,7 +445,13 @@ semáforo con forma+palabra en Clientes) que la distinga de una fila neutral.
 
 ### Reglas de estilo
 
-- Cabeceras de sección **en frase**, no en Mayúsculas Iniciales.
+- **Todo el texto de interfaz va en frase**: primera letra en mayúscula, el
+  resto en minúscula, **no** en Mayúsculas Iniciales. Aplica a cabeceras de
+  sección, etiquetas de campo (`.label`), subtítulos, títulos de `Modal`,
+  placeholders de `<select>` y mensajes de estado. Ej.: «Correo»,
+  «Inicia sesión para continuar», «Sin ubicación». (Los `placeholder=` de
+  ejemplo dentro de un `<input>` sí pueden ir en minúscula: son pistas, no
+  etiquetas.)
 - Flecha `›` solo en filas que navegan (`to`); nunca en acciones.
 - Toda la app va en una columna centrada en escritorio (`.app-shell`,
   `--app-max-w`, ~500 px); las filas usan `:hover` además de `:active`.
@@ -542,7 +548,7 @@ componente común y sin respetar el ancho de la app.
 
 | Prop | Tipo | Notas |
 |---|---|---|
-| `titulo` | `string` | Cabecera, en minúsculas / frase. |
+| `titulo` | `string` | Cabecera en frase (primera en mayúscula), no en Mayúsculas Iniciales. |
 | `onCerrar` | `() => void` | Lo llaman la × de la cabecera, la tecla `Esc` y tocar fuera de la tarjeta. |
 | `children` | `ReactNode` | El contenido del diálogo. |
 

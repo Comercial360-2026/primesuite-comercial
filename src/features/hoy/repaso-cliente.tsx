@@ -286,7 +286,7 @@ export function RepasoCliente() {
 
       {visitaIdAgendada && (
         <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>vas a</div>
+          <div className="label" style={{ marginTop: 0 }}>Vas a</div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
             {visitaAgendada === undefined
               ? 'Cargando…'
@@ -337,7 +337,7 @@ export function RepasoCliente() {
         />
       ) : (
         <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>oportunidad activa</div>
+          <div className="label" style={{ marginTop: 0 }}>Oportunidad activa</div>
           <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
             {oportunidad === undefined
               ? 'Cargando…'
@@ -355,7 +355,7 @@ export function RepasoCliente() {
         />
       ) : (
         <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>próximo paso pendiente</div>
+          <div className="label" style={{ marginTop: 0 }}>Próximo paso pendiente</div>
           <div style={{ fontSize: 'var(--text-base)' }}>
             {proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
           </div>

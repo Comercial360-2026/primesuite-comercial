@@ -80,11 +80,11 @@ export function Login() {
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
         <LogoPrimeNotes alto={34} />
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 'var(--space-2)' }}>
-          inicia sesión para continuar
+          Inicia sesión para continuar
         </div>
       </div>
 
-      <div className="label" style={{ marginTop: 0 }}>correo</div>
+      <div className="label" style={{ marginTop: 0 }}>Correo</div>
       <input
         className={`field${acceso.error ? ' field--error' : ''}`}
         type="email"
@@ -96,7 +96,7 @@ export function Login() {
         placeholder="nombre@primion.com"
       />
 
-      <div className="label">contraseña</div>
+      <div className="label">Contraseña</div>
       <input
         className={`field${acceso.error ? ' field--error' : ''}`}
         type="password"
@@ -133,7 +133,7 @@ export function Login() {
         </div>
       ) : recuperarAbierto ? (
         <div style={{ marginTop: 'var(--space-4)', borderTop: '1px solid var(--ink-100)', paddingTop: 'var(--space-3)' }}>
-          <div className="label" style={{ marginTop: 0 }}>tu correo</div>
+          <div className="label" style={{ marginTop: 0 }}>Tu correo</div>
           <input
             className="field"
             type="email"

@@ -86,7 +86,7 @@ export function EstablecerContrasena() {
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
           <LogoPrimeNotes alto={34} />
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 'var(--space-2)' }}>
-            elige tu contraseña
+            Elige tu contraseña
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export function EstablecerContrasena() {
               Crea una contraseña para entrar. La usarás a partir de ahora.
             </Aviso>
 
-            <div className="label">nueva contraseña</div>
+            <div className="label">Nueva contraseña</div>
             <input
               className={`field${cortas ? ' field--error' : ''}`}
               type="password"
@@ -121,7 +121,7 @@ export function EstablecerContrasena() {
               placeholder="al menos 8 caracteres"
             />
 
-            <div className="label">repite la contraseña</div>
+            <div className="label">Repite la contraseña</div>
             <input
               className={`field${noCoincide ? ' field--error' : ''}`}
               type="password"

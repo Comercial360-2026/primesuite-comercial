@@ -1110,7 +1110,7 @@ export function VisitaActiva() {
 
       {objetivoActual != null && (
         <div>
-          <div className="label" style={{ marginTop: 0 }}>objetivo de la visita</div>
+          <div className="label" style={{ marginTop: 0 }}>Objetivo de la visita</div>
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8, opacity: objetivoEditable ? 1 : 0.7 }}
@@ -1170,7 +1170,7 @@ export function VisitaActiva() {
       {/* Todas las formas de añadir algo a la visita, juntas. Antes iban
           repartidas: Foto/Audio/Nota/Oportunidad arriba y Hallazgo/Próximo
           paso abajo, sin criterio visible. */}
-      <div className="label" style={{ marginTop: 0 }}>añadir a la visita</div>
+      <div className="label" style={{ marginTop: 0 }}>Añadir a la visita</div>
       <div className="capture-grid">
         <button
           className="capture-btn"

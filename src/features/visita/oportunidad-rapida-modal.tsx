@@ -67,8 +67,8 @@ export function OportunidadRapidaModal({
   }
 
   return (
-    <Modal titulo="oportunidad rápida" onCerrar={onCerrar}>
-        <div className="label">título</div>
+    <Modal titulo="Oportunidad rápida" onCerrar={onCerrar}>
+        <div className="label">Título</div>
         <input
           className="field"
           autoFocus
@@ -77,7 +77,7 @@ export function OportunidadRapidaModal({
           placeholder="sustitución control de accesos"
         />
 
-        <div className="label">prioridad</div>
+        <div className="label">Prioridad</div>
         <div style={{ display: 'flex', gap: 6 }}>
           {PRIORIDADES.map((p) => (
             <button

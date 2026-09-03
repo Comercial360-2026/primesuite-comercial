@@ -70,7 +70,7 @@ export function HallazgoRapidoModal({
   }
 
   return (
-    <Modal titulo="hallazgo" onCerrar={onCerrar}>
+    <Modal titulo="Hallazgo" onCerrar={onCerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           lo que el cliente tiene, sea de quién sea
         </div>
@@ -90,7 +90,7 @@ export function HallazgoRapidoModal({
           <SelectorTermino onSeleccionar={setTerminoSeleccionado} />
         )}
 
-        <div className="label">naturaleza</div>
+        <div className="label">Naturaleza</div>
         <AyudaNota concepto="naturaleza-hallazgo" />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {NATURALEZAS.map((n) => (

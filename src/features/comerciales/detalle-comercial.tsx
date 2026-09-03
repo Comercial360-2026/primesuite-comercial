@@ -264,10 +264,10 @@ export function DetalleComercial() {
         </Aviso>
       )}
 
-      <div className="label" style={{ marginTop: data.activo ? 0 : undefined }}>nombre</div>
+      <div className="label" style={{ marginTop: data.activo ? 0 : undefined }}>Nombre</div>
       <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
 
-      <div className="label">rol</div>
+      <div className="label">Rol</div>
       <div style={{ display: 'flex', gap: 6 }}>
         {ROLES.map((r) => (
           <button
@@ -281,7 +281,7 @@ export function DetalleComercial() {
         ))}
       </div>
 
-      <div className="label">zona / cartera (opcional)</div>
+      <div className="label">Zona / cartera (opcional)</div>
       <input className="field" value={zona} onChange={(e) => setZona(e.target.value)} />
 
       {error && (
@@ -351,7 +351,7 @@ export function DetalleComercial() {
         modo === 'traspaso' ? (
           <div className="card">
             <ResumenCartera cartera={cartera} nombre={data.nombre} />
-            <div className="label">traspasar todo a</div>
+            <div className="label">Traspasar todo a</div>
             <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
               <option value="">— elige un comercial —</option>
               {destinos.map((d) => (
@@ -386,7 +386,7 @@ export function DetalleComercial() {
             </div>
             {totalCartera > 0 && (
               <>
-                <div className="label">traspasar todo a</div>
+                <div className="label">Traspasar todo a</div>
                 <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
                   <option value="">— elige un comercial —</option>
                   {destinos.map((d) => (

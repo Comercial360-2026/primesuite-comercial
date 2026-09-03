@@ -184,7 +184,7 @@ export function DetalleProximoPaso() {
         />
       </div>
 
-      <div className="label" style={{ marginTop: 0 }}>descripción</div>
+      <div className="label" style={{ marginTop: 0 }}>Descripción</div>
       <textarea
         className="field"
         style={{ height: 'auto', padding: 8 }}
@@ -194,7 +194,7 @@ export function DetalleProximoPaso() {
         placeholder="volver a llamar en dos semanas, enviar propuesta…"
       />
 
-      <div className="label">fecha objetivo (opcional)</div>
+      <div className="label">Fecha objetivo (opcional)</div>
       <input
         className="field"
         type="date"

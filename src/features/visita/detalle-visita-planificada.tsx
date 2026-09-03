@@ -244,7 +244,7 @@ export function DetalleVisitaPlanificada() {
           {/* Reprogramar */}
           {reprogramando ? (
             <div className="card">
-              <div className="label" style={{ marginTop: 0 }}>nueva fecha</div>
+              <div className="label" style={{ marginTop: 0 }}>Nueva fecha</div>
               <input
                 type="date"
                 className="field"
@@ -252,7 +252,7 @@ export function DetalleVisitaPlanificada() {
                 value={fechaNueva}
                 onChange={(e) => setFechaNueva(e.target.value)}
               />
-              <div className="label">hora (opcional)</div>
+              <div className="label">Hora (opcional)</div>
               <input
                 type="time"
                 className="field"
@@ -261,7 +261,7 @@ export function DetalleVisitaPlanificada() {
               />
               {!horaNueva && (
                 <>
-                  <div className="label">sin hora concreta, ¿cuándo?</div>
+                  <div className="label">Sin hora concreta, ¿cuándo?</div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {([
                       ['manana', 'Mañana'],

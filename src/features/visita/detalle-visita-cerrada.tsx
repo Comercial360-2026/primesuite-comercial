@@ -403,7 +403,7 @@ export function DetalleVisitaCerrada() {
                     {a.url ? (
                       <audio controls src={a.url} style={{ width: '100%' }} />
                     ) : (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>audio no disponible</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audio no disponible</div>
                     )}
                   </div>
                 ))}

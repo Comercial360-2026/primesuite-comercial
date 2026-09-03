@@ -414,7 +414,7 @@ export function Agenda() {
         </button>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="label" style={{ marginTop: 0 }}>planificar visita — busca el cliente</div>
+          <div className="label" style={{ marginTop: 0 }}>Planificar visita — busca el cliente</div>
           <input
             className="field"
             autoFocus

@@ -194,7 +194,7 @@ export function GestionUbicacionesCliente() {
                 return (
                   <div key={u.id} className="fila-confirmacion">
                     {cargandoPrevisualizacion ? (
-                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>comprobando uso…</div>
+                      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Comprobando uso…</div>
                     ) : previsualizacion ? (
                       <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>
                         {total > 0

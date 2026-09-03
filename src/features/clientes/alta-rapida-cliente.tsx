@@ -215,7 +215,7 @@ export function AltaRapidaCliente() {
     <div className="screen">
       <CabeceraDetalle titulo="Nuevo cliente" ayuda="alta-rapida-cliente" onVolver={() => navigate(-1)} />
 
-      <div className="label" style={{ marginTop: 0 }}>nombre</div>
+      <div className="label" style={{ marginTop: 0 }}>Nombre</div>
       <input
         className={`field${creacionCliente.error ? ' field--error' : ''}`}
         autoFocus

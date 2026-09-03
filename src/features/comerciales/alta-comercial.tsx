@@ -126,13 +126,13 @@ export function AltaComercial() {
 
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div>
-              <div className="label" style={{ marginTop: 0 }}>correo</div>
+              <div className="label" style={{ marginTop: 0 }}>Correo</div>
               <div style={{ fontSize: 'var(--text-base)' }}>{email.trim()}</div>
             </div>
             {resultado.action_link && (
               <>
                 <div>
-                  <div className="label">enlace de acceso</div>
+                  <div className="label">Enlace de acceso</div>
                   <div className="enlace-copia">{resultado.action_link}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -161,7 +161,7 @@ export function AltaComercial() {
     <div className="screen">
       <CabeceraDetalle titulo="Nuevo comercial" ayuda="alta-comercial" onVolver={() => navigate(-1)} />
 
-      <div className="label" style={{ marginTop: 0 }}>nombre</div>
+      <div className="label" style={{ marginTop: 0 }}>Nombre</div>
       <input
         className="field"
         autoFocus
@@ -170,7 +170,7 @@ export function AltaComercial() {
         placeholder="nombre y apellidos"
       />
 
-      <div className="label">correo</div>
+      <div className="label">Correo</div>
       <input
         className="field"
         type="email"
@@ -180,7 +180,7 @@ export function AltaComercial() {
         placeholder="nombre@primion.com"
       />
 
-      <div className="label">rol</div>
+      <div className="label">Rol</div>
       <div style={{ display: 'flex', gap: 6 }}>
         {ROLES.map((r) => (
           <button
@@ -194,7 +194,7 @@ export function AltaComercial() {
         ))}
       </div>
 
-      <div className="label">zona / cartera (opcional)</div>
+      <div className="label">Zona / cartera (opcional)</div>
       <input
         className="field"
         value={zona}
@@ -202,9 +202,9 @@ export function AltaComercial() {
         placeholder="p. ej. Cataluña, Grandes cuentas…"
       />
 
-      <div className="label">heredar la cartera de (opcional)</div>
+      <div className="label">Heredar la cartera de (opcional)</div>
       <select className="field" value={heredarDe} onChange={(e) => setHeredarDe(e.target.value)}>
-        <option value="">nadie</option>
+        <option value="">Nadie</option>
         {comerciales?.map((c) => (
           <option key={c.id} value={c.id}>
             {c.nombre}

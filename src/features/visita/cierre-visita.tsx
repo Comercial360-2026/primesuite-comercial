@@ -195,7 +195,7 @@ export function CierreVisita() {
         <div className="screen__scroll">
           {visitaObjetivo?.objetivo?.trim() && (
             <div className="card" style={{ background: 'var(--surface-1)' }}>
-              <div className="label" style={{ marginTop: 0 }}>ibas a</div>
+              <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
               <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
             </div>
           )}
@@ -321,39 +321,39 @@ export function CierreVisita() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{fotos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>fotos</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Fotos</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{audios.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>audios</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audios</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{notas.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>notas</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Notas</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{oportunidades.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>oportunidades</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Oportunidades</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{hallazgos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>hallazgos</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Hallazgos</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{pasos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>próximos pasos</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Próximos pasos</div>
         </div>
       </div>
 
       {visitaObjetivo?.objetivo?.trim() && (
         <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>ibas a</div>
+          <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
           <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
         </div>
       )}
 
       <div className="screen__scroll">
-        <div className="label" style={{ marginTop: 0 }}>revisar por ubicación</div>
+        <div className="label" style={{ marginTop: 0 }}>Revisar por ubicación</div>
         {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
           const resumen = [
             n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,

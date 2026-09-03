@@ -90,7 +90,7 @@ export function PasoRapidoModal({
       : !!fechaVisita && !!objetivoVisita.trim();
 
   return (
-    <Modal titulo="qué queda pendiente" onCerrar={onCerrar}>
+    <Modal titulo="Qué queda pendiente" onCerrar={onCerrar}>
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
           <button
             type="button"
@@ -117,7 +117,7 @@ export function PasoRapidoModal({
         {modo === 'tarea' ? (
           <>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
-              algo de despacho: enviar propuesta, llamar a compras…
+              Algo de despacho: enviar propuesta, llamar a compras…
             </div>
             <textarea
               className="field"
@@ -128,7 +128,7 @@ export function PasoRapidoModal({
               placeholder="volver a llamar en dos semanas, enviar propuesta…"
               autoFocus
             />
-            <div className="label">fecha objetivo (opcional)</div>
+            <div className="label">Fecha objetivo (opcional)</div>
             <input
               className="field"
               type="date"
@@ -139,9 +139,9 @@ export function PasoRapidoModal({
         ) : (
           <>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
-              hay que volver otro día. Se planifica y sale en tu agenda.
+              Hay que volver otro día. Se planifica y sale en tu agenda.
             </div>
-            <div className="label" style={{ marginTop: 0 }}>fecha</div>
+            <div className="label" style={{ marginTop: 0 }}>Fecha</div>
             <input
               className="field"
               type="date"
@@ -149,7 +149,7 @@ export function PasoRapidoModal({
               value={fechaVisita}
               onChange={(e) => setFechaVisita(e.target.value)}
             />
-            <div className="label">objetivo</div>
+            <div className="label">Objetivo</div>
             <textarea
               className="field"
               style={{ height: 'auto', padding: 8 }}
@@ -158,7 +158,7 @@ export function PasoRapidoModal({
               value={objetivoVisita}
               onChange={(e) => setObjetivoVisita(e.target.value)}
             />
-            <div className="label">hora (opcional)</div>
+            <div className="label">Hora (opcional)</div>
             <input
               className="field"
               type="time"
@@ -167,7 +167,7 @@ export function PasoRapidoModal({
             />
             {!horaVisita && (
               <>
-                <div className="label">sin hora concreta, ¿cuándo?</div>
+                <div className="label">Sin hora concreta, ¿cuándo?</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {(
                     [

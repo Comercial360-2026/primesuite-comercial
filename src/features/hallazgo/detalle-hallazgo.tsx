@@ -148,7 +148,7 @@ export function DetalleHallazgo() {
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
 
-      <div className="label">naturaleza</div>
+      <div className="label">Naturaleza</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {NATURALEZA_ORDEN.map((n) => (
           <button
@@ -162,7 +162,7 @@ export function DetalleHallazgo() {
         ))}
       </div>
 
-      <div className="label">nota</div>
+      <div className="label">Nota</div>
       <textarea
         className="field"
         style={{ height: 'auto', padding: 8 }}
@@ -172,9 +172,9 @@ export function DetalleHallazgo() {
         placeholder="envejecido, cliente insatisfecho…"
       />
 
-      <div className="label">ubicación</div>
+      <div className="label">Ubicación</div>
       <select className="field" value={ubicacionId} onChange={(e) => setUbicacionId(e.target.value)}>
-        <option value="">sin ubicación</option>
+        <option value="">Sin ubicación</option>
         {ubicaciones?.map((u) => (
           <option key={u.id} value={u.id}>
             {u.nombre}
@@ -182,7 +182,7 @@ export function DetalleHallazgo() {
         ))}
       </select>
 
-      <div className="label">fecha relevante (opcional)</div>
+      <div className="label">Fecha relevante (opcional)</div>
       <div style={{ display: 'flex', gap: 8 }}>
         <input
           className="field"
@@ -195,7 +195,7 @@ export function DetalleHallazgo() {
           value={tipoFechaRelevante}
           onChange={(e) => setTipoFechaRelevante(e.target.value)}
         >
-          <option value="">tipo…</option>
+          <option value="">Tipo…</option>
           {TIPOS_FECHA.map((t) => (
             <option key={t} value={t}>
               {etiqueta(TIPO_FECHA_RELEVANTE_LABEL, t)}

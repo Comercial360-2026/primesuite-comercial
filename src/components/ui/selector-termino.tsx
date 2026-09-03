@@ -158,7 +158,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
                         </button>
                       ))
                     ) : (
-                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>sin términos</span>
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin términos</span>
                     )}
                   </div>
                 )}

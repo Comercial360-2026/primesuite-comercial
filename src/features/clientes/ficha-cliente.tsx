@@ -486,7 +486,7 @@ export function FichaCliente() {
 
         {cambiandoResp && (
           <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>responsable del cliente</div>
+            <div className="label" style={{ marginTop: 0 }}>Responsable del cliente</div>
             <select
               className="field"
               value={respNuevo}
@@ -658,7 +658,7 @@ export function FichaCliente() {
         {confirmandoBorrarCliente ? (
           <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
             {previsualizandoCliente.cargando || !previsualizacionCliente ? (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>calculando qué se va a borrar…</div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
             ) : (
               <div>
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
@@ -722,7 +722,7 @@ export function FichaCliente() {
               planificar otra igualmente.
             </div>
           )}
-          <div className="label" style={{ marginTop: 0 }}>fecha de la visita</div>
+          <div className="label" style={{ marginTop: 0 }}>Fecha de la visita</div>
           <input
             type="date"
             className="field"
@@ -730,7 +730,7 @@ export function FichaCliente() {
             value={fechaPlan}
             onChange={(e) => setFechaPlan(e.target.value)}
           />
-          <div className="label">objetivo</div>
+          <div className="label">Objetivo</div>
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8 }}
@@ -739,7 +739,7 @@ export function FichaCliente() {
             value={objetivoPlan}
             onChange={(e) => setObjetivoPlan(e.target.value)}
           />
-          <div className="label">hora (opcional)</div>
+          <div className="label">Hora (opcional)</div>
           <input
             type="time"
             className="field"
@@ -748,7 +748,7 @@ export function FichaCliente() {
           />
           {!horaPlan && (
             <>
-              <div className="label">sin hora concreta, ¿cuándo?</div>
+              <div className="label">Sin hora concreta, ¿cuándo?</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {([
                   ['manana', 'Mañana'],
@@ -769,13 +769,13 @@ export function FichaCliente() {
           )}
           {esDireccionComercial && (
             <>
-              <div className="label">para</div>
+              <div className="label">Para</div>
               <select
                 className="field"
                 value={comercialPlan}
                 onChange={(e) => setComercialPlan(e.target.value)}
               >
-                <option value="">yo ({comercial?.nombre ?? '—'})</option>
+                <option value="">Yo ({comercial?.nombre ?? '—'})</option>
                 {comercialesActivos
                   ?.filter((c) => c.id !== comercial?.id)
                   .map((c) => (

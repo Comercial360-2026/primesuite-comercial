@@ -204,7 +204,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   };
 
   return (
-    <Modal titulo="interlocutores" onCerrar={cerrar}>
+    <Modal titulo="Interlocutores" onCerrar={cerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           quién ha estado presente en esta visita
         </div>
