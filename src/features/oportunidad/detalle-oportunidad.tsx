@@ -6,6 +6,11 @@ import { eliminarOperacion } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+
+// El texto visible sale en frase; el valor que se guarda es la clave en
+// minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
+const capFrase = (s: string) => s.charAt(0).toLocaleUpperCase('es') + s.slice(1);
 
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
@@ -226,7 +231,7 @@ export function DetalleOportunidad() {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {ETAPAS.map((e) => (
           <button key={e} type="button" className={`chip${etapa === e ? ' chip--on' : ''}`} onClick={() => setEtapa(e)}>
-            {e.replace('_', ' ')}
+            {etiqueta(ETAPA_LABEL, e)}
           </button>
         ))}
       </div>
@@ -236,7 +241,7 @@ export function DetalleOportunidad() {
       <div style={{ display: 'flex', gap: 6 }}>
         {PRIORIDADES.map((p) => (
           <button key={p} type="button" className={`chip${prioridad === p ? ' chip--on' : ''}`} onClick={() => setPrioridad(p)}>
-            {p}
+            {etiqueta(PRIORIDAD_LABEL, p)}
           </button>
         ))}
       </div>
@@ -247,7 +252,7 @@ export function DetalleOportunidad() {
         <option value="">Sin especificar</option>
         {HORIZONTES.map((h) => (
           <option key={h} value={h}>
-            {h}
+            {capFrase(h)}
           </option>
         ))}
       </select>
@@ -337,7 +342,7 @@ export function DetalleOportunidad() {
                 className={`chip${motivoCierre === m ? ' chip--on' : ''}`}
                 onClick={() => setMotivoCierre(m)}
               >
-                {m}
+                {capFrase(m)}
               </button>
             ))}
           </div>

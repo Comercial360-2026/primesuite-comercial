@@ -3,6 +3,7 @@ import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Modal } from '@/components/ui/modal';
+import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface HallazgoRapidoModalProps {
   visitaId: string;
@@ -100,7 +101,7 @@ export function HallazgoRapidoModal({
               className={`chip${naturaleza === n ? ' chip--on' : ''}`}
               onClick={() => setNaturaleza(n)}
             >
-              {n.replace('_', ' ')}
+              {etiqueta(NATURALEZA_LABEL, n)}
             </button>
           ))}
         </div>

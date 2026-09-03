@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { OportunidadPayload } from '@/lib/offline-queue/types';
 import { Modal } from '@/components/ui/modal';
+import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface OportunidadRapidaModalProps {
   visitaId: string;
@@ -86,7 +87,7 @@ export function OportunidadRapidaModal({
               className={`chip${prioridad === p ? ' chip--on' : ''}`}
               onClick={() => setPrioridad(p)}
             >
-              {p}
+              {etiqueta(PRIORIDAD_LABEL, p)}
             </button>
           ))}
         </div>
