@@ -70,6 +70,11 @@ const registro = {
   // (p. ej. secciones plegables) la hace quien la usa, no este dibujo.
   chevron: <path d="M9 6l6 6-6 6" />,
 
+  // Chevrons arriba / abajo — reordenar una fila (subirla o bajarla en la
+  // lista). Forma distinta y posición distinta: no dependen del color.
+  subir: <path d="M6 15l6-6 6 6" />,
+  bajar: <path d="M6 9l6 6 6-6" />,
+
   // Flecha "‹" de volver, para CabeceraDetalle. Flecha completa (con asta),
   // no un chevron: significa "volver atrás", no "aquí hay más".
   atras: (

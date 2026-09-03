@@ -86,6 +86,14 @@ export function ColaVocabulario() {
   const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
   const [resultadoLote, setResultadoLote] = useState<string | null>(null);
 
+  // --- modo ordenar (catálogo): reordenar las CATEGORÍAS a mano ---
+  // `ordenLocal` es la lista de trabajo: las flechas la reordenan al
+  // instante y cada movimiento persiste `orden` de todas las categorías de
+  // una vez (upsert). Al salir el orden ya está guardado.
+  const [ordenandoCat, setOrdenandoCat] = useState(false);
+  const [ordenLocal, setOrdenLocal] = useState<{ id: string; nombre: string }[] | null>(null);
+  const [guardandoOrden, setGuardandoOrden] = useState(false);
+
   const { data: propuestos, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['terminos-propuestos'],
     // Este término puede proponerse desde otras pantallas (Hallazgo rápido,
@@ -142,7 +150,8 @@ export function ColaVocabulario() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('categoria_vocabulario')
-        .select('id, nombre')
+        .select('id, nombre, orden')
+        .order('orden')
         .order('nombre');
       if (err) throw err;
       return data ?? [];
@@ -156,6 +165,7 @@ export function ColaVocabulario() {
       const { data: cats, error: errCat } = await supabase
         .from('categoria_vocabulario')
         .select('id, nombre')
+        .order('orden')
         .order('nombre');
       if (errCat) throw errCat;
 
@@ -218,9 +228,12 @@ export function ColaVocabulario() {
   async function crearCategoria() {
     if (!nuevaCategoriaTexto.trim()) return;
     setErrorCatalogo(null);
+    // La nueva va al final: `orden` = el mayor que haya + 1 (así no compite
+    // por el desempate alfabético con las que ya están ordenadas a mano).
+    const ordenNueva = Math.max(0, ...(categorias ?? []).map((c) => c.orden ?? 0)) + 1;
     const { error: err } = await supabase
       .from('categoria_vocabulario')
-      .insert({ nombre: nuevaCategoriaTexto.trim() });
+      .insert({ nombre: nuevaCategoriaTexto.trim(), orden: ordenNueva });
     if (err) {
       setErrorCatalogo(err.message);
       return;
@@ -319,6 +332,52 @@ export function ColaVocabulario() {
       return;
     }
     cerrarPanelBorrarCat();
+    invalidarCatalogo();
+  }
+
+  // ---- modo ordenar categorías ----
+
+  function entrarOrden() {
+    setOrdenandoCat(true);
+    setOrdenLocal((categorias ?? []).map((c) => ({ id: c.id, nombre: c.nombre })));
+    setErrorCatalogo(null);
+    setSeleccionandoCat(false);
+    setRenombrandoCategoriaId(null);
+    setCreandoCategoria(false);
+    cerrarPanelBorrarCat();
+  }
+
+  function salirOrden() {
+    setOrdenandoCat(false);
+    setOrdenLocal(null);
+    invalidarCatalogo();
+  }
+
+  // Sube (dir=-1) o baja (dir=+1) la categoría de la posición `idx`. Mueve
+  // la lista local al instante y guarda el `orden` de TODAS de una vez
+  // (upsert): así el orden en BD siempre es 0..n-1 sin huecos ni empates.
+  async function moverCat(idx: number, dir: -1 | 1) {
+    if (!ordenLocal) return;
+    const j = idx + dir;
+    if (j < 0 || j >= ordenLocal.length) return;
+    const next = [...ordenLocal];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setOrdenLocal(next);
+    setGuardandoOrden(true);
+    setErrorCatalogo(null);
+    const { error: err } = await supabase
+      .from('categoria_vocabulario')
+      .upsert(
+        next.map((c, i) => ({ id: c.id, nombre: c.nombre, orden: i })),
+        { onConflict: 'id' }
+      );
+    setGuardandoOrden(false);
+    if (err) {
+      setErrorCatalogo(
+        `No se ha podido guardar el orden: ${err.message}. Solo Dirección Comercial puede editar el vocabulario.`
+      );
+      return;
+    }
     invalidarCatalogo();
   }
 
@@ -580,7 +639,18 @@ export function ColaVocabulario() {
           {errorCatalogo && <div className="field-error-text">{errorCatalogo}</div>}
           {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
 
-          {seleccionandoCat ? (
+          {ordenandoCat ? (
+            <div className="barra-seleccion">
+              <span className="barra-seleccion__cuenta">
+                {guardandoOrden ? 'Guardando…' : 'Ordena las categorías con las flechas'}
+              </span>
+              <div className="barra-seleccion__acciones">
+                <button type="button" className="barra-seleccion__cancelar" onClick={salirOrden}>
+                  Hecho
+                </button>
+              </div>
+            </div>
+          ) : seleccionandoCat ? (
             <BarraSeleccion
               n={marcadosTerm.size}
               onCancelar={salirSeleccionCat}
@@ -613,8 +683,18 @@ export function ColaVocabulario() {
               >
                 + Nueva categoría
               </button>
+              {(categorias?.length ?? 0) >= 2 && (
+                <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarOrden}>
+                  Ordenar
+                </button>
+              )}
               {!!catalogoAgrupado?.some((c) => c.terminos.length > 0) && (
-                <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccionCat}>
+                <button
+                  type="button"
+                  className="chip"
+                  style={{ marginLeft: (categorias?.length ?? 0) >= 2 ? undefined : 'auto' }}
+                  onClick={entrarSeleccionCat}
+                >
                   Seleccionar
                 </button>
               )}
@@ -670,8 +750,18 @@ export function ColaVocabulario() {
 
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
+          {(() => {
+            // En modo ordenar manda `ordenLocal` (movimiento al instante);
+            // fuera de él, el orden que trae la consulta.
+            const catsMostradas =
+              ordenandoCat && ordenLocal
+                ? ordenLocal
+                    .map((o) => catalogoAgrupado?.find((c) => c.categoria_id === o.id))
+                    .filter((c): c is CategoriaConTerminos => Boolean(c))
+                : catalogoAgrupado;
+            return (
           <div className="lista-agrupada">
-            {catalogoAgrupado?.map((cat) => (
+            {catsMostradas?.map((cat, idxCat) => (
               <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <SeccionLista>
                   {/* Cabecera de la categoría: fila normal (más alta) con
@@ -699,7 +789,22 @@ export function ColaVocabulario() {
                       titulo={cat.categoria_nombre}
                       subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
                       acciones={
-                        seleccionandoCat
+                        ordenandoCat
+                          ? ([
+                              {
+                                icono: 'subir',
+                                etiqueta: 'Subir',
+                                onClick: () => void moverCat(idxCat, -1),
+                                disabled: idxCat === 0 || guardandoOrden,
+                              },
+                              {
+                                icono: 'bajar',
+                                etiqueta: 'Bajar',
+                                onClick: () => void moverCat(idxCat, 1),
+                                disabled: idxCat === (catsMostradas?.length ?? 0) - 1 || guardandoOrden,
+                              },
+                            ] as AccionFila[])
+                          : seleccionandoCat
                           ? undefined
                           : ([
                               {
@@ -815,7 +920,7 @@ export function ColaVocabulario() {
                             : undefined
                         }
                         acciones={
-                          seleccionandoCat
+                          seleccionandoCat || ordenandoCat
                             ? undefined
                             : [
                                 {
@@ -837,7 +942,7 @@ export function ColaVocabulario() {
                   )}
                 </SeccionLista>
 
-                {!seleccionandoCat && (
+                {!seleccionandoCat && !ordenandoCat && (
                   <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
                     <input
                       className="field"
@@ -861,6 +966,8 @@ export function ColaVocabulario() {
               </div>
             ))}
           </div>
+            );
+          })()}
         </>
       )}
     </div>
