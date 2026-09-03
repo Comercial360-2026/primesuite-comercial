@@ -3,6 +3,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
+import { BannerInstalar } from '@/components/ui/banner-instalar';
 import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
 
 // Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
@@ -37,6 +38,8 @@ export function LayoutShell() {
       ) : (
         <AvisoVisitaProxima />
       )}
+
+      <BannerInstalar />
 
       <nav className="bottom-nav">
         <NavLink to="/" end>

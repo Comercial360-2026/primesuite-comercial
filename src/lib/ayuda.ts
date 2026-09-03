@@ -307,6 +307,13 @@ const _CONCEPTOS = {
     ejemplo:
       'Ves lectores MIFARE pero no sabes la versión → etiquetas «MIFARE». Lo confirmas como DESFire EV2 → etiquetas ese modelo.',
   },
+  'instalar-app': {
+    titulo: 'Tener PrimeNotes como una app en el móvil',
+    queEs:
+      'Puedes añadir PrimeNotes a la pantalla de inicio del móvil y usarla como una aplicación normal: se abre de un toque, a pantalla completa y va más fluida. Ocupa muy poco y se actualiza sola. La primera vez que entras te sale un aviso para hacerlo; si lo cierras, aquí tienes los pasos.',
+    ejemplo:
+      'iPhone (Safari): pulsa Compartir y luego «Añadir a pantalla de inicio». Android (Chrome): sale un aviso «Instalar»; si no, entra en el menú de tres puntos y elige «Instalar aplicación» o «Añadir a pantalla de inicio».',
+  },
 } satisfies Record<string, EntradaConcepto>;
 
 export type PantallaAyudaId = keyof typeof _PANTALLAS;

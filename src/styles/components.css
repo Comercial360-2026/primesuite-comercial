@@ -253,6 +253,26 @@ body {
   text-decoration: none;
 }
 
+/* Banner "añade PrimeNotes a la pantalla de inicio" — cáscara, sobre la
+   barra de abajo. Una sola vez, se descarta y no vuelve. Ver
+   src/components/ui/banner-instalar.tsx. */
+.banner-instalar {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3) var(--fila-pad-x);
+  background: var(--brand-050); color: var(--ink-900); font-size: var(--text-sm);
+}
+.banner-instalar__texto { margin: 0; line-height: 1.4; }
+.banner-instalar__texto b { font-weight: 700; }
+.banner-instalar__acciones {
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3);
+}
+.banner-instalar__btn { width: auto; padding: 0 16px; height: 34px; }
+.banner-instalar__cerrar {
+  border: none; background: none; color: var(--ink-500);
+  font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer; padding: 6px 4px;
+}
+
 /* Modal — diálogo centrado sobre la columna de la app. Fondo gris opaco
    (regla "sin transparencias"), tarjeta centrada con caja para que se lea
    como diálogo. Ver src/components/ui/modal.tsx y 08_sistema_diseno.md
