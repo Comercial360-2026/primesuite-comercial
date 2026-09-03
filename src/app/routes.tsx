@@ -23,7 +23,6 @@ import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
-import { GestionUbicacionesCliente } from '@/features/clientes/gestion-ubicaciones-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
 import { Deduplicacion } from '@/features/clientes/deduplicacion';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
@@ -75,7 +74,6 @@ export function AppRoutes() {
           <Route path="/" element={<AgendaDelDia />} />
           <Route path="/agenda" element={<Agenda />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
-          <Route path="/clientes/:clienteId/ubicaciones" element={<GestionUbicacionesCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}

@@ -117,14 +117,6 @@ const _PANTALLAS = {
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },
-  'gestion-ubicaciones-cliente': {
-    titulo: 'Ubicaciones del cliente',
-    queEs:
-      'Las zonas de las instalaciones del cliente (entrada, almacén, oficinas…) que usa el modo recorrido para ordenar lo que capturas.',
-    cuando:
-      'Para dejarlas preparadas antes de una visita con recorrido, o para renombrarlas o borrarlas después. También se pueden crear sobre la marcha durante el recorrido.',
-    ojo: 'Borrar una ubicación con fotos, audios o hallazgos asociados los deja sin zona; te avisa de cuántos antes de confirmar.',
-  },
   'mi-espacio': {
     titulo: 'Mi espacio',
     queEs:
@@ -274,8 +266,8 @@ const _CONCEPTOS = {
   'modo-recorrido': {
     titulo: 'Modo recorrido',
     queEs:
-      'Una forma de hacer la visita andando por zonas del cliente (entrada, almacén, oficinas…). Todo lo que capturas queda atado a la zona en la que estás, y al cerrar lo repasas zona por zona.',
-    cuando: 'Útil en clientes grandes o cuando visitas varias áreas y quieres el informe ordenado por sitio.',
+      'Una forma de hacer la visita andando por las instalaciones del cliente. Escribes una etiqueta libre para lo que vas a mirar (una puerta, una barrera, un rincón) y todo lo que captures a continuación queda atado a esa etiqueta; al cerrar lo repasas zona por zona. La etiqueta es de usar y tirar: no se guarda en ninguna lista, pero las que ya has usado en esta misma visita te aparecen como sugerencia.',
+    cuando: 'Útil en clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio.',
   },
   sincronizacion: {
     titulo: 'Trabajar sin conexión',

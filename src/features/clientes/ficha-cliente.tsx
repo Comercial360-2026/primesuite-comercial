@@ -645,10 +645,6 @@ export function FichaCliente() {
           </>
         )}
 
-        <SeccionLista titulo="Más" prominencia="tenue">
-          <FilaNavegable titulo="Ubicaciones" to={`/clientes/${clienteId}/ubicaciones`} />
-        </SeccionLista>
-
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}

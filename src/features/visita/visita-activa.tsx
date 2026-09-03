@@ -12,14 +12,12 @@ import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { useUbicacionesCliente } from '@/hooks/use-ubicaciones-cliente';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
 import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
 import { PasoRapidoModal } from './paso-rapido-modal';
 import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
-import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
@@ -29,7 +27,12 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
-import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
+import type {
+  OperacionPendiente,
+  HallazgoPayload,
+  OportunidadPayload,
+  ProximoPasoPayload,
+} from '@/lib/offline-queue/types';
 
 // Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
 // Firefox en webm. Antes se forzaba 'audio/webm' a pelo, así que en
@@ -47,7 +50,7 @@ interface CapturasPorUbicacionProps {
   oportunidades: OperacionPendiente[];
   nombresUbicaciones: Record<string, string>;
   nombresTerminos?: Record<string, string>;
-  ubicacionActivaId?: string;
+  zonaActiva?: string;
   onTocarCaptura: (id: string) => void;
   // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
   // (que sirve para audio/nota/hallazgo). Si no se pasa, la foto también
@@ -71,13 +74,17 @@ function CapturasPorUbicacion({
   oportunidades,
   nombresUbicaciones,
   nombresTerminos,
-  ubicacionActivaId,
+  zonaActiva,
   onTocarCaptura,
   onAbrirFoto,
   contexto,
 }: CapturasPorUbicacionProps) {
-  const claveDe = (op: OperacionPendiente) =>
-    (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin-ubicacion';
+  // Clave de agrupación por zona. Las capturas nuevas del Recorrido llevan
+  // `zonaTexto` (etiqueta libre); las de visitas antiguas, `ubicacionId`.
+  const claveDe = (op: OperacionPendiente) => {
+    const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
+    return p.zonaTexto ?? p.ubicacionId ?? 'sin-ubicacion';
+  };
   const tipoDe = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
   const incluirOportunidades = contexto === 'recorrido';
 
@@ -202,7 +209,7 @@ function CapturasPorUbicacion({
     </>
   );
 
-  const claveActiva = ubicacionActivaId ?? null;
+  const claveActiva = zonaActiva ?? null;
   const zonasClaves = [...claves].filter((k) => k !== 'sin-ubicacion');
   // Recorrido: zona activa primero, resto por nombre. Normal: por lo más
   // reciente capturado en cada zona.
@@ -295,7 +302,7 @@ function CapturasPorUbicacion({
     );
   };
 
-  const bloqueZonas = zonas.map((clave) => seccion(clave, { nombre: nombresUbicaciones[clave] ?? '…' }));
+  const bloqueZonas = zonas.map((clave) => seccion(clave, { nombre: nombresUbicaciones[clave] ?? clave }));
   const bloqueGeneral =
     general && general.total > 0 ? seccion('sin-ubicacion', { nombre: 'General de la visita', general: true }) : null;
 
@@ -318,16 +325,21 @@ export function VisitaActiva() {
   const { operaciones, encolar } = useSyncQueue(visitaId);
 
   const [modoRecorrido, setModoRecorrido] = useState(false);
-  const [ubicacionActual, setUbicacionActual] = useState<{ id: string; nombre: string } | undefined>(undefined);
-  const [selectorUbicacionAbierto, setSelectorUbicacionAbierto] = useState(false);
+  // Zona del Recorrido: una ETIQUETA DE TEXTO LIBRE que el comercial
+  // escribe sobre la marcha (la puerta / barrera / rincón que va a
+  // revisar). No es una entidad de catálogo — no se guarda en ninguna
+  // lista reutilizable, solo se copia en cada captura de la visita.
+  const [zonaActual, setZonaActual] = useState<string | null>(null);
+  const [zonaBorrador, setZonaBorrador] = useState('');
+  const [zonaSelectorAbierto, setZonaSelectorAbierto] = useState(false);
   // En Recorrido no se captura nada hasta elegir una zona; "sin zona" es la
   // salida explícita para una captura suelta que no pertenece a ningún
   // punto concreto.
   const [sinZona, setSinZona] = useState(false);
-  // Ubicación que se aplica a TODO lo que se captura ahora mismo (foto,
-  // audio, nota, hallazgo, oportunidad): solo en Recorrido y solo si hay
-  // zona elegida. "sin zona" o fuera del recorrido => undefined, como hoy.
-  const ubicacionParaCaptura = modoRecorrido ? ubicacionActual?.id : undefined;
+  // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
+  // audio, nota, hallazgo, oportunidad, próximo paso): solo en Recorrido y
+  // solo si hay zona elegida. "sin zona" o fuera del recorrido => undefined.
+  const zonaParaCaptura = modoRecorrido ? zonaActual ?? undefined : undefined;
   const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
@@ -534,7 +546,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'foto',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: ubicacionParaCaptura,
+              zonaTexto: zonaParaCaptura,
               latitud: coordsFotoRef.current?.lat,
               longitud: coordsFotoRef.current?.lng,
             },
@@ -560,7 +572,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'audio',
               titulo: tituloPendiente.trim() || undefined,
-              ubicacionId: ubicacionParaCaptura,
+              zonaTexto: zonaParaCaptura,
             },
             { dependeDe: visitaId, archivoLocal: audioPendiente }
           ),
@@ -693,7 +705,7 @@ export function VisitaActiva() {
             tipo: 'nota',
             titulo: notaTitulo.trim() || undefined,
             contenidoTexto: notaTexto.trim(),
-            ubicacionId: ubicacionParaCaptura,
+            zonaTexto: zonaParaCaptura,
           },
           { dependeDe: visitaId }
         ),
@@ -738,16 +750,69 @@ export function VisitaActiva() {
 
   async function guardarHallazgo(payload: HallazgoPayload) {
     const hallazgoId = uuid();
-    await encolar(hallazgoId, 'hallazgo', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
+    await encolar(hallazgoId, 'hallazgo', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
     setTimeout(() => setHallazgoAbierto(false), 700);
   }
 
   async function guardarOportunidad(payload: OportunidadPayload) {
     const oportunidadId = uuid();
-    await encolar(oportunidadId, 'oportunidad', { ...payload, ubicacionId: ubicacionParaCaptura }, { dependeDe: visitaId });
+    await encolar(oportunidadId, 'oportunidad', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
     // Retraso para que "guardado ✓" del modal sea visible antes de que
     // desaparezca — sin esto, la confirmación pasa demasiado rápido.
     setTimeout(() => setOportunidadAbierta(false), 700);
+  }
+
+  async function guardarPaso(payload: ProximoPasoPayload) {
+    const pasoId = uuid();
+    // En Recorrido, `zonaParaCaptura` estampa la zona; fuera del Recorrido
+    // es undefined y `aPayloadSnakeCase` lo descarta.
+    await encolar(pasoId, 'proximo_paso', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
+    setTimeout(() => setPasoAbierto(false), 700);
+  }
+
+  async function planificarVisitaDesdePaso({
+    fecha,
+    hora,
+    franja,
+    objetivo,
+  }: {
+    fecha: string;
+    hora: string;
+    franja: '' | 'manana' | 'tarde';
+    objetivo: string;
+  }) {
+    if (!visitaLocal?.clienteId || !comercial) return;
+    // Llamada directa, NO por la cola offline: igual que planificar desde la
+    // ficha, para que aparezca en la agenda al momento.
+    const nuevaId = uuid();
+    const { error } = await crearVisitaConResponsable({
+      pVisitaId: nuevaId,
+      pClienteId: visitaLocal.clienteId,
+      pComercialId: comercial.id,
+      pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
+      pEstadoCaptura: 'agendada',
+    });
+    if (error) throw new Error(error);
+    const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
+    if (objetivo.trim()) parche.objetivo = objetivo.trim();
+    if (!hora) {
+      parche.hora_definida = false;
+      parche.franja = franja || null;
+    }
+    if (Object.keys(parche).length) {
+      const { error: errParche } = await supabase.from('visita').update(parche).eq('id', nuevaId);
+      if (errParche) throw new Error(errParche.message);
+    }
+    for (const k of [
+      ['visitas-hoy'],
+      ['visitas-proximas'],
+      ['visitas-atrasadas'],
+      ['agenda-planificadas'],
+      ['historial-visitas', visitaLocal.clienteId],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: k });
+    }
+    setTimeout(() => setPasoAbierto(false), 700);
   }
 
   const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
@@ -820,13 +885,21 @@ export function VisitaActiva() {
     },
   });
 
-  // Para las cabeceras "Nave 1 (3)" del agrupado de miniaturas en Modo
-  // Recorrido — sin esto, cada grupo solo tendría el id en bruto.
-  const { ubicaciones: ubicacionesCliente } = useUbicacionesCliente(
-    visitaLocal?.clienteId,
-    comercial?.id ?? ''
-  );
-  const nombresUbicacionesVisita = Object.fromEntries(ubicacionesCliente.map((u) => [u.id, u.nombre]));
+  // Solo para RESOLVER el nombre de capturas antiguas que todavía llevan
+  // `ubicacion_id` (visitas de antes de que la zona pasara a texto libre).
+  // Las capturas nuevas agrupan por `zonaTexto`, que ya ES el nombre.
+  const { data: nombresUbicacionesVisita = {} } = useQuery({
+    queryKey: ['ubicacion-nombres', visitaLocal?.clienteId],
+    enabled: !!visitaLocal?.clienteId,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from('ubicacion')
+        .select('id, nombre')
+        .eq('cliente_id', visitaLocal!.clienteId);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((u) => [u.id, u.nombre]));
+    },
+  });
 
   // Todas las fotos de la visita en este dispositivo, ordenadas de la más
   // reciente a la más antigua — es lo que recorre el visor a pantalla
@@ -842,12 +915,19 @@ export function VisitaActiva() {
       )
       .sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? ''))
       .map((f) => {
-        const p = f.payload as { titulo?: string; ubicacionId?: string; latitud?: number; longitud?: number };
+        const p = f.payload as {
+          titulo?: string;
+          zonaTexto?: string;
+          ubicacionId?: string;
+          latitud?: number;
+          longitud?: number;
+        };
         const blob = f.archivoLocal as Blob | undefined;
         return {
           id: f.id,
           url: blob ? URL.createObjectURL(blob) : null,
           titulo: p.titulo ?? null,
+          zonaTexto: p.zonaTexto ?? null,
           ubicacionId: p.ubicacionId ?? null,
           latitud: p.latitud ?? null,
           longitud: p.longitud ?? null,
@@ -878,7 +958,8 @@ export function VisitaActiva() {
           id: f.id,
           url: f.url,
           titulo: f.titulo,
-          ubicacion_nombre: f.ubicacionId ? nombresUbicacionesVisita[f.ubicacionId] ?? null : null,
+          ubicacion_nombre:
+            f.zonaTexto ?? (f.ubicacionId ? nombresUbicacionesVisita[f.ubicacionId] ?? null : null),
           latitud: f.latitud,
           longitud: f.longitud,
         }))}
@@ -899,92 +980,142 @@ export function VisitaActiva() {
   if (!visitaId || !comercial) return null;
 
   if (modoRecorrido) {
-    const zonaElegida = !!ubicacionActual || sinZona;
+    const zonaElegida = !!zonaActual || sinZona;
     const salirRecorrido = () => {
       setModoRecorrido(false);
-      setSelectorUbicacionAbierto(false);
+      setZonaSelectorAbierto(false);
       setSinZona(false);
-      setUbicacionActual(undefined);
+      setZonaActual(null);
+      setZonaBorrador('');
       setNotaAbierta(false);
     };
+    // Zonas ya usadas en ESTA visita (cola local + lo sincronizado): para
+    // volver a una sin reescribirla, hoy o cualquier otro día.
+    const zonasUsadas = [
+      ...new Set(
+        operaciones
+          .map((op) => (op.payload as { zonaTexto?: string }).zonaTexto)
+          .filter((z): z is string => !!z && z.trim().length > 0)
+      ),
+    ].sort((a, b) => a.localeCompare(b, 'es'));
+    const usarZona = (z: string) => {
+      const v = z.trim();
+      if (!v) return;
+      setZonaActual(v);
+      setSinZona(false);
+      setZonaSelectorAbierto(false);
+      setZonaBorrador('');
+    };
+    const nEnZonaActual = zonaActual
+      ? [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
+          (op) => (op.payload as { zonaTexto?: string }).zonaTexto === zonaActual
+        ).length
+      : 0;
+
     return (
-      <div className="screen">
-        {/* Cabecera: zona actual + salir */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            {ubicacionActual ? (
+      <div className="screen recorrido">
+        {/* Cabecera del modo — marcada, para que se lea de un vistazo que
+            estás capturando "dentro de una zona". */}
+        <div className="recorrido-cab">
+          <div style={{ minWidth: 0 }}>
+            <div className="recorrido-cab__modo">Recorrido</div>
+            {zonaActual ? (
               <>
                 <button
                   type="button"
-                  className="chip chip--on"
-                  onClick={() => setSelectorUbicacionAbierto((v) => !v)}
+                  className="recorrido-cab__zona"
+                  onClick={() => setZonaSelectorAbierto((v) => !v)}
                 >
-                  {ubicacionActual.nombre} ▾
+                  {zonaActual} <span aria-hidden>▾</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUbicacionActual(undefined);
-                    setSinZona(false);
-                    setSelectorUbicacionAbierto(false);
-                    setNotaAbierta(false);
-                  }}
-                  style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer' }}
-                >
-                  quitar
-                </button>
+                <div className="recorrido-cab__cuenta">
+                  {nEnZonaActual} {nEnZonaActual === 1 ? 'captura' : 'capturas'} en esta zona
+                </div>
               </>
             ) : sinZona ? (
-              <button
-                type="button"
-                onClick={() => setSinZona(false)}
-                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
-              >
+              <button type="button" className="btn-enlace" onClick={() => setSinZona(false)}>
                 Sin zona · elegir una →
               </button>
-            ) : (
-              <div style={{ fontSize: 'var(--text-md)', fontWeight: 500 }}>Recorrido</div>
-            )}
+            ) : null}
           </div>
-          <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px', flexShrink: 0 }} onClick={salirRecorrido}>
+          <button
+            className="btn btn-secondary"
+            style={{ width: 'auto', padding: '0 16px', flexShrink: 0 }}
+            onClick={salirRecorrido}
+          >
             Salir
           </button>
         </div>
 
-        {/* Nudge + selector de zona: obligatorio mientras no hay zona */}
-        {(!zonaElegida || selectorUbicacionAbierto) && visitaLocal?.clienteId && (
-          <>
+        {/* Elegir / cambiar zona: texto libre, obligatorio mientras no hay zona */}
+        {(!zonaElegida || zonaSelectorAbierto) && (
+          <div className="card">
             {!zonaElegida && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginTop: 4 }}>
-                ¿Qué vas a revisar? Elige o crea la puerta, barrera o zona — todo lo que captures se
-                guardará ahí.
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginBottom: 8 }}>
+                ¿Qué vas a revisar? Escribe la puerta, barrera o rincón — todo lo que
+                captures se guarda con esa etiqueta.
               </div>
             )}
-            <SelectorUbicacion
-              clienteId={visitaLocal.clienteId}
-              comercialId={comercial.id}
-              titulo={zonaElegida ? 'cambiar de zona' : 'zona a revisar'}
-              onSeleccionar={(u) => {
-                setUbicacionActual(u);
-                setSinZona(false);
-                setSelectorUbicacionAbierto(false);
+            <input
+              className="field"
+              autoFocus
+              value={zonaBorrador}
+              onChange={(e) => setZonaBorrador(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') usarZona(zonaBorrador);
               }}
-              onCerrar={zonaElegida ? () => setSelectorUbicacionAbierto(false) : undefined}
+              placeholder="p. ej. Puerta muelle de carga"
             />
-            {!zonaElegida && (
-              <button
-                type="button"
-                onClick={() => setSinZona(true)}
-                style={{ border: 'none', background: 'none', color: 'var(--ink-400)', fontSize: 'var(--text-xs)', cursor: 'pointer', alignSelf: 'flex-start' }}
-              >
-                capturar sin asignar a una zona
-              </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ marginTop: 8 }}
+              disabled={!zonaBorrador.trim()}
+              onClick={() => usarZona(zonaBorrador)}
+            >
+              Usar esta zona
+            </button>
+
+            {zonasUsadas.length > 0 && (
+              <>
+                <div className="label" style={{ marginTop: 10 }}>
+                  Zonas de esta visita
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {zonasUsadas.map((z) => (
+                    <button
+                      key={z}
+                      type="button"
+                      className={`chip${zonaActual === z ? ' chip--on' : ''}`}
+                      onClick={() => usarZona(z)}
+                    >
+                      {z}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
-          </>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
+              {zonaElegida ? (
+                <button
+                  type="button"
+                  className="btn-enlace"
+                  onClick={() => setZonaSelectorAbierto(false)}
+                >
+                  cerrar
+                </button>
+              ) : (
+                <button type="button" className="btn-enlace" onClick={() => setSinZona(true)}>
+                  capturar sin asignar a una zona
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Captura: solo con zona elegida y el selector cerrado */}
-        {zonaElegida && !selectorUbicacionAbierto && (
+        {zonaElegida && !zonaSelectorAbierto && (
           <>
             <input
               ref={inputFotoRef}
@@ -1081,52 +1212,46 @@ export function VisitaActiva() {
               </div>
             ) : (
               <>
-                <div
-                  style={{ minHeight: 180, border: '1px dashed var(--ink-200)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
-                  onClick={() => {
-                    if (espacioBloqueado) {
-                      capturaFoto.establecerError(MSG_ESPACIO_LLENO);
-                      return;
-                    }
-                    inputFotoRef.current?.click();
-                  }}
-                >
-                  <Icono nombre="foto" size={40} />
-                  Toca para disparar
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {/* Mismos seis botones que "Añadir a la visita", solo que aquí
+                    todo lo que captures se estampa con la zona actual. */}
+                <div className="capture-grid">
                   <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
+                    className="capture-btn"
+                    disabled={capturaFoto.cargando || espacioBloqueado}
+                    onClick={() => {
+                      if (espacioBloqueado) {
+                        capturaFoto.establecerError(MSG_ESPACIO_LLENO);
+                        return;
+                      }
+                      inputFotoRef.current?.click();
+                    }}
+                  >
+                    <Icono nombre="foto" size={22} />
+                    Foto
+                  </button>
+                  <button
+                    className="capture-btn"
                     disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
                     onClick={iniciarODetenerAudio}
                   >
-                    <Icono nombre="audio" size={18} />
+                    <Icono nombre="audio" size={22} />
                     {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
                   </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
-                    onClick={() => setNotaAbierta(true)}
-                  >
-                    <Icono nombre="nota" size={18} />
+                  <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
+                    <Icono nombre="nota" size={22} />
                     Nota
                   </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
-                    onClick={() => setHallazgoAbierto(true)}
-                  >
-                    <Icono nombre="hallazgo" size={18} />
+                  <button className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
+                    <Icono nombre="hallazgo" size={22} />
                     Hallazgo
                   </button>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: 'var(--text-sm)', width: 'auto' }}
-                    onClick={() => setOportunidadAbierta(true)}
-                  >
-                    <Icono nombre="oportunidad" size={18} />
+                  <button className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
+                    <Icono nombre="oportunidad" size={22} />
                     Oportunidad
+                  </button>
+                  <button className="capture-btn" onClick={() => setPasoAbierto(true)}>
+                    <Icono nombre="paso" size={22} />
+                    Próximo paso
                   </button>
                 </div>
                 {(capturaFoto.error || capturaAudio.error) && (
@@ -1143,7 +1268,7 @@ export function VisitaActiva() {
         )}
 
         {(() => {
-          const n = capturas.length + hallazgos.length + oportunidades.length;
+          const n = capturas.length + hallazgos.length + oportunidades.length + pasos.length;
           return (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
               {n} {n === 1 ? 'elemento' : 'elementos'} en esta visita
@@ -1158,7 +1283,7 @@ export function VisitaActiva() {
           oportunidades={oportunidades}
           nombresUbicaciones={nombresUbicacionesVisita}
           nombresTerminos={nombresTerminos}
-          ubicacionActivaId={ubicacionActual?.id}
+          zonaActiva={zonaActual ?? undefined}
           onTocarCaptura={setCapturaEditandoId}
           onAbrirFoto={setFotoVisorId}
         />
@@ -1183,6 +1308,15 @@ export function VisitaActiva() {
             comercialId={comercial.id}
             onGuardar={guardarOportunidad}
             onCerrar={() => setOportunidadAbierta(false)}
+          />
+        )}
+        {pasoAbierto && visitaLocal?.clienteId && (
+          <PasoRapidoModal
+            visitaId={visitaId}
+            comercialId={comercial.id}
+            onGuardar={guardarPaso}
+            onPlanificarVisita={planificarVisitaDesdePaso}
+            onCerrar={() => setPasoAbierto(false)}
           />
         )}
       </div>
@@ -1471,8 +1605,8 @@ export function VisitaActiva() {
         {oportunidades.length > 0 && (
           <SeccionLista titulo={`Oportunidades (${oportunidades.length})`}>
             {oportunidades.map((o) => {
-              const p = o.payload as { titulo: string; prioridad?: string; ubicacionId?: string };
-              const zona = p.ubicacionId ? nombresUbicacionesVisita[p.ubicacionId] : null;
+              const p = o.payload as { titulo: string; prioridad?: string; zonaTexto?: string; ubicacionId?: string };
+              const zona = p.zonaTexto ?? (p.ubicacionId ? nombresUbicacionesVisita[p.ubicacionId] : null);
               const sub = [p.prioridad, zona ? `en: ${zona}` : null].filter(Boolean).join(' · ');
               return (
                 <FilaNavegable
@@ -1568,16 +1702,6 @@ export function VisitaActiva() {
             ))}
           </SeccionLista>
         )}
-
-        {!capturas.length &&
-          !hallazgos.length &&
-          !oportunidades.length &&
-          !pasos.length &&
-          !hayCompaneros && (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-            Nada capturado todavía en esta visita.
-          </div>
-        )}
       </div>
 
       {/* Lo que NO es "añadir": el recorrido es un modo, y cerrar es el
@@ -1613,47 +1737,8 @@ export function VisitaActiva() {
         <PasoRapidoModal
           visitaId={visitaId}
           comercialId={comercial.id}
-          onGuardar={async (payload) => {
-            const pasoId = uuid();
-            await encolar(pasoId, 'proximo_paso', payload, { dependeDe: visitaId });
-            setTimeout(() => setPasoAbierto(false), 700);
-          }}
-          onPlanificarVisita={async ({ fecha, hora, franja, objetivo }) => {
-            // Llamada directa, NO por la cola offline: igual que planificar
-            // desde la ficha, para que aparezca en la agenda al momento.
-            const nuevaId = uuid();
-            const { error } = await crearVisitaConResponsable({
-              pVisitaId: nuevaId,
-              pClienteId: visitaLocal.clienteId,
-              pComercialId: comercial.id,
-              pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
-              pEstadoCaptura: 'agendada',
-            });
-            if (error) throw new Error(error);
-            const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
-            if (objetivo.trim()) parche.objetivo = objetivo.trim();
-            if (!hora) {
-              parche.hora_definida = false;
-              parche.franja = franja || null;
-            }
-            if (Object.keys(parche).length) {
-              const { error: errParche } = await supabase
-                .from('visita')
-                .update(parche)
-                .eq('id', nuevaId);
-              if (errParche) throw new Error(errParche.message);
-            }
-            for (const k of [
-              ['visitas-hoy'],
-              ['visitas-proximas'],
-              ['visitas-atrasadas'],
-              ['agenda-planificadas'],
-              ['historial-visitas', visitaLocal.clienteId],
-            ]) {
-              queryClient.invalidateQueries({ queryKey: k });
-            }
-            setTimeout(() => setPasoAbierto(false), 700);
-          }}
+          onGuardar={guardarPaso}
+          onPlanificarVisita={planificarVisitaDesdePaso}
           onCerrar={() => setPasoAbierto(false)}
         />
       )}

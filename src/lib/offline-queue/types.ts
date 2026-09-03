@@ -59,6 +59,10 @@ export interface HallazgoPayload {
     | 'proyecto_activo';
   nota?: string;
   ubicacionId?: string;
+  // Etiqueta de zona del Modo Recorrido: texto libre, de usar y tirar, que
+  // el comercial escribe sobre la marcha. Sustituye a `ubicacionId` para
+  // las capturas nuevas; las visitas ya cerradas conservan `ubicacionId`.
+  zonaTexto?: string;
   fechaRelevante?: string; // ISO date
   tipoFechaRelevante?: string;
 }
@@ -72,6 +76,7 @@ export interface CapturaLibrePayload {
   hallazgoId?: string;
   oportunidadId?: string;
   ubicacionId?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   categoriaFoto?: string;
   latitud?: number;
   longitud?: number;
@@ -87,6 +92,7 @@ export interface OportunidadPayload {
   prioridad: 'baja' | 'media' | 'alta' | 'estrategica';
   hallazgoOrigenId?: string;
   ubicacionId?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   horizonteDecision?: string;
   solucionPrincipalTerminoId?: string;
 }
@@ -97,6 +103,7 @@ export interface ProximoPasoPayload {
   descripcion: string;
   oportunidadId?: string;
   fechaObjetivo?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
 }
 
 // A diferencia de las demás entidades, una ubicación no pertenece a una

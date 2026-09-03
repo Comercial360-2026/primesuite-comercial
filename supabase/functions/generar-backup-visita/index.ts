@@ -284,6 +284,9 @@ interface CapturaRow {
   creado_en: string;
   latitud: number | null;
   longitud: number | null;
+  // Etiqueta de zona del Recorrido (texto libre). Sustituye a `ubicacion`
+  // en las capturas nuevas; las visitas antiguas siguen con `ubicacion`.
+  zona_texto: string | null;
   ubicacion: Nombrado | null;
 }
 interface HallazgoRow {
@@ -294,6 +297,7 @@ interface HallazgoRow {
   fecha_relevante: string | null;
   tipo_fecha_relevante: string | null;
   termino: Nombrado | null;
+  zona_texto: string | null;
   ubicacion: Nombrado | null;
 }
 interface OportunidadRow {
@@ -404,13 +408,13 @@ Deno.serve(async (req) => {
   ] = await Promise.all([
     admin
       .from('captura_libre')
-      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, ubicacion:ubicacion_id(nombre)')
+      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
     admin
       .from('hallazgo')
       .select(
-        'id, nota, naturaleza, creado_en, fecha_relevante, tipo_fecha_relevante, ' +
+        'id, nota, naturaleza, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, ' +
           'termino:termino_id(nombre), ubicacion:ubicacion_id(nombre)'
       )
       .eq('visita_id', visitaId)
@@ -518,7 +522,8 @@ Deno.serve(async (req) => {
   let indiceFoto = 0;
   for (const f of fotos) {
     indiceFoto += 1;
-    const ubicacionNombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
+    const ubicacionNombre =
+      f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
     if (!f.storage_path) continue;
     const { data, error } = await admin.storage.from('fotos-visita').download(f.storage_path);
     if (error || !data) continue; // fichero huérfano o ya borrado — se omite, no se aborta el backup entero.
@@ -797,7 +802,8 @@ Deno.serve(async (req) => {
         },
         ...g.items.map((h) => {
           const nombreTermino = (h.termino as unknown as { nombre: string } | null)?.nombre || 'Hallazgo';
-          const ubicacionNombre = (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
+          const ubicacionNombre =
+            h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
           const venceTexto = h.fecha_relevante
             ? `Vence: ${fechaCorta(h.fecha_relevante)}${h.tipo_fecha_relevante ? ` · ${etiqueta(TIPO_FECHA_LABEL, h.tipo_fecha_relevante)}` : ''}`
             : null;
@@ -811,7 +817,7 @@ Deno.serve(async (req) => {
                 ].filter(Boolean),
               },
               h.nota ? { text: h.nota, fontSize: 9.5, color: COLOR.ink700, margin: [0, 2, 0, 0] } : null,
-              ubicacionNombre ? { text: `Ubicación: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+              ubicacionNombre ? { text: `Zona: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
             ].filter(Boolean),
           };
         }),

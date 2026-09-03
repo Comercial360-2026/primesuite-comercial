@@ -131,6 +131,7 @@ export type Database = {
           titulo: string | null
           ubicacion_id: string | null
           visita_id: string
+          zona_texto: string | null
         }
         Insert: {
           categoria_foto?: string | null
@@ -153,6 +154,7 @@ export type Database = {
           titulo?: string | null
           ubicacion_id?: string | null
           visita_id: string
+          zona_texto?: string | null
         }
         Update: {
           categoria_foto?: string | null
@@ -175,6 +177,7 @@ export type Database = {
           titulo?: string | null
           ubicacion_id?: string | null
           visita_id?: string
+          zona_texto?: string | null
         }
         Relationships: [
           {
@@ -363,6 +366,41 @@ export type Database = {
             referencedRelation: "vw_cliente_resuelto"
             referencedColumns: ["cliente_id"]
           },
+          {
+            foreignKeyName: "cliente_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cliente_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "cliente_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "cliente_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "cliente_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
         ]
       }
       comercial: {
@@ -414,6 +452,7 @@ export type Database = {
           tipo_fecha_relevante: string | null
           ubicacion_id: string | null
           visita_id: string
+          zona_texto: string | null
         }
         Insert: {
           cliente_id: string
@@ -430,6 +469,7 @@ export type Database = {
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id: string
+          zona_texto?: string | null
         }
         Update: {
           cliente_id?: string
@@ -446,6 +486,7 @@ export type Database = {
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id?: string
+          zona_texto?: string | null
         }
         Relationships: [
           {
@@ -661,6 +702,7 @@ export type Database = {
           ubicacion_id: string | null
           valor_estimado: number | null
           visita_origen_id: string
+          zona_texto: string | null
         }
         Insert: {
           actualizado_en?: string
@@ -682,6 +724,7 @@ export type Database = {
           ubicacion_id?: string | null
           valor_estimado?: number | null
           visita_origen_id: string
+          zona_texto?: string | null
         }
         Update: {
           actualizado_en?: string
@@ -703,6 +746,7 @@ export type Database = {
           ubicacion_id?: string | null
           valor_estimado?: number | null
           visita_origen_id?: string
+          zona_texto?: string | null
         }
         Relationships: [
           {
@@ -973,6 +1017,7 @@ export type Database = {
           oportunidad_id: string | null
           origen: string
           visita_id: string
+          zona_texto: string | null
         }
         Insert: {
           actualizado_en?: string
@@ -986,6 +1031,7 @@ export type Database = {
           oportunidad_id?: string | null
           origen?: string
           visita_id: string
+          zona_texto?: string | null
         }
         Update: {
           actualizado_en?: string
@@ -999,6 +1045,7 @@ export type Database = {
           oportunidad_id?: string | null
           origen?: string
           visita_id?: string
+          zona_texto?: string | null
         }
         Relationships: [
           {
@@ -1112,7 +1159,78 @@ export type Database = {
           resuelto_en?: string | null
           resuelto_por?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+        ]
       }
       solicitud_reasignacion: {
         Row: {
@@ -1856,6 +1974,7 @@ export type Database = {
           franja: string | null
           hora_definida: boolean
           id: string
+          objetivo: string | null
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null
@@ -1925,13 +2044,20 @@ export type Database = {
       }
       fn_reasignar_cliente: {
         Args: { p_a: string; p_cliente: string }
-        Returns: { pasos: number; visitas: number }[]
+        Returns: {
+          pasos: number
+          visitas: number
+        }[]
       }
       fn_rol_actual: { Args: never; Returns: string }
       fn_rol_lectura_ampliada: { Args: never; Returns: boolean }
       fn_traspasar_cartera: {
         Args: { p_a: string; p_de: string }
-        Returns: { clientes: number; pasos: number; visitas: number }[]
+        Returns: {
+          clientes: number
+          pasos: number
+          visitas: number
+        }[]
       }
       fn_visita_sin_participantes: {
         Args: { p_visita_id: string }
@@ -2021,12 +2147,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2050,11 +2176,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2075,11 +2201,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2100,11 +2226,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2117,11 +2243,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

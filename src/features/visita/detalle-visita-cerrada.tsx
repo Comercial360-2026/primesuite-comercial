@@ -90,7 +90,7 @@ export function DetalleVisitaCerrada() {
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, ubicacion:ubicacion_id(nombre)')
+          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -121,7 +121,10 @@ export function DetalleVisitaCerrada() {
 
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
-          const ubicacion_nombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre ?? null;
+          const ubicacion_nombre =
+            (f as { zona_texto?: string | null }).zona_texto ??
+            (f.ubicacion as unknown as { nombre: string } | null)?.nombre ??
+            null;
           const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
           if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre, ...geo };
           const { data: firmada } = await supabase.storage
