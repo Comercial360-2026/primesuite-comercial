@@ -22,6 +22,7 @@ import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
+import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -34,6 +35,8 @@ interface Foto {
   titulo: string | null;
   url: string | null;
   ubicacion_nombre: string | null;
+  latitud: number | null;
+  longitud: number | null;
 }
 interface DetalleVisita {
   fecha: string;
@@ -87,7 +90,7 @@ export function DetalleVisitaCerrada() {
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, ubicacion:ubicacion_id(nombre)')
+          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, ubicacion:ubicacion_id(nombre)')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -119,11 +122,12 @@ export function DetalleVisitaCerrada() {
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
           const ubicacion_nombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre ?? null;
-          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre };
+          const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
+          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre, ...geo };
           const { data: firmada } = await supabase.storage
             .from('fotos-visita')
             .createSignedUrl(f.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null, ubicacion_nombre };
+          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null, ubicacion_nombre, ...geo };
         })
       );
       const audios = await Promise.all(
@@ -364,6 +368,30 @@ export function DetalleVisitaCerrada() {
               </div>
             </div>
           )}
+
+          {(() => {
+            const situadas = data.fotos.filter(
+              (f): f is Foto & { latitud: number; longitud: number } =>
+                f.latitud != null && f.longitud != null
+            );
+            if (situadas.length === 0) return null;
+            return (
+              <div>
+                <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+                  Mapa de fotos ({situadas.length})
+                </div>
+                <MapaFotos
+                  fotos={situadas.map((f) => ({
+                    id: f.id,
+                    url: f.url,
+                    titulo: f.titulo,
+                    lat: f.latitud,
+                    lng: f.longitud,
+                  }))}
+                />
+              </div>
+            );
+          })()}
 
           {data.fotos.length > 0 && (
             <div>

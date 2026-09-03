@@ -208,7 +208,7 @@ const _PANTALLAS = {
   'visita-cerrada': {
     titulo: 'Visita cerrada',
     queEs:
-      'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos y el anexo con notas, fotos y audios. Es lo mismo que sale en el informe en PDF.',
+      'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
     cuando:
       'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas.',
     ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer.',

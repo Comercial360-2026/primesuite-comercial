@@ -1,0 +1,75 @@
+/* Mapa de fotos (src/components/ui/mapa-fotos.tsx).
+   Se ajusta al sistema plano: sin sombras propias, bordes de la paleta,
+   tipografía del sistema. Leaflet trae sombras en los popups; se anulan. */
+
+.mapa-fotos {
+  height: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ink-100);
+  background: var(--surface-0);
+}
+
+.mapa-fotos .leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--surface-0);
+}
+
+/* Pin: punto azul de marca con aro claro. */
+.mapa-fotos__pin span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  border: 2px solid var(--surface-1);
+}
+
+/* Popup plano. */
+.mapa-fotos .leaflet-popup-content-wrapper {
+  border-radius: 10px;
+  box-shadow: none;
+  border: 1px solid var(--ink-200);
+  padding: 0;
+}
+.mapa-fotos .leaflet-popup-tip {
+  box-shadow: none;
+  border: 1px solid var(--ink-200);
+}
+.mapa-fotos .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+}
+.mapa-fotos__popup {
+  width: 150px;
+  padding: 8px;
+  font-size: var(--text-xs);
+}
+.mapa-fotos__popup img {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.mapa-fotos__popup-cap {
+  color: var(--ink-700);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.mapa-fotos__popup a {
+  color: var(--brand-600);
+  text-decoration: none;
+}
+
+/* Controles de zoom: planos, sin sombra. */
+.mapa-fotos .leaflet-control-zoom {
+  border: 1px solid var(--ink-200);
+  box-shadow: none;
+}
+.mapa-fotos .leaflet-control-zoom a {
+  color: var(--ink-700);
+  background: var(--surface-1);
+}
+.mapa-fotos .leaflet-bar a:hover {
+  background: var(--surface-0);
+}

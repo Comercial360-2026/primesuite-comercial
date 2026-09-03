@@ -5,6 +5,7 @@ import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { enlaceMapa } from '@/lib/geo';
 
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
 // El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
@@ -174,6 +175,18 @@ export function DetalleCaptura() {
 
       {payload.tipo === 'foto' && urlMedia && (
         <img src={urlMedia} alt="captura" style={{ width: '100%', borderRadius: 12 }} />
+      )}
+
+      {payload.tipo === 'foto' && payload.latitud != null && payload.longitud != null && (
+        <a
+          className="btn-enlace"
+          href={enlaceMapa(payload.latitud, payload.longitud)}
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: 'inline-block', marginTop: 4 }}
+        >
+          📍 Abrir en el mapa
+        </a>
       )}
 
       {payload.tipo === 'audio' && urlMedia && (

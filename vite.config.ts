@@ -22,6 +22,20 @@ export default defineConfig({
       // cache del Service Worker — ver 09_arquitectura_tecnica.md §4.
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Teselas de OpenStreetMap para el mapa de fotos: se cachean al
+        // verlas (CacheFirst), así una zona ya visitada se ve sin cobertura.
+        // Una zona nueva sin red sigue saliendo en blanco — asumido.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'osm-tiles',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'PrimeNotes',
