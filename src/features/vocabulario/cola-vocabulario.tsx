@@ -78,6 +78,19 @@ export function ColaVocabulario() {
   const [borrandoCatId, setBorrandoCatId] = useState<string | null>(null);
   const [borrandoCatTotal, setBorrandoCatTotal] = useState<number | null>(null);
 
+  // Categorías plegadas (solo se ve la cabecera). Vista, no dato: se pierde
+  // al salir de la pantalla. En "modo seleccionar" se ignora (hay que ver
+  // los términos para marcarlos).
+  const [colapsadas, setColapsadas] = useState<Set<string>>(new Set());
+  function alternarColapso(id: string) {
+    setColapsadas((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
   // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
   const [seleccionandoCat, setSeleccionandoCat] = useState(false);
   const [marcadosTerm, setMarcadosTerm] = useState<Set<string>>(new Set());
@@ -761,11 +774,15 @@ export function ColaVocabulario() {
                 : catalogoAgrupado;
             return (
           <div className="lista-agrupada">
-            {catsMostradas?.map((cat, idxCat) => (
+            {catsMostradas?.map((cat, idxCat) => {
+              // En "modo seleccionar" se ven siempre los términos.
+              const colapsada = !seleccionandoCat && colapsadas.has(cat.categoria_id);
+              return (
               <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <SeccionLista>
                   {/* Cabecera de la categoría: fila normal (más alta) con
-                      icono, para que destaque frente a los términos compactos. */}
+                      chevron de plegar/desplegar, para que destaque frente a
+                      los términos compactos. */}
                   {renombrandoCategoriaId === cat.categoria_id ? (
                     <div className="fila-confirmacion">
                       <input
@@ -785,9 +802,10 @@ export function ColaVocabulario() {
                     </div>
                   ) : (
                     <FilaAccion
-                      icono="vocabulario"
+                      icono={colapsada ? 'chevron' : 'bajar'}
                       titulo={cat.categoria_nombre}
                       subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
+                      onClick={seleccionandoCat ? undefined : () => alternarColapso(cat.categoria_id)}
                       acciones={
                         ordenandoCat
                           ? ([
@@ -886,7 +904,7 @@ export function ColaVocabulario() {
                     </div>
                   )}
 
-                  {cat.terminos.map((t) => {
+                  {!colapsada && cat.terminos.map((t) => {
                     if (renombrandoTerminoId === t.id) {
                       return (
                         <div key={t.id} className="fila-confirmacion">
@@ -937,12 +955,12 @@ export function ColaVocabulario() {
                     );
                   })}
 
-                  {!cat.terminos.length && (
+                  {!colapsada && !cat.terminos.length && (
                     <FilaAccion densidad="compacta" titulo="Sin términos" tono="neutral" />
                   )}
                 </SeccionLista>
 
-                {!seleccionandoCat && !ordenandoCat && (
+                {!colapsada && !seleccionandoCat && !ordenandoCat && (
                   <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
                     <input
                       className="field"
@@ -964,7 +982,8 @@ export function ColaVocabulario() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
             );
           })()}
