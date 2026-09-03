@@ -186,7 +186,7 @@ export function MisProximosPasos() {
 
   return (
     <div className="screen">
-      <CabeceraSeccion titulo="Mis próximos pasos" icono="tareas" />
+      <CabeceraSeccion titulo="Mis próximos pasos" icono="tareas" ayuda="mis-proximos-pasos" />
 
       <div style={{ display: 'flex', gap: 6 }}>
         <button

@@ -306,7 +306,7 @@ export function Agenda() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Agenda" />
+      <CabeceraDetalle titulo="Agenda" ayuda="agenda" />
 
       {!seleccionando && (
         <div style={{ display: 'flex', gap: 6 }}>

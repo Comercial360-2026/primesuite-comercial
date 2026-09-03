@@ -67,6 +67,34 @@ const _PANTALLAS = {
     ojo: 'Al fusionar, las visitas, oportunidades, hallazgos, contactos y ubicaciones de las otras fichas pasan a la que se queda, y las demás desaparecen de la lista de clientes. No se puede deshacer desde la app: antes de confirmar, asegúrate de que de verdad son el mismo negocio.',
     soloDireccion: true,
   },
+  hoy: {
+    titulo: 'Hoy',
+    queEs:
+      'Tu punto de partida del día: la visita en curso o la siguiente («Ahora»), las planificadas para hoy, las atrasadas y un vistazo a las próximas.',
+    cuando:
+      'Al empezar la jornada y entre visita y visita. Tocar una visita te lleva a prepararla o a retomarla; «Empezar visita sin planificar» abre la lista de clientes para arrancar una sobre la marcha. Si diriges el equipo, «Solo mías / Todas» amplía la vista.',
+  },
+  agenda: {
+    titulo: 'Agenda',
+    queEs:
+      'Todas tus visitas planificadas, en lista por días o en vista de mes, con las atrasadas agrupadas aparte.',
+    cuando:
+      'Para ver más allá de hoy, reprogramar o anular. «Planificar visita» abre un buscador de cliente para dejar una agendada; «Seleccionar» permite anular varias a la vez.',
+  },
+  'repaso-cliente': {
+    titulo: 'Preparar la visita',
+    queEs:
+      'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, su ecosistema, la oportunidad activa y el próximo paso pendiente.',
+    cuando:
+      'Al llegar al cliente, antes de darle a «Iniciar visita». Desde aquí arranca la visita en curso.',
+  },
+  'mis-proximos-pasos': {
+    titulo: 'Mis próximos pasos',
+    queEs:
+      'Tus tareas pendientes de las visitas —llamar, enviar propuesta, volver a pasar—, ordenadas por urgencia: vencidas, esta semana, más adelante, y las que ya tienen una revisita en la agenda.',
+    cuando:
+      'Para ir cerrando lo que dejaste apuntado. La marca de verificación a la derecha de cada fila la da por hecha; tocar el texto abre el detalle.',
+  },
   clientes: {
     titulo: 'Clientes',
     queEs:

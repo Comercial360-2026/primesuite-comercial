@@ -273,6 +273,7 @@ export function RepasoCliente() {
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
         subtitulo="Preparar la visita"
+        ayuda="repaso-cliente"
         onVolver={() => navigate(-1)}
       />
       <div className="screen__scroll">

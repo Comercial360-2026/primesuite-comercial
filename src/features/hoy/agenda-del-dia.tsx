@@ -261,7 +261,7 @@ export function AgendaDelDia() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Hoy" icono="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
+      <CabeceraSeccion titulo="Hoy" icono="hoy" ayuda="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
 
       {esDireccionComercial && (
         <div style={{ display: 'flex', gap: 6 }}>
