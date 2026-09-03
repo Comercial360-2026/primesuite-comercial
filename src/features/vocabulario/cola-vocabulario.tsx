@@ -72,8 +72,11 @@ export function ColaVocabulario() {
   const [textoRenombrarTermino, setTextoRenombrarTermino] = useState('');
   const [nuevoTerminoPorCategoria, setNuevoTerminoPorCategoria] = useState<Record<string, string>>({});
 
-  // Categoría cuyo panel de "borrar" está abierto.
+  // Categoría cuyo panel de "borrar" está abierto, y su nº REAL de términos
+  // (incluye los descartados, que la lista oculta pero siguen referenciando
+  // la categoría por la FK). null = todavía comprobando.
   const [borrandoCatId, setBorrandoCatId] = useState<string | null>(null);
+  const [borrandoCatTotal, setBorrandoCatTotal] = useState<number | null>(null);
 
   // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
   const [seleccionandoCat, setSeleccionandoCat] = useState(false);
@@ -247,6 +250,24 @@ export function ColaVocabulario() {
     invalidarCatalogo();
   }
 
+  function cerrarPanelBorrarCat() {
+    setBorrandoCatId(null);
+    setBorrandoCatTotal(null);
+  }
+
+  async function abrirPanelBorrarCat(id: string) {
+    setErrorPorCategoria(null);
+    setBorrandoCatId(id);
+    setBorrandoCatTotal(null);
+    // Cuenta REAL: incluye los descartados que la lista no enseña pero que
+    // igualmente bloquean el DELETE por la FK.
+    const { count } = await supabase
+      .from('termino')
+      .select('id', { count: 'exact', head: true })
+      .eq('categoria_id', id);
+    setBorrandoCatTotal(count ?? 0);
+  }
+
   async function borrarCategoriaVacia(id: string) {
     setErrorPorCategoria(null);
     const { error: err, count } = await supabase
@@ -264,7 +285,7 @@ export function ColaVocabulario() {
       });
       return;
     }
-    setBorrandoCatId(null);
+    cerrarPanelBorrarCat();
     invalidarCatalogo();
   }
 
@@ -297,7 +318,7 @@ export function ColaVocabulario() {
       invalidarCatalogo();
       return;
     }
-    setBorrandoCatId(null);
+    cerrarPanelBorrarCat();
     invalidarCatalogo();
   }
 
@@ -694,7 +715,7 @@ export function ColaVocabulario() {
                                 icono: 'borrar',
                                 etiqueta: 'Borrar categoría',
                                 tono: 'riesgo',
-                                onClick: () => { setErrorPorCategoria(null); setBorrandoCatId(cat.categoria_id); },
+                                onClick: () => { setErrorPorCategoria(null); void abrirPanelBorrarCat(cat.categoria_id); },
                               },
                             ] as AccionFila[])
                       }
@@ -702,9 +723,13 @@ export function ColaVocabulario() {
                   )}
 
                   {borrandoCatId === cat.categoria_id &&
-                    (cat.terminos.length === 0 ? (
+                    (borrandoCatTotal === null ? (
+                      <div className="card">
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Comprobando…</div>
+                      </div>
+                    ) : borrandoCatTotal === 0 ? (
                       <ConfirmacionBorrado
-                        onCancelar={() => setBorrandoCatId(null)}
+                        onCancelar={cerrarPanelBorrarCat}
                         onConfirmar={() => borrarCategoriaVacia(cat.categoria_id)}
                         cargando={corriendoLote}
                         error={errorPorCategoria?.id === cat.categoria_id ? errorPorCategoria.msg : undefined}
@@ -715,8 +740,10 @@ export function ColaVocabulario() {
                     ) : (
                       <div className="card card--riesgo">
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                          «{cat.categoria_nombre}» tiene {cat.terminos.length} término
-                          {cat.terminos.length === 1 ? '' : 's'}. Elige a qué categoría pasan; después se borra esta.
+                          «{cat.categoria_nombre}» tiene {borrandoCatTotal} término
+                          {borrandoCatTotal === 1 ? '' : 's'}
+                          {borrandoCatTotal !== cat.terminos.length ? ' (algunos descartados que no se ven en la lista)' : ''}.
+                          Elige a qué categoría pasan; después se borra esta.
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                           {categorias
@@ -741,7 +768,7 @@ export function ColaVocabulario() {
                           className="btn btn-secondary"
                           style={{ marginTop: 8 }}
                           disabled={corriendoLote}
-                          onClick={() => setBorrandoCatId(null)}
+                          onClick={cerrarPanelBorrarCat}
                         >
                           Cancelar
                         </button>
