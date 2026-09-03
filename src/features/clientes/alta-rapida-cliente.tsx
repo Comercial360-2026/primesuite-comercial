@@ -213,7 +213,7 @@ export function AltaRapidaCliente() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Nuevo cliente" onVolver={() => navigate(-1)} />
+      <CabeceraDetalle titulo="Nuevo cliente" ayuda="alta-rapida-cliente" onVolver={() => navigate(-1)} />
 
       <div className="label" style={{ marginTop: 0 }}>nombre</div>
       <input

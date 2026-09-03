@@ -102,6 +102,29 @@ const _PANTALLAS = {
     cuando:
       'Para buscar un cliente y entrar en su ficha. Si diriges el equipo, «Solo míos / Todos» cambia entre tu cartera y la de todos, y ahí ves quién lleva cada cuenta.',
   },
+  'ficha-cliente': {
+    titulo: 'Ficha de cliente',
+    queEs:
+      'Todo lo del cliente en un sitio: sus datos, oportunidades activas, próximos pasos, su ecosistema (qué tiene instalado y de quién) y el historial de visitas.',
+    cuando:
+      'Antes o después de visitarlo. Desde abajo arrancas una visita ahora o la planificas para otro día; en «Más» están sus ubicaciones.',
+    ojo: '«Borrar cliente» elimina la ficha y su historial y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+  },
+  'alta-rapida-cliente': {
+    titulo: 'Nuevo cliente',
+    queEs:
+      'Da de alta un cliente con solo el nombre. Mientras escribes, te avisa si ya hay uno igual o parecido para que no lo dupliques.',
+    cuando:
+      'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
+  },
+  'gestion-ubicaciones-cliente': {
+    titulo: 'Ubicaciones del cliente',
+    queEs:
+      'Las zonas de las instalaciones del cliente (entrada, almacén, oficinas…) que usa el modo recorrido para ordenar lo que capturas.',
+    cuando:
+      'Para dejarlas preparadas antes de una visita con recorrido, o para renombrarlas o borrarlas después. También se pueden crear sobre la marcha durante el recorrido.',
+    ojo: 'Borrar una ubicación con fotos, audios o hallazgos asociados los deja sin zona; te avisa de cuántos antes de confirmar.',
+  },
   'cierre-visita': {
     titulo: 'Cerrar una visita',
     queEs:

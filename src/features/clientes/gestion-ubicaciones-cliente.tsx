@@ -135,7 +135,7 @@ export function GestionUbicacionesCliente() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Ubicaciones" />
+      <CabeceraDetalle titulo="Ubicaciones" ayuda="gestion-ubicaciones-cliente" />
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         se usan para etiquetar fotos por dónde se tomaron (naves, oficinas…) en Modo Recorrido
       </div>

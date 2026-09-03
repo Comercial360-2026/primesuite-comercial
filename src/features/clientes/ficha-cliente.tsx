@@ -443,6 +443,7 @@ export function FichaCliente() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
+        ayuda="ficha-cliente"
         subtitulo={
           cliente
             ? `${cliente.estado_relacion}${cliente.sector ? ` · ${cliente.sector}` : ''}`
