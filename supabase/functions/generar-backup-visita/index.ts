@@ -296,7 +296,9 @@ interface HallazgoRow {
   creado_en: string;
   fecha_relevante: string | null;
   tipo_fecha_relevante: string | null;
-  termino: Nombrado | null;
+  // Si el término es un modelo, `parent` trae el término padre para poder
+  // imprimir la ruta "MIFARE › DESFire EV2".
+  termino: (Nombrado & { parent: Nombrado | null }) | null;
   zona_texto: string | null;
   ubicacion: Nombrado | null;
 }
@@ -415,7 +417,7 @@ Deno.serve(async (req) => {
       .from('hallazgo')
       .select(
         'id, nota, naturaleza, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, ' +
-          'termino:termino_id(nombre), ubicacion:ubicacion_id(nombre)'
+          'termino:termino_id(nombre, parent:parent_id(nombre)), ubicacion:ubicacion_id(nombre)'
       )
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
@@ -801,7 +803,12 @@ Deno.serve(async (req) => {
           ],
         },
         ...g.items.map((h) => {
-          const nombreTermino = (h.termino as unknown as { nombre: string } | null)?.nombre || 'Hallazgo';
+          const term = h.termino as unknown as { nombre: string; parent: { nombre: string } | null } | null;
+          const nombreTermino = term
+            ? term.parent
+              ? `${term.parent.nombre} › ${term.nombre}`
+              : term.nombre
+            : 'Hallazgo';
           const ubicacionNombre =
             h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
           const venceTexto = h.fecha_relevante
