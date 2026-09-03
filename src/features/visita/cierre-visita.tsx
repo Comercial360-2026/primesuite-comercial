@@ -7,6 +7,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 
 // Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
 // cola offline (db.ts/sync-engine.ts) solo modela creación de registros
@@ -172,7 +173,7 @@ export function CierreVisita() {
   if (vista === 'resumen') {
     return (
       <div className="screen screen--split">
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Resumen de la visita</h1>
+        <CabeceraDetalle titulo="Resumen de la visita" onVolver={volverAHoy} ayuda="cierre-visita" />
 
         {sincronizada ? (
           <div className="card" style={{ borderColor: 'var(--success-600)' }}>
@@ -256,7 +257,14 @@ export function CierreVisita() {
   if (vista === 'confirmar') {
     return (
       <div className="screen screen--split">
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>¿Confirmas el cierre?</h1>
+        <CabeceraDetalle
+          titulo="¿Confirmas el cierre?"
+          onVolver={() => {
+            consolidacion.limpiarError();
+            setVista('cierre');
+          }}
+          ayuda="cierre-visita"
+        />
 
         <div className="screen__scroll">
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -304,12 +312,11 @@ export function CierreVisita() {
 
   return (
     <div className="screen screen--split">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={() => navigate(`/visita/${visitaId}`)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}>
-          ←
-        </button>
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 500, margin: 0 }}>Cerrar visita</h1>
-      </div>
+      <CabeceraDetalle
+        titulo="Cerrar visita"
+        onVolver={() => navigate(`/visita/${visitaId}`)}
+        ayuda="cierre-visita"
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <div className="card" style={{ textAlign: 'center' }}>

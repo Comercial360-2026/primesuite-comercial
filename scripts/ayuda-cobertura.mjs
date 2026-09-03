@@ -49,8 +49,23 @@ for (const f of ficheros(SRC)) {
   // La propia pantalla /ayuda no se documenta a sí misma.
   const esManual = rel.includes('features/ayuda/');
 
-  for (const m of txt.matchAll(/<Cabecera(Seccion|Detalle)\b([\s\S]*?)(\/?>)/g)) {
-    const props = m[2];
+  for (const m of txt.matchAll(/<Cabecera(Seccion|Detalle)\b/g)) {
+    // Recorta la etiqueta hasta su cierre real, saltando los `>` que
+    // aparecen dentro de props con arrow functions (`onVolver={() => …}`)
+    // o expresiones con `{}`. Un regex no-codicioso paraba en el `=>`.
+    const desde = m.index + m[0].length;
+    let prof = 0;
+    let fin = desde;
+    for (let i = desde; i < txt.length; i++) {
+      const c = txt[i];
+      if (c === '{') prof++;
+      else if (c === '}') prof--;
+      else if (c === '>' && prof === 0) {
+        fin = i + 1;
+        break;
+      }
+    }
+    const props = txt.slice(desde, fin);
     const idm = props.match(/\bayuda=["']([a-z0-9-]+)["']/);
     if (idm) pantallasUsadas.add(idm[1]);
     else if (!esManual) sinAyuda.push({ fichero: rel, cabecera: `Cabecera${m[1]}` });

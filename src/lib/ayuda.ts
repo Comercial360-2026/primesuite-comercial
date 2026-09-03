@@ -70,10 +70,10 @@ const _PANTALLAS = {
   'cierre-visita': {
     titulo: 'Cerrar una visita',
     queEs:
-      'El repaso final de todo lo capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
+      'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Al salir del cliente. Revisas el recuento (zona por zona si usaste el recorrido) y pulsas para consolidar.',
-    ojo: 'Si cierras sin conexión, la visita se guarda en el móvil y se confirma sola al recuperar red —no tienes que hacer nada más—. Una vez consolidada, para añadir algo hay que reabrir la visita.',
+      'Nada más salir del cliente. Compruebas el recuento (zona por zona si has usado el recorrido), pulsas «Consolidar visita» y confirmas.',
+    ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
 } satisfies Record<string, EntradaPantalla>;
 
