@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { Aviso } from '@/components/ui/aviso';
+import { LogoPrimeNotes } from '@/components/marca/marca';
 
 // Fase 6a — el comercial llega aquí desde el enlace de un solo uso que le
 // pasa Dirección Comercial (alta o "reenviar enlace"). El enlace es de
@@ -83,8 +84,10 @@ export function EstablecerContrasena() {
     <div className="pantalla-suelta">
       <div className="screen" style={{ justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>PrimeNotes</div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>elige tu contraseña</div>
+          <LogoPrimeNotes alto={34} />
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 'var(--space-2)' }}>
+            elige tu contraseña
+          </div>
         </div>
 
         {nombre === undefined ? (

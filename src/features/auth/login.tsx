@@ -5,6 +5,7 @@ import { solicitarAcceso } from '@/lib/gestionar-comercial';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { Aviso } from '@/components/ui/aviso';
+import { LogoPrimeNotes } from '@/components/marca/marca';
 
 // Pantalla mínima de autenticación — pieza que faltaba desde el inicio del
 // proyecto (ver nota histórica en main.tsx: "SOLO DESARROLLO — no hay
@@ -77,8 +78,10 @@ export function Login() {
     <div className="pantalla-suelta">
     <div className="screen" style={{ justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-        <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>PrimeNotes</div>
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>inicia sesión para continuar</div>
+        <LogoPrimeNotes alto={34} />
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 'var(--space-2)' }}>
+          inicia sesión para continuar
+        </div>
       </div>
 
       <div className="label" style={{ marginTop: 0 }}>correo</div>
