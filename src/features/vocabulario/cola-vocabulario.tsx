@@ -1423,14 +1423,16 @@ export function ColaVocabulario() {
                       </ConfirmacionBorrado>
                     ) : (
                       <div className="card card--riesgo">
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                          «{cat.categoria_nombre}» tiene {borrandoCatTotal} término
-                          {borrandoCatTotal === 1 ? '' : 's'}
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 600 }}>
+                          No se puede borrar «{cat.categoria_nombre}»: tiene {borrandoCatTotal} término
+                          {borrandoCatTotal === 1 ? '' : 's'} dentro
                           {borrandoCatTotal !== cat.terminos.reduce((n, t) => n + 1 + t.hijos.length, 0)
                             ? ' (algunos descartados que no se ven en la lista)'
                             : ''}
                           .
-                          Elige a qué categoría pasan; después se borra esta.
+                        </div>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginTop: 6 }}>
+                          Muévelos a otra categoría y podrás borrarla:
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                           {categorias
