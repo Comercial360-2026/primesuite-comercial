@@ -292,11 +292,7 @@ export function MiEspacio() {
                   <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmandoLote(false)}>
                     Cancelar
                   </button>
-                  <button
-                    className="btn btn-primary"
-                    style={{ flex: 1, background: 'var(--risk-600)' }}
-                    onClick={borrarLote}
-                  >
+                  <button className="btn btn-peligro" style={{ flex: 1 }} onClick={borrarLote}>
                     Sí, borrar {marcadas.size}
                   </button>
                 </div>

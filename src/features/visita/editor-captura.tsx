@@ -123,12 +123,11 @@ export function EditorCaptura({ capturaId, onCerrar }: EditorCapturaProps) {
               Cerrar
             </button>
             <button
-              className="btn btn-secondary"
-              style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+              className="btn btn-secondary btn-secondary--riesgo"
               onClick={() => setConfirmandoBorrado(true)}
               disabled={guardado.cargando}
             >
-              borrar
+              Borrar
             </button>
             <button className="btn btn-primary" onClick={guardarEdicion} disabled={guardado.cargando}>
               {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar'}
@@ -138,13 +137,18 @@ export function EditorCaptura({ capturaId, onCerrar }: EditorCapturaProps) {
         </>
       ) : (
         <>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)' }}>¿Seguro? Esta acción no se puede deshacer.</div>
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+            {(operacion.payload as CapturaLibrePayload).tipo !== 'nota'
+              ? 'El archivo se borrará también del almacenamiento. '
+              : ''}
+            No se puede deshacer.
+          </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrado.cargando}>
-              cancelar
+              Cancelar
             </button>
-            <button className="btn btn-primary" style={{ background: 'var(--risk-600)' }} onClick={confirmarBorrado} disabled={borrado.cargando}>
-              {borrado.cargando ? 'Borrando…' : 'Confirmar borrado'}
+            <button className="btn btn-peligro" onClick={confirmarBorrado} disabled={borrado.cargando}>
+              {borrado.cargando ? 'Borrando…' : 'Sí, borrar'}
             </button>
           </div>
           {borrado.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrado.error}</div>}

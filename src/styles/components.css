@@ -43,6 +43,19 @@ body {
 .btn-secondary { background: var(--surface-1); color: var(--ink-900); border: 1px solid var(--ink-200); }
 .btn-secondary:active:not(:disabled) { background: var(--surface-0); }
 
+/* Acción DESTRUCTIVA — ver 08_sistema_diseno.md §"Botones".
+   - `.btn-peligro`: relleno borgoña, SOLO para el botón que consuma el
+     borrado dentro de un panel de confirmación (y para "Fusionar", que
+     es la razón de esa pantalla). Un bloque relleno se ve fuerte con
+     cualquier visión — no depende del matiz de rojo.
+   - `.btn-secondary--riesgo`: borde borgoña. Solo para un disparador
+     destructivo que vive DENTRO de una fila de botones (modales / formu-
+     larios en línea, donde una fila-acción no encaja). Fuera de ahí, el
+     disparador es `FilaNavegable tono="riesgo"`, no un botón. */
+.btn-peligro { background: var(--risk-600); color: #fff; }
+.btn-peligro:active:not(:disabled) { background: var(--risk-700); }
+.btn-secondary--riesgo { color: var(--risk-600); border-color: var(--risk-600); }
+
 /* Enlace-acción: texto gris subrayado, sin caja. Para acciones de segundo
    plano de una pantalla de formulario (p. ej. "He perdido el acceso" en el
    login, "Cancelar" de un sub-formulario). No es un .btn. */
@@ -585,7 +598,7 @@ body {
   border: none; background: var(--ink-100); color: var(--ink-900);
   font-size: var(--text-xs); font-weight: 500; cursor: pointer;
 }
-.fila-swipe__accion--riesgo { background: var(--danger-600); color: #fff; }
+.fila-swipe__accion--riesgo { background: var(--risk-600); color: #fff; }
 .fila-swipe > .fila { position: relative; z-index: 1; }
 /* La primera fila de un grupo no lleva separador superior, también cuando
    va envuelta por el gesto de deslizar. */
@@ -690,7 +703,7 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 }
 .fila__accion-btn:hover:not(:disabled) { background: var(--fila-activa-bg); }
 .fila__accion-btn:disabled { opacity: 0.45; cursor: default; }
-.fila__accion-btn--riesgo { color: var(--danger-600); }
+.fila__accion-btn--riesgo { color: var(--risk-600); }
 .fila__accion-btn--brand { color: var(--brand-600); }
 
 /* Panel de confirmación que sustituye en su sitio a una fila dentro de un
@@ -856,7 +869,7 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
   cursor: pointer;
 }
 .barra-seleccion__accion:disabled { opacity: 0.45; cursor: default; }
-.barra-seleccion__accion--riesgo { border-color: var(--danger-600); color: var(--danger-600); }
+.barra-seleccion__accion--riesgo { border-color: var(--risk-600); color: var(--risk-600); }
 .barra-seleccion__cancelar {
   border: none; background: none; padding: 0 4px;
   font-size: var(--text-sm); color: var(--ink-400); cursor: pointer;

@@ -9,6 +9,7 @@ import { Icono } from '@/components/ui/iconos';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 
@@ -327,40 +328,29 @@ export function DetalleVisitaPlanificada() {
             </button>
           )}
 
-          {/* Cancelar */}
+          {/* Anular la visita planificada */}
           {confirmando === 'cancelar' ? (
-            <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                Se eliminará la visita planificada a {data.cliente_nombre} del{' '}
-                {fechaCorta(fechaVisita!)}. No se puede deshacer.
-              </div>
-              {cancelar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{cancelar.error}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn btn-secondary" disabled={cancelar.cargando} onClick={() => setConfirmando(null)}>
-                  No, dejarla
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'var(--risk-600)' }}
-                  disabled={cancelar.cargando}
-                  onClick={confirmarCancelar}
-                >
-                  {cancelar.cargando ? 'Cancelando…' : 'Sí, cancelar la visita'}
-                </button>
-              </div>
-            </div>
+            <ConfirmacionBorrado
+              onCancelar={() => setConfirmando(null)}
+              onConfirmar={confirmarCancelar}
+              cargando={cancelar.cargando}
+              error={cancelar.error}
+              confirmar="Sí, anular la visita"
+              cargandoTexto="Anulando…"
+            >
+              Se eliminará la visita planificada a {data.cliente_nombre} del {fechaCorta(fechaVisita!)}.
+            </ConfirmacionBorrado>
           ) : (
-            <button
-              className="btn btn-secondary"
-              style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+            <FilaNavegable
+              icono="borrar"
+              titulo="Anular visita planificada"
+              tono="riesgo"
+              chevron={false}
               onClick={() => {
                 setReprogramando(false);
                 setConfirmando('cancelar');
               }}
-            >
-              <Icono nombre="borrar" size={18} />
-              Cancelar visita planificada
-            </button>
+            />
           )}
         </>
       )}

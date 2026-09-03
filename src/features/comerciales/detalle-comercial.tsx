@@ -13,6 +13,7 @@ import {
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
@@ -378,7 +379,7 @@ export function DetalleComercial() {
       {/* Baja / reactivación — al fondo, tono riesgo, con confirmación. */}
       {activo ? (
         modo === 'baja' ? (
-          <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+          <div className="card card--riesgo">
             {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
               {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan. Se
@@ -405,8 +406,8 @@ export function DetalleComercial() {
                 Cancelar
               </button>
               <button
-                className="btn btn-primary"
-                style={{ flex: 1, background: 'var(--risk-600)' }}
+                className="btn btn-peligro"
+                style={{ flex: 1 }}
                 disabled={cambiandoEstado || (totalCartera > 0 && !traspasoA)}
                 onClick={() => cambiarEstado(false)}
               >
@@ -419,15 +420,16 @@ export function DetalleComercial() {
             </div>
           </div>
         ) : (
-          <button
-            className="btn btn-secondary"
-            style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-            disabled={esYo}
-            title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}
-            onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
-          >
-            Dar de baja
-          </button>
+          <div title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}>
+            <FilaNavegable
+              icono="borrar"
+              titulo="Dar de baja"
+              tono="riesgo"
+              chevron={false}
+              disabled={esYo}
+              onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
+            />
+          </div>
         )
       ) : (
         <button className="btn btn-secondary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>

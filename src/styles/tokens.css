@@ -24,12 +24,15 @@
   /* Acento funcional — Oportunidad */
   --signal-600: #EF4136;
 
-  /* Semántica de naturaleza de Hallazgo */
+  /* Semántica de naturaleza de Hallazgo — y ÚNICO rojo de "acción
+     destructiva" en toda la app (borrar / anular / dar de baja). Ver
+     08_sistema_diseno.md §"Botones". */
   --risk-600: #6E2430;       /* Riesgo — borgoña, separado de Oportunidad */
+  --risk-700: #57121C;       /* Riesgo pulsado (:active de .btn-peligro) */
   --purple-600: #6E4C9E;     /* Competencia */
   --success-600: #3A7D4F;    /* Fortaleza / semáforo verde */
   --warning-600: #A87A12;    /* Semáforo amarillo */
-  --danger-600: #B23A3A;     /* Errores de formulario / semáforo rojo */
+  --danger-600: #B23A3A;     /* SOLO errores de formulario y semáforo rojo — nunca acciones destructivas */
 
   /* Fondos suaves de estado — para etiquetas de estado (semáforo) que se
      leen como estado y no como botón. Planos, sin degradado. */
@@ -103,6 +106,6 @@
      color: solo tiñe texto e icono, coherente con la regla "sin degradados,
      sin opacity sobre color". neutral = sin tono. */
   --fila-tono-aviso: var(--warning-600);
-  --fila-tono-riesgo: var(--danger-600);
+  --fila-tono-riesgo: var(--risk-600); /* acción destructiva = borgoña, no el rojo de error */
   --fila-tono-ok: var(--success-600);
 }

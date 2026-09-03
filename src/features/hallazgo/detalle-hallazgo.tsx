@@ -9,6 +9,8 @@ import {
   etiqueta,
 } from '@/lib/etiquetas-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 
@@ -219,33 +221,20 @@ export function DetalleHallazgo() {
       </button>
 
       {!confirmandoBorrado ? (
-        <button
-          className="btn btn-secondary"
-          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+        <FilaNavegable
+          icono="borrar"
+          titulo="Borrar hallazgo"
+          tono="riesgo"
+          chevron={false}
           onClick={() => setConfirmandoBorrado(true)}
-        >
-          Borrar hallazgo
-        </button>
+        />
       ) : (
-        <div className="card card--riesgo">
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-            ¿Seguro? Esta acción no se puede deshacer.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrando}>
-              cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ background: 'var(--risk-600)' }}
-              onClick={confirmarBorrado}
-              disabled={borrando}
-            >
-              {borrando ? 'Borrando…' : 'Confirmar borrado'}
-            </button>
-          </div>
-          {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
-        </div>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
       )}
     </div>
   );

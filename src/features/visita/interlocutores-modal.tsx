@@ -287,8 +287,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                     </button>
                     <button
                       type="button"
-                      className="btn btn-secondary"
-                      style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+                      className="btn btn-secondary btn-secondary--riesgo"
                       onClick={() => quitarDelDirectorio(i.id)}
                       disabled={guardando}
                     >

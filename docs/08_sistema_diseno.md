@@ -90,6 +90,22 @@ propaga a toda la app):
   panel está abierto. Una pantalla puede tener **cero** primarios (listas
   de monitorización o de administración con una decisión por fila, p. ej.
   Consumo por comercial o Clientes duplicados): ahí no se fuerza uno.
+- **Acción destructiva (borrar / anular / dar de baja).** Un solo rojo en
+  toda la app: `--risk-600` (borgoña). `--danger-600` (rojo vivo) es
+  **solo** para errores de formulario y el semáforo rojo — nunca una
+  acción. El color casi no ayuda al usuario daltónico, así que el peso lo
+  llevan la palabra, la papelera y el paso de confirmación:
+    - **Disparador** = `FilaNavegable tono="riesgo" icono="borrar"
+      chevron={false}`, al fondo. NO un botón. (En un modal o formulario
+      en línea donde una fila no encaja: `.btn-secondary.btn-secondary--riesgo`,
+      borde borgoña, sin `style` en línea.)
+    - **Confirmación** = componente `<ConfirmacionBorrado>` (tarjeta
+      `card--riesgo` + botón `.btn-peligro` relleno borgoña). El aviso es
+      "No se puede deshacer." salvo que se pase `reversible` con el cómo
+      ("Podrás reactivarlo más tarde"). La diferencia reversible / no
+      reversible va SIEMPRE en palabras, nunca en un matiz de color.
+    - Nunca `style={{ color/borderColor/background: 'var(--risk-600)' }}`
+      en línea sobre un `.btn`: para eso están las clases.
 
 ---
 

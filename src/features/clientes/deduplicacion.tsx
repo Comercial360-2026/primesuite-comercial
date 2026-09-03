@@ -263,14 +263,8 @@ export function Deduplicacion() {
                   >
                     Cancelar
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ background: 'var(--risk-600)' }}
-                    disabled={bloqueado}
-                    onClick={() => fusionar(g)}
-                  >
-                    {bloqueado ? 'Fusionando…' : 'Confirmar fusión'}
+                  <button type="button" className="btn btn-peligro" disabled={bloqueado} onClick={() => fusionar(g)}>
+                    {bloqueado ? 'Fusionando…' : 'Sí, fusionar'}
                   </button>
                 </div>
               </div>

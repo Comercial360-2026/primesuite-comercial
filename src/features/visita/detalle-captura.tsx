@@ -5,6 +5,8 @@ import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { enlaceMapa } from '@/lib/geo';
 
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
@@ -239,36 +241,26 @@ export function DetalleCaptura() {
         </>
       )}
 
-      {!confirmandoBorrado ? (
-        <button
-          className="btn btn-secondary"
-          style={{ marginTop: 'auto', color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-          onClick={() => setConfirmandoBorrado(true)}
-        >
-          Borrar {payload.tipo}
-        </button>
-      ) : (
-        <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-            ¿Seguro? {payload.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento. ' : ''}
-            No se puede deshacer.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrado.cargando}>
-              Cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ background: 'var(--risk-600)' }}
-              onClick={confirmarBorrado}
-              disabled={borrado.cargando}
-            >
-              {borrado.cargando ? 'Borrando…' : 'Confirmar borrado'}
-            </button>
-          </div>
-          {borrado.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrado.error}</div>}
-        </div>
-      )}
+      <div style={{ marginTop: 'auto' }}>
+        {!confirmandoBorrado ? (
+          <FilaNavegable
+            icono="borrar"
+            titulo={`Borrar ${payload.tipo}`}
+            tono="riesgo"
+            chevron={false}
+            onClick={() => setConfirmandoBorrado(true)}
+          />
+        ) : (
+          <ConfirmacionBorrado
+            onCancelar={() => setConfirmandoBorrado(false)}
+            onConfirmar={confirmarBorrado}
+            cargando={borrado.cargando}
+            error={borrado.error}
+          >
+            {payload.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+          </ConfirmacionBorrado>
+        )}
+      </div>
     </div>
   );
 }

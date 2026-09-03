@@ -652,7 +652,7 @@ export function FichaCliente() {
         {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
             la app (detalle de visita, "Cerrar sesión" en Yo). */}
         {confirmandoBorrarCliente ? (
-          <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+          <div className="card card--riesgo">
             {previsualizandoCliente.cargando || !previsualizacionCliente ? (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
             ) : (
@@ -675,12 +675,11 @@ export function FichaCliente() {
                     Cancelar
                   </button>
                   <button
-                    className="btn btn-primary"
-                    style={{ background: 'var(--risk-600)' }}
+                    className="btn btn-peligro"
                     onClick={confirmarBorradoCliente}
                     disabled={borrandoCliente.cargando}
                   >
-                    {borrandoCliente.cargando ? 'Borrando…' : 'Confirmar borrado del cliente completo'}
+                    {borrandoCliente.cargando ? 'Borrando…' : 'Sí, borrar el cliente entero'}
                   </button>
                 </div>
                 {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
