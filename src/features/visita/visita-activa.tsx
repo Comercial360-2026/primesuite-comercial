@@ -331,6 +331,9 @@ export function VisitaActiva() {
   const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
+  // Panel "Lo capturado": todo lo de la visita de un vistazo, sin bajar por
+  // debajo de la rejilla de captura. Se abre desde la tira de arriba.
+  const [repasoAbierto, setRepasoAbierto] = useState(false);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
   const [pasoAbierto, setPasoAbierto] = useState(false);
@@ -858,6 +861,15 @@ export function VisitaActiva() {
     };
   }, [fotosVisor]);
 
+  useEffect(() => {
+    if (!repasoAbierto) return;
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRepasoAbierto(false);
+    };
+    document.addEventListener('keydown', alPulsar);
+    return () => document.removeEventListener('keydown', alPulsar);
+  }, [repasoAbierto]);
+
   const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
   const visorFotos =
     indiceVisor >= 0 ? (
@@ -1177,6 +1189,23 @@ export function VisitaActiva() {
     );
   }
 
+  // Resumen de lo capturado, para la tira de arriba. Las fotos/audios/notas
+  // van todas en `capturas` (captura_libre), se separan por su `tipo`.
+  const nFotos = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto').length;
+  const nAudios = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio').length;
+  const nNotas = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota').length;
+  const totalCapturado = capturas.length + hallazgos.length + oportunidades.length + pasos.length;
+  const resumenCapturado = [
+    nFotos && `${nFotos} foto${nFotos > 1 ? 's' : ''}`,
+    nAudios && `${nAudios} audio${nAudios > 1 ? 's' : ''}`,
+    nNotas && `${nNotas} nota${nNotas > 1 ? 's' : ''}`,
+    hallazgos.length && `${hallazgos.length} hallazgo${hallazgos.length > 1 ? 's' : ''}`,
+    oportunidades.length && `${oportunidades.length} oportunidad${oportunidades.length > 1 ? 'es' : ''}`,
+    pasos.length && `${pasos.length} ${pasos.length > 1 ? 'próximos pasos' : 'próximo paso'}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -1198,6 +1227,25 @@ export function VisitaActiva() {
           Participantes
         </button>
       </div>
+
+      {/* Qué llevas capturado, de un vistazo y desde arriba. Se abre en un
+          panel a pantalla completa (la lista de abajo queda debajo de la
+          rejilla de captura y en un móvil no se ve al entrar). */}
+      {totalCapturado > 0 ? (
+        <button type="button" className="repaso-tira" onClick={() => setRepasoAbierto(true)}>
+          <span>
+            <strong>
+              {totalCapturado} {totalCapturado === 1 ? 'elemento' : 'elementos'}
+            </strong>
+            {resumenCapturado && ` · ${resumenCapturado}`}
+          </span>
+          <span className="repaso-tira__ir" aria-hidden>
+            ›
+          </span>
+        </button>
+      ) : (
+        <div className="repaso-tira repaso-tira--vacia">Aún no has capturado nada en esta visita</div>
+      )}
 
       {objetivoActual != null && (
         <div>
@@ -1387,7 +1435,24 @@ export function VisitaActiva() {
         </div>
       )}
 
-      <div className="screen__scroll">
+      {/* Al pulsar la tira "lo capturado", este mismo bloque se despliega a
+          pantalla completa (clase --panel) — así se ve todo sin bajar por
+          debajo de la rejilla de captura, que en un móvil ocupa una
+          pantalla entera. Sin el panel es la franja de scroll normal. */}
+      <div className={`screen__scroll${repasoAbierto ? ' screen__scroll--panel' : ''}`}>
+        {repasoAbierto && (
+          <div className="screen__scroll-cab">
+            <span className="screen__scroll-tit">Lo capturado</span>
+            <button
+              type="button"
+              className="screen__scroll-x"
+              onClick={() => setRepasoAbierto(false)}
+              aria-label="cerrar"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {/* General de la visita + zonas del recorrido, agrupado y plegable.
             La oportunidad NO se lista aquí — tiene su sección propia debajo. */}
         <CapturasPorUbicacion

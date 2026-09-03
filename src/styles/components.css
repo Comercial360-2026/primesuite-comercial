@@ -151,6 +151,36 @@ body {
 .screen--split { flex: 1; min-height: 0; overflow: hidden; }
 .screen__scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
+/* Tira "lo capturado" de Visita activa: fina, arriba del todo. */
+.repaso-tira {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 12px; box-sizing: border-box;
+  border: 1px solid var(--ink-200); border-radius: var(--radius-field);
+  background: var(--surface-1); color: var(--ink-700);
+  font-size: var(--text-xs); text-align: left; cursor: pointer;
+}
+.repaso-tira strong { color: var(--ink-900); font-weight: 600; }
+.repaso-tira__ir { margin-left: auto; color: var(--ink-400); font-size: 18px; line-height: 1; }
+.repaso-tira--vacia { cursor: default; color: var(--ink-400); }
+
+/* Al pulsar la tira, la franja de scroll se despliega a pantalla completa
+   — así se ve TODO lo capturado sin bajar por debajo de la rejilla. */
+.screen__scroll--panel {
+  position: fixed; inset: 0; z-index: 25;
+  background: var(--surface-0);
+  padding: var(--space-4); box-sizing: border-box;
+  padding-top: calc(var(--space-4) + env(safe-area-inset-top));
+}
+.screen__scroll-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.screen__scroll-tit { font-size: var(--text-md); font-weight: 600; }
+.screen__scroll-x {
+  border: none; background: none; font-size: 24px; line-height: 1;
+  padding: 4px; color: var(--ink-700); cursor: pointer;
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
