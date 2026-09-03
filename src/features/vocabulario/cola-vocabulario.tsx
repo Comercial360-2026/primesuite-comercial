@@ -63,6 +63,9 @@ export function ColaVocabulario() {
   const [renombrandoCategoriaId, setRenombrandoCategoriaId] = useState<string | null>(null);
   const [textoRenombrarCategoria, setTextoRenombrarCategoria] = useState('');
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
+  // Error pegado a una categoría concreta (borrar), para que se vea donde
+  // has pulsado y no arriba del todo de una lista larga.
+  const [errorPorCategoria, setErrorPorCategoria] = useState<{ id: string; msg: string } | null>(null);
   const [renombrandoTerminoId, setRenombrandoTerminoId] = useState<string | null>(null);
   const [textoRenombrarTermino, setTextoRenombrarTermino] = useState('');
   const [moviendoTerminoId, setMoviendoTerminoId] = useState<string | null>(null);
@@ -159,9 +162,18 @@ export function ColaVocabulario() {
   });
 
   function invalidarCatalogo() {
-    queryClient.invalidateQueries({ queryKey: ['catalogo-completo-agrupado'] });
-    queryClient.invalidateQueries({ queryKey: ['categorias'] });
-    queryClient.invalidateQueries({ queryKey: ['terminos-propuestos'] });
+    // TODAS las claves que leen vocabulario, aquí y en otras pantallas
+    // (SelectorTermino del hallazgo / oportunidad). Sin esto, renombrar o
+    // mover un término aquí no llegaba al selector de Hallazgo.
+    for (const k of [
+      ['catalogo-completo-agrupado'],
+      ['categorias'],
+      ['terminos-propuestos'],
+      ['catalogo-corporativo'],
+      ['catalogo-terminos-selector'],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: k });
+    }
   }
 
   async function resolver(
@@ -206,34 +218,47 @@ export function ColaVocabulario() {
   async function renombrarCategoria(id: string) {
     if (!textoRenombrarCategoria.trim()) return;
     setErrorCatalogo(null);
-    const { error: err } = await supabase
-      .from('categoria_vocabulario')
-      .update({ nombre: textoRenombrarCategoria.trim() })
-      .eq('id', id);
-    if (err) {
-      setErrorCatalogo(err.message);
-      return;
-    }
-    setRenombrandoCategoriaId(null);
-    invalidarCatalogo();
-  }
-
-  async function borrarCategoria(id: string, tieneTerminos: boolean) {
-    if (tieneTerminos) {
-      setErrorCatalogo('No se puede borrar: mueve o quita antes todos sus términos.');
-      return;
-    }
-    setErrorCatalogo(null);
+    setErrorPorCategoria(null);
     const { error: err, count } = await supabase
       .from('categoria_vocabulario')
-      .delete({ count: 'exact' })
+      .update({ nombre: textoRenombrarCategoria.trim() }, { count: 'exact' })
       .eq('id', id);
     if (err) {
       setErrorCatalogo(err.message);
       return;
     }
     if (!count) {
-      setErrorCatalogo('No se ha podido borrar la categoría (0 filas afectadas). Puede que no tengas permiso.');
+      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
+      return;
+    }
+    setRenombrandoCategoriaId(null);
+    invalidarCatalogo();
+  }
+
+  async function borrarCategoria(id: string, numTerminos: number) {
+    setErrorPorCategoria(null);
+    if (numTerminos > 0) {
+      // El error va PEGADO a la categoría — el `errorCatalogo` de arriba
+      // del todo no se ve si estás a media lista.
+      setErrorPorCategoria({
+        id,
+        msg: `Tiene ${numTerminos} término${numTerminos === 1 ? '' : 's'}. Muévelos o quítalos antes de borrar la categoría.`,
+      });
+      return;
+    }
+    const { error: err, count } = await supabase
+      .from('categoria_vocabulario')
+      .delete({ count: 'exact' })
+      .eq('id', id);
+    if (err) {
+      setErrorPorCategoria({ id, msg: err.message });
+      return;
+    }
+    if (!count) {
+      setErrorPorCategoria({
+        id,
+        msg: 'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.',
+      });
       return;
     }
     invalidarCatalogo();
@@ -244,12 +269,16 @@ export function ColaVocabulario() {
   async function renombrarTermino(id: string) {
     if (!textoRenombrarTermino.trim()) return;
     setErrorCatalogo(null);
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('termino')
-      .update({ nombre: textoRenombrarTermino.trim() })
+      .update({ nombre: textoRenombrarTermino.trim() }, { count: 'exact' })
       .eq('id', id);
     if (err) {
       setErrorCatalogo(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
       return;
     }
     setRenombrandoTerminoId(null);
@@ -258,12 +287,16 @@ export function ColaVocabulario() {
 
   async function moverTermino(id: string, nuevaCategoriaId: string) {
     setErrorCatalogo(null);
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('termino')
-      .update({ categoria_id: nuevaCategoriaId })
+      .update({ categoria_id: nuevaCategoriaId }, { count: 'exact' })
       .eq('id', id);
     if (err) {
       setErrorCatalogo(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorCatalogo('No se ha podido mover (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
       return;
     }
     setMoviendoTerminoId(null);
@@ -490,16 +523,22 @@ export function ColaVocabulario() {
                         {
                           icono: 'editar',
                           etiqueta: 'Renombrar categoría',
-                          onClick: () => { setRenombrandoCategoriaId(cat.categoria_id); setTextoRenombrarCategoria(cat.categoria_nombre); },
+                          onClick: () => { setErrorPorCategoria(null); setRenombrandoCategoriaId(cat.categoria_id); setTextoRenombrarCategoria(cat.categoria_nombre); },
                         },
                         {
                           icono: 'borrar',
                           etiqueta: 'Borrar categoría',
                           tono: 'riesgo',
-                          onClick: () => borrarCategoria(cat.categoria_id, cat.terminos.length > 0),
+                          onClick: () => borrarCategoria(cat.categoria_id, cat.terminos.length),
                         },
                       ]}
                     />
+                  )}
+
+                  {errorPorCategoria?.id === cat.categoria_id && (
+                    <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                      {errorPorCategoria.msg}
+                    </div>
                   )}
 
                   {cat.terminos.map((t) => {
