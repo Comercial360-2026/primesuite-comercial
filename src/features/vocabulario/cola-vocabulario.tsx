@@ -494,6 +494,22 @@ export function ColaVocabulario() {
     setSeleccionandoCat(false);
     setMarcadosTerm(new Set());
     setMoverLoteAbierto(false);
+    // Al salir, todo vuelve a plegado (en "seleccionar" se enseñan todos
+    // los términos; si no se resetea, las categorías se quedan abiertas).
+    setExpandidas(new Set());
+  }
+
+  // Cambiar de pestaña deja SIEMPRE la pantalla limpia: sin modos activos
+  // y con las categorías plegadas.
+  function cambiarVista(v: 'pendientes' | 'catalogo') {
+    setVista(v);
+    setSeleccionandoCat(false);
+    setSeleccionandoPend(false);
+    setOrdenandoCat(false);
+    setOrdenLocal(null);
+    setMarcadosTerm(new Set());
+    setMarcadosPend(new Set());
+    setExpandidas(new Set());
   }
 
   function alternarTerm(id: string) {
@@ -588,14 +604,14 @@ export function ColaVocabulario() {
         <button
           type="button"
           className={`chip${vista === 'catalogo' ? ' chip--on' : ''}`}
-          onClick={() => setVista('catalogo')}
+          onClick={() => cambiarVista('catalogo')}
         >
           Catálogo completo
         </button>
         <button
           type="button"
           className={`chip${vista === 'pendientes' ? ' chip--on' : ''}`}
-          onClick={() => setVista('pendientes')}
+          onClick={() => cambiarVista('pendientes')}
         >
           Pendientes{propuestos?.length ? ` (${propuestos.length})` : ''}
         </button>
