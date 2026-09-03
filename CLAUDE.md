@@ -7,6 +7,14 @@ Repositorio: https://github.com/Comercial360-2026/primesuite-comercial
 Todo cambio se valida en un Deploy Preview de un Pull Request; producción solo se toca
 con autorización explícita del usuario.
 
+> ⚠️ **REALIDAD DEL DESPLIEGUE (2026-09-03):** Netlify tiene *auto-publish* activo
+> sobre `main`. **`git push origin main` publica producción automáticamente**, sin
+> "Publish deploy" ni intervención. Es decir: **hacer `push` a `main` ES el despliegue
+> a producción** y por tanto necesita el texto literal `HAZ DEPLOY A PRODUCCIÓN` del
+> usuario ANTES de ejecutarlo. No basta con "sube" / "adelante".
+> Para volver a un flujo deliberado: en Netlify → *Deploys* → **Stop auto publishing**
+> (los push seguirán compilando y dando preview, pero publicar será un clic manual).
+
 ## Flujo de trabajo obligatorio
 
 Estas reglas son de cumplimiento estricto y prevalecen sobre cualquier otra pauta por defecto.
