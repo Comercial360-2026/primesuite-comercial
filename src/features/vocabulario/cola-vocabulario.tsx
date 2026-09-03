@@ -488,6 +488,9 @@ export function ColaVocabulario() {
     setErrorPorCategoria(null);
     setRenombrandoTerminoId(null);
     setRenombrandoCategoriaId(null);
+    // Se entra con todas desplegadas (para marcar), pero se pueden plegar
+    // las que no interesen.
+    setExpandidas(new Set(catalogoAgrupado?.map((c) => c.categoria_id) ?? []));
   }
 
   function salirSeleccionCat() {
@@ -900,9 +903,9 @@ export function ColaVocabulario() {
             return (
           <div className="lista-agrupada">
             {catsMostradas?.map((cat, idxCat) => {
-              // Plegada por defecto; se despliega si el usuario la abrió. En
-              // "modo seleccionar" se ven siempre los términos.
-              const colapsada = !seleccionandoCat && !expandidas.has(cat.categoria_id);
+              // Plegada por defecto; se despliega si el usuario la abrió
+              // (también en "modo seleccionar", que entra con todas abiertas).
+              const colapsada = !expandidas.has(cat.categoria_id);
               return (
               <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <SeccionLista>
@@ -931,7 +934,7 @@ export function ColaVocabulario() {
                       icono={colapsada ? 'chevron' : 'bajar'}
                       titulo={cat.categoria_nombre}
                       subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
-                      onClick={seleccionandoCat ? undefined : () => alternarColapso(cat.categoria_id)}
+                      onClick={() => alternarColapso(cat.categoria_id)}
                       acciones={
                         ordenandoCat
                           ? ([
