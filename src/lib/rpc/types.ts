@@ -39,6 +39,8 @@ export interface ResolverTerminoPropuestoArgs {
 export interface TerminoRow {
   id: string;
   categoria_id: string;
+  parent_id: string | null;
+  orden: number;
   nombre: string;
   rol_funcional: 'tecnologia' | 'solucion' | 'ambos';
   estado_gobierno: 'propuesto' | 'corporativo' | 'descartado';

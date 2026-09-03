@@ -1361,6 +1361,8 @@ export type Database = {
           fusionado_en_id: string | null
           id: string
           nombre: string
+          orden: number
+          parent_id: string | null
           propuesto_por_id: string | null
           resuelto_por_id: string | null
           rol_funcional: string
@@ -1376,6 +1378,8 @@ export type Database = {
           fusionado_en_id?: string | null
           id?: string
           nombre: string
+          orden?: number
+          parent_id?: string | null
           propuesto_por_id?: string | null
           resuelto_por_id?: string | null
           rol_funcional: string
@@ -1391,6 +1395,8 @@ export type Database = {
           fusionado_en_id?: string | null
           id?: string
           nombre?: string
+          orden?: number
+          parent_id?: string | null
           propuesto_por_id?: string | null
           resuelto_por_id?: string | null
           rol_funcional?: string
@@ -1435,6 +1441,27 @@ export type Database = {
           {
             foreignKeyName: "termino_fusionado_en_id_fkey"
             columns: ["fusionado_en_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vocabulario_pendiente_revision"
+            referencedColumns: ["termino_id"]
+          },
+          {
+            foreignKeyName: "termino_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "termino"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "termino_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_termino_resuelto"
+            referencedColumns: ["termino_id"]
+          },
+          {
+            foreignKeyName: "termino_parent_id_fkey"
+            columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "vw_vocabulario_pendiente_revision"
             referencedColumns: ["termino_id"]
@@ -2115,6 +2142,8 @@ export type Database = {
           fusionado_en_id: string | null
           id: string
           nombre: string
+          orden: number
+          parent_id: string | null
           propuesto_por_id: string | null
           resuelto_por_id: string | null
           rol_funcional: string
