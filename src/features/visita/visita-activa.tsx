@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
 import { SelectorUbicacion } from './selector-ubicacion';
 import { EditorCaptura } from './editor-captura';
+import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -48,6 +49,10 @@ interface CapturasPorUbicacionProps {
   nombresTerminos?: Record<string, string>;
   ubicacionActivaId?: string;
   onTocarCaptura: (id: string) => void;
+  // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
+  // (que sirve para audio/nota/hallazgo). Si no se pasa, la foto también
+  // cae en `onTocarCaptura`.
+  onAbrirFoto?: (id: string) => void;
   // 'recorrido': zonas siempre abiertas, "General" plegada, al final.
   // 'normal': todo plegable, "General" arriba y abierta por defecto, zona
   // más reciente también abierta. La oportunidad NO se lista aquí en modo
@@ -68,6 +73,7 @@ function CapturasPorUbicacion({
   nombresTerminos,
   ubicacionActivaId,
   onTocarCaptura,
+  onAbrirFoto,
   contexto,
 }: CapturasPorUbicacionProps) {
   const claveDe = (op: OperacionPendiente) =>
@@ -148,18 +154,19 @@ function CapturasPorUbicacion({
           {[...c.fotos].reverse().map((f) => {
             const blob = f.archivoLocal as Blob | undefined;
             const titulo = (f.payload as { titulo?: string }).titulo;
+            const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
             return blob ? (
               <img
                 key={f.id}
                 src={URL.createObjectURL(blob)}
                 alt={titulo ?? 'foto'}
-                onClick={() => onTocarCaptura(f.id)}
+                onClick={abrir}
                 style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
               />
             ) : (
               <div
                 key={f.id}
-                onClick={() => onTocarCaptura(f.id)}
+                onClick={abrir}
                 style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
               />
             );
@@ -322,6 +329,8 @@ export function VisitaActiva() {
   // zona elegida. "sin zona" o fuera del recorrido => undefined, como hoy.
   const ubicacionParaCaptura = modoRecorrido ? ubicacionActual?.id : undefined;
   const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
+  // Foto abierta en el visor a pantalla completa (tocar una miniatura).
+  const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
   const [pasoAbierto, setPasoAbierto] = useState(false);
@@ -816,6 +825,62 @@ export function VisitaActiva() {
   );
   const nombresUbicacionesVisita = Object.fromEntries(ubicacionesCliente.map((u) => [u.id, u.nombre]));
 
+  // Todas las fotos de la visita en este dispositivo, ordenadas de la más
+  // reciente a la más antigua — es lo que recorre el visor a pantalla
+  // completa con ‹ ›. Se memoiza sobre `operaciones` (referencia estable
+  // entre recargas de la cola) para no recrear los object URL en cada
+  // render; se revocan al cambiar la lista o al desmontar. El nombre de la
+  // zona se resuelve aparte, al pintar, para no meter en la dependencia un
+  // objeto que se recrea en cada render.
+  const fotosVisor = useMemo(() => {
+    return operaciones
+      .filter(
+        (op) => op.entidad === 'captura_libre' && (op.payload as { tipo?: string }).tipo === 'foto'
+      )
+      .sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? ''))
+      .map((f) => {
+        const p = f.payload as { titulo?: string; ubicacionId?: string; latitud?: number; longitud?: number };
+        const blob = f.archivoLocal as Blob | undefined;
+        return {
+          id: f.id,
+          url: blob ? URL.createObjectURL(blob) : null,
+          titulo: p.titulo ?? null,
+          ubicacionId: p.ubicacionId ?? null,
+          latitud: p.latitud ?? null,
+          longitud: p.longitud ?? null,
+        };
+      });
+  }, [operaciones]);
+
+  useEffect(() => {
+    return () => {
+      fotosVisor.forEach((f) => f.url && URL.revokeObjectURL(f.url));
+    };
+  }, [fotosVisor]);
+
+  const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
+  const visorFotos =
+    indiceVisor >= 0 ? (
+      <VisorFotos
+        fotos={fotosVisor.map((f) => ({
+          id: f.id,
+          url: f.url,
+          titulo: f.titulo,
+          ubicacion_nombre: f.ubicacionId ? nombresUbicacionesVisita[f.ubicacionId] ?? null : null,
+          latitud: f.latitud,
+          longitud: f.longitud,
+        }))}
+        indice={indiceVisor}
+        onCerrar={() => setFotoVisorId(null)}
+        onCambiar={(i) => setFotoVisorId(fotosVisor[i]?.id ?? null)}
+        onEditar={(id) => {
+          setFotoVisorId(null);
+          if (modoRecorrido) setCapturaEditandoId(id);
+          else navigate(`/capturas/${id}`);
+        }}
+      />
+    ) : null;
+
   // Guarda al final de los hooks (ver nota más arriba). Sin `visitaId` no hay
   // pantalla que pintar; sin `comercial`, `RequireSession` ya habría
   // redirigido, pero se comprueba igual por si acaso.
@@ -1083,9 +1148,11 @@ export function VisitaActiva() {
           nombresTerminos={nombresTerminos}
           ubicacionActivaId={ubicacionActual?.id}
           onTocarCaptura={setCapturaEditandoId}
+          onAbrirFoto={setFotoVisorId}
         />
 
         {capturaEditandoId && <EditorCaptura capturaId={capturaEditandoId} onCerrar={() => setCapturaEditandoId(null)} />}
+        {visorFotos}
 
         {/* Estos modales van también aquí: este `return` es anticipado y los
             del final del componente no se montan en Modo Recorrido. */}
@@ -1331,6 +1398,7 @@ export function VisitaActiva() {
           nombresUbicaciones={nombresUbicacionesVisita}
           nombresTerminos={nombresTerminos}
           onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
+          onAbrirFoto={setFotoVisorId}
         />
 
         {/* Oportunidades: sección propia (es el negocio de la visita), con
@@ -1535,6 +1603,8 @@ export function VisitaActiva() {
       {participantesAbierto && visitaId && (
         <ParticipantesModal visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
       )}
+
+      {visorFotos}
     </div>
   );
 }
