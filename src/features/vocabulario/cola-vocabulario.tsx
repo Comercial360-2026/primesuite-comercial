@@ -59,6 +59,14 @@ export function ColaVocabulario() {
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Modo seleccionar de "Pendientes": marcar propuestas y aprobar /
+  // descartar en lote, o fusionar una sola. Mismo patrón que el catálogo.
+  const [seleccionandoPend, setSeleccionandoPend] = useState(false);
+  const [marcadosPend, setMarcadosPend] = useState<Set<string>>(new Set());
+  const [corriendoPend, setCorriendoPend] = useState(false);
+  const [progresoPend, setProgresoPend] = useState<{ hecho: number; total: number } | null>(null);
+  const [resultadoPend, setResultadoPend] = useState<string | null>(null);
+
   // --- estado de la pestaña "catálogo completo" ---
   const [nuevaCategoriaTexto, setNuevaCategoriaTexto] = useState('');
   const [creandoCategoria, setCreandoCategoria] = useState(false);
@@ -234,7 +242,61 @@ export function ColaVocabulario() {
     }
     setFusionandoId(null);
     setTextoBusquedaFusion('');
+    setMarcadosPend(new Set());
     invalidarCatalogo();
+  }
+
+  // ---- modo seleccionar de "Pendientes" ----
+
+  function entrarSeleccionPend() {
+    setSeleccionandoPend(true);
+    setMarcadosPend(new Set());
+    setResultadoPend(null);
+    setError(null);
+    setFusionandoId(null);
+  }
+  function salirSeleccionPend() {
+    setSeleccionandoPend(false);
+    setMarcadosPend(new Set());
+    setFusionandoId(null);
+  }
+  function alternarPend(id: string) {
+    setMarcadosPend((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  // Lote = N × la RPC individual, en bucle, con progreso y parte de fallos
+  // (igual que quitarLote / moverLote del catálogo).
+  async function resolverLote(accion: 'incorporar' | 'descartar') {
+    const ids = [...marcadosPend];
+    if (!ids.length) return;
+    setCorriendoPend(true);
+    setResultadoPend(null);
+    setError(null);
+    let ok = 0;
+    let fallo = 0;
+    for (let i = 0; i < ids.length; i++) {
+      setProgresoPend({ hecho: i, total: ids.length });
+      const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
+        p_termino_id: ids[i],
+        p_accion: accion,
+      });
+      if (err) fallo++;
+      else ok++;
+    }
+    setProgresoPend(null);
+    setCorriendoPend(false);
+    invalidarCatalogo();
+    if (fallo) {
+      setResultadoPend(`${accion === 'incorporar' ? 'Aprobados' : 'Descartados'} ${ok} · ${fallo} con error.`);
+      setMarcadosPend(new Set());
+    } else {
+      salirSeleccionPend();
+    }
   }
 
   // ---- gestión de categorías ----
@@ -519,7 +581,7 @@ export function ColaVocabulario() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle titulo="Vocabulario" volverA="/yo" ayuda="cola-vocabulario" />
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
@@ -546,7 +608,56 @@ export function ColaVocabulario() {
           </p>
 
           {error && <div className="field-error-text">{error}</div>}
+          {resultadoPend && <div className="field-error-text">{resultadoPend}</div>}
 
+          {seleccionandoPend ? (
+            <BarraSeleccion
+              n={marcadosPend.size}
+              onCancelar={salirSeleccionPend}
+              acciones={[
+                {
+                  etiqueta:
+                    corriendoPend && progresoPend
+                      ? `Trabajando ${progresoPend.hecho} de ${progresoPend.total}…`
+                      : `Aprobar (${marcadosPend.size})`,
+                  icono: 'check',
+                  onClick: () => resolverLote('incorporar'),
+                  disabled: corriendoPend || marcadosPend.size === 0,
+                },
+                {
+                  etiqueta: 'Fusionar',
+                  icono: 'fusionar',
+                  onClick: () => {
+                    const id = [...marcadosPend][0];
+                    if (id) { setFusionandoId(id); setTextoBusquedaFusion(''); }
+                  },
+                  disabled: corriendoPend || marcadosPend.size !== 1,
+                },
+                {
+                  etiqueta: corriendoPend ? 'Descartando…' : `Descartar (${marcadosPend.size})`,
+                  icono: 'borrar',
+                  tono: 'riesgo',
+                  onClick: () => resolverLote('descartar'),
+                  disabled: corriendoPend || marcadosPend.size === 0,
+                },
+              ]}
+            />
+          ) : (
+            !!propuestos?.length && (
+              <div style={{ display: 'flex' }}>
+                <button
+                  type="button"
+                  className="chip"
+                  style={{ marginLeft: 'auto' }}
+                  onClick={entrarSeleccionPend}
+                >
+                  Seleccionar
+                </button>
+              </div>
+            )
+          )}
+
+          <div className="screen__scroll">
           {isLoading ? (
             <EstadoLista estado="cargando" />
           ) : isPaused && !propuestos ? (
@@ -613,40 +724,23 @@ export function ColaVocabulario() {
                     );
                   }
 
-                  const acciones: AccionFila[] = [
-                    {
-                      icono: 'check',
-                      etiqueta: 'Incorporar tal cual',
-                      onClick: () => resolver(t.id, 'incorporar'),
-                      disabled: procesandoId === t.id,
-                    },
-                    {
-                      icono: 'fusionar',
-                      etiqueta: 'Fusionar con un término existente',
-                      onClick: () => { setFusionandoId(t.id); setTextoBusquedaFusion(''); },
-                      disabled: procesandoId === t.id,
-                    },
-                    {
-                      icono: 'borrar',
-                      etiqueta: 'Descartar la propuesta',
-                      tono: 'riesgo',
-                      onClick: () => resolver(t.id, 'descartar'),
-                      disabled: procesandoId === t.id,
-                    },
-                  ];
-
                   return (
                     <FilaAccion
                       key={t.id}
                       titulo={t.nombre}
                       subtitulo={procesandoId === t.id ? `${meta} · procesando…` : meta}
-                      acciones={acciones}
+                      seleccion={
+                        seleccionandoPend
+                          ? { activa: true, marcada: marcadosPend.has(t.id), onToggle: () => alternarPend(t.id) }
+                          : undefined
+                      }
                     />
                   );
                 })}
               </SeccionLista>
             </div>
           )}
+          </div>
         </>
       ) : (
         <>
@@ -669,6 +763,19 @@ export function ColaVocabulario() {
               n={marcadosTerm.size}
               onCancelar={salirSeleccionCat}
               acciones={[
+                {
+                  etiqueta: 'Renombrar',
+                  icono: 'editar',
+                  onClick: () => {
+                    const id = [...marcadosTerm][0];
+                    const term = catalogoAgrupado?.flatMap((c) => c.terminos).find((t) => t.id === id);
+                    if (term) {
+                      setRenombrandoTerminoId(term.id);
+                      setTextoRenombrarTermino(term.nombre);
+                    }
+                  },
+                  disabled: corriendoLote || marcadosTerm.size !== 1,
+                },
                 {
                   etiqueta:
                     corriendoLote && progresoLote
@@ -762,6 +869,7 @@ export function ColaVocabulario() {
             </div>
           )}
 
+          <div className="screen__scroll">
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
           {(() => {
@@ -939,20 +1047,6 @@ export function ColaVocabulario() {
                             ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
                             : undefined
                         }
-                        acciones={
-                          seleccionandoCat || ordenandoCat
-                            ? undefined
-                            : [
-                                {
-                                  icono: 'editar',
-                                  etiqueta: 'Renombrar término',
-                                  onClick: () => {
-                                    setRenombrandoTerminoId(t.id);
-                                    setTextoRenombrarTermino(t.nombre);
-                                  },
-                                },
-                              ]
-                        }
                       />
                     );
                   })}
@@ -989,6 +1083,7 @@ export function ColaVocabulario() {
           </div>
             );
           })()}
+          </div>
         </>
       )}
     </div>
