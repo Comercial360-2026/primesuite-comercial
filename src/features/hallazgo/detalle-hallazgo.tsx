@@ -10,6 +10,7 @@ import {
 } from '@/lib/etiquetas-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
@@ -201,6 +202,7 @@ export function DetalleHallazgo() {
           ))}
         </select>
       </div>
+      <AyudaNota concepto="tipo-fecha-hallazgo" />
 
       {error && <div className="field-error-text">{error}</div>}
 

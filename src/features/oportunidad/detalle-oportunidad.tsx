@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
@@ -247,6 +248,7 @@ export function DetalleOportunidad() {
           </option>
         ))}
       </select>
+      <AyudaNota concepto="horizonte-decision" />
 
       {/* Dos listas con papel distinto — resuelve el caso "el cliente tiene
           terminales de otra marca (tecnología motivadora) y quiere integrar

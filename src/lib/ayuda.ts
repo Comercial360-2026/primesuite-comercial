@@ -85,12 +85,19 @@ const _CONCEPTOS = {
     ejemplo:
       'Ves lectores de otra marca en las puertas → competencia. El cliente comenta que abren otra nave → oportunidad.',
   },
-  'tipo-fecha-proximo-paso': {
-    titulo: 'Tipo de fecha de un próximo paso',
+  'tipo-fecha-hallazgo': {
+    titulo: 'Fecha relevante de un hallazgo',
     queEs:
-      'Cada próximo paso lleva una fecha y qué significa esa fecha: cuándo quieres hacerlo tú, la fecha límite que ha puesto el cliente, o cuándo espera él una respuesta.',
+      'Si lo que has observado tiene una fecha que conviene tener presente —un contrato que vence, una renovación, una auditoría, un presupuesto en juego, una implantación prevista—, la anotas y marcas de qué tipo es. Queda guardada en el hallazgo y sale en el informe de la visita.',
     ejemplo:
-      '"El cliente decide antes del día 30" es una fecha límite; "llamar la semana que viene" es cuándo lo harás tú.',
+      'El cliente comenta que su contrato con el proveedor actual termina en marzo → fecha relevante = marzo, tipo = «vencimiento de contrato».',
+  },
+  'horizonte-decision': {
+    titulo: 'Horizonte de decisión',
+    queEs:
+      'Tu estimación de cuándo decidirá el cliente sobre esta oportunidad: 0-3 meses, 3-6, 6-12, más de 12, o sin fecha definida. No es un compromiso; sirve para saber a qué darle prioridad y no dejar enfriar lo que está caliente.',
+    ejemplo:
+      'El cliente quiere cerrar antes de fin de trimestre → 0-3 meses. Está «viendo opciones para el año que viene» → 6-12 meses.',
   },
   'semaforo-cliente': {
     titulo: 'El estado del cliente',
