@@ -112,7 +112,7 @@ export function ListadoClientes() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Clientes" icono="clientes" />
+      <CabeceraSeccion titulo="Clientes" icono="clientes" ayuda="clientes" />
 
       <input
         className="field"

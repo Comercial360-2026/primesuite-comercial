@@ -27,6 +27,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type { OperacionPendiente, HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 
@@ -1430,6 +1431,7 @@ export function VisitaActiva() {
         <Icono nombre="recorrido" size={18} />
         Iniciar recorrido
       </button>
+      <AyudaNota concepto="modo-recorrido" />
       <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
         Cerrar visita
       </button>

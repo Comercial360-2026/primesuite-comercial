@@ -67,6 +67,13 @@ const _PANTALLAS = {
     ojo: 'Al fusionar, las visitas, oportunidades, hallazgos, contactos y ubicaciones de las otras fichas pasan a la que se queda, y las demás desaparecen de la lista de clientes. No se puede deshacer desde la app: antes de confirmar, asegúrate de que de verdad son el mismo negocio.',
     soloDireccion: true,
   },
+  clientes: {
+    titulo: 'Clientes',
+    queEs:
+      'La lista de tus cuentas. Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar».',
+    cuando:
+      'Para buscar un cliente y entrar en su ficha. Si diriges el equipo, «Solo míos / Todos» cambia entre tu cartera y la de todos, y ahí ves quién lleva cada cuenta.',
+  },
   'cierre-visita': {
     titulo: 'Cerrar una visita',
     queEs:
@@ -102,7 +109,9 @@ const _CONCEPTOS = {
   'semaforo-cliente': {
     titulo: 'El estado del cliente',
     queEs:
-      'La etiqueta que resume cómo va cada cliente: con oportunidad abierta, en seguimiento, o sin visitar. Manda la palabra; el color solo acompaña.',
+      'La etiqueta junto a cada cliente resume cómo va: «Con oportunidad» (tiene al menos una oportunidad abierta), «En seguimiento» (sin oportunidad abierta pero visitado en los últimos 3 meses) o «Sin visitar» (sin oportunidad y más de 3 meses sin visita, o nunca visitado). Mandan la palabra y la forma del icono; el color solo acompaña.',
+    ejemplo:
+      'Cierras la última oportunidad de un cliente como ganada o perdida → deja de estar «Con oportunidad» y pasa a «En seguimiento».',
   },
   'modo-recorrido': {
     titulo: 'Modo recorrido',
