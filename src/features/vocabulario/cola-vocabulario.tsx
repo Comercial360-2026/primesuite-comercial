@@ -8,6 +8,7 @@ import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { esCategoriaSinClasificar } from '@/lib/vocabulario';
 
 interface TerminoPropuesto {
   id: string;
@@ -76,6 +77,9 @@ export function ColaVocabulario() {
   const [corriendoPend, setCorriendoPend] = useState(false);
   const [progresoPend, setProgresoPend] = useState<{ hecho: number; total: number } | null>(null);
   const [resultadoPend, setResultadoPend] = useState<string | null>(null);
+  // "Aprobar en…": al aprobar propuestas, elegir en qué categoría quedan
+  // (las propuestas sobre la marcha nacen en "Sin clasificar").
+  const [aprobarEnAbierto, setAprobarEnAbierto] = useState(false);
 
   // --- estado de la pestaña "catálogo completo" ---
   const [nuevaCategoriaTexto, setNuevaCategoriaTexto] = useState('');
@@ -182,7 +186,9 @@ export function ColaVocabulario() {
 
   const { data: categorias } = useQuery({
     queryKey: ['categorias'],
-    enabled: vista === 'catalogo',
+    // También en "Pendientes" al seleccionar: "Aprobar en…" necesita la
+    // lista de categorías destino.
+    enabled: vista === 'catalogo' || seleccionandoPend,
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('categoria_vocabulario')
@@ -313,11 +319,13 @@ export function ColaVocabulario() {
     setResultadoPend(null);
     setError(null);
     setFusionandoId(null);
+    setAprobarEnAbierto(false);
   }
   function salirSeleccionPend() {
     setSeleccionandoPend(false);
     setMarcadosPend(new Set());
     setFusionandoId(null);
+    setAprobarEnAbierto(false);
   }
   function alternarPend(id: string) {
     setMarcadosPend((prev) => {
@@ -329,17 +337,31 @@ export function ColaVocabulario() {
   }
 
   // Lote = N × la RPC individual, en bucle, con progreso y parte de fallos
-  // (igual que quitarLote / moverLote del catálogo).
-  async function resolverLote(accion: 'incorporar' | 'descartar') {
+  // (igual que quitarLote / moverLote del catálogo). Al aprobar
+  // ("incorporar") se puede pasar `destinoCategoriaId` para recolocar cada
+  // término antes de aprobarlo — el uso típico es sacarlos de "Sin
+  // clasificar" a su categoría definitiva.
+  async function resolverLote(accion: 'incorporar' | 'descartar', destinoCategoriaId?: string) {
     const ids = [...marcadosPend];
     if (!ids.length) return;
     setCorriendoPend(true);
     setResultadoPend(null);
     setError(null);
+    setAprobarEnAbierto(false);
     let ok = 0;
     let fallo = 0;
     for (let i = 0; i < ids.length; i++) {
       setProgresoPend({ hecho: i, total: ids.length });
+      if (accion === 'incorporar' && destinoCategoriaId) {
+        const { error: errMover } = await supabase
+          .from('termino')
+          .update({ categoria_id: destinoCategoriaId })
+          .eq('id', ids[i]);
+        if (errMover) {
+          fallo++;
+          continue;
+        }
+      }
       const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
         p_termino_id: ids[i],
         p_accion: accion,
@@ -588,6 +610,7 @@ export function ColaVocabulario() {
     setMarcadosTerm(new Set());
     setMarcadosPend(new Set());
     setExpandidas(new Set());
+    setAprobarEnAbierto(false);
   }
 
   function alternarTerm(id: string) {
@@ -916,7 +939,7 @@ export function ColaVocabulario() {
                       ? `Trabajando ${progresoPend.hecho} de ${progresoPend.total}…`
                       : `Aprobar (${marcadosPend.size})`,
                   icono: 'check',
-                  onClick: () => resolverLote('incorporar'),
+                  onClick: () => setAprobarEnAbierto(true),
                   disabled: corriendoPend || marcadosPend.size === 0,
                 },
                 {
@@ -950,6 +973,49 @@ export function ColaVocabulario() {
                 </button>
               </div>
             )
+          )}
+
+          {aprobarEnAbierto && (
+            <div className="card">
+              <div className="label" style={{ marginTop: 0 }}>
+                Aprobar {marcadosPend.size} término{marcadosPend.size === 1 ? '' : 's'} en:
+              </div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                Elige la categoría definitiva (las propuestas sobre la marcha nacen en «Sin
+                clasificar»), o déjalos donde están.
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                {categorias?.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="chip"
+                    disabled={corriendoPend}
+                    onClick={() => resolverLote('incorporar', c.id)}
+                  >
+                    {corriendoPend ? '…' : c.nombre}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={corriendoPend}
+                  onClick={() => setAprobarEnAbierto(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={corriendoPend}
+                  onClick={() => resolverLote('incorporar')}
+                >
+                  Dejar donde están
+                </button>
+              </div>
+            </div>
           )}
 
           <div className="screen__scroll">
@@ -1287,6 +1353,11 @@ export function ColaVocabulario() {
                             ] as AccionFila[])
                           : seleccionandoCat
                           ? undefined
+                          : esCategoriaSinClasificar(cat.categoria_nombre)
+                          ? // "Sin clasificar" es fija: no se renombra ni se
+                            // borra (el SelectorTermino la busca por nombre
+                            // para dejar ahí las propuestas sobre la marcha).
+                            undefined
                           : ([
                               {
                                 icono: 'editar',

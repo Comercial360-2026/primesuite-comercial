@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { NOMBRE_CATEGORIA_SIN_CLASIFICAR } from '@/lib/vocabulario';
 
 interface Termino {
   id: string;
@@ -119,13 +120,18 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
     const { data: sesion } = await supabase.auth.getSession();
     const usuarioId = sesion.session?.user.id;
 
-    const { data: categoriaRespaldo, error: errCat } = await supabase
+    // Las propuestas sobre la marcha caen en "Sin clasificar" (bandeja fija,
+    // migración 80). Si por lo que sea no existe, se usa la primera categoría
+    // como red de seguridad —- el término se propone igual y Dirección lo
+    // recoloca al aprobarlo.
+    const { data: cats, error: errCat } = await supabase
       .from('categoria_vocabulario')
-      .select('id')
-      .order('nombre')
-      .limit(1)
-      .single();
-    if (errCat || !categoriaRespaldo) {
+      .select('id, nombre')
+      .order('nombre');
+    const categoriaDestino =
+      cats?.find((c) => c.nombre.trim().toLowerCase() === NOMBRE_CATEGORIA_SIN_CLASIFICAR.toLowerCase()) ??
+      cats?.[0];
+    if (errCat || !categoriaDestino) {
       setProponiendo(false);
       setError('No se pudo determinar una categoría para el término nuevo.');
       return;
@@ -135,7 +141,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
       .from('termino')
       .insert({
         nombre: textoBusqueda.trim(),
-        categoria_id: categoriaRespaldo.id,
+        categoria_id: categoriaDestino.id,
         rol_funcional: 'ambos',
         propuesto_por_id: usuarioId,
         fecha_propuesta: new Date().toISOString(),

@@ -138,7 +138,7 @@ const _PANTALLAS = {
     queEs:
       'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
     cuando:
-      'En «Pendientes» apruebas, fusionas o descartas lo que se propone (con «Seleccionar» puedes hacerlo en lote). En «Catálogo completo» creas categorías y términos, los ordenas a tu gusto con las flechas, y buscas cualquiera con la caja de arriba. Un término puede tener modelos dentro (p. ej. «MIFARE» con «DESFire EV2»): los añades con «+ modelo dentro de…», o marcas un término y lo mueves «dentro de» otro. Al lado de cada término se ve en cuántas fichas se usa ya.',
+      'En «Pendientes» apruebas, fusionas o descartas lo que se propone (con «Seleccionar» puedes hacerlo en lote). Lo que los comerciales proponen sobre la marcha aparece en la categoría «Sin clasificar»; al aprobar eliges en qué categoría queda. En «Catálogo completo» creas categorías y términos, los ordenas a tu gusto con las flechas, y buscas cualquiera con la caja de arriba. Un término puede tener modelos dentro (p. ej. «MIFARE» con «DESFire EV2»): los añades con «+ modelo dentro de…», o marcas un término y lo mueves «dentro de» otro. Al lado de cada término se ve en cuántas fichas se usa ya.',
     ojo:
       'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas.',
     soloDireccion: true,
