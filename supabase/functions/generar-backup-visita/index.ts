@@ -282,6 +282,8 @@ interface CapturaRow {
   contenido_texto: string | null;
   storage_path: string | null;
   creado_en: string;
+  latitud: number | null;
+  longitud: number | null;
   ubicacion: Nombrado | null;
 }
 interface HallazgoRow {
@@ -402,7 +404,7 @@ Deno.serve(async (req) => {
   ] = await Promise.all([
     admin
       .from('captura_libre')
-      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, ubicacion:ubicacion_id(nombre)')
+      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, ubicacion:ubicacion_id(nombre)')
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
     admin
@@ -924,6 +926,42 @@ Deno.serve(async (req) => {
     }
   }
 
+  // --- Fotos con ubicación: coordenadas GPS + enlace a Google Maps ---
+  // Las coordenadas las guarda la app al hacer la foto (best-effort); si
+  // nadie tiene, este bloque no aparece. No se dibuja un mapa (eso pediría
+  // un proveedor de mapa estático de pago); solo el dato y el enlace.
+  // deno-lint-ignore no-explicit-any
+  const bloquesFotosUbicacion: any[] = [];
+  const fotosSituadas = fotos.filter((f) => f.latitud != null && f.longitud != null);
+  if (fotosSituadas.length) {
+    bloquesFotosUbicacion.push({
+      text: 'Fotos con ubicación',
+      bold: true,
+      fontSize: 9.5,
+      color: COLOR.ink700,
+      margin: [0, 14, 0, 4],
+    });
+    let idxSituada = 0;
+    for (const f of fotosSituadas) {
+      idxSituada += 1;
+      const lat = f.latitud as number;
+      const lng = f.longitud as number;
+      bloquesFotosUbicacion.push({
+        margin: [8, 2, 0, 0],
+        fontSize: 9,
+        text: [
+          { text: `•  ${f.titulo || `Foto ${idxSituada}`}  ·  `, color: COLOR.ink700 },
+          { text: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, color: COLOR.ink400 },
+          {
+            text: '   Ver en el mapa',
+            color: COLOR.brand600,
+            link: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+          },
+        ],
+      });
+    }
+  }
+
   // --- Anexo de audios (se omite del todo si no hay ninguno) ---
   // deno-lint-ignore no-explicit-any
   const bloquesAudios: any[] | null = audios.length
@@ -965,7 +1003,11 @@ Deno.serve(async (req) => {
   if (bloquesNotas) {
     contenido.push(tituloSeccion('Notas de la visita', `(${notas.length})`), ...bloquesNotas);
   }
-  contenido.push(tituloSeccion('Anexo fotográfico', fotos.length ? `(${fotos.length})` : undefined), ...bloquesFotos);
+  contenido.push(
+    tituloSeccion('Anexo fotográfico', fotos.length ? `(${fotos.length})` : undefined),
+    ...bloquesFotos,
+    ...bloquesFotosUbicacion
+  );
   if (bloquesAudios) {
     contenido.push(tituloSeccion('Anexo de audios', `(${audios.length})`), ...bloquesAudios);
   }
