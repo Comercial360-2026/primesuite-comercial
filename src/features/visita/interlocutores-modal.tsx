@@ -73,10 +73,14 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
     queryFn: async (): Promise<string[]> => {
       const { data, error: err } = await supabase
         .from('visita_interlocutor')
-        .select('interlocutor_id')
+        .select('interlocutor_id, interlocutor:interlocutor_id(activo)')
         .eq('visita_id', visitaId);
       if (err) throw err;
-      return (data ?? []).map((r) => r.interlocutor_id);
+      // Un interlocutor dado de baja no se muestra como presente aunque su
+      // fila siga ahí (se conserva por el histórico).
+      return (data ?? [])
+        .filter((r) => (r.interlocutor as unknown as { activo: boolean } | null)?.activo)
+        .map((r) => r.interlocutor_id);
     },
   });
 
@@ -207,6 +211,11 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
       setError(err.message);
       return;
     }
+    // También lo saco de ESTA visita (la que está abierta ahora): si lo
+    // quito del directorio en mitad de la visita, tampoco cuenta como
+    // presente aquí. Las visitas YA CERRADAS conservan su fila — no se
+    // reescribe el histórico.
+    await supabase.from('visita_interlocutor').delete().eq('visita_id', visitaId).eq('interlocutor_id', id);
     setEditandoId(null);
     invalidar();
   }

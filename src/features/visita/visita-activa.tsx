@@ -429,12 +429,16 @@ export function VisitaActiva() {
     queryKey: ['interlocutores-count', visitaId],
     enabled: !!visitaId,
     queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
+      // Solo cuentan los que siguen en el directorio del cliente. Si a uno
+      // se le da de baja ("Quitar del directorio"), su fila de
+      // visita_interlocutor se conserva por el histórico de visitas
+      // cerradas, pero deja de contar en el chip.
+      const { data, error } = await supabase
         .from('visita_interlocutor')
-        .select('*', { count: 'exact', head: true })
+        .select('interlocutor:interlocutor_id(activo)')
         .eq('visita_id', visitaId!);
       if (error) throw error;
-      return count ?? 0;
+      return (data ?? []).filter((r) => (r.interlocutor as unknown as { activo: boolean } | null)?.activo).length;
     },
   });
 
@@ -1350,11 +1354,7 @@ export function VisitaActiva() {
       />
 
       <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          type="button"
-          className={`chip${numInterlocutores ? ' chip--on' : ''}`}
-          onClick={() => setInterlocutoresAbierto(true)}
-        >
+        <button type="button" className="chip" onClick={() => setInterlocutoresAbierto(true)}>
           Interlocutores{numInterlocutores ? ` · ${numInterlocutores}` : ''}
         </button>
         <button type="button" className="chip" onClick={() => setParticipantesAbierto(true)}>
