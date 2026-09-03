@@ -6,6 +6,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface TerminoPropuesto {
@@ -70,6 +71,9 @@ export function ColaVocabulario() {
   const [renombrandoTerminoId, setRenombrandoTerminoId] = useState<string | null>(null);
   const [textoRenombrarTermino, setTextoRenombrarTermino] = useState('');
   const [nuevoTerminoPorCategoria, setNuevoTerminoPorCategoria] = useState<Record<string, string>>({});
+
+  // Categoría cuyo panel de "borrar" está abierto.
+  const [borrandoCatId, setBorrandoCatId] = useState<string | null>(null);
 
   // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
   const [seleccionandoCat, setSeleccionandoCat] = useState(false);
@@ -243,17 +247,8 @@ export function ColaVocabulario() {
     invalidarCatalogo();
   }
 
-  async function borrarCategoria(id: string, numTerminos: number) {
+  async function borrarCategoriaVacia(id: string) {
     setErrorPorCategoria(null);
-    if (numTerminos > 0) {
-      // El error va PEGADO a la categoría — el `errorCatalogo` de arriba
-      // del todo no se ve si estás a media lista.
-      setErrorPorCategoria({
-        id,
-        msg: `Tiene ${numTerminos} término${numTerminos === 1 ? '' : 's'}. Muévelos o quítalos antes de borrar la categoría.`,
-      });
-      return;
-    }
     const { error: err, count } = await supabase
       .from('categoria_vocabulario')
       .delete({ count: 'exact' })
@@ -269,6 +264,40 @@ export function ColaVocabulario() {
       });
       return;
     }
+    setBorrandoCatId(null);
+    invalidarCatalogo();
+  }
+
+  // Categoría con términos: no se puede borrar a secas (la FK es NOT NULL,
+  // ON DELETE NO ACTION, y los términos no se borran nunca — pueden estar
+  // referenciados por hallazgos/oportunidades). Así que primero pasan todos
+  // a otra categoría y luego se borra la que queda vacía.
+  async function borrarCategoriaTraspasando(id: string, destinoId: string) {
+    setErrorPorCategoria(null);
+    setCorriendoLote(true);
+    const { error: errMover } = await supabase
+      .from('termino')
+      .update({ categoria_id: destinoId })
+      .eq('categoria_id', id);
+    if (errMover) {
+      setCorriendoLote(false);
+      setErrorPorCategoria({ id, msg: `No se han podido mover los términos: ${errMover.message}` });
+      return;
+    }
+    const { error: errBorrar, count } = await supabase
+      .from('categoria_vocabulario')
+      .delete({ count: 'exact' })
+      .eq('id', id);
+    setCorriendoLote(false);
+    if (errBorrar || !count) {
+      setErrorPorCategoria({
+        id,
+        msg: 'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar el vocabulario.',
+      });
+      invalidarCatalogo();
+      return;
+    }
+    setBorrandoCatId(null);
     invalidarCatalogo();
   }
 
@@ -651,7 +680,7 @@ export function ColaVocabulario() {
                       acciones={
                         seleccionandoCat
                           ? undefined
-                          : [
+                          : ([
                               {
                                 icono: 'editar',
                                 etiqueta: 'Renombrar categoría',
@@ -661,25 +690,65 @@ export function ColaVocabulario() {
                                   setTextoRenombrarCategoria(cat.categoria_nombre);
                                 },
                               },
-                              // El 🗑️ solo aparece si la categoría está vacía —
-                              // no se puede borrar una con términos, así que
-                              // enseñar el botón sería una trampa.
-                              ...(cat.terminos.length === 0
-                                ? ([
-                                    {
-                                      icono: 'borrar',
-                                      etiqueta: 'Borrar categoría',
-                                      tono: 'riesgo',
-                                      onClick: () => borrarCategoria(cat.categoria_id, 0),
-                                    },
-                                  ] as AccionFila[])
-                                : []),
-                            ]
+                              {
+                                icono: 'borrar',
+                                etiqueta: 'Borrar categoría',
+                                tono: 'riesgo',
+                                onClick: () => { setErrorPorCategoria(null); setBorrandoCatId(cat.categoria_id); },
+                              },
+                            ] as AccionFila[])
                       }
                     />
                   )}
 
-                  {errorPorCategoria?.id === cat.categoria_id && (
+                  {borrandoCatId === cat.categoria_id &&
+                    (cat.terminos.length === 0 ? (
+                      <ConfirmacionBorrado
+                        onCancelar={() => setBorrandoCatId(null)}
+                        onConfirmar={() => borrarCategoriaVacia(cat.categoria_id)}
+                        cargando={corriendoLote}
+                        error={errorPorCategoria?.id === cat.categoria_id ? errorPorCategoria.msg : undefined}
+                        confirmar="Sí, borrar la categoría"
+                      >
+                        La categoría «{cat.categoria_nombre}» está vacía.
+                      </ConfirmacionBorrado>
+                    ) : (
+                      <div className="card card--riesgo">
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
+                          «{cat.categoria_nombre}» tiene {cat.terminos.length} término
+                          {cat.terminos.length === 1 ? '' : 's'}. Elige a qué categoría pasan; después se borra esta.
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                          {categorias
+                            ?.filter((c) => c.id !== cat.categoria_id)
+                            .map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                className="chip"
+                                disabled={corriendoLote}
+                                onClick={() => borrarCategoriaTraspasando(cat.categoria_id, c.id)}
+                              >
+                                {corriendoLote ? '…' : c.nombre}
+                              </button>
+                            ))}
+                        </div>
+                        {errorPorCategoria?.id === cat.categoria_id && (
+                          <div className="field-error-text" style={{ marginTop: 8 }}>{errorPorCategoria.msg}</div>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ marginTop: 8 }}
+                          disabled={corriendoLote}
+                          onClick={() => setBorrandoCatId(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ))}
+
+                  {borrandoCatId !== cat.categoria_id && errorPorCategoria?.id === cat.categoria_id && (
                     <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
                       {errorPorCategoria.msg}
                     </div>
