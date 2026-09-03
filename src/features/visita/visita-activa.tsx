@@ -348,6 +348,11 @@ export function VisitaActiva() {
     'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).';
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
+  // Coordenadas GPS de la última foto elegida. Best-effort: se pide en
+  // cuanto se elige la foto (mientras el comercial pone el título), y si el
+  // móvil no da permiso o tarda demasiado, la foto se guarda igual sin
+  // coordenadas. Un ref, no estado: solo se lee al confirmar.
+  const coordsFotoRef = useRef<{ lat: number; lng: number } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
@@ -462,12 +467,30 @@ export function VisitaActiva() {
   // ejemplo, un formato que el navegador no sabe decodificar).
   const LIMITE_FOTO_BYTES = 12 * 1024 * 1024;
 
+  // Pide la posición sin bloquear: cuando llega, queda en el ref para el
+  // momento de confirmar. Silenciosa a propósito — si falla, la foto va sin
+  // coordenadas.
+  function pedirUbicacionFoto() {
+    coordsFotoRef.current = null;
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        coordsFotoRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      },
+      () => {
+        /* permiso denegado, sin señal GPS, timeout… — se guarda sin coords */
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
+    );
+  }
+
   async function capturarFoto(archivo: File) {
     if (espacioBloqueado) {
       flushSync(() => setFotoPendiente(null));
       capturaFoto.establecerError(MSG_ESPACIO_LLENO);
       return;
     }
+    pedirUbicacionFoto();
     const archivoComprimido = await comprimirImagen(archivo);
     if (archivoComprimido.size > LIMITE_FOTO_BYTES) {
       flushSync(() => setFotoPendiente(null));
@@ -501,6 +524,8 @@ export function VisitaActiva() {
               tipo: 'foto',
               titulo: tituloPendiente.trim() || undefined,
               ubicacionId: ubicacionParaCaptura,
+              latitud: coordsFotoRef.current?.lat,
+              longitud: coordsFotoRef.current?.lng,
             },
             { dependeDe: visitaId, archivoLocal: fotoPendiente }
           ),
@@ -509,6 +534,7 @@ export function VisitaActiva() {
           onExito: () => {
             setFotoPendiente(null);
             setTituloPendiente('');
+            coordsFotoRef.current = null;
           },
         }
       );
