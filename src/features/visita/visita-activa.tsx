@@ -1381,6 +1381,29 @@ export function VisitaActiva() {
         <div className="repaso-tira repaso-tira--vacia">Aún no has capturado nada en esta visita</div>
       )}
 
+      {/* Todo lo que no es cabecera/chips/tira y no son los dos botones del
+          pie va en la franja de scroll — si no, en un móvil la rejilla de
+          captura ocupa la pantalla entera y lo de abajo ("Próximos pasos…",
+          "Cerrar visita") queda recortado. Al abrir el panel "Lo capturado"
+          esta misma franja pasa a pantalla completa y oculta el objetivo y
+          la rejilla, dejando solo la lista. */}
+      <div className={`screen__scroll${repasoAbierto ? ' screen__scroll--panel' : ''}`}>
+        {repasoAbierto && (
+          <div className="screen__scroll-cab">
+            <span className="screen__scroll-tit">Lo capturado</span>
+            <button
+              type="button"
+              className="screen__scroll-x"
+              onClick={() => setRepasoAbierto(false)}
+              aria-label="cerrar"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {!repasoAbierto && (
+          <>
       {objetivoActual != null && (
         <div>
           <div className="label" style={{ marginTop: 0 }}>Objetivo de la visita</div>
@@ -1568,25 +1591,9 @@ export function VisitaActiva() {
           )}
         </div>
       )}
-
-      {/* Al pulsar la tira "lo capturado", este mismo bloque se despliega a
-          pantalla completa (clase --panel) — así se ve todo sin bajar por
-          debajo de la rejilla de captura, que en un móvil ocupa una
-          pantalla entera. Sin el panel es la franja de scroll normal. */}
-      <div className={`screen__scroll${repasoAbierto ? ' screen__scroll--panel' : ''}`}>
-        {repasoAbierto && (
-          <div className="screen__scroll-cab">
-            <span className="screen__scroll-tit">Lo capturado</span>
-            <button
-              type="button"
-              className="screen__scroll-x"
-              onClick={() => setRepasoAbierto(false)}
-              aria-label="cerrar"
-            >
-              ×
-            </button>
-          </div>
+          </>
         )}
+
         {/* General de la visita + zonas del recorrido, agrupado y plegable.
             La oportunidad NO se lista aquí — tiene su sección propia debajo. */}
         <CapturasPorUbicacion
