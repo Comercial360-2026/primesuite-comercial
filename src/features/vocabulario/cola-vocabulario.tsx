@@ -5,6 +5,7 @@ import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface TerminoPropuesto {
@@ -68,8 +69,15 @@ export function ColaVocabulario() {
   const [errorPorCategoria, setErrorPorCategoria] = useState<{ id: string; msg: string } | null>(null);
   const [renombrandoTerminoId, setRenombrandoTerminoId] = useState<string | null>(null);
   const [textoRenombrarTermino, setTextoRenombrarTermino] = useState('');
-  const [moviendoTerminoId, setMoviendoTerminoId] = useState<string | null>(null);
   const [nuevoTerminoPorCategoria, setNuevoTerminoPorCategoria] = useState<Record<string, string>>({});
+
+  // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
+  const [seleccionandoCat, setSeleccionandoCat] = useState(false);
+  const [marcadosTerm, setMarcadosTerm] = useState<Set<string>>(new Set());
+  const [moverLoteAbierto, setMoverLoteAbierto] = useState(false);
+  const [corriendoLote, setCorriendoLote] = useState(false);
+  const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
+  const [resultadoLote, setResultadoLote] = useState<string | null>(null);
 
   const { data: propuestos, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['terminos-propuestos'],
@@ -285,35 +293,91 @@ export function ColaVocabulario() {
     invalidarCatalogo();
   }
 
-  async function moverTermino(id: string, nuevaCategoriaId: string) {
+  // --- modo seleccionar: mover / quitar términos en lote ---
+
+  function entrarSeleccionCat() {
+    setSeleccionandoCat(true);
+    setMarcadosTerm(new Set());
+    setResultadoLote(null);
     setErrorCatalogo(null);
-    const { error: err, count } = await supabase
-      .from('termino')
-      .update({ categoria_id: nuevaCategoriaId }, { count: 'exact' })
-      .eq('id', id);
-    if (err) {
-      setErrorCatalogo(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorCatalogo('No se ha podido mover (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
-      return;
-    }
-    setMoviendoTerminoId(null);
-    invalidarCatalogo();
+    setErrorPorCategoria(null);
+    setRenombrandoTerminoId(null);
+    setRenombrandoCategoriaId(null);
   }
 
-  async function quitarTermino(id: string) {
-    setErrorCatalogo(null);
-    const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
-      p_termino_id: id,
-      p_accion: 'descartar',
+  function salirSeleccionCat() {
+    setSeleccionandoCat(false);
+    setMarcadosTerm(new Set());
+    setMoverLoteAbierto(false);
+  }
+
+  function alternarTerm(id: string) {
+    setMarcadosTerm((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
     });
-    if (err) {
-      setErrorCatalogo(err.message);
-      return;
+  }
+
+  // El lote = N × la operación individual, en bucle, con progreso y parte de
+  // fallos parciales (08_sistema_diseno.md §"Modo seleccionar"). No hay RPC
+  // de lote.
+  async function quitarLote() {
+    const ids = [...marcadosTerm];
+    if (!ids.length) return;
+    setCorriendoLote(true);
+    setResultadoLote(null);
+    setErrorCatalogo(null);
+    let ok = 0;
+    let fallo = 0;
+    for (let i = 0; i < ids.length; i++) {
+      setProgresoLote({ hecho: i, total: ids.length });
+      const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
+        p_termino_id: ids[i],
+        p_accion: 'descartar',
+      });
+      if (err) fallo++;
+      else ok++;
     }
+    setProgresoLote(null);
+    setCorriendoLote(false);
     invalidarCatalogo();
+    if (fallo) {
+      setResultadoLote(`Quitados ${ok} · ${fallo} con error.`);
+      setMarcadosTerm(new Set());
+    } else {
+      salirSeleccionCat();
+    }
+  }
+
+  async function moverLote(categoriaId: string) {
+    const ids = [...marcadosTerm];
+    if (!ids.length) return;
+    setCorriendoLote(true);
+    setResultadoLote(null);
+    setErrorCatalogo(null);
+    let ok = 0;
+    let fallo = 0;
+    for (let i = 0; i < ids.length; i++) {
+      setProgresoLote({ hecho: i, total: ids.length });
+      const { error: err, count } = await supabase
+        .from('termino')
+        .update({ categoria_id: categoriaId }, { count: 'exact' })
+        .eq('id', ids[i]);
+      if (err || !count) fallo++;
+      else ok++;
+    }
+    setProgresoLote(null);
+    setCorriendoLote(false);
+    setMoverLoteAbierto(false);
+    invalidarCatalogo();
+    if (fallo) {
+      setResultadoLote(`Movidos ${ok} · ${fallo} con error (solo Dirección Comercial puede editar el vocabulario).`);
+      setMarcadosTerm(new Set());
+    } else {
+      salirSeleccionCat();
+    }
   }
 
   async function crearTerminoDirecto(categoriaId: string) {
@@ -464,11 +528,47 @@ export function ColaVocabulario() {
       ) : (
         <>
           {errorCatalogo && <div className="field-error-text">{errorCatalogo}</div>}
+          {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
 
-          {!creandoCategoria ? (
-            <button type="button" className="btn btn-secondary" onClick={() => setCreandoCategoria(true)}>
-              + Nueva categoría
-            </button>
+          {seleccionandoCat ? (
+            <BarraSeleccion
+              n={marcadosTerm.size}
+              onCancelar={salirSeleccionCat}
+              acciones={[
+                {
+                  etiqueta:
+                    corriendoLote && progresoLote
+                      ? `Trabajando ${progresoLote.hecho} de ${progresoLote.total}…`
+                      : `Mover a… (${marcadosTerm.size})`,
+                  icono: 'mover',
+                  onClick: () => setMoverLoteAbierto(true),
+                  disabled: corriendoLote || marcadosTerm.size === 0,
+                },
+                {
+                  etiqueta: corriendoLote ? 'Quitando…' : `Quitar (${marcadosTerm.size})`,
+                  icono: 'borrar',
+                  tono: 'riesgo',
+                  onClick: quitarLote,
+                  disabled: corriendoLote || marcadosTerm.size === 0,
+                },
+              ]}
+            />
+          ) : !creandoCategoria ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '0 16px' }}
+                onClick={() => setCreandoCategoria(true)}
+              >
+                + Nueva categoría
+              </button>
+              {!!catalogoAgrupado?.some((c) => c.terminos.length > 0) && (
+                <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccionCat}>
+                  Seleccionar
+                </button>
+              )}
+            </div>
           ) : (
             <div className="card">
               <input
@@ -486,6 +586,35 @@ export function ColaVocabulario() {
                   Crear
                 </button>
               </div>
+            </div>
+          )}
+
+          {moverLoteAbierto && (
+            <div className="card">
+              <div className="label" style={{ marginTop: 0 }}>
+                Mover {marcadosTerm.size} término{marcadosTerm.size === 1 ? '' : 's'} a:
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {categorias?.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="chip"
+                    disabled={corriendoLote}
+                    onClick={() => moverLote(c.id)}
+                  >
+                    {c.nombre}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ marginTop: 8 }}
+                onClick={() => setMoverLoteAbierto(false)}
+              >
+                Cancelar
+              </button>
             </div>
           )}
 
@@ -519,19 +648,34 @@ export function ColaVocabulario() {
                       icono="vocabulario"
                       titulo={cat.categoria_nombre}
                       subtitulo={cat.terminos.length === 1 ? '1 término' : `${cat.terminos.length} términos`}
-                      acciones={[
-                        {
-                          icono: 'editar',
-                          etiqueta: 'Renombrar categoría',
-                          onClick: () => { setErrorPorCategoria(null); setRenombrandoCategoriaId(cat.categoria_id); setTextoRenombrarCategoria(cat.categoria_nombre); },
-                        },
-                        {
-                          icono: 'borrar',
-                          etiqueta: 'Borrar categoría',
-                          tono: 'riesgo',
-                          onClick: () => borrarCategoria(cat.categoria_id, cat.terminos.length),
-                        },
-                      ]}
+                      acciones={
+                        seleccionandoCat
+                          ? undefined
+                          : [
+                              {
+                                icono: 'editar',
+                                etiqueta: 'Renombrar categoría',
+                                onClick: () => {
+                                  setErrorPorCategoria(null);
+                                  setRenombrandoCategoriaId(cat.categoria_id);
+                                  setTextoRenombrarCategoria(cat.categoria_nombre);
+                                },
+                              },
+                              // El 🗑️ solo aparece si la categoría está vacía —
+                              // no se puede borrar una con términos, así que
+                              // enseñar el botón sería una trampa.
+                              ...(cat.terminos.length === 0
+                                ? ([
+                                    {
+                                      icono: 'borrar',
+                                      etiqueta: 'Borrar categoría',
+                                      tono: 'riesgo',
+                                      onClick: () => borrarCategoria(cat.categoria_id, 0),
+                                    },
+                                  ] as AccionFila[])
+                                : []),
+                            ]
+                      }
                     />
                   )}
 
@@ -562,35 +706,6 @@ export function ColaVocabulario() {
                         </div>
                       );
                     }
-                    if (moviendoTerminoId === t.id) {
-                      return (
-                        <div key={t.id} className="fila-confirmacion">
-                          <div style={{ fontSize: 'var(--text-sm)' }}>Mover «{t.nombre}» a:</div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                            {categorias
-                              ?.filter((c) => c.id !== cat.categoria_id)
-                              .map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className="chip"
-                                  onClick={() => moverTermino(t.id, c.id)}
-                                >
-                                  {c.nombre}
-                                </button>
-                              ))}
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ marginTop: 8 }}
-                            onClick={() => setMoviendoTerminoId(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      );
-                    }
                     return (
                       <FilaAccion
                         key={t.id}
@@ -598,24 +713,25 @@ export function ColaVocabulario() {
                         titulo={t.nombre}
                         subtitulo={t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : undefined}
                         tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
-                        acciones={[
-                          {
-                            icono: 'editar',
-                            etiqueta: 'Renombrar término',
-                            onClick: () => { setRenombrandoTerminoId(t.id); setTextoRenombrarTermino(t.nombre); },
-                          },
-                          {
-                            icono: 'mover',
-                            etiqueta: 'Mover a otra categoría',
-                            onClick: () => setMoviendoTerminoId(t.id),
-                          },
-                          {
-                            icono: 'borrar',
-                            etiqueta: 'Quitar del catálogo',
-                            tono: 'riesgo',
-                            onClick: () => quitarTermino(t.id),
-                          },
-                        ]}
+                        seleccion={
+                          seleccionandoCat
+                            ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
+                            : undefined
+                        }
+                        acciones={
+                          seleccionandoCat
+                            ? undefined
+                            : [
+                                {
+                                  icono: 'editar',
+                                  etiqueta: 'Renombrar término',
+                                  onClick: () => {
+                                    setRenombrandoTerminoId(t.id);
+                                    setTextoRenombrarTermino(t.nombre);
+                                  },
+                                },
+                              ]
+                        }
                       />
                     );
                   })}
@@ -625,25 +741,27 @@ export function ColaVocabulario() {
                   )}
                 </SeccionLista>
 
-                <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
-                  <input
-                    className="field"
-                    value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
-                    onChange={(e) =>
-                      setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
-                    }
-                    placeholder="+ nuevo término en esta categoría…"
-                    style={{ flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', padding: '0 12px' }}
-                    onClick={() => crearTerminoDirecto(cat.categoria_id)}
-                  >
-                    Añadir
-                  </button>
-                </div>
+                {!seleccionandoCat && (
+                  <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
+                    <input
+                      className="field"
+                      value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
+                      onChange={(e) =>
+                        setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))
+                      }
+                      placeholder="+ nuevo término en esta categoría…"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '0 12px' }}
+                      onClick={() => crearTerminoDirecto(cat.categoria_id)}
+                    >
+                      Añadir
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
