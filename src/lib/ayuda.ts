@@ -103,6 +103,15 @@ const _CONCEPTOS = {
       'Una forma de hacer la visita andando por zonas del cliente (entrada, almacén, oficinas…). Todo lo que capturas queda atado a la zona en la que estás, y al cerrar lo repasas zona por zona.',
     cuando: 'Útil en clientes grandes o cuando visitas varias áreas y quieres el informe ordenado por sitio.',
   },
+  sincronizacion: {
+    titulo: 'Trabajar sin conexión',
+    queEs:
+      'Lo que capturas se guarda primero en el móvil y se sube al servidor en cuanto hay conexión, reintentándolo solo. Mientras algo siga sin subir, comprueba tu conexión y no reinstales la app en ese teléfono.',
+    cuando:
+      'PrimeNotes se puede usar entera sin cobertura: haces la visita con normalidad y todo sube al recuperar señal, sin pulsar nada. En «Yo» es donde compruebas si queda algo pendiente.',
+    ejemplo:
+      'Visitas un polígono sin cobertura, capturas 12 fotos y 3 hallazgos y cierras la visita. Al volver al coche y recuperar señal, todo sube solo en segundo plano.',
+  },
 } satisfies Record<string, EntradaConcepto>;
 
 export type PantallaAyudaId = keyof typeof _PANTALLAS;

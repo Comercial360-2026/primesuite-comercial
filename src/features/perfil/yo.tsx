@@ -13,6 +13,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 const DIAS_AVISO_BACKUP = 7;
 
@@ -269,9 +270,7 @@ export function Yo() {
                 .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
                 .join(', ')}
             </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              No se han podido guardar en el servidor. Comprueba tu conexión — el sistema lo sigue intentando solo.
-            </div>
+            <AyudaNota concepto="sincronizacion" />
             <button
               className="btn btn-secondary"
               style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
