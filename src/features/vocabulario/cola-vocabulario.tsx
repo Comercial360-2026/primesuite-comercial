@@ -117,6 +117,15 @@ export function ColaVocabulario() {
       return s;
     });
   }
+  // Todo lo que se puede desplegar: cada categoría + cada término que tiene
+  // modelos dentro. Se usa para "Desplegar / plegar todo" y para entrar en
+  // los modos ordenar/seleccionar con el árbol abierto.
+  function idsDesplegables(): string[] {
+    return [
+      ...(catalogoAgrupado?.map((c) => c.categoria_id) ?? []),
+      ...(catalogoAgrupado?.flatMap((c) => c.terminos.filter((t) => t.hijos.length).map((t) => t.id)) ?? []),
+    ];
+  }
 
   // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
   const [seleccionandoCat, setSeleccionandoCat] = useState(false);
@@ -505,12 +514,7 @@ export function ColaVocabulario() {
     setBusqueda('');
     cerrarPanelBorrarCat();
     // Con todo desplegado se ven las flechas de términos y modelos.
-    setExpandidas(
-      new Set([
-        ...(catalogoAgrupado?.map((c) => c.categoria_id) ?? []),
-        ...(catalogoAgrupado?.flatMap((c) => c.terminos.filter((t) => t.hijos.length).map((t) => t.id)) ?? []),
-      ])
-    );
+    setExpandidas(new Set(idsDesplegables()));
   }
 
   function salirOrden() {
@@ -582,12 +586,7 @@ export function ColaVocabulario() {
     setBusqueda('');
     // Se entra con todo desplegado (categorías y términos con modelos) para
     // poder marcar; se puede plegar lo que no interese.
-    setExpandidas(
-      new Set([
-        ...(catalogoAgrupado?.map((c) => c.categoria_id) ?? []),
-        ...(catalogoAgrupado?.flatMap((c) => c.terminos.filter((t) => t.hijos.length).map((t) => t.id)) ?? []),
-      ])
-    );
+    setExpandidas(new Set(idsDesplegables()));
   }
 
   function salirSeleccionCat() {
@@ -1209,12 +1208,29 @@ export function ColaVocabulario() {
           )}
 
           {!ordenandoCat && !seleccionandoCat && !creandoCategoria && !!catalogoAgrupado?.length && (
-            <input
-              className="field"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="buscar término o modelo…"
-            />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                className="field"
+                style={{ flex: 1 }}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="buscar término o modelo…"
+              />
+              {!buscando && (() => {
+                const ids = idsDesplegables();
+                const todoAbierto = ids.length > 0 && ids.every((id) => expandidas.has(id));
+                return (
+                  <button
+                    type="button"
+                    className="chip"
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => setExpandidas(todoAbierto ? new Set() : new Set(ids))}
+                  >
+                    {todoAbierto ? 'Plegar todo' : 'Desplegar todo'}
+                  </button>
+                );
+              })()}
+            </div>
           )}
 
           {moverLoteAbierto && (() => {
