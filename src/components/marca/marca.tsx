@@ -64,11 +64,11 @@ export function LogoPrimeNotes({ alto = 40, className }: Props) {
         style={{
           fontSize: alto * 0.62,
           fontWeight: 500,
-          letterSpacing: '-0.02em',
+          letterSpacing: '-0.015em',
           lineHeight: 1,
         }}
       >
-        primenotes
+        PrimeNotes
       </span>
     </span>
   );

@@ -29,8 +29,8 @@ const ACTIVIDAD: { icono: NombreIcono; ang: number; rad: number }[] = [
 ];
 
 // Beat → ms en el que empieza.
-const BEATS = [0, 180, 900, 1650, 2850, 3450];
-const FIN_MS = 4100;
+const BEATS = [0, 230, 1300, 2300, 3650, 4350];
+const FIN_MS = 5100;
 
 export function debeVerseIntro(): boolean {
   // `?intro=1` la fuerza (para previsualizarla); `?intro=0` la salta.
@@ -94,11 +94,11 @@ export function SplashIntro({ onDone }: { onDone: () => void }) {
     >
       <div className="splash__escena">
         <div className="splash__primion">
-          <LogoPrimion alto={44} />
+          <LogoPrimion alto={74} />
         </div>
 
         <div className="splash__marca">
-          <LogoPrimeNotes alto={52} />
+          <LogoPrimeNotes alto={58} />
         </div>
 
         <div className="splash__actividad" aria-hidden="true">

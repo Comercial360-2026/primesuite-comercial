@@ -56,16 +56,17 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Beat 2+: Primion encoge y sube; se disuelve al aparecer PrimeNotes. */
+/* Beat 2+: Primion encoge y sube; se disuelve al aparecer PrimeNotes.
+   Encoge poco (0.62) para que siga leyéndose "primion" al transicionar. */
 .splash[data-beat='2'] .splash__primion {
   opacity: 1;
-  transform: translate(-50%, -50%) translateY(-96px) scale(0.4);
+  transform: translate(-50%, -50%) translateY(-86px) scale(0.62);
 }
 .splash[data-beat='3'] .splash__primion,
 .splash[data-beat='4'] .splash__primion,
 .splash[data-beat='5'] .splash__primion {
   opacity: 0;
-  transform: translate(-50%, -50%) translateY(-96px) scale(0.4);
+  transform: translate(-50%, -50%) translateY(-86px) scale(0.62);
 }
 
 /* --- PrimeNotes (beat 2+) ------------------------------------------- */
