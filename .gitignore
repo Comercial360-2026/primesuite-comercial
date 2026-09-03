@@ -18,3 +18,6 @@ deno.lock
 # artefactos de comprobaciones locales con Playwright
 .playwright-mcp/
 login-check.png
+
+# Copia de CLAUDE.md que regenera una herramienta; no versionar
+AGENTS.md
