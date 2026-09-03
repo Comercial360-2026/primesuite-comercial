@@ -61,10 +61,10 @@ const _PANTALLAS = {
   deduplicacion: {
     titulo: 'Clientes duplicados',
     queEs:
-      'La lista de fichas que parecen del mismo cliente porque el nombre está escrito de varias formas.',
+      'La app agrupa aquí las fichas de cliente con prácticamente el mismo nombre —da igual mayúsculas, acentos o el «S.L.» / «S.A.» del final—, porque suelen ser el mismo cliente dado de alta dos veces.',
     cuando:
-      'Cuando aparece el aviso de duplicados: repasas cada grupo y juntas en una sola las fichas que de verdad son el mismo cliente.',
-    ojo: 'Juntar dos fichas no se deshace desde la app. Comprueba que sean el mismo cliente antes de confirmar.',
+      'Cuando salta el aviso de duplicados. En cada grupo tocas la ficha que quieres conservar (viene marcada la que más visitas tiene) y pulsas «Fusionar en la marcada». Si alguna ficha del grupo está vacía, «Quitar sin datos» la retira sin más trámite.',
+    ojo: 'Al fusionar, las visitas, oportunidades, hallazgos, contactos y ubicaciones de las otras fichas pasan a la que se queda, y las demás desaparecen de la lista de clientes. No se puede deshacer desde la app: antes de confirmar, asegúrate de que de verdad son el mismo negocio.',
     soloDireccion: true,
   },
   'cierre-visita': {
