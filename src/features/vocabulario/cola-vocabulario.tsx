@@ -51,7 +51,7 @@ interface CategoriaConTerminos {
 export function ColaVocabulario() {
   const queryClient = useQueryClient();
 
-  const [vista, setVista] = useState<'pendientes' | 'catalogo'>('pendientes');
+  const [vista, setVista] = useState<'pendientes' | 'catalogo'>('catalogo');
 
   // --- estado de la pestaña "Pendientes" ---
   const [fusionandoId, setFusionandoId] = useState<string | null>(null);
@@ -78,12 +78,13 @@ export function ColaVocabulario() {
   const [borrandoCatId, setBorrandoCatId] = useState<string | null>(null);
   const [borrandoCatTotal, setBorrandoCatTotal] = useState<number | null>(null);
 
-  // Categorías plegadas (solo se ve la cabecera). Vista, no dato: se pierde
-  // al salir de la pantalla. En "modo seleccionar" se ignora (hay que ver
-  // los términos para marcarlos).
-  const [colapsadas, setColapsadas] = useState<Set<string>>(new Set());
+  // Al entrar, todas las categorías van plegadas (solo cabecera); se
+  // guardan aquí las que el usuario despliega a mano. Vista, no dato: se
+  // pierde al salir de la pantalla. En "modo seleccionar" se ignora (hay
+  // que ver los términos para marcarlos).
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
   function alternarColapso(id: string) {
-    setColapsadas((prev) => {
+    setExpandidas((prev) => {
       const s = new Set(prev);
       if (s.has(id)) s.delete(id);
       else s.add(id);
@@ -524,17 +525,17 @@ export function ColaVocabulario() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
         <button
           type="button"
-          className={`chip${vista === 'pendientes' ? ' chip--on' : ''}`}
-          onClick={() => setVista('pendientes')}
-        >
-          Pendientes{propuestos?.length ? ` (${propuestos.length})` : ''}
-        </button>
-        <button
-          type="button"
           className={`chip${vista === 'catalogo' ? ' chip--on' : ''}`}
           onClick={() => setVista('catalogo')}
         >
           Catálogo completo
+        </button>
+        <button
+          type="button"
+          className={`chip${vista === 'pendientes' ? ' chip--on' : ''}`}
+          onClick={() => setVista('pendientes')}
+        >
+          Pendientes{propuestos?.length ? ` (${propuestos.length})` : ''}
         </button>
       </div>
 
@@ -775,8 +776,9 @@ export function ColaVocabulario() {
             return (
           <div className="lista-agrupada">
             {catsMostradas?.map((cat, idxCat) => {
-              // En "modo seleccionar" se ven siempre los términos.
-              const colapsada = !seleccionandoCat && colapsadas.has(cat.categoria_id);
+              // Plegada por defecto; se despliega si el usuario la abrió. En
+              // "modo seleccionar" se ven siempre los términos.
+              const colapsada = !seleccionandoCat && !expandidas.has(cat.categoria_id);
               return (
               <div key={cat.categoria_id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <SeccionLista>

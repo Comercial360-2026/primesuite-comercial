@@ -138,7 +138,7 @@ const _PANTALLAS = {
     queEs:
       'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
     cuando:
-      'Para aprobar, renombrar o descartar lo que se propone, y mantener el catálogo ordenado: en «Catálogo completo» puedes crear categorías, ordenarlas a tu gusto con las flechas y plegar las que no estés tocando. Cuanto más limpio, más se parecen entre sí los informes de todo el equipo.',
+      'Para aprobar, renombrar o descartar lo que se propone, y mantener el catálogo ordenado: en «Catálogo completo» puedes crear categorías, ordenarlas a tu gusto con las flechas y desplegar cada una para ver sus términos (entran plegadas). Cuanto más limpio, más se parecen entre sí los informes de todo el equipo.',
     soloDireccion: true,
   },
   'solicitudes-reasignacion': {
