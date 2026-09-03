@@ -5,7 +5,7 @@ import { RequireRole } from '@/app/require-role';
 import { RequireSession } from '@/app/require-session';
 import { VisitaActivaProvider } from '@/hooks/use-visita-activa-context';
 import { supabase } from '@/lib/supabase-client';
-import { Login } from '@/features/auth/login';
+import { LoginConIntro } from '@/features/auth/login-con-intro';
 import { EstablecerContrasena } from '@/features/auth/establecer-contrasena';
 
 // Pantallas — cada import se resuelve a un stub inicial en su carpeta de
@@ -61,7 +61,7 @@ export function AppRoutes() {
   return (
     <VisitaActivaProvider>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginConIntro />} />
         <Route path="/establecer-contrasena" element={<EstablecerContrasena />} />
 
         <Route

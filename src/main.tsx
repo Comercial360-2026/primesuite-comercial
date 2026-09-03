@@ -8,6 +8,7 @@ import { iniciarMotorSincronizacion } from '@/lib/offline-queue';
 import { supabase } from '@/lib/supabase-client';
 import '@/styles/tokens.css';
 import '@/styles/components.css';
+import '@/styles/splash.css';
 
 // Sin esto, un fallo real en el móvil de un comercial era invisible salvo
 // que alguien mirase la consola del navegador en el instante exacto en
