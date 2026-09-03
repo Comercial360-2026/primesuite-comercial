@@ -215,6 +215,7 @@ export function DetalleOportunidad() {
     <div className="screen">
       <CabeceraDetalle
         titulo="Oportunidad"
+        ayuda="detalle-oportunidad"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
 
@@ -229,6 +230,7 @@ export function DetalleOportunidad() {
           </button>
         ))}
       </div>
+      <AyudaNota concepto="etapa-oportunidad" />
 
       <div className="label">prioridad</div>
       <div style={{ display: 'flex', gap: 6 }}>
@@ -238,6 +240,7 @@ export function DetalleOportunidad() {
           </button>
         ))}
       </div>
+      <AyudaNota concepto="prioridad-oportunidad" />
 
       <div className="label">horizonte de decisión</div>
       <select className="field" value={horizonte} onChange={(e) => setHorizonte(e.target.value)}>

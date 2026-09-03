@@ -82,6 +82,57 @@ const _PANTALLAS = {
       'Nada más salir del cliente. Compruebas el recuento (zona por zona si has usado el recorrido), pulsas «Consolidar visita» y confirmas.',
     ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
+  'visita-activa': {
+    titulo: 'Visita en curso',
+    queEs:
+      'La pantalla desde la que capturas todo mientras estás con el cliente: fotos, audios, notas, hallazgos, oportunidades y próximos pasos. Arriba tienes el objetivo con el que ibas y los contactos de la visita.',
+    cuando:
+      'Durante la visita. Cada botón de la rejilla «añadir a la visita» abre una captura rápida, y lo que vas metiendo se lista debajo. Al terminar, «Cerrar visita».',
+    ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada.',
+  },
+  'visita-planificada': {
+    titulo: 'Visita planificada',
+    queEs:
+      'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo.',
+    cuando:
+      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes.',
+    ojo: 'Cancelar una visita planificada la borra y no se puede deshacer.',
+  },
+  'visita-cerrada': {
+    titulo: 'Visita cerrada',
+    queEs:
+      'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos y el anexo con notas, fotos y audios. Es lo mismo que sale en el informe en PDF.',
+    cuando:
+      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas.',
+    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer.',
+  },
+  'detalle-captura': {
+    titulo: 'Foto, audio o nota',
+    queEs:
+      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título.',
+    cuando: 'Para revisar o retocar algo que capturaste, o borrarlo si te has equivocado.',
+  },
+  'detalle-hallazgo': {
+    titulo: 'Hallazgo',
+    queEs:
+      'Algo que has observado en el cliente y quieres dejar registrado: su naturaleza (contexto, oportunidad, riesgo…), una nota, en qué zona estaba y, si aplica, una fecha relevante.',
+    cuando:
+      'Para completar o corregir un hallazgo. Se crea durante la visita, desde el botón «Hallazgo».',
+  },
+  'detalle-oportunidad': {
+    titulo: 'Oportunidad',
+    queEs:
+      'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
+    cuando:
+      'Para mover la oportunidad de etapa según avanza, ajustar la previsión, o cerrarla como ganada o perdida (ahí se pide el motivo).',
+  },
+  'proximo-paso': {
+    titulo: 'Próximo paso',
+    queEs:
+      'Una tarea que quedó pendiente de una visita: qué hay que hacer y, si quieres, para cuándo. Aparece en «Tareas».',
+    cuando:
+      'Para editarla, marcarla como hecha, o —si en realidad es volver a ver al cliente— convertirla en una visita planificada para su fecha.',
+  },
 } satisfies Record<string, EntradaPantalla>;
 
 const _CONCEPTOS = {
@@ -127,6 +178,21 @@ const _CONCEPTOS = {
       'PrimeNotes se puede usar entera sin cobertura: haces la visita con normalidad y todo sube al recuperar señal, sin pulsar nada. En «Yo» es donde compruebas si queda algo pendiente.',
     ejemplo:
       'Visitas un polígono sin cobertura, capturas 12 fotos y 3 hallazgos y cierras la visita. Al volver al coche y recuperar señal, todo sube solo en segundo plano.',
+  },
+  'interlocutor-participante': {
+    titulo: 'Interlocutores y participantes',
+    queEs:
+      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial.',
+  },
+  'etapa-oportunidad': {
+    titulo: 'Etapa de una oportunidad',
+    queEs:
+      'Por dónde va la venta: latente (todavía es una idea), cualificada (hay interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada.',
+  },
+  'prioridad-oportunidad': {
+    titulo: 'Prioridad de una oportunidad',
+    queEs:
+      'Cuánto foco merece: baja, media, alta o estratégica. Ordena tu lista de oportunidades y ayuda a Dirección a ver dónde está lo importante. No la confundas con el horizonte de decisión, que es el «cuándo».',
   },
 } satisfies Record<string, EntradaConcepto>;
 

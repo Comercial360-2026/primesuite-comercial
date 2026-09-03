@@ -178,6 +178,7 @@ export function DetalleProximoPaso() {
       <div style={{ position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
         <CabeceraDetalle
           titulo="Próximo paso"
+          ayuda="proximo-paso"
           subtitulo={clienteNombre}
           onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
         />

@@ -1090,6 +1090,7 @@ export function VisitaActiva() {
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
         subtitulo="Visita en curso"
+        ayuda="visita-activa"
         onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
       />
 
@@ -1105,6 +1106,7 @@ export function VisitaActiva() {
           Participantes
         </button>
       </div>
+      <AyudaNota concepto="interlocutor-participante" />
 
       {objetivoActual != null && (
         <div>

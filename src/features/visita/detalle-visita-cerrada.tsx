@@ -224,6 +224,7 @@ export function DetalleVisitaCerrada() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={data?.cliente_nombre ?? 'visita'}
+        ayuda="visita-cerrada"
         subtitulo={
           data
             ? `${fechaCorta(data.fecha)}${

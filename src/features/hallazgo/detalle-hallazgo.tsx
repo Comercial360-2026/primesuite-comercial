@@ -143,6 +143,7 @@ export function DetalleHallazgo() {
     <div className="screen">
       <CabeceraDetalle
         titulo="Hallazgo"
+        ayuda="detalle-hallazgo"
         subtitulo={(hallazgo.termino as unknown as { nombre: string })?.nombre ?? undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />

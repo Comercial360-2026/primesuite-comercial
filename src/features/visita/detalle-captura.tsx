@@ -164,6 +164,7 @@ export function DetalleCaptura() {
     <div className="screen">
       <CabeceraDetalle
         titulo={payload.tipo === 'nota' ? 'Nota' : payload.tipo === 'foto' ? 'Foto' : 'Audio'}
+        ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
 

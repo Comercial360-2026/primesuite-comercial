@@ -160,7 +160,7 @@ export function DetalleVisitaPlanificada() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Visita planificada" />
+      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" />
 
       {isLoading && <EstadoLista estado="cargando" />}
       {(isError || isPaused) && (
