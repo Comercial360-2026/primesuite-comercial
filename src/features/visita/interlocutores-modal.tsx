@@ -44,6 +44,11 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   const queryClient = useQueryClient();
   const [creandoNuevo, setCreandoNuevo] = useState(false);
   const [formNuevo, setFormNuevo] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
+  // Al alta, marcar la persona como presente en ESTA visita. Activado por
+  // defecto (es el caso normal: tienes a alguien delante sin registrar),
+  // pero se puede desmarcar para registrar a alguien de quien te hablan y
+  // no estaba en la reunión.
+  const [nuevoPresente, setNuevoPresente] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [formEdicion, setFormEdicion] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
@@ -109,7 +114,13 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
     invalidar();
   }
 
-  async function crearYMarcarPresente() {
+  function cancelarAlta() {
+    setCreandoNuevo(false);
+    setFormNuevo(FORMULARIO_VACIO);
+    setNuevoPresente(true);
+  }
+
+  async function crearInterlocutor() {
     if (!formNuevo.nombre.trim()) return;
     setGuardando(true);
     setError(null);
@@ -134,16 +145,21 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
       return;
     }
 
-    const { error: errRel } = await supabase
-      .from('visita_interlocutor')
-      .insert({ visita_id: visitaId, interlocutor_id: nuevo.id });
-    setGuardando(false);
-    if (errRel) {
-      setError(errRel.message);
-      return;
+    // Solo si el comercial lo ha dejado marcado (por defecto, sí).
+    if (nuevoPresente) {
+      const { error: errRel } = await supabase
+        .from('visita_interlocutor')
+        .insert({ visita_id: visitaId, interlocutor_id: nuevo.id });
+      if (errRel) {
+        setGuardando(false);
+        setError(errRel.message);
+        return;
+      }
     }
 
+    setGuardando(false);
     setFormNuevo(FORMULARIO_VACIO);
+    setNuevoPresente(true);
     setCreandoNuevo(false);
     invalidar();
   }
@@ -199,14 +215,14 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   // abiertas — no todo el modal de golpe.
   const cerrar = () => {
     if (editandoId) setEditandoId(null);
-    else if (creandoNuevo) setCreandoNuevo(false);
+    else if (creandoNuevo) cancelarAlta();
     else onCerrar();
   };
 
   return (
     <Modal titulo="Interlocutores" onCerrar={cerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-          quién ha estado presente en esta visita
+          Quién ha estado presente en esta visita
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -261,13 +277,13 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                         className={`chip${formEdicion.tipo === t ? ' chip--on' : ''}`}
                         onClick={() => setFormEdicion({ ...formEdicion, tipo: t })}
                       >
-                        {t}
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
                       </button>
                     ))}
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                     <button type="button" className="btn btn-secondary" onClick={() => setEditandoId(null)} disabled={guardando}>
-                      cancelar
+                      Cancelar
                     </button>
                     <button
                       type="button"
@@ -276,7 +292,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                       onClick={() => quitarDelDirectorio(i.id)}
                       disabled={guardando}
                     >
-                      quitar del directorio
+                      Quitar del directorio
                     </button>
                     <button
                       type="button"
@@ -319,7 +335,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
           })}
           {!directorio?.length && (
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-              todavía no hay interlocutores registrados para este cliente
+              Todavía no hay interlocutores registrados para este cliente
             </span>
           )}
         </div>
@@ -375,26 +391,43 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
                   className={`chip${formNuevo.tipo === t ? ' chip--on' : ''}`}
                   onClick={() => setFormNuevo({ ...formNuevo, tipo: t })}
                 >
-                  {t}
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>
+
+            {/* Por defecto se marca presente en esta visita (caso normal:
+                alguien delante sin registrar). Desmárcalo para registrar a
+                quien te nombran pero no estaba en la reunión. */}
+            <button
+              type="button"
+              className={`chip${nuevoPresente ? ' chip--on' : ''}`}
+              style={{ marginTop: 8 }}
+              onClick={() => setNuevoPresente((v) => !v)}
+            >
+              Estaba presente en esta visita
+            </button>
+
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => { setCreandoNuevo(false); setFormNuevo(FORMULARIO_VACIO); }}
+                onClick={cancelarAlta}
                 disabled={guardando}
               >
-                cancelar
+                Cancelar
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
                 disabled={!formNuevo.nombre.trim() || guardando}
-                onClick={crearYMarcarPresente}
+                onClick={crearInterlocutor}
               >
-                {guardando ? 'Guardando…' : 'Añadir y marcar presente'}
+                {guardando
+                  ? 'Guardando…'
+                  : nuevoPresente
+                    ? 'Añadir y marcar presente'
+                    : 'Añadir'}
               </button>
             </div>
           </div>
