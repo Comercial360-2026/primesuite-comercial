@@ -187,7 +187,7 @@ export function MiEspacio() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Mi espacio" volverA="/yo" />
+      <CabeceraDetalle titulo="Mi espacio" volverA="/yo" ayuda="mi-espacio" />
 
       <div className="lista-agrupada">
         {pidioLiberar && (

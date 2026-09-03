@@ -125,6 +125,62 @@ const _PANTALLAS = {
       'Para dejarlas preparadas antes de una visita con recorrido, o para renombrarlas o borrarlas después. También se pueden crear sobre la marcha durante el recorrido.',
     ojo: 'Borrar una ubicación con fotos, audios o hallazgos asociados los deja sin zona; te avisa de cuántos antes de confirmar.',
   },
+  'mi-espacio': {
+    titulo: 'Mi espacio',
+    queEs:
+      'Cuánto ocupan tus visitas y cuánto le queda al equipo del espacio común. Debajo, tus visitas ordenadas por lo que pesan (sobre todo fotos y audios).',
+    cuando:
+      'Cuando el equipo va justo de espacio o te piden liberar. Marcas las visitas viejas que ya no necesites en la app, descargas las que quieras conservar y las borras.',
+    ojo: 'Borrar una visita aquí se la lleva con sus fotos y audios y no se puede deshacer. Descárgala antes si te importa.',
+  },
+  'consumo-comerciales': {
+    titulo: 'Consumo por comercial',
+    queEs:
+      'Cuánto ocupa cada comercial del espacio común del equipo, y si ya se le ha avisado de que libere.',
+    cuando:
+      'Cuando el espacio del equipo aprieta. «Seleccionar» manda un aviso a varios a la vez para que hagan hueco.',
+    soloDireccion: true,
+  },
+  'cola-vocabulario': {
+    titulo: 'Vocabulario',
+    queEs:
+      'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
+    cuando:
+      'Para aprobar, renombrar o descartar lo que se propone, y mantener el catálogo ordenado. Cuanto más limpio, más se parecen entre sí los informes de todo el equipo.',
+    soloDireccion: true,
+  },
+  'solicitudes-reasignacion': {
+    titulo: 'Solicitudes de ayuda',
+    queEs:
+      'Las peticiones de comerciales que necesitan que otra persona les cubra una visita.',
+    cuando: 'Para revisarlas y resolverlas.',
+    soloDireccion: true,
+  },
+  'listado-comerciales': {
+    titulo: 'Equipo',
+    queEs:
+      'El listado de comerciales: quién está activo, quién de baja y quién ha pedido recuperar su acceso.',
+    cuando:
+      'Para dar de alta a alguien nuevo, entrar a su ficha para editarlo o darlo de baja, o reenviar el enlace de acceso a quien lo ha perdido.',
+    soloDireccion: true,
+  },
+  'alta-comercial': {
+    titulo: 'Nuevo comercial',
+    queEs:
+      'Da de alta a un miembro del equipo. Recibe un correo con un enlace para poner su contraseña; no se la fijas tú.',
+    cuando:
+      'Al incorporar a alguien. Eliges su rol (comercial o dirección comercial) y, si quieres, su zona de cartera.',
+    soloDireccion: true,
+  },
+  'detalle-comercial': {
+    titulo: 'Ficha de comercial',
+    queEs:
+      'Los datos de un miembro del equipo: nombre, rol y zona de cartera. Desde aquí se le da de baja o se reactiva, y se traspasa su cartera a otra persona.',
+    cuando:
+      'Para editarlo o para el offboarding: al dar de baja puedes traspasar en el mismo paso sus clientes, visitas planificadas y próximos pasos a otro comercial.',
+    ojo: 'Dar de baja bloquea el acceso de esa persona, pero conserva todo lo que registró. Se puede reactivar después.',
+    soloDireccion: true,
+  },
   'cierre-visita': {
     titulo: 'Cerrar una visita',
     queEs:

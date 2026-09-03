@@ -296,7 +296,7 @@ export function ColaVocabulario() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Vocabulario" volverA="/yo" />
+      <CabeceraDetalle titulo="Vocabulario" volverA="/yo" ayuda="cola-vocabulario" />
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
         <button

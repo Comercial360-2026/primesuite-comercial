@@ -159,7 +159,7 @@ export function AltaComercial() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Nuevo comercial" onVolver={() => navigate(-1)} />
+      <CabeceraDetalle titulo="Nuevo comercial" ayuda="alta-comercial" onVolver={() => navigate(-1)} />
 
       <div className="label" style={{ marginTop: 0 }}>nombre</div>
       <input

@@ -79,7 +79,7 @@ export function ListadoComerciales() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Equipo" volverA="/yo" />
+      <CabeceraDetalle titulo="Equipo" volverA="/yo" ayuda="listado-comerciales" />
 
       <div className="screen__scroll">
        <div className="lista-agrupada">

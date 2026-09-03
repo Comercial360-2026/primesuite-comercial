@@ -149,7 +149,7 @@ export function ConsumoComerciales() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" />
+      <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" ayuda="consumo-comerciales" />
 
       <div className="lista-agrupada">
         {/* Medidor del EQUIPO, igual que en "Mi espacio": es el pozo común

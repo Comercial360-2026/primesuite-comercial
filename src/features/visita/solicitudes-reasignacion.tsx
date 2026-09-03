@@ -115,7 +115,7 @@ export function SolicitudesReasignacion() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Solicitudes de ayuda" />
+      <CabeceraDetalle titulo="Solicitudes de ayuda" ayuda="solicitudes-reasignacion" />
 
       {error && <div className="field-error-text">{error}</div>}
 
