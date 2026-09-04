@@ -13,6 +13,7 @@ interface Participante {
   comercial_id: string;
   rol: string;
   nombre: string;
+  estado: string;
 }
 
 // Antes de esto, el modelo de "varios comerciales en la misma visita"
@@ -44,12 +45,15 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     queryFn: async (): Promise<Participante[]> => {
       const { data, error: err } = await supabase
         .from('visita_participante')
-        .select('comercial_id, rol, comercial:comercial_id(nombre)')
-        .eq('visita_id', visitaId);
+        .select('comercial_id, rol, estado, comercial:comercial_id(nombre)')
+        .eq('visita_id', visitaId)
+        // Quien rechazó queda fuera de la visita: no se lista aquí.
+        .neq('estado', 'rechazado');
       if (err) throw err;
       return (data ?? []).map((p) => ({
         comercial_id: p.comercial_id,
         rol: p.rol,
+        estado: p.estado,
         nombre: (p.comercial as unknown as { nombre: string } | null)?.nombre ?? '…',
       }));
     },
@@ -114,9 +118,23 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   async function añadir(comercialId: string) {
     setAñadiendoId(comercialId);
     setError(null);
-    const { error: err } = await supabase
-      .from('visita_participante')
-      .insert({ visita_id: visitaId, comercial_id: comercialId, rol: 'participante' });
+    // Si te añade otro, la fila nace 'pendiente' y a ese comercial le sale
+    // un aviso en "Yo" para aceptar o rechazar. Si te añades a ti mismo,
+    // nace 'aceptado'. `upsert` y no `insert` porque puede existir ya una
+    // fila 'rechazado' de un intento anterior (hay único visita+comercial):
+    // en ese caso se reactiva como 'pendiente'.
+    const propio = comercialId === comercial?.id;
+    const { error: err } = await supabase.from('visita_participante').upsert(
+      {
+        visita_id: visitaId,
+        comercial_id: comercialId,
+        rol: 'participante',
+        estado: propio ? 'aceptado' : 'pendiente',
+        anadido_por: comercial?.id ?? null,
+        rechazo_visto: false,
+      },
+      { onConflict: 'visita_id,comercial_id' }
+    );
     setAñadiendoId(null);
     if (err) {
       setError(err.message);
@@ -124,6 +142,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     }
     setBusqueda('');
     queryClient.invalidateQueries({ queryKey: ['participantes-visita', visitaId] });
+    queryClient.invalidateQueries({ queryKey: ['invitaciones-visita'] });
   }
 
   return (
@@ -132,7 +151,14 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
           {participantes?.map((p) => (
             <div key={p.comercial_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
-              <span className="chip" style={{ fontSize: 11 }}>{p.rol}</span>
+              <span style={{ display: 'flex', gap: 4 }}>
+                {p.estado === 'pendiente' && (
+                  <span className="chip" style={{ fontSize: 11, color: 'var(--ink-400)' }}>
+                    sin aceptar
+                  </span>
+                )}
+                <span className="chip" style={{ fontSize: 11 }}>{p.rol}</span>
+              </span>
             </div>
           ))}
           {!participantes?.length && (

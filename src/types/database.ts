@@ -1679,27 +1679,43 @@ export type Database = {
       }
       visita_participante: {
         Row: {
+          anadido_por: string | null
           comercial_id: string
           creado_en: string
+          estado: string
           id: string
+          rechazo_visto: boolean
           rol: string
           visita_id: string
         }
         Insert: {
+          anadido_por?: string | null
           comercial_id: string
           creado_en?: string
+          estado?: string
           id?: string
+          rechazo_visto?: boolean
           rol: string
           visita_id: string
         }
         Update: {
+          anadido_por?: string | null
           comercial_id?: string
           creado_en?: string
+          estado?: string
           id?: string
+          rechazo_visto?: boolean
           rol?: string
           visita_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "visita_participante_anadido_por_fkey"
+            columns: ["anadido_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "visita_participante_comercial_id_fkey"
             columns: ["comercial_id"]

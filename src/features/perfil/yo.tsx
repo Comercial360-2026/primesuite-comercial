@@ -9,6 +9,8 @@ import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
+import { fechaCorta } from '@/lib/fechas';
+import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -73,6 +75,24 @@ export function Yo() {
   const [error, setError] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
+
+  const { invitaciones, rechazos, aceptar, rechazar, marcarRechazoVisto } = useAvisosParticipacion();
+  const [procesandoAviso, setProcesandoAviso] = useState<string | null>(null);
+  const [errorAviso, setErrorAviso] = useState<string | null>(null);
+
+  async function resolverAviso(id: string, accion: () => Promise<void>) {
+    setProcesandoAviso(id);
+    setErrorAviso(null);
+    try {
+      await accion();
+    } catch (err) {
+      setErrorAviso(
+        esSinRed(err) ? 'Sin conexión. Inténtalo cuando tengas red.' : 'No se pudo guardar. Inténtalo de nuevo.'
+      );
+    } finally {
+      setProcesandoAviso(null);
+    }
+  }
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
@@ -307,6 +327,64 @@ export function Yo() {
               Se sube solo en cuanto haya conexión — no hace falta que hagas nada.
             </div>
             <AyudaNota concepto="sincronizacion" />
+          </div>
+        )}
+
+        {(invitaciones.length > 0 || rechazos.length > 0) && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Visitas de equipo</div>
+
+            {invitaciones.map((inv) => (
+              <div key={inv.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{inv.clienteNombre}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(inv.fechaVisita)} · te añadió {inv.anadidoPorNombre}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={procesandoAviso === inv.id}
+                    onClick={() => resolverAviso(inv.id, () => aceptar(inv.id))}
+                  >
+                    {procesandoAviso === inv.id ? 'Guardando…' : 'Aceptar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === inv.id}
+                    onClick={() => resolverAviso(inv.id, () => rechazar(inv.id))}
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {rechazos.map((r) => (
+              <div key={r.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  {r.comercialNombre} ha rechazado la visita de {r.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(r.fechaVisita)}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === r.id}
+                    onClick={() => resolverAviso(r.id, () => marcarRechazoVisto(r.id))}
+                  >
+                    {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {errorAviso && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{errorAviso}</div>
+            )}
           </div>
         )}
 

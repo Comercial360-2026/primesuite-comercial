@@ -149,7 +149,9 @@ export function AgendaDelDia() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select('visita_id, comercial_id')
-        .in('visita_id', idsVisitas);
+        .in('visita_id', idsVisitas)
+        // Quien rechazó la invitación no cuenta como participante.
+        .neq('estado', 'rechazado');
       if (error) throw error;
       const mapa: Record<string, string[]> = {};
       for (const p of data ?? []) {
