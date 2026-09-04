@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -9,11 +9,14 @@ interface ParticipantesModalProps {
   onCerrar: () => void;
 }
 
-interface Participante {
+interface ParticipanteCrudo {
   comercial_id: string;
   rol: string;
-  nombre: string;
   estado: string;
+}
+
+interface Participante extends ParticipanteCrudo {
+  nombre: string;
 }
 
 // Antes de esto, el modelo de "varios comerciales en la misma visita"
@@ -41,44 +44,54 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   const [confirmandoQuitar, setConfirmandoQuitar] = useState<string | null>(null);
   const [quitandoId, setQuitandoId] = useState<string | null>(null);
 
-  const { data: participantes } = useQuery({
+  const { data: participantesCrudos } = useQuery({
     queryKey: ['participantes-visita', visitaId],
-    queryFn: async (): Promise<Participante[]> => {
+    queryFn: async (): Promise<ParticipanteCrudo[]> => {
       const { data, error: err } = await supabase
         .from('visita_participante')
-        .select('comercial_id, rol, estado, comercial:comercial_id(nombre)')
+        .select('comercial_id, rol, estado')
         .eq('visita_id', visitaId)
         // Quien rechazó queda fuera de la visita: no se lista aquí.
         .neq('estado', 'rechazado');
-      if (err) throw err;
-      return (data ?? []).map((p) => ({
-        comercial_id: p.comercial_id,
-        rol: p.rol,
-        estado: p.estado,
-        nombre: (p.comercial as unknown as { nombre: string } | null)?.nombre ?? '…',
-      }));
-    },
-  });
-
-  // Puede añadir: Dirección Comercial, o el responsable de esta visita.
-  const esResponsable =
-    !!comercial && (participantes?.some((p) => p.rol === 'responsable' && p.comercial_id === comercial.id) ?? false);
-  const puedeAñadir = esDireccionComercial || esResponsable;
-
-  // La lista de a quién añadir. Vía RPC SECURITY DEFINER porque el
-  // responsable puede ser un comercial normal, que no puede leer
-  // `comercial` directamente.
-  const { data: comercialesActivos } = useQuery({
-    queryKey: ['comerciales-seleccionables'],
-    enabled: puedeAñadir,
-    queryFn: async (): Promise<{ id: string; nombre: string }[]> => {
-      const { data, error: err } = await supabase.rpc('fn_comerciales_seleccionables');
       if (err) throw err;
       return data ?? [];
     },
   });
 
-  const idsYaParticipantes = new Set(participantes?.map((p) => p.comercial_id));
+  // id -> nombre. Un comercial normal no puede leer la tabla `comercial`
+  // (RLS), así que el nombre de cualquier participante y de los
+  // candidatos se resuelve con esta RPC SECURITY DEFINER (activos).
+  const { data: nombresPorId } = useQuery({
+    queryKey: ['comerciales-nombres'],
+    enabled: !!comercial,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, string>> => {
+      const { data, error: err } = await supabase.rpc('fn_comerciales_seleccionables');
+      if (err) throw err;
+      return new Map((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
+  const participantes = useMemo<Participante[]>(
+    () =>
+      (participantesCrudos ?? []).map((p) => ({
+        ...p,
+        nombre: nombresPorId?.get(p.comercial_id) ?? '…',
+      })),
+    [participantesCrudos, nombresPorId]
+  );
+
+  // Puede añadir: Dirección Comercial, o el responsable de esta visita.
+  const esResponsable =
+    !!comercial && participantes.some((p) => p.rol === 'responsable' && p.comercial_id === comercial.id);
+  const puedeAñadir = esDireccionComercial || esResponsable;
+
+  const comercialesActivos = useMemo(
+    () => (nombresPorId ? [...nombresPorId].map(([id, nombre]) => ({ id, nombre })) : undefined),
+    [nombresPorId]
+  );
+
+  const idsYaParticipantes = new Set(participantes.map((p) => p.comercial_id));
   const candidatos = comercialesActivos?.filter(
     (c) => !idsYaParticipantes.has(c.id) && c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase())
   );
@@ -184,7 +197,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   return (
     <Modal titulo="Participantes" onCerrar={onCerrar}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          {participantes?.map((p) => {
+          {participantes.map((p) => {
             const esYo = p.comercial_id === comercial?.id;
             const puedeQuitar = p.rol !== 'responsable' && (puedeAñadir || esYo);
             return (
@@ -241,8 +254,11 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
               </div>
             );
           })}
-          {!participantes?.length && (
+          {participantesCrudos == null && (
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
+          )}
+          {participantesCrudos != null && participantes.length === 0 && (
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ya no participas en esta visita.</span>
           )}
         </div>
 
