@@ -229,7 +229,11 @@ textarea.field {
 /* Al pulsar la tira, la franja de scroll se despliega a pantalla completa
    — así se ve TODO lo capturado sin bajar por debajo de la rejilla. */
 .screen__scroll--panel {
+  /* fixed + inset:0 lo pega al viewport; en escritorio hay que devolverlo
+     a la columna de la app (si no, la lista se desparrama a 1900px). */
   position: fixed; inset: 0; z-index: 25;
+  max-width: var(--app-max-w);
+  margin-inline: auto;
   background: var(--surface-0);
   padding: var(--space-4); box-sizing: border-box;
   padding-top: calc(var(--space-4) + env(safe-area-inset-top));
