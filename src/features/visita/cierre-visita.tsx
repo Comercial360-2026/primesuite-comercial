@@ -8,6 +8,8 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { ModalDetalleCierre, type GrupoCierre } from './modal-detalle-cierre';
+import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
 // Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
 // cola offline (db.ts/sync-engine.ts) solo modela creación de registros
@@ -42,6 +44,8 @@ export function CierreVisita() {
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
+  // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). null = ninguna.
+  const [grupoDetalle, setGrupoDetalle] = useState<GrupoCierre | null>(null);
   const consolidacion = useAccionAsync();
 
   // "Ibas a…": el objetivo con el que se planificó la visita, para cerrarla
@@ -107,6 +111,16 @@ export function CierreVisita() {
   const fotos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
+
+  // Las seis casillas del resumen: cada una abre su detalle al pulsarla.
+  const casillasCierre: Array<{ grupo: GrupoCierre; label: string; items: OperacionPendiente[] }> = [
+    { grupo: 'fotos', label: 'Fotos', items: fotos },
+    { grupo: 'audios', label: 'Audios', items: audios },
+    { grupo: 'notas', label: 'Notas', items: notas },
+    { grupo: 'oportunidades', label: 'Oportunidades', items: oportunidades },
+    { grupo: 'hallazgos', label: 'Hallazgos', items: hallazgos },
+    { grupo: 'pasos', label: 'Próximos pasos', items: pasos },
+  ];
 
   // Agrupación por zona: todo lo capturado en el recorrido (fotos, audios,
   // notas, hallazgos, oportunidades) para repasarlo zona a zona antes de
@@ -319,30 +333,18 @@ export function CierreVisita() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{fotos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Fotos</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{audios.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audios</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{notas.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Notas</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{oportunidades.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Oportunidades</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{hallazgos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Hallazgos</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{pasos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Próximos pasos</div>
-        </div>
+        {casillasCierre.map(({ grupo, label, items }) => (
+          <button
+            key={grupo}
+            type="button"
+            className="card cierre-casilla"
+            disabled={items.length === 0}
+            onClick={() => setGrupoDetalle(grupo)}
+          >
+            <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{items.length}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{label}</div>
+          </button>
+        ))}
       </div>
 
       {visitaObjetivo?.objetivo?.trim() && (
@@ -377,6 +379,15 @@ export function CierreVisita() {
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
         Consolidar visita
       </button>
+
+      {grupoDetalle && (
+        <ModalDetalleCierre
+          grupo={grupoDetalle}
+          items={casillasCierre.find((c) => c.grupo === grupoDetalle)?.items ?? []}
+          nombresTerminos={nombresTerminos}
+          onCerrar={() => setGrupoDetalle(null)}
+        />
+      )}
     </div>
   );
 }

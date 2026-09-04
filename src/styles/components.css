@@ -303,6 +303,25 @@ body {
   font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
+/* Casillas de "Cerrar visita": ahora son botones que abren su detalle. */
+.cierre-casilla {
+  width: 100%; text-align: center; cursor: pointer;
+  font-family: var(--font-sans); color: var(--ink-900);
+}
+.cierre-casilla:hover:not(:disabled) { background: var(--surface-0); }
+.cierre-casilla:disabled { cursor: default; opacity: 0.5; }
+
+/* Lista del diálogo de detalle (ModalDetalleCierre). */
+.detalle-cierre { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.detalle-cierre__fila {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) 0; border-top: var(--fila-separador);
+}
+.detalle-cierre__fila:first-child { border-top: none; }
+.detalle-cierre__titulo { font-size: var(--text-sm); color: var(--ink-900); }
+.detalle-cierre__meta { font-size: var(--text-xs); color: var(--ink-400); }
+.detalle-cierre__nota { font-size: var(--text-xs); color: var(--ink-700); }
+
 /* Aviso — mensaje con jerarquía. Icono de forma propia + palabra de tipo +
    texto; el color solo refuerza (el usuario es daltónico). Ver
    src/components/ui/aviso.tsx y 08_sistema_diseno.md §"Mensajes (Aviso)". */
