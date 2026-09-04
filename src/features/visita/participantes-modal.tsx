@@ -51,10 +51,26 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
         .from('visita_participante')
         .select('comercial_id, rol, estado')
         .eq('visita_id', visitaId)
-        // Quien rechazó queda fuera de la visita: no se lista aquí.
-        .neq('estado', 'rechazado');
+        // Fuera de la visita quien rechazó o fue expulsado: no se listan.
+        .in('estado', ['pendiente', 'aceptado']);
       if (err) throw err;
       return data ?? [];
+    },
+  });
+
+  // Quiénes rechazaron esta visita — para marcarlos en la lista de
+  // "añadir" y dejar claro que solo Dirección puede reinvitarles.
+  const { data: rechazadosVisita } = useQuery({
+    queryKey: ['participantes-rechazados', visitaId],
+    enabled: !!comercial,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error: err } = await supabase
+        .from('visita_participante')
+        .select('comercial_id')
+        .eq('visita_id', visitaId)
+        .eq('estado', 'rechazado');
+      if (err) throw err;
+      return (data ?? []).map((r) => r.comercial_id);
     },
   });
 
@@ -92,9 +108,10 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   );
 
   const idsYaParticipantes = new Set(participantes.map((p) => p.comercial_id));
-  const candidatos = comercialesActivos?.filter(
-    (c) => !idsYaParticipantes.has(c.id) && c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase())
-  );
+  const rechazadosSet = new Set(rechazadosVisita ?? []);
+  const candidatos = comercialesActivos
+    ?.filter((c) => !idsYaParticipantes.has(c.id) && c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+    .map((c) => ({ ...c, rechazoPrevio: rechazadosSet.has(c.id) }));
 
   // Para no dejar que alguien mande la misma solicitud varias veces sin
   // darse cuenta — si ya tiene una pendiente para esta visita, se avisa en
@@ -161,22 +178,36 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
       return;
     }
     setBusqueda('');
-    queryClient.invalidateQueries({ queryKey: ['participantes-visita', visitaId] });
-    queryClient.invalidateQueries({ queryKey: ['invitaciones-visita'] });
+    for (const clave of [
+      ['participantes-visita', visitaId],
+      ['participantes-rechazados', visitaId],
+      ['invitaciones-visita'],
+      ['expulsiones-participacion'],
+      ['participantes-visitas-hoy'],
+      ['agenda-participantes'],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: clave });
+    }
   }
 
-  // Quitar a alguien de la visita: el responsable (o Dirección) expulsa a
-  // un participante; un participante se saca a sí mismo. La fila del
-  // responsable no se puede borrar (lo impide el trigger), así que no se
-  // ofrece el botón para esa fila.
+  // Quitar a alguien de la visita:
+  //   · si me saco YO -> DELETE limpio (no hay a quién avisar).
+  //   · si expulso a OTRO -> la fila pasa a 'expulsado' para que al
+  //     afectado le llegue un aviso en "Yo"; queda fuera igual porque las
+  //     listas filtran a 'pendiente'/'aceptado'.
+  // La fila del responsable no se puede tocar (lo impide el trigger), así
+  // que no se ofrece el botón para esa fila.
   async function quitar(comercialId: string) {
     setQuitandoId(comercialId);
     setError(null);
-    const { error: err } = await supabase
-      .from('visita_participante')
-      .delete()
-      .eq('visita_id', visitaId)
-      .eq('comercial_id', comercialId);
+    const salgoYo = comercialId === comercial?.id;
+    const { error: err } = salgoYo
+      ? await supabase.from('visita_participante').delete().eq('visita_id', visitaId).eq('comercial_id', comercialId)
+      : await supabase
+          .from('visita_participante')
+          .update({ estado: 'expulsado', rechazo_visto: false })
+          .eq('visita_id', visitaId)
+          .eq('comercial_id', comercialId);
     setQuitandoId(null);
     setConfirmandoQuitar(null);
     if (err) {
@@ -185,8 +216,10 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     }
     for (const clave of [
       ['participantes-visita', visitaId],
+      ['participantes-rechazados', visitaId],
       ['invitaciones-visita'],
       ['rechazos-participacion'],
+      ['expulsiones-participacion'],
       ['participantes-visitas-hoy'],
       ['agenda-participantes'],
     ]) {
@@ -271,19 +304,38 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
               placeholder="buscar comercial para añadir…"
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-              {candidatos?.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="chip"
-                  style={{ textAlign: 'left', justifyContent: 'space-between', display: 'flex' }}
-                  disabled={añadiendoId === c.id}
-                  onClick={() => añadir(c.id)}
-                >
-                  <span>{c.nombre}</span>
-                  <span>{añadiendoId === c.id ? 'Añadiendo…' : '+ Añadir'}</span>
-                </button>
-              ))}
+              {candidatos?.map((c) => {
+                // Quien rechazó esta visita solo lo puede reinvitar
+                // Dirección (lo garantiza además un trigger). Al
+                // responsable se le muestra pero sin botón.
+                const bloqueado = c.rechazoPrevio && !esDireccionComercial;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="chip"
+                    style={{
+                      textAlign: 'left',
+                      justifyContent: 'space-between',
+                      display: 'flex',
+                      opacity: bloqueado ? 0.6 : 1,
+                    }}
+                    disabled={añadiendoId === c.id || bloqueado}
+                    onClick={() => añadir(c.id)}
+                  >
+                    <span>{c.nombre}</span>
+                    <span style={{ color: c.rechazoPrevio ? 'var(--ink-400)' : undefined, fontSize: 11 }}>
+                      {añadiendoId === c.id
+                        ? 'Añadiendo…'
+                        : bloqueado
+                          ? 'rechazó · reinvita Dirección'
+                          : c.rechazoPrevio
+                            ? 'rechazó · reinvitar'
+                            : '+ Añadir'}
+                    </span>
+                  </button>
+                );
+              })}
               {busqueda.trim() && candidatos?.length === 0 && (
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Sin coincidencias.</span>
               )}

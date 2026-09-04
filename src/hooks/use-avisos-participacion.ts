@@ -3,13 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
-// Los avisos de "te han metido en una visita de equipo" que salen en "Yo"
-// y encienden el punto de la pestaña. Dos caras del mismo hecho:
+// Los avisos de "te han metido / te han sacado de una visita de equipo"
+// que salen en "Yo" y encienden el punto de la pestaña. Tres casos:
 //
 //   · invitaciones = a MÍ me añadieron a una visita y aún no he dicho ni
 //     que sí ni que no (visita_participante.estado = 'pendiente').
 //   · rechazos = YO añadí a alguien y me ha rechazado; lo veo una vez y
 //     al pulsar "Entendido" se marca rechazo_visto y desaparece.
+//   · expulsiones = a MÍ me han quitado de una visita (estado
+//     'expulsado'); mismo "Entendido".
 //
 // Sin correos ni push: todo vive en la tabla y se consulta desde aquí.
 
@@ -27,6 +29,13 @@ interface RechazoSinVer {
   clienteNombre: string;
   fechaVisita: string;
   comercialNombre: string;
+}
+
+interface AvisoVisita {
+  id: string;
+  visitaId: string;
+  clienteNombre: string;
+  fechaVisita: string;
 }
 
 interface VisitaEmbebida {
@@ -56,6 +65,7 @@ interface RechazoCrudo {
 const CLAVES_A_INVALIDAR = [
   ['invitaciones-visita'],
   ['rechazos-participacion'],
+  ['expulsiones-participacion'],
   ['participantes-visita'],
   ['participantes-visitas-hoy'],
   ['agenda-participantes'],
@@ -64,10 +74,12 @@ const CLAVES_A_INVALIDAR = [
 export function useAvisosParticipacion(): {
   invitaciones: InvitacionPendiente[];
   rechazos: RechazoSinVer[];
+  expulsiones: AvisoVisita[];
   hayAvisos: boolean;
   aceptar: (id: string) => Promise<void>;
   rechazar: (id: string) => Promise<void>;
   marcarRechazoVisto: (id: string) => Promise<void>;
+  marcarExpulsionVista: (id: string) => Promise<void>;
 } {
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
@@ -139,6 +151,31 @@ export function useAvisosParticipacion(): {
     },
   });
 
+  const { data: expulsiones } = useQuery({
+    queryKey: ['expulsiones-participacion', comercial?.id],
+    enabled: !!comercial,
+    staleTime: 60_000,
+    refetchOnMount: 'always',
+    queryFn: async (): Promise<AvisoVisita[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('id, visita_id, visita:visita_id(fecha, cliente:cliente_id(nombre))')
+        .eq('comercial_id', comercial!.id)
+        .eq('estado', 'expulsado')
+        .eq('rechazo_visto', false);
+      if (error) throw error;
+      return (data ?? []).map((f) => {
+        const visita = f.visita as unknown as VisitaEmbebida | null;
+        return {
+          id: f.id,
+          visitaId: f.visita_id,
+          clienteNombre: visita?.cliente?.nombre ?? 'Cliente',
+          fechaVisita: visita?.fecha ?? new Date().toISOString(),
+        };
+      });
+    },
+  });
+
   const invitacionesResueltas = useMemo<InvitacionPendiente[]>(
     () =>
       (invitaciones ?? []).map((f) => ({
@@ -190,7 +227,9 @@ export function useAvisosParticipacion(): {
     [invalidar]
   );
 
-  const marcarRechazoVisto = useCallback(
+  // Sirve para los dos avisos que marcan "visto" en la misma columna:
+  // el rechazo (lo ve quien añadió) y la expulsión (la ve el afectado).
+  const marcarVisto = useCallback(
     async (id: string) => {
       const { error } = await supabase.from('visita_participante').update({ rechazo_visto: true }).eq('id', id);
       if (error) throw error;
@@ -202,9 +241,12 @@ export function useAvisosParticipacion(): {
   return {
     invitaciones: invitacionesResueltas,
     rechazos: rechazosResueltos,
-    hayAvisos: invitacionesResueltas.length > 0 || rechazosResueltos.length > 0,
+    expulsiones: expulsiones ?? [],
+    hayAvisos:
+      invitacionesResueltas.length > 0 || rechazosResueltos.length > 0 || (expulsiones?.length ?? 0) > 0,
     aceptar,
     rechazar,
-    marcarRechazoVisto,
+    marcarRechazoVisto: marcarVisto,
+    marcarExpulsionVista: marcarVisto,
   };
 }

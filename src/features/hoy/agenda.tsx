@@ -143,8 +143,8 @@ export function Agenda() {
         .from('visita_participante')
         .select('visita_id, comercial_id')
         .in('visita_id', ids)
-        // Quien rechazó la invitación no cuenta como participante.
-        .neq('estado', 'rechazado');
+        // Quien rechazó o fue expulsado no cuenta como participante.
+        .in('estado', ['pendiente', 'aceptado']);
       if (error) throw error;
       const m: Record<string, string[]> = {};
       for (const p of data ?? []) (m[p.visita_id] ??= []).push(p.comercial_id);

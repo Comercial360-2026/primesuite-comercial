@@ -76,7 +76,8 @@ export function Yo() {
   const [exportando, setExportando] = useState(false);
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
 
-  const { invitaciones, rechazos, aceptar, rechazar, marcarRechazoVisto } = useAvisosParticipacion();
+  const { invitaciones, rechazos, expulsiones, aceptar, rechazar, marcarRechazoVisto, marcarExpulsionVista } =
+    useAvisosParticipacion();
   const [procesandoAviso, setProcesandoAviso] = useState<string | null>(null);
   const [errorAviso, setErrorAviso] = useState<string | null>(null);
 
@@ -330,7 +331,7 @@ export function Yo() {
           </div>
         )}
 
-        {(invitaciones.length > 0 || rechazos.length > 0) && (
+        {(invitaciones.length > 0 || rechazos.length > 0 || expulsiones.length > 0) && (
           <div className="card">
             <div className="label" style={{ marginTop: 0 }}>Visitas de equipo</div>
 
@@ -377,6 +378,27 @@ export function Yo() {
                     onClick={() => resolverAviso(r.id, () => marcarRechazoVisto(r.id))}
                   >
                     {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {expulsiones.map((e) => (
+              <div key={e.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  Te han quitado de la visita de {e.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(e.fechaVisita)}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === e.id}
+                    onClick={() => resolverAviso(e.id, () => marcarExpulsionVista(e.id))}
+                  >
+                    {procesandoAviso === e.id ? 'Guardando…' : 'Entendido'}
                   </button>
                 </div>
               </div>

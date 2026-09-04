@@ -150,8 +150,8 @@ export function AgendaDelDia() {
         .from('visita_participante')
         .select('visita_id, comercial_id')
         .in('visita_id', idsVisitas)
-        // Quien rechazó la invitación no cuenta como participante.
-        .neq('estado', 'rechazado');
+        // Quien rechazó o fue expulsado no cuenta como participante.
+        .in('estado', ['pendiente', 'aceptado']);
       if (error) throw error;
       const mapa: Record<string, string[]> = {};
       for (const p of data ?? []) {
