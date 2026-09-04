@@ -1000,17 +1000,27 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 }
 .ayuda-modal__bloque--ojo .ayuda-modal__lb { color: var(--warning-600); }
 
-.ayuda-manual__grupo { padding: 0 var(--fila-pad-x); }
+.ayuda-manual__grupo { padding: 0; }
+
+/* /ayuda como índice plegable: fila de título tocable + cuerpo desplegable. */
+.ayuda-item { border-top: 1px solid var(--ink-100); }
+.ayuda-item:first-child { border-top: none; }
+.ayuda-item__tit {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  width: 100%; padding: var(--space-3) 0;
+  border: none; background: none; font-family: var(--font-sans);
+  font-size: var(--text-base); font-weight: 600; color: var(--ink-900);
+  text-align: left; cursor: pointer;
+}
+.ayuda-item__chevron { flex-shrink: 0; color: var(--ink-400); font-size: var(--text-md); }
+.ayuda-item__cuerpo { padding: 0 0 var(--space-3); }
+.ayuda-item__cuerpo p { margin: 3px 0 0; font-size: var(--text-sm); line-height: 1.4; }
+.ayuda-item__meta { color: var(--ink-400); }
+.ayuda-item__meta strong { color: var(--ink-700); font-weight: 600; }
 .ayuda-manual__vacio {
   padding: var(--space-5) var(--fila-pad-x); text-align: center;
   color: var(--ink-400); font-size: var(--text-sm);
 }
-.ayuda-entrada { padding: var(--space-3) 0; border-top: 1px solid var(--ink-100); }
-.ayuda-entrada:first-child { border-top: none; }
-.ayuda-entrada__titulo { margin: 0 0 2px; font-size: var(--text-base); font-weight: 600; }
-.ayuda-entrada p { margin: 3px 0 0; font-size: var(--text-sm); line-height: 1.4; }
-.ayuda-entrada__meta { color: var(--ink-400); }
-.ayuda-entrada__meta strong { color: var(--ink-700); font-weight: 600; }
 
 /* EstadoLista — estados "cargando" y "vacío" de una lista (los de "sin
    conexión" y "error" los pinta EstadoError, que EstadoLista reutiliza).
