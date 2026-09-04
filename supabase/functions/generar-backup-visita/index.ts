@@ -320,6 +320,7 @@ interface PasoRow {
 }
 interface ParticipanteRow {
   rol: string;
+  estado: string;
   comercial: Nombrado | null;
 }
 interface InterlocutorRow {
@@ -430,7 +431,7 @@ Deno.serve(async (req) => {
       .select('id, descripcion, fecha_objetivo, estado, comercial_responsable:comercial_responsable_id(nombre)')
       .eq('visita_id', visitaId)
       .order('fecha_objetivo', { ascending: true }),
-    admin.from('visita_participante').select('rol, comercial:comercial_id(nombre)').eq('visita_id', visitaId),
+    admin.from('visita_participante').select('rol, estado, comercial:comercial_id(nombre)').eq('visita_id', visitaId),
     admin.from('visita_interlocutor').select('interlocutor:interlocutor_id(nombre, cargo)').eq('visita_id', visitaId),
   ]);
 
@@ -492,8 +493,10 @@ Deno.serve(async (req) => {
   const visitaEnCurso = visita.estado_captura === 'en_curso';
 
   const responsable = (participantesVisita ?? []).find((p) => p.rol === 'responsable');
+  // Solo acompañantes que aceptaron: los 'pendiente' (aún sin contestar) y
+  // los 'rechazado' (fuera de la visita) no van en el informe.
   const acompanantes = (participantesVisita ?? [])
-    .filter((p) => p.rol !== 'responsable')
+    .filter((p) => p.rol !== 'responsable' && p.estado === 'aceptado')
     .map((p) => (p.comercial as unknown as { nombre: string } | null)?.nombre)
     .filter((n): n is string => !!n);
   const interlocutoresTexto = (interlocutoresVisita ?? [])
