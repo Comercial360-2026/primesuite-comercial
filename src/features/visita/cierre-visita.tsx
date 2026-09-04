@@ -8,6 +8,9 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { ModalDetalleCierre, type GrupoCierre } from './modal-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
@@ -44,6 +47,7 @@ export function CierreVisita() {
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
+  const { estadoDe, descargar } = useDescargarInforme();
   // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). Se
   // congelan los items al abrir: así el modal tiene una lista estable y las
   // URLs de blob de fotos/audios no se recrean/revocan con cada re-render.
@@ -261,6 +265,40 @@ export function CierreVisita() {
               })}
             </div>
           )}
+
+          {/* El informe solo se puede generar si la visita ya está en el
+              servidor; sin conexión, se descarga luego desde el historial. */}
+          {sincronizada && visitaId && (() => {
+            const estadoDescarga = estadoDe(visitaId);
+            const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+            return (
+              <SeccionLista>
+                <FilaAccion
+                  densidad="compacta"
+                  titulo="Informe de la visita (PDF)"
+                  subtitulo={
+                    descargaLista
+                      ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                      : estadoDescarga === 'generando'
+                        ? 'Generando el PDF…'
+                        : estadoDescarga === 'error'
+                          ? 'No se pudo generar, toca de nuevo'
+                          : 'Descárgalo o pásalo a otras áreas'
+                  }
+                  acciones={[
+                    {
+                      icono: 'descargar',
+                      etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
+                      onClick: descargaLista ? undefined : () => descargar(visitaId),
+                      href: descargaLista ? descargaLista.url : undefined,
+                      disabled: estadoDescarga === 'generando',
+                      tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
+                    },
+                  ]}
+                />
+              </SeccionLista>
+            );
+          })()}
         </div>
 
         <button className="btn btn-primary" onClick={volverAHoy}>
