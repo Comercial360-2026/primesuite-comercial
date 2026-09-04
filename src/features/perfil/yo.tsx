@@ -10,9 +10,9 @@ import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
-import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 const DIAS_AVISO_BACKUP = 7;
@@ -129,7 +129,7 @@ export function Yo() {
   // fallo permanente (5 intentos agotados, o heredado de un padre que
   // falló) era invisible salvo mirando IndexedDB con herramientas de
   // desarrollador — ninguna pantalla lo mostraba nunca.
-  const { data: operacionesConError, refetch: refetchErrores } = useQuery({
+  const { data: operacionesConError } = useQuery({
     queryKey: ['operaciones-con-error'],
     refetchOnMount: 'always',
     refetchInterval: 60_000,
@@ -165,10 +165,6 @@ export function Yo() {
     ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
-  // Barra de "antigüedad" de la copia: 0 recién hecha, 100 al llegar al
-  // umbral de aviso (o si nunca se ha hecho una).
-  const backupBarra =
-    diasDesdeBackup === null ? 100 : Math.min(diasDesdeBackup / DIAS_AVISO_BACKUP, 1) * 100;
 
   async function hacerCopiaCompleta() {
     setExportando(true);
@@ -270,14 +266,10 @@ export function Yo() {
                 .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
                 .join(', ')}
             </div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+              Se sube solo en cuanto haya conexión — no hace falta que hagas nada.
+            </div>
             <AyudaNota concepto="sincronizacion" />
-            <button
-              className="btn btn-secondary"
-              style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-              onClick={() => refetchErrores()}
-            >
-              Comprobar de nuevo
-            </button>
           </div>
         )}
 
@@ -314,33 +306,38 @@ export function Yo() {
               />
             </SeccionLista>
 
-            <TarjetaAccion
-              titulo="Copia de seguridad"
-              tono={backupPendiente ? 'aviso' : 'neutral'}
-              barra={backupBarra}
-              accion={{
-                etiqueta: 'Hacer copia ahora',
-                icono: 'descargar',
-                onClick: hacerCopiaCompleta,
-                cargando: exportando,
-                etiquetaCargando: 'Preparando copia…',
-                enfasis: backupPendiente ? 'primario' : 'secundario',
-              }}
-              error={errorExportacion ?? undefined}
-            >
-              <div>
-                {diasDesdeBackup === null
-                  ? 'Todavía no has hecho ninguna copia completa.'
-                  : diasDesdeBackup === 0
-                    ? 'Última copia: hoy.'
-                    : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
+            <SeccionLista>
+              <FilaAccion
+                icono="almacenamiento"
+                titulo="Copia de seguridad"
+                subtitulo={
+                  exportando
+                    ? 'Preparando la copia…'
+                    : diasDesdeBackup === null
+                      ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
+                      : diasDesdeBackup === 0
+                        ? 'Última: hoy'
+                        : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
+                            backupPendiente ? ' · conviene hacer una' : ''
+                          }`
+                }
+                tono={backupPendiente ? 'aviso' : 'neutral'}
+                acciones={[
+                  {
+                    icono: 'descargar',
+                    etiqueta: 'Hacer copia ahora',
+                    onClick: hacerCopiaCompleta,
+                    disabled: exportando,
+                    tono: backupPendiente ? 'brand' : 'neutral',
+                  },
+                ]}
+              />
+            </SeccionLista>
+            {errorExportacion && (
+              <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                {errorExportacion}
               </div>
-              {backupPendiente && (
-                <div className="tarjeta-accion__estado">
-                  Supabase gratuito no hace copias automáticas — conviene descargar una ya.
-                </div>
-              )}
-            </TarjetaAccion>
+            )}
           </div>
         )}
 
