@@ -300,11 +300,17 @@ export function FichaCliente() {
 
       const { data: terminos, error: errorTerminos } = await supabase
         .from('termino')
-        .select('id, nombre')
+        .select('id, nombre, parent:parent_id(nombre)')
         .in('id', itemsValidos.map((i) => i.termino_id));
       if (errorTerminos) throw errorTerminos;
 
-      const nombreById = new Map((terminos ?? []).map((t) => [t.id, t.nombre]));
+      // Si el término es un modelo, se muestra con su ruta "MIFARE › DESFire
+      // EV2" (mismo criterio que SelectorTermino y Detalle de Oportunidad).
+      const nombreById = new Map(
+        ((terminos ?? []) as unknown as { id: string; nombre: string; parent: { nombre: string } | null }[]).map(
+          (t) => [t.id, t.parent ? `${t.parent.nombre} › ${t.nombre}` : t.nombre] as const
+        )
+      );
       return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
     },
   });
