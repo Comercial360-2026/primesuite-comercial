@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -58,16 +59,40 @@ export function DetalleOportunidad() {
   const { data: oportunidad, isLoading } = useQuery({
     queryKey: ['oportunidad', oportunidadId],
     enabled: !!oportunidadId,
+    // Si acaba de sincronizar desde la cola, al volver a entrar queremos la
+    // versión del servidor, no la copia local cacheada.
+    refetchOnMount: 'always',
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select('id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, cliente:cliente_id(nombre)')
         .eq('id', oportunidadId!)
-        .single();
+        .maybeSingle();
       if (err) throw err;
-      return data;
+      if (data) return { ...data, enCola: false };
+      // Todavía no está en el servidor: puede seguir en la cola local
+      // (creada con "Oportunidad rápida" y aún sin sincronizar). Se lee de
+      // ahí para que la pantalla NO salga vacía.
+      const op = await obtenerOperacion(oportunidadId!);
+      if (op?.entidad === 'oportunidad') {
+        const p = op.payload;
+        return {
+          id: oportunidadId!,
+          titulo: p.titulo,
+          etapa: p.etapa ?? 'latente',
+          prioridad: p.prioridad,
+          horizonte_decision: p.horizonteDecision ?? null,
+          descripcion: p.descripcion ?? null,
+          motivo_cierre: p.motivoCierre ?? null,
+          comentario_cierre: p.comentarioCierre ?? null,
+          cliente: null as { nombre: string } | null,
+          enCola: true,
+        };
+      }
+      return null;
     },
   });
+  const enCola = oportunidad?.enCola === true;
 
   async function cargarTerminosPorRol(rol: 'solucion_propuesta' | 'tecnologia_motivadora'): Promise<TerminoAsociado[]> {
     const { data: rels, error: err } = await supabase
@@ -125,6 +150,33 @@ export function DetalleOportunidad() {
     }
     setGuardando(true);
     setError(null);
+
+    // Si la oportunidad aún vive en la cola local (creada hace un momento
+    // sin que haya llegado al servidor), se guardan los cambios EN la cola:
+    // al sincronizar, el INSERT los llevará. Sin esto, el UPDATE fallaría
+    // contra una fila que no existe todavía.
+    if (enCola) {
+      const op = await obtenerOperacion(oportunidadId!);
+      if (op?.entidad === 'oportunidad') {
+        await actualizarOperacion(oportunidadId!, {
+          payload: {
+            ...op.payload,
+            titulo: titulo.trim(),
+            prioridad: prioridad as OportunidadPayload['prioridad'],
+            etapa,
+            horizonteDecision: horizonte || undefined,
+            descripcion: descripcion.trim() || undefined,
+            motivoCierre: esCierreNegativo ? motivoCierre : undefined,
+            comentarioCierre: esCierreNegativo ? comentarioCierre.trim() || undefined : undefined,
+          },
+        });
+      }
+      setGuardando(false);
+      setGuardadoConExito(true);
+      setTimeout(() => navigate(-1), 700);
+      return;
+    }
+
     const { error: err } = await supabase
       .from('oportunidad')
       .update({
@@ -156,6 +208,14 @@ export function DetalleOportunidad() {
     if (!oportunidadId) return;
     setBorrando(true);
     setErrorBorrado(null);
+    // Si aún está en la cola local (nunca llegó al servidor), basta con
+    // quitarla de ahí — no hay fila real que borrar con la RPC.
+    if (enCola) {
+      await eliminarOperacion(oportunidadId);
+      setBorrando(false);
+      navigate(-1);
+      return;
+    }
     const { error: err } = await supabase.rpc('eliminar_oportunidad_completa', {
       p_oportunidad_id: oportunidadId,
     });
@@ -289,6 +349,7 @@ export function DetalleOportunidad() {
         <button
           type="button"
           className="chip"
+          disabled={enCola}
           onClick={() => { setBuscandoRol('tecnologia_motivadora'); setErrorAsociar(null); }}
         >
           + añadir
@@ -314,11 +375,18 @@ export function DetalleOportunidad() {
         <button
           type="button"
           className="chip"
+          disabled={enCola}
           onClick={() => { setBuscandoRol('solucion_propuesta'); setErrorAsociar(null); }}
         >
           + añadir
         </button>
       </div>
+
+      {enCola && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+          Podrás asociar términos cuando la oportunidad termine de guardarse (unos segundos con conexión).
+        </div>
+      )}
 
       {buscandoRol && (
         <SelectorTermino

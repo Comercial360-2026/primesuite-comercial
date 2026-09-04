@@ -225,7 +225,7 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada o perdida (ahí se pide el motivo).',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada o perdida (ahí se pide el motivo). Cuando la creas «rápida» en la visita puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
   },
   'proximo-paso': {
     titulo: 'Próximo paso',

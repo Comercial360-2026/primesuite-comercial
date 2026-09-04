@@ -98,6 +98,14 @@ export interface OportunidadPayload {
   zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   horizonteDecision?: string;
   solucionPrincipalTerminoId?: string;
+  // Se rellenan si el comercial completa la oportunidad en su Detalle
+  // ANTES de que la creación llegue al servidor (ver detalle-oportunidad.tsx
+  // — "Completar ahora" en Oportunidad rápida). Al sincronizar, el INSERT
+  // los lleva. Si no, `etapa` nace 'latente' por defecto en la BD.
+  etapa?: string;
+  descripcion?: string;
+  motivoCierre?: string;
+  comentarioCierre?: string;
 }
 
 export interface ProximoPasoPayload {

@@ -758,12 +758,15 @@ export function VisitaActiva() {
     setTimeout(() => setHallazgoAbierto(false), 700);
   }
 
-  async function guardarOportunidad(payload: OportunidadPayload) {
-    const oportunidadId = uuid();
+  async function guardarOportunidad(oportunidadId: string, payload: OportunidadPayload) {
+    // El id lo genera el modal para poder ofrecer "Completar ahora". El
+    // modal ya no se cierra solo: el comercial elige (completar / seguir).
     await encolar(oportunidadId, 'oportunidad', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
-    // Retraso para que "guardado ✓" del modal sea visible antes de que
-    // desaparezca — sin esto, la confirmación pasa demasiado rápido.
-    setTimeout(() => setOportunidadAbierta(false), 700);
+  }
+
+  function completarOportunidad(oportunidadId: string) {
+    setOportunidadAbierta(false);
+    navigate(`/oportunidades/${oportunidadId}`);
   }
 
   async function guardarPaso(payload: ProximoPasoPayload) {
@@ -1311,6 +1314,7 @@ export function VisitaActiva() {
             clienteId={visitaLocal?.clienteId}
             comercialId={comercial.id}
             onGuardar={guardarOportunidad}
+            onCompletar={completarOportunidad}
             onCerrar={() => setOportunidadAbierta(false)}
           />
         )}
@@ -1727,6 +1731,7 @@ export function VisitaActiva() {
           clienteId={visitaLocal?.clienteId}
           comercialId={comercial.id}
           onGuardar={guardarOportunidad}
+          onCompletar={completarOportunidad}
           onCerrar={() => setOportunidadAbierta(false)}
         />
       )}
