@@ -44,8 +44,10 @@ export function CierreVisita() {
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
-  // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). null = ninguna.
-  const [grupoDetalle, setGrupoDetalle] = useState<GrupoCierre | null>(null);
+  // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). Se
+  // congelan los items al abrir: así el modal tiene una lista estable y las
+  // URLs de blob de fotos/audios no se recrean/revocan con cada re-render.
+  const [detalle, setDetalle] = useState<{ grupo: GrupoCierre; items: OperacionPendiente[] } | null>(null);
   const consolidacion = useAccionAsync();
 
   // "Ibas a…": el objetivo con el que se planificó la visita, para cerrarla
@@ -339,7 +341,7 @@ export function CierreVisita() {
             type="button"
             className="card cierre-casilla"
             disabled={items.length === 0}
-            onClick={() => setGrupoDetalle(grupo)}
+            onClick={() => setDetalle({ grupo, items })}
           >
             <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{items.length}</div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{label}</div>
@@ -380,12 +382,12 @@ export function CierreVisita() {
         Consolidar visita
       </button>
 
-      {grupoDetalle && (
+      {detalle && (
         <ModalDetalleCierre
-          grupo={grupoDetalle}
-          items={casillasCierre.find((c) => c.grupo === grupoDetalle)?.items ?? []}
+          grupo={detalle.grupo}
+          items={detalle.items}
           nombresTerminos={nombresTerminos}
-          onCerrar={() => setGrupoDetalle(null)}
+          onCerrar={() => setDetalle(null)}
         />
       )}
     </div>
