@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -34,6 +34,22 @@ interface VisitaEmbebida {
   cliente: { nombre: string } | null;
 }
 
+interface InvitacionCruda {
+  id: string;
+  visitaId: string;
+  clienteNombre: string;
+  fechaVisita: string;
+  anadidoPorId: string | null;
+}
+
+interface RechazoCrudo {
+  id: string;
+  visitaId: string;
+  clienteNombre: string;
+  fechaVisita: string;
+  comercialId: string;
+}
+
 // Todo lo que hay que refrescar cuando una invitación cambia de estado:
 // las dos listas de este hook, la lista del modal de participantes y los
 // mapas de "solo mías" de las dos agendas.
@@ -56,28 +72,42 @@ export function useAvisosParticipacion(): {
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
 
+  // id -> nombre de comerciales activos. Un comercial normal no puede
+  // leer la tabla `comercial` (RLS), así que el nombre de quien te añadió
+  // o de quien te rechazó se resuelve con esta RPC SECURITY DEFINER — el
+  // embed directo devolvería null para ese rol.
+  const { data: nombresPorId } = useQuery({
+    queryKey: ['comerciales-nombres'],
+    enabled: !!comercial,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, string>> => {
+      const { data, error } = await supabase.rpc('fn_comerciales_seleccionables');
+      if (error) throw error;
+      return new Map((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
   const { data: invitaciones } = useQuery({
     queryKey: ['invitaciones-visita', comercial?.id],
     enabled: !!comercial,
     staleTime: 60_000,
     refetchOnMount: 'always',
-    queryFn: async (): Promise<InvitacionPendiente[]> => {
+    queryFn: async (): Promise<InvitacionCruda[]> => {
       const { data, error } = await supabase
         .from('visita_participante')
-        .select('id, visita_id, creado_en, visita:visita_id(fecha, cliente:cliente_id(nombre)), anadido:anadido_por(nombre)')
+        .select('id, visita_id, creado_en, anadido_por, visita:visita_id(fecha, cliente:cliente_id(nombre))')
         .eq('comercial_id', comercial!.id)
         .eq('estado', 'pendiente')
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((f) => {
         const visita = f.visita as unknown as VisitaEmbebida | null;
-        const anadido = f.anadido as unknown as { nombre: string } | null;
         return {
           id: f.id,
           visitaId: f.visita_id,
           clienteNombre: visita?.cliente?.nombre ?? 'Cliente',
           fechaVisita: visita?.fecha ?? f.creado_en,
-          anadidoPorNombre: anadido?.nombre ?? 'Dirección Comercial',
+          anadidoPorId: f.anadido_por,
         };
       });
     },
@@ -88,27 +118,50 @@ export function useAvisosParticipacion(): {
     enabled: !!comercial,
     staleTime: 60_000,
     refetchOnMount: 'always',
-    queryFn: async (): Promise<RechazoSinVer[]> => {
+    queryFn: async (): Promise<RechazoCrudo[]> => {
       const { data, error } = await supabase
         .from('visita_participante')
-        .select('id, visita_id, visita:visita_id(fecha, cliente:cliente_id(nombre)), comercial:comercial_id(nombre)')
+        .select('id, visita_id, comercial_id, visita:visita_id(fecha, cliente:cliente_id(nombre))')
         .eq('anadido_por', comercial!.id)
         .eq('estado', 'rechazado')
         .eq('rechazo_visto', false);
       if (error) throw error;
       return (data ?? []).map((f) => {
         const visita = f.visita as unknown as VisitaEmbebida | null;
-        const quien = f.comercial as unknown as { nombre: string } | null;
         return {
           id: f.id,
           visitaId: f.visita_id,
           clienteNombre: visita?.cliente?.nombre ?? 'Cliente',
           fechaVisita: visita?.fecha ?? new Date().toISOString(),
-          comercialNombre: quien?.nombre ?? 'Un compañero',
+          comercialId: f.comercial_id,
         };
       });
     },
   });
+
+  const invitacionesResueltas = useMemo<InvitacionPendiente[]>(
+    () =>
+      (invitaciones ?? []).map((f) => ({
+        id: f.id,
+        visitaId: f.visitaId,
+        clienteNombre: f.clienteNombre,
+        fechaVisita: f.fechaVisita,
+        anadidoPorNombre: (f.anadidoPorId && nombresPorId?.get(f.anadidoPorId)) || 'Dirección Comercial',
+      })),
+    [invitaciones, nombresPorId]
+  );
+
+  const rechazosResueltos = useMemo<RechazoSinVer[]>(
+    () =>
+      (rechazos ?? []).map((f) => ({
+        id: f.id,
+        visitaId: f.visitaId,
+        clienteNombre: f.clienteNombre,
+        fechaVisita: f.fechaVisita,
+        comercialNombre: nombresPorId?.get(f.comercialId) || 'Un compañero',
+      })),
+    [rechazos, nombresPorId]
+  );
 
   const invalidar = useCallback(() => {
     for (const clave of CLAVES_A_INVALIDAR) {
@@ -147,9 +200,9 @@ export function useAvisosParticipacion(): {
   );
 
   return {
-    invitaciones: invitaciones ?? [],
-    rechazos: rechazos ?? [],
-    hayAvisos: (invitaciones?.length ?? 0) > 0 || (rechazos?.length ?? 0) > 0,
+    invitaciones: invitacionesResueltas,
+    rechazos: rechazosResueltos,
+    hayAvisos: invitacionesResueltas.length > 0 || rechazosResueltos.length > 0,
     aceptar,
     rechazar,
     marcarRechazoVisto,
