@@ -171,6 +171,37 @@ body {
 .field--error { border-color: var(--danger-600); }
 .field-error-text { font-size: var(--text-xs); color: var(--danger-600); margin-top: 4px; }
 
+/* `.field` está pensado para <input> de una línea (altura fija, sin
+   line-height). En <select> y en date/time, iOS Safari recorta el texto por
+   arriba con ese modelo. Un line-height explícito lo centra sin recorte. */
+select.field,
+input[type="date"].field,
+input[type="time"].field {
+  line-height: normal;
+}
+/* El <select> nativo de iOS es el que recorta: se quita su apariencia y se
+   pinta una flecha propia (chevron `--ink-400`), consistente en iOS,
+   Android y escritorio. */
+select.field {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237C8492' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: calc(var(--space-3) * 2 + 16px);
+}
+
+/* <textarea> con `.field`: es un área de varias líneas, no una caja de una.
+   Necesita alto propio, aire vertical y poder crecer. Evita también el
+   aplastado a una línea en iOS. */
+textarea.field {
+  height: auto;
+  min-height: calc(var(--h-field) * 1.6);
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.4;
+  resize: vertical;
+}
+
 .label { font-size: var(--text-xs); color: var(--ink-400); margin: var(--space-2) 0 4px; }
 
 .screen { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); min-height: 100%; box-sizing: border-box; background: var(--surface-0); }
