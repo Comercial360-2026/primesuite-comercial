@@ -38,6 +38,8 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   const [notaAyuda, setNotaAyuda] = useState('');
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false);
   const [solicitudEnviada, setSolicitudEnviada] = useState(false);
+  const [confirmandoQuitar, setConfirmandoQuitar] = useState<string | null>(null);
+  const [quitandoId, setQuitandoId] = useState<string | null>(null);
 
   const { data: participantes } = useQuery({
     queryKey: ['participantes-visita', visitaId],
@@ -150,22 +152,95 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     queryClient.invalidateQueries({ queryKey: ['invitaciones-visita'] });
   }
 
+  // Quitar a alguien de la visita: el responsable (o Dirección) expulsa a
+  // un participante; un participante se saca a sí mismo. La fila del
+  // responsable no se puede borrar (lo impide el trigger), así que no se
+  // ofrece el botón para esa fila.
+  async function quitar(comercialId: string) {
+    setQuitandoId(comercialId);
+    setError(null);
+    const { error: err } = await supabase
+      .from('visita_participante')
+      .delete()
+      .eq('visita_id', visitaId)
+      .eq('comercial_id', comercialId);
+    setQuitandoId(null);
+    setConfirmandoQuitar(null);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    for (const clave of [
+      ['participantes-visita', visitaId],
+      ['invitaciones-visita'],
+      ['rechazos-participacion'],
+      ['participantes-visitas-hoy'],
+      ['agenda-participantes'],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: clave });
+    }
+  }
+
   return (
     <Modal titulo="Participantes" onCerrar={onCerrar}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          {participantes?.map((p) => (
-            <div key={p.comercial_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
-              <span style={{ display: 'flex', gap: 4 }}>
-                {p.estado === 'pendiente' && (
-                  <span className="chip" style={{ fontSize: 11, color: 'var(--ink-400)' }}>
-                    sin aceptar
+          {participantes?.map((p) => {
+            const esYo = p.comercial_id === comercial?.id;
+            const puedeQuitar = p.rol !== 'responsable' && (puedeAñadir || esYo);
+            return (
+              <div
+                key={p.comercial_id}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+              >
+                <span style={{ fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
+                {confirmandoQuitar === p.comercial_id ? (
+                  <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                      {esYo ? '¿Salir?' : '¿Quitar?'}
+                    </span>
+                    <button
+                      type="button"
+                      className="chip"
+                      style={{ fontSize: 11, color: 'var(--risk-600)' }}
+                      disabled={quitandoId === p.comercial_id}
+                      onClick={() => quitar(p.comercial_id)}
+                    >
+                      Sí
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      style={{ fontSize: 11 }}
+                      disabled={quitandoId === p.comercial_id}
+                      onClick={() => setConfirmandoQuitar(null)}
+                    >
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    {p.estado === 'pendiente' && (
+                      <span className="chip" style={{ fontSize: 11, color: 'var(--ink-400)' }}>
+                        sin aceptar
+                      </span>
+                    )}
+                    <span className="chip" style={{ fontSize: 11 }}>{p.rol}</span>
+                    {puedeQuitar && (
+                      <button
+                        type="button"
+                        className="chip"
+                        style={{ fontSize: 11, color: 'var(--ink-400)' }}
+                        aria-label={esYo ? 'Salir de la visita' : `Quitar a ${p.nombre}`}
+                        onClick={() => setConfirmandoQuitar(p.comercial_id)}
+                      >
+                        {esYo ? 'salir' : 'quitar'}
+                      </button>
+                    )}
                   </span>
                 )}
-                <span className="chip" style={{ fontSize: 11 }}>{p.rol}</span>
-              </span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
           {!participantes?.length && (
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
           )}
