@@ -817,7 +817,10 @@ export function ColaVocabulario() {
       );
     }
     const tieneModelos = t.hijos.length > 0;
-    const plegado = tieneModelos && !buscando && !expandidas.has(t.id);
+    // Cualquier término de primer nivel se puede desplegar para meterle
+    // modelos (aunque aún no tenga ninguno). Un modelo, nunca (1 nivel).
+    const desplegable = !esModelo;
+    const plegado = desplegable && !buscando && !expandidas.has(t.id);
     const idx = grupo.findIndex((x) => x.id === t.id);
     const sub =
       [
@@ -826,7 +829,9 @@ export function ColaVocabulario() {
       ]
         .filter(Boolean)
         .join(' · ') || undefined;
-    const avisoModelo = tieneModelos ? nombreDuplicado(nuevoModeloPorPadre[t.id] ?? '') : null;
+    const avisoModelo = desplegable ? nombreDuplicado(nuevoModeloPorPadre[t.id] ?? '') : null;
+    // El campo "+ modelo dentro de X…" solo cuando no estás en un modo.
+    const modoEdicionModelos = !seleccionandoCat && !ordenandoCat && !buscando;
     // Al buscar, un modelo se muestra con su ruta para no quedar suelto.
     const titulo = esModelo && buscando && padreNombre ? `${padreNombre} › ${t.nombre}` : t.nombre;
 
@@ -834,12 +839,12 @@ export function ColaVocabulario() {
       <Fragment key={t.id}>
         <FilaAccion
           densidad={esModelo ? 'compacta' : 'normal'}
-          icono={tieneModelos ? (plegado ? 'chevron' : 'bajar') : undefined}
+          icono={desplegable ? (plegado ? 'chevron' : 'bajar') : undefined}
           titulo={titulo}
           subtitulo={sub}
           badge={!esModelo && tieneModelos ? String(t.hijos.length) : undefined}
           tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
-          onClick={tieneModelos && !seleccionandoCat && !buscando ? () => alternarColapso(t.id) : undefined}
+          onClick={desplegable && !seleccionandoCat && !buscando ? () => alternarColapso(t.id) : undefined}
           seleccion={
             seleccionandoCat
               ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
@@ -864,21 +869,27 @@ export function ColaVocabulario() {
               : undefined
           }
         />
-        {tieneModelos && !plegado && (
+        {/* La rama solo se pinta si hay algo dentro: modelos, o el campo para
+            añadir el primero. Sin esto, un término vacío en modo
+            Seleccionar/Ordenar/búsqueda dejaría un raíl huérfano. */}
+        {desplegable && !plegado && (tieneModelos || modoEdicionModelos) && (
           <div className="voc-rama">
             {t.hijos.map((h) => filaTermino(h, t.hijos, true, t.nombre))}
-            {!seleccionandoCat && !ordenandoCat && !buscando && (
-              <div className="voc-fila-input">
-                <input
-                  className="field"
-                  value={nuevoModeloPorPadre[t.id] ?? ''}
-                  onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
-                  placeholder={`+ modelo dentro de ${t.nombre}…`}
-                />
-                <button type="button" className="btn btn-secondary" onClick={() => crearModelo(t)}>
-                  Añadir
-                </button>
-              </div>
+            {modoEdicionModelos && (
+              <>
+                {!tieneModelos && <div className="voc-rama__vacio">Aún no tiene modelos.</div>}
+                <div className="voc-fila-input">
+                  <input
+                    className="field"
+                    value={nuevoModeloPorPadre[t.id] ?? ''}
+                    onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
+                    placeholder={`+ modelo dentro de ${t.nombre}…`}
+                  />
+                  <button type="button" className="btn btn-secondary" onClick={() => crearModelo(t)}>
+                    Añadir
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
