@@ -977,8 +977,18 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 }
 .boton-ayuda:hover { color: var(--ink-700); }
 
-.ayuda-nota {
-  margin: 4px 0 0; font-size: var(--text-xs); color: var(--ink-400); line-height: 1.35;
+/* Ayuda de campo — plegada por defecto (ver src/components/ui/ayuda-nota.tsx). */
+.ayuda-nota { margin: 4px 0 0; }
+.ayuda-nota__toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: none; padding: 2px 0;
+  font-family: var(--font-sans); font-size: var(--text-xs);
+  color: var(--ink-400); cursor: pointer; text-align: left;
+}
+.ayuda-nota__toggle:hover { color: var(--ink-700); }
+.ayuda-nota__icono { font-size: var(--text-sm); line-height: 1; }
+.ayuda-nota__texto {
+  margin: 4px 0 0; font-size: var(--text-xs); color: var(--ink-400); line-height: 1.45;
 }
 
 .ayuda-modal { display: flex; flex-direction: column; gap: var(--space-2); }

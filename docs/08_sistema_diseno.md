@@ -612,7 +612,7 @@ Tres superficies, todas leen de ese fichero (no tienen texto propio):
 | Superficie | Componente | De dónde sale |
 |---|---|---|
 | "?" en la cabecera | `BotonAyuda` (lo montan `CabeceraSeccion` / `CabeceraDetalle` con la prop `ayuda`) → abre `Modal` | una entrada de `PANTALLAS` |
-| Nota gris al pie de un campo | `<AyudaNota concepto="…" />` — `--text-xs` / `--ink-400`, una frase | el `queEs` de un `CONCEPTOS` |
+| Nota gris al pie de un campo | `<AyudaNota concepto="…" />` — plegada por defecto (línea "ⓘ Qué es «…»" tocable); al abrirla muestra el texto en `--text-xs` / `--ink-400` | el `queEs` de un `CONCEPTOS` |
 | Manual completo `/ayuda` ("Cómo funciona PrimeNotes", fila en Yo) | `AyudaManual` — recorre los dos mapas, agrupa, busca, filtra por rol | ambos mapas |
 
 Reglas:
