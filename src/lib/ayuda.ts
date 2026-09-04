@@ -283,7 +283,7 @@ const _CONCEPTOS = {
   'interlocutor-participante': {
     titulo: 'Interlocutores y participantes',
     queEs:
-      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera de la visita y quien lo añadió lo ve.',
+      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera de la visita y quien lo añadió lo ve. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
   },
   'etapa-oportunidad': {
     titulo: 'Etapa de una oportunidad',

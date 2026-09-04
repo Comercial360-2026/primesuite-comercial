@@ -22,12 +22,11 @@ interface Participante {
 // no había ningún sitio en la app para materializarlo — confirmado el
 // 29/8/2026 buscando en todo el código. Esta es esa pieza.
 //
-// Solo Dirección Comercial puede añadir (decisión de producto, 29/8/2026):
-// para que un comercial normal pudiera elegir a quién añadir, primero
-// tendría que poder VER la lista de los demás comerciales, y la política
-// RLS de `comercial` se lo impide a ese rol — no tiene sentido construir
-// un selector que no puede leer sus propias opciones. Cualquiera puede
-// ver quién participa ya, eso no depende de esa política.
+// Quién puede añadir (opción C, 4/9/2026): Dirección Comercial y el
+// RESPONSABLE de la visita. El resto ve "pedir ayuda con esta visita".
+// Un comercial normal no puede leer la tabla `comercial` (RLS), así que
+// el selector se llena con la RPC fn_comerciales_seleccionables
+// (SECURITY DEFINER, solo id + nombre de activos).
 export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalProps) {
   const { comercial } = useSesionActual();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
@@ -59,13 +58,19 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     },
   });
 
-  // Solo se pide si hace falta (Dirección Comercial, para elegir a quién
-  // añadir) — un comercial normal ni lo intenta, la política se lo negaría.
+  // Puede añadir: Dirección Comercial, o el responsable de esta visita.
+  const esResponsable =
+    !!comercial && (participantes?.some((p) => p.rol === 'responsable' && p.comercial_id === comercial.id) ?? false);
+  const puedeAñadir = esDireccionComercial || esResponsable;
+
+  // La lista de a quién añadir. Vía RPC SECURITY DEFINER porque el
+  // responsable puede ser un comercial normal, que no puede leer
+  // `comercial` directamente.
   const { data: comercialesActivos } = useQuery({
-    queryKey: ['comerciales-activos'],
-    enabled: esDireccionComercial,
+    queryKey: ['comerciales-seleccionables'],
+    enabled: puedeAñadir,
     queryFn: async (): Promise<{ id: string; nombre: string }[]> => {
-      const { data, error: err } = await supabase.from('comercial').select('id, nombre').eq('activo', true).order('nombre');
+      const { data, error: err } = await supabase.rpc('fn_comerciales_seleccionables');
       if (err) throw err;
       return data ?? [];
     },
@@ -81,7 +86,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   // vez de mostrar el formulario otra vez.
   const { data: solicitudPropia } = useQuery({
     queryKey: ['solicitud-propia-visita', visitaId, comercial?.id],
-    enabled: !esDireccionComercial && !!comercial,
+    enabled: !puedeAñadir && !!comercial,
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('solicitud_reasignacion')
@@ -166,7 +171,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
           )}
         </div>
 
-        {esDireccionComercial ? (
+        {puedeAñadir ? (
           <div style={{ marginTop: 12 }}>
             <input
               className="field"

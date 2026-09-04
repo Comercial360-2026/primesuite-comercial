@@ -2047,9 +2047,20 @@ export type Database = {
         Returns: undefined
       }
       fn_comercial_actual_activo: { Args: never; Returns: boolean }
+      fn_comerciales_seleccionables: {
+        Args: never
+        Returns: {
+          id: string
+          nombre: string
+        }[]
+      }
       fn_consolidar_visitas_antiguas: { Args: never; Returns: undefined }
       fn_cuota_comercial_bytes: { Args: never; Returns: number }
       fn_es_participante_de_visita: {
+        Args: { p_comercial_id?: string; p_visita_id: string }
+        Returns: boolean
+      }
+      fn_es_responsable_de_visita: {
         Args: { p_comercial_id?: string; p_visita_id: string }
         Returns: boolean
       }
