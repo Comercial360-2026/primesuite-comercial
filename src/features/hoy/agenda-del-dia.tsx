@@ -265,18 +265,30 @@ export function AgendaDelDia() {
     <div className="screen screen--split">
       <CabeceraSeccion titulo="Hoy" icono="hoy" ayuda="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
 
-      {esDireccionComercial && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* El seleccionado por defecto (Solo mías) va primero — es la
-              vista natural; "Todas" es abrir el foco, va después. */}
-          <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
-            Solo mías
-          </button>
-          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todas
-          </button>
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {esDireccionComercial && (
+          <>
+            {/* El seleccionado por defecto (Solo mías) va primero — es la
+                vista natural; "Todas" es abrir el foco, va después. */}
+            <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
+              Solo mías
+            </button>
+            <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
+              Todas
+            </button>
+          </>
+        )}
+        {/* Atajo a la agenda completa: un icono junto a los filtros, no una
+            fila de texto al fondo del scroll. */}
+        <Link
+          to="/agenda"
+          aria-label="Ver toda la agenda"
+          title="Ver toda la agenda"
+          style={{ marginLeft: 'auto', display: 'inline-flex', padding: 6, color: 'var(--ink-500)' }}
+        >
+          <Icono nombre="agenda" size={20} />
+        </Link>
+      </div>
 
       <div className="screen__scroll">
         {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
@@ -368,12 +380,6 @@ export function AgendaDelDia() {
                 {proximas.slice(0, 3).map((v) => renderVisita(v, true))}
               </SeccionLista>
             )}
-
-            {/* "Ir a" — no es contenido del día, lleva a otra pantalla. */}
-            <Link className="fila-ir" to="/agenda">
-              Ver toda la agenda
-              <Icono nombre="chevron" size={16} />
-            </Link>
 
             {sinNada && (
               <EstadoLista

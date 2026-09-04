@@ -29,6 +29,15 @@ const registro = {
       <path d="M8.5 13.5l2.5 2.5 4.5-5" />
     </>
   ),
+  // Calendario "de agenda" — como `hoy` pero con marcas de días en vez
+  // del check. Para el atajo "ver toda la agenda".
+  agenda: (
+    <>
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M3 9h18M8 3v3M16 3v3" />
+      <path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2" />
+    </>
+  ),
   clientes: (
     <>
       <circle cx="9" cy="8" r="3.2" />
