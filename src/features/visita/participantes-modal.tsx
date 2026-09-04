@@ -107,6 +107,8 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
     setPidiendoAyuda(false);
     setNotaAyuda('');
     queryClient.invalidateQueries({ queryKey: ['solicitud-propia-visita', visitaId, comercial.id] });
+    // El badge de "Solicitudes de ayuda" en la pantalla Yo de Dirección.
+    queryClient.invalidateQueries({ queryKey: ['num-solicitudes-reasignacion-pendientes'] });
   }
 
   async function añadir(comercialId: string) {

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
-import { obtenerOperacionesConError } from '@/lib/offline-queue';
+import { obtenerOperacionesConError, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
@@ -78,6 +78,7 @@ export function Yo() {
 
   const { data: numSolicitudesPendientes } = useQuery({
     queryKey: ['num-solicitudes-reasignacion-pendientes'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { count, error: err } = await supabase
@@ -93,6 +94,7 @@ export function Yo() {
   // esperan que Dirección les reenvíe el enlace.
   const { data: numPeticionesAcceso } = useQuery({
     queryKey: ['num-solicitudes-acceso'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { count, error: err } = await supabase
@@ -110,6 +112,7 @@ export function Yo() {
   // que entrar.
   const { data: numGruposDuplicados } = useQuery({
     queryKey: ['num-grupos-duplicados'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { data, error: err } = await supabase.from('cliente').select('nombre, estado_fusion');
@@ -135,6 +138,20 @@ export function Yo() {
     refetchInterval: 60_000,
     queryFn: obtenerOperacionesConError,
   });
+
+  // El motor de sincronización avisa al terminar cada pasada; también al
+  // recuperar conexión. Así "N sin sincronizar" se actualiza al instante en
+  // cuanto algo sube, sin esperar al intervalo de 60 s.
+  useEffect(() => {
+    const refrescar = () =>
+      queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+    window.addEventListener(EVENTO_COLA_PROCESADA, refrescar);
+    window.addEventListener('online', refrescar);
+    return () => {
+      window.removeEventListener(EVENTO_COLA_PROCESADA, refrescar);
+      window.removeEventListener('online', refrescar);
+    };
+  }, [queryClient]);
 
   const ETIQUETA_ENTIDAD: Record<string, string> = {
     visita: 'visita',

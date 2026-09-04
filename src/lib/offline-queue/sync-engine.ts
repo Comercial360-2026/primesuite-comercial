@@ -38,6 +38,11 @@ export function detenerMotorSincronizacion(): void {
   }
 }
 
+// Evento en `window` al terminar una pasada de la cola: la UI que muestra
+// "N sin sincronizar" (pantalla Yo) lo escucha para refrescarse al instante
+// en vez de esperar a su propio intervalo.
+export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
+
 export async function procesarCola(): Promise<void> {
   if (sincronizandoAhora || !navigator.onLine) return;
   sincronizandoAhora = true;
@@ -48,6 +53,9 @@ export async function procesarCola(): Promise<void> {
     }
   } finally {
     sincronizandoAhora = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+    }
   }
 }
 

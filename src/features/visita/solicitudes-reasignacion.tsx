@@ -67,6 +67,8 @@ export function SolicitudesReasignacion() {
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ['solicitudes-reasignacion-pendientes'] });
+    // El badge de "Solicitudes de ayuda" en la pantalla Yo.
+    queryClient.invalidateQueries({ queryKey: ['num-solicitudes-reasignacion-pendientes'] });
   }
 
   async function asignar(solicitud: SolicitudPendiente, comercialId: string) {
