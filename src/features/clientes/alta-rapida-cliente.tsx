@@ -44,11 +44,12 @@ export function AltaRapidaCliente() {
     null | { visita: { id: string; objetivo: string | null }; clienteId: string; clienteNombre: string }
   >(null);
 
-  // Nombres de los clientes activos. La visibilidad de `cliente` no está
-  // restringida por comercial (no hay "cartera" en el modelo, confirmado el
-  // 24/8), así que esto también avisa de un duplicado que creó otro
-  // compañero. Se excluyen los ya fusionados: son fichas muertas y ofrecer
-  // "iniciar visita" sobre ellas llevaría a un cliente que ya no existe.
+  // Nombres de los clientes activos. Un comercial ve TODOS los clientes al
+  // buscar (la cartera —`cliente.responsable_id`— filtra "Solo míos" en el
+  // listado, pero no oculta nada aquí), así que esto también avisa de un
+  // duplicado que creó otro compañero. Se excluyen los ya fusionados: son
+  // fichas muertas y ofrecer "iniciar visita" sobre ellas llevaría a un
+  // cliente que ya no existe.
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
@@ -100,7 +101,15 @@ export function AltaRapidaCliente() {
     if (navigator.onLine) {
       const { data, error: errorCliente } = await supabase
         .from('cliente')
-        .insert({ id: clienteId, nombre: nombreLimpio, estado_relacion: 'borrador', creado_por: comercial.id })
+        .insert({
+          id: clienteId,
+          nombre: nombreLimpio,
+          estado_relacion: 'borrador',
+          creado_por: comercial.id,
+          // El que da de alta el cliente es su responsable de cartera.
+          // Dirección lo reasigna después si hace falta.
+          responsable_id: comercial.id,
+        })
         .select('id, nombre')
         .single();
       if (!errorCliente && data) return { id: data.id, nombre: data.nombre, enCola: false };
@@ -113,7 +122,11 @@ export function AltaRapidaCliente() {
       }
     }
 
-    await encolar(clienteId, 'cliente', { nombre: nombreLimpio, creadoPor: comercial.id });
+    await encolar(clienteId, 'cliente', {
+      nombre: nombreLimpio,
+      creadoPor: comercial.id,
+      responsableId: comercial.id,
+    });
     return { id: clienteId, nombre: nombreLimpio, enCola: true };
   }
 

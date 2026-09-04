@@ -28,6 +28,9 @@ export type EstadoOperacion = 'pendiente' | 'subiendo' | 'completado' | 'error';
 export interface ClientePayload {
   nombre: string;
   creadoPor: string;
+  // Responsable de cartera = quien lo crea. Dirección lo reasigna luego con
+  // "Cambiar responsable" (RPC de traspaso de cartera, migración 77).
+  responsableId: string;
   estadoRelacion?: string; // por defecto 'borrador' en la BD
 }
 
