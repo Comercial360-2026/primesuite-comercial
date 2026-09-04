@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
+import { esSinRed } from '@/lib/red';
 
-type EstadoDescarga = 'inactivo' | 'generando' | 'error' | { url: string; tamanoBytes: number };
+type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number };
 
 // En una conexión muerta, functions.invoke() puede no resolver nunca y el
 // botón se queda en "Generando…" para siempre, sin recuperarse solo. A los
@@ -53,10 +54,13 @@ export function useDescargarInforme() {
         body: { visitaId },
       });
       const limite = new Promise<never>((_, reject) => {
-        temporizador = setTimeout(
-          () => reject(new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.')),
-          TIMEOUT_MS
-        );
+        temporizador = setTimeout(() => {
+          // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
+          // en la práctica, a los 45 s sin respuesta la causa es la red.
+          const e = new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.');
+          e.name = 'TimeoutDescarga';
+          reject(e);
+        }, TIMEOUT_MS);
       });
       const { data, error } = await Promise.race([invocacion, limite]);
       if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
@@ -70,8 +74,9 @@ export function useDescargarInforme() {
       } catch {
         /* enlace de reserva visible en la propia fila/botón */
       }
-    } catch {
-      setEstados((prev) => ({ ...prev, [visitaId]: 'error' }));
+    } catch (e) {
+      const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
+      setEstados((prev) => ({ ...prev, [visitaId]: sinRed ? 'sin-red' : 'error' }));
     } finally {
       clearTimeout(temporizador);
     }

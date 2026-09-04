@@ -8,6 +8,7 @@ import { obtenerOperacionesConError, EVENTO_COLA_PROCESADA } from '@/lib/offline
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
+import { esSinRed } from '@/lib/red';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -184,6 +185,12 @@ export function Yo() {
   const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
 
   async function hacerCopiaCompleta() {
+    // Sin red, cada select de abajo devolvería error y se bajaría un JSON
+    // lleno de "Failed to fetch" que no vale para nada. Mejor no empezar.
+    if (!navigator.onLine) {
+      setErrorExportacion('Sin conexión. La copia necesita internet para leer todos tus datos.');
+      return;
+    }
     setExportando(true);
     setErrorExportacion(null);
     try {
@@ -194,6 +201,15 @@ export function Yo() {
         // fallo dentro del propio backup en vez de abortar todo el
         // proceso — mejor una copia con un hueco señalado que ninguna.
         resultado[tabla] = err ? { error: err.message } : data;
+      }
+
+      // Pero si NINGUNA tabla se pudo leer (típico: la conexión se cayó a
+      // mitad), no se descarga una copia vacía — se avisa y punto.
+      const todasFallaron = Object.values(resultado).every(
+        (v) => v != null && typeof v === 'object' && 'error' in v
+      );
+      if (todasFallaron) {
+        throw new Error(navigator.onLine ? 'No se pudo leer ninguna tabla.' : 'Failed to fetch');
       }
 
       const fecha = new Date().toISOString().slice(0, 10);
@@ -217,7 +233,11 @@ export function Yo() {
       queryClient.invalidateQueries({ queryKey: ['ultimo-backup-completo'] });
     } catch (err) {
       setErrorExportacion(
-        err instanceof Error ? `No se pudo completar la copia: ${err.message}` : 'No se pudo completar la copia.'
+        esSinRed(err)
+          ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
+          : err instanceof Error
+            ? `No se pudo completar la copia: ${err.message}`
+            : 'No se pudo completar la copia.'
       );
     } finally {
       setExportando(false);

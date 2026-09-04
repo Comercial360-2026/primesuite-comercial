@@ -452,9 +452,11 @@ export function DetalleVisitaCerrada() {
                     ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
                     : estadoDescarga === 'generando'
                       ? 'Generando el PDF…'
-                      : estadoDescarga === 'error'
-                        ? 'No se pudo generar, toca de nuevo'
-                        : 'Descárgalo o pásalo a otras áreas'
+                      : estadoDescarga === 'sin-red'
+                        ? 'Sin conexión. Inténtalo cuando tengas red'
+                        : estadoDescarga === 'error'
+                          ? 'No se pudo generar, toca de nuevo'
+                          : 'Descárgalo o pásalo a otras áreas'
                 }
                 acciones={[
                   {
