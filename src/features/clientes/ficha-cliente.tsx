@@ -464,8 +464,14 @@ export function FichaCliente() {
         )}
 
         {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
-            la app (detalle de visita, "Cerrar sesión" en Yo). */}
-        {confirmandoBorrarCliente ? (
+            la app (detalle de visita, "Cerrar sesión" en Yo). Solo se
+            OFRECE a quien realmente puede: mismo criterio que el backend
+            (eliminar_cliente_completo: creado_por = auth.uid() OR
+            dirección) — antes se mostraba a cualquier comercial aunque el
+            servidor fuera a rechazarlo (hallazgo de la auditoría 2026-09-05:
+            Borja veía "Borrar cliente" en una ficha ajena). */}
+        {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
+        confirmandoBorrarCliente ? (
           <div className="card card--riesgo">
             {previsualizandoCliente.cargando || !previsualizacionCliente ? (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
@@ -510,6 +516,7 @@ export function FichaCliente() {
               onClick={pedirBorradoCliente}
             />
           </SeccionLista>
+        )
         )}
        </div>
       </div>
