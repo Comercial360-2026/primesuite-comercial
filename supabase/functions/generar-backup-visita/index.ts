@@ -71,6 +71,8 @@ function jsonResponse(body: unknown, status = 200) {
 // que hoy llegan crudos ("en_propuesta", "[naturaleza]"...) al informe.
 // ---------------------------------------------------------------------
 
+// Espejo 1:1 de src/styles/tokens.css — cualquier cambio de marca se hace
+// allí primero y se copia aquí (el PDF no puede importar el CSS).
 const COLOR = {
   ink900: '#161A1E',
   ink700: '#3D4450',
@@ -84,6 +86,7 @@ const COLOR = {
   purple600: '#6E4C9E',
   success600: '#3A7D4F',
   warning600: '#A87A12',
+  warning050: '#F5EFE0',
   danger600: '#B23A3A',
 };
 
@@ -709,8 +712,8 @@ Deno.serve(async (req) => {
                 body: [[{
                   text: 'Esta visita figura como en curso: puede haber información registrada después de generar este informe que aquí no aparece.',
                   fontSize: 9,
-                  color: '#6B4E0E',
-                  fillColor: '#F7EEE0',
+                  color: COLOR.warning600,
+                  fillColor: COLOR.warning050,
                   margin: [10, 8, 10, 8],
                 }]],
               },
