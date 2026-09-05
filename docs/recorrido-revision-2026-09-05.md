@@ -67,15 +67,22 @@ permite a propósito que cualquier comercial trabaje el cliente de otro;
 "Borrar cliente" y "Editar datos" ya tienen su propio candado
 (creador/responsable/Dirección).
 
-### 1.4 — [A] Planificar una visita no tiene camino directo
-Desde **Agenda** hay un "+" y el texto vacío dice "Planifica una desde la
-ficha de un cliente" (se contradicen). El "+" abre un buscador de
-cliente, pero al elegir uno **te deja en la ficha del cliente**, no en un
-formulario de planificación. Desde ahí: entrar en el proyecto → bajar →
-"Planificar para otro día". Son 3-4 toques y ningún paso dice "aquí
-planificas".
-→ Falta un flujo "Planificar visita" de verdad (elige cliente → fecha →
-franja → objetivo), accesible desde Agenda y desde Hoy.
+### 1.4 — [A] Planificar una visita no tiene camino directo — ✅ RESUELTO (camino completo)
+Cesar eligió el flujo único. **Hecho:** nueva pantalla `/planificar`
+(`planificar-visita.tsx`): cliente (buscador, cualquiera) → proyecto (solo
+si tiene más de uno; con el General a secas se salta) → fecha + objetivo +
+hora/franja + [Para otro comercial, si Dirección] → guarda y vuelve a la
+Agenda. Un solo componente:
+- **Agenda "+"** → `/planificar` (antes: buscador en línea que te dejaba en
+  la ficha del cliente — código retirado).
+- **Ficha de proyecto "Planificar para otro día"** → `/planificar?clienteId=
+  &proyectoId=` (panel inline de ~100 líneas retirado, con su estado y su
+  `?planificar=1`).
+- **Alta rápida "Guardar y planificar visita"** → mismo `/planificar?…`.
+- Texto del estado vacío de Agenda corregido: "Toca «+» para planificar una".
+Verificado en vivo end-to-end como comercial: Agenda + → busca MADRID
+DIGITAL (de otro) → forma → Planificar → aparece en la Agenda con fecha,
+objetivo y franja correctos. Sin errores de consola.
 
 ### 1.5 — [B] El "Proyecto General" sigue costando un nivel de navegación
 Para un cliente con un solo proyecto (el General, P9), la ficha de

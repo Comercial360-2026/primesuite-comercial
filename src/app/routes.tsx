@@ -17,6 +17,7 @@ import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
 import { Agenda } from '@/features/hoy/agenda';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
+import { PlanificarVisita } from '@/features/visita/planificar-visita';
 import { DetalleVisitaCerrada } from '@/features/visita/detalle-visita-cerrada';
 import { DetalleVisitaPlanificada } from '@/features/visita/detalle-visita-planificada';
 import { DetalleCaptura } from '@/features/visita/detalle-captura';
@@ -76,6 +77,7 @@ export function AppRoutes() {
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
           <Route path="/agenda" element={<Agenda />} />
+          <Route path="/planificar" element={<PlanificarVisita />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />
 

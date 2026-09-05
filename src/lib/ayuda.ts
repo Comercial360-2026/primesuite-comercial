@@ -118,6 +118,13 @@ const _PANTALLAS = {
       'Cuando falta un sector o sobra uno. «Renombrar» cambia cómo se llama en el desplegable; «Quitar» lo esconde sin borrarlo (se puede restaurar). Ninguna de las dos cosas cambia los clientes que ya tenían ese sector escrito.',
     soloDireccion: true,
   },
+  'planificar-visita': {
+    titulo: 'Planificar visita',
+    queEs:
+      'El formulario para dejar una visita agendada para otro día: eliges el cliente, el proyecto (solo si tiene más de uno), la fecha y el objetivo. Aparece en la Agenda y en «Hoy» ese día.',
+    cuando:
+      'Al organizar la semana. Se abre desde el «+» de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». Necesita conexión.',
+  },
   'ficha-proyecto': {
     titulo: 'Ficha de proyecto',
     queEs:

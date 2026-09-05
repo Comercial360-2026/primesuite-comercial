@@ -177,10 +177,10 @@ export function AltaRapidaCliente() {
     navigate(`/visita/${visitaId}`);
   }
 
-  // "Lo visito otro día": crea la ficha y abre en su Proyecto General el
-  // formulario de planificar (?planificar=1) — un cliente recién creado
-  // solo puede tener ese proyecto todavía. Planificar necesita el cliente
-  // (y su proyecto) ya en el servidor, así que este flujo exige conexión.
+  // "Lo visito otro día": crea la ficha y abre el flujo de planificar ya
+  // apuntando a su Proyecto General — un cliente recién creado solo puede
+  // tener ese proyecto todavía. Planificar necesita el cliente (y su
+  // proyecto) ya en el servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
     if (!nombre.trim() || creacionCliente.cargando) return;
     if (!navigator.onLine) {
@@ -210,7 +210,7 @@ export function AltaRapidaCliente() {
             creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
             return;
           }
-          navigate(`/clientes/${cliente.id}/proyectos/${proyectoId}?planificar=1`);
+          navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${proyectoId}`);
         },
       }
     );
