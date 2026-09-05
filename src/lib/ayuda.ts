@@ -105,10 +105,18 @@ const _PANTALLAS = {
   'ficha-cliente': {
     titulo: 'Ficha de cliente',
     queEs:
-      'Los datos del cliente, sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…) y su ecosistema (qué tiene instalado y de quién). Un cliente siempre tiene al menos un proyecto — si nunca has creado ninguno, es el que se llama «General».',
+      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…) y su ecosistema (qué tiene instalado y de quién). Un cliente siempre tiene al menos un proyecto — si nunca has creado ninguno, es el que se llama «General».',
     cuando:
-      'Para entrar en un proyecto concreto y, desde ahí, arrancar o planificar una visita. «Nuevo proyecto» abre otra línea de negocio del mismo cliente.',
+      'Para entrar en un proyecto concreto y, desde ahí, arrancar o planificar una visita. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
     ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+  },
+  'gestionar-sectores': {
+    titulo: 'Sectores',
+    queEs:
+      'La lista de sectores que aparece en el desplegable de «Editar datos» de la ficha de cliente. Solo la ve y la toca Dirección Comercial.',
+    cuando:
+      'Cuando falta un sector o sobra uno. «Renombrar» cambia cómo se llama en el desplegable; «Quitar» lo esconde sin borrarlo (se puede restaurar). Ninguna de las dos cosas cambia los clientes que ya tenían ese sector escrito.',
+    soloDireccion: true,
   },
   'ficha-proyecto': {
     titulo: 'Ficha de proyecto',

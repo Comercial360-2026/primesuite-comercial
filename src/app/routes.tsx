@@ -37,6 +37,7 @@ import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ActividadComerciales } from '@/features/perfil/actividad-comerciales';
 import { DetalleActividadComercial } from '@/features/perfil/detalle-actividad-comercial';
+import { GestionarSectores } from '@/features/clientes/gestionar-sectores';
 import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
 import { AltaComercial } from '@/features/comerciales/alta-comercial';
 import { DetalleComercial } from '@/features/comerciales/detalle-comercial';
@@ -111,6 +112,16 @@ export function AppRoutes() {
               "Por comercial" (segmentado, solo Dirección). Se mantiene la
               ruta como redirección por si hay algún enlace guardado. */}
           <Route path="/consumo-comerciales" element={<Navigate to="/mi-espacio?vista=equipo" replace />} />
+
+          {/* Catálogo de sectores de cliente — exclusivo de Dirección Comercial */}
+          <Route
+            path="/sectores"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <GestionarSectores />
+              </RequireRole>
+            }
+          />
 
           {/* Nivel 0 — Actividad por comercial — exclusivo de Dirección Comercial */}
           <Route

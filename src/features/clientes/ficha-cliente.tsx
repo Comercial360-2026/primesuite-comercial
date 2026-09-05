@@ -74,6 +74,68 @@ export function FichaCliente() {
   const [nombreProyecto, setNombreProyecto] = useState('');
   const creacionProyecto = useAccionAsync();
 
+  // Editar datos del cliente (nombre, sector, tamaño, ubicación general) —
+  // el comercial responsable o Dirección. Sin cola offline: es un UPDATE
+  // directo, requiere conexión.
+  const TAMANOS = ['Pequeña', 'Mediana', 'Grande'] as const;
+  const [editandoDatos, setEditandoDatos] = useState(false);
+  const [formNombre, setFormNombre] = useState('');
+  const [formSector, setFormSector] = useState('');
+  const [formTamano, setFormTamano] = useState('');
+  const [formUbicacion, setFormUbicacion] = useState('');
+  const guardadoDatos = useAccionAsync();
+
+  const { data: sectores } = useQuery({
+    queryKey: ['sectores-activos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sector')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('orden');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  function abrirEditarDatos() {
+    setFormNombre(cliente?.nombre ?? '');
+    setFormSector(cliente?.sector ?? '');
+    setFormTamano(cliente?.tamano_aprox ?? '');
+    setFormUbicacion(cliente?.ubicacion_general ?? '');
+    guardadoDatos.limpiarError();
+    setEditandoDatos(true);
+  }
+
+  async function guardarDatos() {
+    if (!clienteId || !formNombre.trim()) return;
+    if (!navigator.onLine) {
+      guardadoDatos.establecerError('Necesitas conexión para editar los datos del cliente.');
+      return;
+    }
+    await guardadoDatos.ejecutar(
+      async () => {
+        const { error } = await supabase
+          .from('cliente')
+          .update({
+            nombre: formNombre.trim(),
+            sector: formSector || null,
+            tamano_aprox: formTamano || null,
+            ubicacion_general: formUbicacion.trim() || null,
+          })
+          .eq('id', clienteId);
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          setEditandoDatos(false);
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+        },
+      }
+    );
+  }
+
   const { data: comercialesActivos } = useQuery({
     queryKey: ['comerciales-activos'],
     enabled: esDireccionComercial && cambiandoResp,
@@ -297,11 +359,7 @@ export function FichaCliente() {
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
         ayuda="ficha-cliente"
-        subtitulo={
-          cliente
-            ? `${cliente.estado_relacion}${cliente.sector ? ` · ${cliente.sector}` : ''}`
-            : undefined
-        }
+        subtitulo={cliente?.sector || undefined}
         volverA="/clientes"
       />
 
@@ -318,6 +376,11 @@ export function FichaCliente() {
          <button type="button" className="chip" onClick={() => setCreandoProyecto(true)}>
            + Nuevo proyecto
          </button>
+         {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+           <button type="button" className="chip" onClick={abrirEditarDatos}>
+             Editar datos
+           </button>
+         )}
          {esDireccionComercial && (
            <button
              type="button"
@@ -405,6 +468,67 @@ export function FichaCliente() {
                onClick={cambiarResponsable}
              >
                {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
+             </button>
+           </div>
+         </div>
+       )}
+
+       {editandoDatos && (
+         <div className="card">
+           <div className="label" style={{ marginTop: 0 }}>Datos del cliente</div>
+           <input
+             className="field"
+             autoFocus
+             value={formNombre}
+             onChange={(e) => setFormNombre(e.target.value)}
+             placeholder="razón social"
+           />
+           <div className="label">Sector</div>
+           <select className="field" value={formSector} onChange={(e) => setFormSector(e.target.value)}>
+             <option value="">— sin especificar —</option>
+             {sectores?.map((s) => (
+               <option key={s.id} value={s.nombre}>{s.nombre}</option>
+             ))}
+             {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
+                 no se pierde al abrir el formulario. */}
+             {formSector && !sectores?.some((s) => s.nombre === formSector) && (
+               <option value={formSector}>{formSector}</option>
+             )}
+           </select>
+           <div className="label">Tamaño</div>
+           <select className="field" value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
+             <option value="">— sin especificar —</option>
+             {TAMANOS.map((t) => (
+               <option key={t} value={t}>{t}</option>
+             ))}
+           </select>
+           <div className="label">Ubicación general</div>
+           <input
+             className="field"
+             value={formUbicacion}
+             onChange={(e) => setFormUbicacion(e.target.value)}
+             placeholder="p. ej. Polígono Norte, Sevilla"
+           />
+           {guardadoDatos.error && (
+             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoDatos.error}</div>
+           )}
+           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+             <button
+               className="btn btn-secondary"
+               disabled={guardadoDatos.cargando}
+               onClick={() => {
+                 setEditandoDatos(false);
+                 guardadoDatos.limpiarError();
+               }}
+             >
+               Cancelar
+             </button>
+             <button
+               className="btn btn-primary"
+               disabled={guardadoDatos.cargando || !formNombre.trim()}
+               onClick={guardarDatos}
+             >
+               {guardadoDatos.cargando ? 'Guardando…' : 'Guardar'}
              </button>
            </div>
          </div>

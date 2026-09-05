@@ -1215,6 +1215,30 @@ export type Database = {
         }
         Relationships: []
       }
+      sector: {
+        Row: {
+          activo: boolean
+          creado_en: string
+          id: string
+          nombre: string
+          orden: number
+        }
+        Insert: {
+          activo?: boolean
+          creado_en?: string
+          id?: string
+          nombre: string
+          orden?: number
+        }
+        Update: {
+          activo?: boolean
+          creado_en?: string
+          id?: string
+          nombre?: string
+          orden?: number
+        }
+        Relationships: []
+      }
       solicitud_acceso: {
         Row: {
           comercial_id: string

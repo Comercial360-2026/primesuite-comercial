@@ -17,14 +17,25 @@ Escala de prioridad orientativa:
 
 ## 1. Hallazgos estructurales (los que más pesan)
 
-### 1.1 — [A] No hay dónde rellenar los datos del cliente
-Al dar de alta un cliente, el texto dice *"El resto de la ficha (sector,
-tamaño, ubicación) se completa después."* Pero en la **ficha de cliente**
-la sección "Datos" solo tiene una fila de solo lectura ("Responsable").
-No hay sector, tamaño, dirección, teléfono, web, CIF, ni forma de
-añadirlos. La promesa de "lo completas después" no tiene pantalla.
-→ Decidir: ¿los datos del cliente los rellena solo Dirección? ¿hay una
-pantalla de edición que no encontré? ¿o falta del todo?
+### 1.1 — [A] No hay dónde rellenar los datos del cliente — ✅ RESUELTO (commit pendiente)
+El modelo solo tiene 3 campos "de después": Sector, Tamaño, Ubicación
+general (no hay teléfono/web/CIF, nunca los hubo). El lado de lectura
+existía pero no había editor → siempre vacíos, y salen en la cabecera de
+cada informe PDF.
+**Hecho:** chip "Editar datos" en la ficha de cliente (Nombre + Sector +
+Tamaño + Ubicación general), para el comercial responsable o Dirección
+(requiere conexión, es un UPDATE directo). Sector = desplegable de un
+catálogo nuevo (`sector`, migración 97, semilla de 8) que Dirección
+gestiona en **Yo → Gestión → Sectores** (añadir / renombrar / quitar-
+ocultar). Tamaño = Pequeña/Mediana/Grande fijo. Verificado en vivo como
+comercial (Borja): guardar sector/tamaño/ubicación y que salga en "Datos"
+y en la cabecera.
+
+### 1.x — [B] El estado "borrador" del cliente — ✅ RESUELTO (mismo commit)
+`estado_relacion` se ponía a 'borrador' en TODOS los clientes y nada lo
+cambiaba ni lo leía. Estaba muerto. Quitado de la cabecera de la ficha
+(el campo sigue en la BD por si se le da uso algún día). Verificado: la
+cabecera ya solo muestra el sector si lo hay.
 
 ### 1.2 — [A] Los interlocutores del cliente no viven en ningún sitio estable
 Solo se gestionan **dentro de una visita** (fila "Interlocutores" de

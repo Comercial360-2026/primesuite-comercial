@@ -505,6 +505,12 @@ export function Yo() {
               to="/vocabulario"
             />
             <FilaNavegable
+              icono="clientes"
+              titulo="Sectores"
+              subtitulo="La lista de sectores que se elige en la ficha de cliente"
+              to="/sectores"
+            />
+            <FilaNavegable
               icono="solicitudes"
               titulo="Solicitudes de ayuda"
               subtitulo="Comerciales que necesitan que alguien les sustituya en una visita"
