@@ -128,7 +128,8 @@ export function Login() {
         <div style={{ marginTop: 'var(--space-4)' }}>
           <Aviso tipo="exito" titulo="Aviso enviado">
             Si el correo es de un comercial activo, tu responsable lo verá en la app y te reenviará el enlace de
-            acceso. Vuelve a intentarlo cuando lo tengas.
+            acceso. Vuelve a intentarlo cuando lo tengas. Revisa que el correo que has puesto sea el que usas para
+            entrar — si tiene una errata, tu responsable no podrá verlo.
           </Aviso>
         </div>
       ) : recuperarAbierto ? (
