@@ -140,6 +140,13 @@ const _PANTALLAS = {
       'Cuando el espacio del equipo aprieta. «Seleccionar» manda un aviso a varios a la vez para que hagan hueco.',
     soloDireccion: true,
   },
+  'actividad-comerciales': {
+    titulo: 'Actividad por comercial',
+    queEs:
+      'Cuántas visitas, hallazgos, capturas y oportunidades lleva cada comercial. Al entrar en uno, ese mismo resumen pero desglosado por proyecto.',
+    cuando: 'Para hacerte una idea rápida de cómo se reparte el trabajo del equipo, o de en qué está centrado alguien en concreto.',
+    soloDireccion: true,
+  },
   'cola-vocabulario': {
     titulo: 'Vocabulario',
     queEs:

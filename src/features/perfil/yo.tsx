@@ -437,6 +437,12 @@ export function Yo() {
                 subtitulo="Cuánto ocupa cada uno"
                 to="/consumo-comerciales"
               />
+              <FilaNavegable
+                icono="equipo"
+                titulo="Actividad por comercial"
+                subtitulo="Visitas, hallazgos y oportunidades de cada uno"
+                to="/actividad-comerciales"
+              />
             </SeccionLista>
 
             <SeccionLista>

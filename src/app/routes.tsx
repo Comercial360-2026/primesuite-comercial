@@ -36,6 +36,8 @@ import { Yo } from '@/features/perfil/yo';
 import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
+import { ActividadComerciales } from '@/features/perfil/actividad-comerciales';
+import { DetalleActividadComercial } from '@/features/perfil/detalle-actividad-comercial';
 import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
 import { AltaComercial } from '@/features/comerciales/alta-comercial';
 import { DetalleComercial } from '@/features/comerciales/detalle-comercial';
@@ -112,6 +114,24 @@ export function AppRoutes() {
             element={
               <RequireRole roles={['direccion_comercial']}>
                 <ConsumoComerciales />
+              </RequireRole>
+            }
+          />
+
+          {/* Nivel 0 — Actividad por comercial — exclusivo de Dirección Comercial */}
+          <Route
+            path="/actividad-comerciales"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <ActividadComerciales />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/actividad-comerciales/:comercialId"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <DetalleActividadComercial />
               </RequireRole>
             }
           />

@@ -2169,6 +2169,37 @@ export type Database = {
         Args: { p_visita_id: string }
         Returns: undefined
       }
+      fn_actividad_comercial_por_proyecto: {
+        Args: { p_comercial_id: string }
+        Returns: {
+          cliente_id: string
+          cliente_nombre: string
+          es_general: boolean
+          num_audios: number
+          num_fotos: number
+          num_hallazgos: number
+          num_notas: number
+          num_oportunidades_creadas: number
+          num_oportunidades_en_curso: number
+          num_visitas: number
+          proyecto_id: string
+          proyecto_nombre: string
+        }[]
+      }
+      fn_actividad_por_comercial: {
+        Args: never
+        Returns: {
+          comercial_id: string
+          nombre: string
+          num_audios: number
+          num_fotos: number
+          num_hallazgos: number
+          num_notas: number
+          num_oportunidades_creadas: number
+          num_oportunidades_en_curso: number
+          num_visitas: number
+        }[]
+      }
       fn_comercial_actual_activo: { Args: never; Returns: boolean }
       fn_comerciales_seleccionables: {
         Args: never

@@ -1,0 +1,99 @@
+import { useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase-client';
+import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { EstadoLista } from '@/components/ui/estado-lista';
+
+interface ActividadProyecto {
+  proyecto_id: string;
+  proyecto_nombre: string;
+  es_general: boolean;
+  cliente_id: string;
+  cliente_nombre: string;
+  num_visitas: number;
+  num_hallazgos: number;
+  num_fotos: number;
+  num_audios: number;
+  num_notas: number;
+  num_oportunidades_creadas: number;
+  num_oportunidades_en_curso: number;
+}
+
+export function DetalleActividadComercial() {
+  const { comercialId } = useParams<{ comercialId: string }>();
+  const queryClient = useQueryClient();
+
+  const { data: comercial } = useQuery({
+    queryKey: ['comercial-nombre', comercialId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('comercial').select('nombre').eq('id', comercialId!).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!comercialId,
+  });
+
+  const queryKey = ['actividad-comercial-proyecto', comercialId];
+  const { data: porProyecto, isLoading, isError, isPaused, refetch } = useQuery({
+    queryKey,
+    queryFn: async (): Promise<ActividadProyecto[]> => {
+      const { data, error } = await supabase.rpc('fn_actividad_comercial_por_proyecto', {
+        p_comercial_id: comercialId!,
+      });
+      if (error) throw error;
+      return (data ?? []) as ActividadProyecto[];
+    },
+    enabled: !!comercialId,
+  });
+
+  const sinConexion = isPaused && porProyecto === undefined;
+  function reintentar() {
+    queryClient.resetQueries({ queryKey });
+    refetch();
+  }
+
+  return (
+    <div className="screen">
+      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" volverA="/actividad-comerciales" />
+
+      <div className="lista-agrupada">
+        {isLoading ? (
+          <EstadoLista estado="cargando" />
+        ) : sinConexion ? (
+          <EstadoLista estado="sin-conexion" onReintentar={reintentar} />
+        ) : isError ? (
+          <EstadoLista estado="error" mensaje="No se pudo cargar la actividad de este comercial." onReintentar={reintentar} />
+        ) : porProyecto?.length === 0 ? (
+          <EstadoLista estado="vacio" mensaje="Sin actividad registrada todavía." />
+        ) : (
+          <SeccionLista titulo="Por proyecto">
+            {porProyecto?.map((p) => {
+              const capturas = p.num_fotos + p.num_audios + p.num_notas;
+              const etiqueta = p.es_general ? p.cliente_nombre : `${p.cliente_nombre} › ${p.proyecto_nombre}`;
+              return (
+                <FilaDato
+                  key={p.proyecto_id}
+                  etiqueta={etiqueta}
+                  valor={
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      <span>
+                        {p.num_visitas} visita{p.num_visitas === 1 ? '' : 's'} · {p.num_hallazgos} hallazgo
+                        {p.num_hallazgos === 1 ? '' : 's'}
+                      </span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400 }}>
+                        {capturas} captura{capturas === 1 ? '' : 's'} · {p.num_oportunidades_en_curso} oportunidad
+                        {p.num_oportunidades_en_curso === 1 ? '' : 'es'} activa{p.num_oportunidades_en_curso === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                  }
+                />
+              );
+            })}
+          </SeccionLista>
+        )}
+      </div>
+    </div>
+  );
+}
