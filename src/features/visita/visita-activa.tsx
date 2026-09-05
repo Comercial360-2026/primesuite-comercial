@@ -46,56 +46,43 @@ function elegirTipoAudio(): string | undefined {
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
-  oportunidades: OperacionPendiente[];
   nombresUbicaciones: Record<string, string>;
   nombresTerminos?: Record<string, string>;
-  zonaActiva?: string;
   onTocarCaptura: (id: string) => void;
   // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
   // (que sirve para audio/nota/hallazgo). Si no se pasa, la foto también
   // cae en `onTocarCaptura`.
   onAbrirFoto?: (id: string) => void;
-  // 'recorrido': zonas siempre abiertas, "General" plegada, al final.
-  // 'normal': todo plegable, "General" arriba y abierta por defecto, zona
-  // más reciente también abierta. La oportunidad NO se lista aquí en modo
-  // 'normal' — tiene su propia sección (ver Visita Activa).
-  contexto: 'recorrido' | 'normal';
 }
 
-// Contenido de la visita en dos cajones de primer nivel:
-//  - Las ZONAS del recorrido (Puerta principal, Barrera…), con todo lo de
-//    cada una junto. Zona activa / más reciente primero.
-//  - "General de la visita": lo capturado hablando con el cliente, sin
-//    recorrido. No es un descarte — es una fase real de la visita.
+// Vista "En esta visita" agrupada por zona (conmutador "ver por zona" de
+// Visita activa): "General de la visita" arriba y abierta, luego una
+// sección plegable por cada zona anotada, la más reciente también abierta.
+// Las oportunidades tienen su propia sección en Visita activa, no se listan
+// aquí.
 function CapturasPorUbicacion({
   capturas,
   hallazgos,
-  oportunidades,
   nombresUbicaciones,
   nombresTerminos,
-  zonaActiva,
   onTocarCaptura,
   onAbrirFoto,
-  contexto,
 }: CapturasPorUbicacionProps) {
-  // Clave de agrupación por zona. Las capturas nuevas del Recorrido llevan
-  // `zonaTexto` (etiqueta libre); las de visitas antiguas, `ubicacionId`.
+  // Clave de agrupación por zona. Las capturas nuevas llevan `zonaTexto`
+  // (etiqueta libre); las de visitas antiguas, `ubicacionId`.
   const claveDe = (op: OperacionPendiente) => {
     const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
     return p.zonaTexto ?? p.ubicacionId ?? 'sin-ubicacion';
   };
   const tipoDe = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
-  const incluirOportunidades = contexto === 'recorrido';
 
   const claves = new Set<string>();
-  [...capturas, ...hallazgos, ...(incluirOportunidades ? oportunidades : [])].forEach((op) =>
-    claves.add(claveDe(op))
-  );
+  [...capturas, ...hallazgos].forEach((op) => claves.add(claveDe(op)));
 
   // Fila de un elemento capturado dentro de una zona / "General": icono a la
   // izquierda (foto/audio/nota/hallazgo), texto, y una coletilla gris
   // opcional. Sustituye a la etiqueta "audio ·" / "nota ·" gris de antes.
-  const itemFila = (icono: NombreIcono, texto: string, sub?: string, onClick?: () => void, acento?: boolean) => (
+  const itemFila = (icono: NombreIcono, texto: string, sub?: string, onClick?: () => void) => (
     <div
       onClick={onClick}
       style={{
@@ -117,7 +104,6 @@ function CapturasPorUbicacion({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          ...(acento ? { color: 'var(--signal-600)', fontWeight: 500 } : {}),
         }}
       >
         {texto}
@@ -133,11 +119,10 @@ function CapturasPorUbicacion({
     const audios = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'audio');
     const notas = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'nota');
     const hz = hallazgos.filter((h) => claveDe(h) === clave);
-    const op = incluirOportunidades ? oportunidades.filter((o) => claveDe(o) === clave) : [];
-    const total = fotos.length + audios.length + notas.length + hz.length + op.length;
+    const total = fotos.length + audios.length + notas.length + hz.length;
     const reciente = Math.max(
       0,
-      ...[...fotos, ...audios, ...notas, ...hz, ...op].map((o) =>
+      ...[...fotos, ...audios, ...notas, ...hz].map((o) =>
         new Date((o as { creadoEn?: string }).creadoEn ?? 0).getTime()
       )
     );
@@ -146,11 +131,10 @@ function CapturasPorUbicacion({
       audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
       notas.length && `${notas.length} nota${notas.length > 1 ? 's' : ''}`,
       hz.length && `${hz.length} hallazgo${hz.length > 1 ? 's' : ''}`,
-      op.length && `${op.length} oportunidad${op.length > 1 ? 'es' : ''}`,
     ]
       .filter(Boolean)
       .join(' · ');
-    return { fotos, audios, notas, hz, op, total, resumen, reciente };
+    return { fotos, audios, notas, hz, total, resumen, reciente };
   };
 
   const renderItems = (c: ReturnType<typeof contenidoDe>) => (
@@ -200,46 +184,24 @@ function CapturasPorUbicacion({
           </div>
         );
       })}
-      {c.op.map((o) => (
-        <div key={o.id}>
-          {itemFila('oportunidad', (o.payload as { titulo: string }).titulo, undefined, undefined, true)}
-        </div>
-      ))}
     </>
   );
 
-  const claveActiva = zonaActiva ?? null;
   const zonasClaves = [...claves].filter((k) => k !== 'sin-ubicacion');
-  // Recorrido: zona activa primero, resto por nombre. Normal: por lo más
-  // reciente capturado en cada zona.
-  const zonas =
-    contexto === 'recorrido'
-      ? [
-          ...(claveActiva && claves.has(claveActiva) ? [claveActiva] : []),
-          ...zonasClaves
-            .filter((k) => k !== claveActiva)
-            .sort((a, b) => (nombresUbicaciones[a] ?? '').localeCompare(nombresUbicaciones[b] ?? '', 'es')),
-        ]
-      : zonasClaves.sort((a, b) => contenidoDe(b).reciente - contenidoDe(a).reciente);
+  // Zonas ordenadas por lo más reciente capturado en cada una.
+  const zonas = zonasClaves.sort((a, b) => contenidoDe(b).reciente - contenidoDe(a).reciente);
   const general = claves.has('sin-ubicacion') ? contenidoDe('sin-ubicacion') : null;
 
-  // Estado de plegado que el comercial ha tocado a mano. El SIGNIFICADO
-  // depende del contexto:
-  //  - recorrido: `tocadas` son secciones CERRADas a mano (todo abierto por
-  //    defecto, incluidas las zonas nuevas que se creen sobre la marcha).
-  //  - normal: `tocadas` son secciones ABIERTas a mano; por defecto solo
-  //    "General" y la zona más reciente están abiertas.
+  // Estado de plegado que el comercial ha tocado a mano: `tocadas` son las
+  // secciones ABIERTas a mano; por defecto solo "General" y la zona más
+  // reciente están abiertas.
   const [tocadas, setTocadas] = useState<Set<string>>(() => {
     const s = new Set<string>();
-    if (contexto === 'recorrido') {
-      s.add('sin-ubicacion'); // "General" plegada al entrar
-    } else {
-      s.add('sin-ubicacion'); // "General" abierta
-      if (zonas[0]) s.add(zonas[0]); // zona más reciente abierta
-    }
+    s.add('sin-ubicacion'); // "General" abierta
+    if (zonas[0]) s.add(zonas[0]); // zona más reciente abierta
     return s;
   });
-  const estaAbierta = (k: string) => (contexto === 'recorrido' ? !tocadas.has(k) : tocadas.has(k));
+  const estaAbierta = (k: string) => tocadas.has(k);
   const alternar = (k: string) => {
     setTocadas((prev) => {
       const s = new Set(prev);
@@ -255,12 +217,11 @@ function CapturasPorUbicacion({
     const c = contenidoDe(clave);
     if (c.total === 0) return null;
     const abierta = estaAbierta(clave);
-    const activa = contexto === 'recorrido' && clave === claveActiva;
     return (
       <div
         key={clave}
         style={{
-          borderLeft: `2px solid ${activa ? 'var(--brand-600)' : 'transparent'}`,
+          borderLeft: '2px solid transparent',
           paddingLeft: 8,
           ...(opts.general ? { borderTop: '1px solid var(--ink-200)', paddingTop: 10 } : {}),
         }}
@@ -307,9 +268,8 @@ function CapturasPorUbicacion({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {contexto === 'normal' && bloqueGeneral}
+      {bloqueGeneral}
       {bloqueZonas}
-      {contexto === 'recorrido' && bloqueGeneral}
     </div>
   );
 }
@@ -1457,10 +1417,8 @@ export function VisitaActiva() {
           <div className="card" style={{ padding: '2px 10px' }}>
             {ordenPorZona ? (
               <CapturasPorUbicacion
-                contexto="normal"
                 capturas={capturas}
                 hallazgos={hallazgos}
-                oportunidades={oportunidades}
                 nombresUbicaciones={nombresUbicacionesVisita}
                 nombresTerminos={nombresTerminos}
                 onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
