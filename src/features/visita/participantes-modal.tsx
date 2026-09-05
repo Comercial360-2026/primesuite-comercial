@@ -305,10 +305,9 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
               {candidatos?.map((c) => {
-                // Quien rechazó esta visita solo lo puede reinvitar
-                // Dirección (lo garantiza además un trigger). Al
-                // responsable se le muestra pero sin botón.
-                const bloqueado = c.rechazoPrevio && !esDireccionComercial;
+                // Quien rechazó esta visita puede reinvitarse, igual por
+                // Dirección que por el responsable (2026-09-05: se quitó la
+                // restricción de que solo Dirección pudiera).
                 return (
                   <button
                     key={c.id}
@@ -318,20 +317,17 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
                       textAlign: 'left',
                       justifyContent: 'space-between',
                       display: 'flex',
-                      opacity: bloqueado ? 0.6 : 1,
                     }}
-                    disabled={añadiendoId === c.id || bloqueado}
+                    disabled={añadiendoId === c.id}
                     onClick={() => añadir(c.id)}
                   >
                     <span>{c.nombre}</span>
                     <span style={{ color: c.rechazoPrevio ? 'var(--ink-400)' : undefined, fontSize: 11 }}>
                       {añadiendoId === c.id
                         ? 'Añadiendo…'
-                        : bloqueado
-                          ? 'rechazó · reinvita Dirección'
-                          : c.rechazoPrevio
-                            ? 'rechazó · reinvitar'
-                            : '+ Añadir'}
+                        : c.rechazoPrevio
+                          ? 'rechazó · reinvitar'
+                          : '+ Añadir'}
                     </span>
                   </button>
                 );
