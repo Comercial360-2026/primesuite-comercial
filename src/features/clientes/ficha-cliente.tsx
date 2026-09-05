@@ -14,6 +14,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
+import { DirectorioInterlocutores } from './directorio-interlocutores';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -558,6 +559,14 @@ export function FichaCliente() {
             />
           ))}
         </SeccionLista>
+
+        {clienteId && (
+          <SeccionLista titulo="Interlocutores">
+            <div style={{ padding: '8px var(--fila-pad-x) 4px' }}>
+              <DirectorioInterlocutores clienteId={clienteId} />
+            </div>
+          </SeccionLista>
+        )}
 
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">

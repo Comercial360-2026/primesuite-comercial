@@ -37,13 +37,16 @@ cambiaba ni lo leía. Estaba muerto. Quitado de la cabecera de la ficha
 (el campo sigue en la BD por si se le da uso algún día). Verificado: la
 cabecera ya solo muestra el sector si lo hay.
 
-### 1.2 — [A] Los interlocutores del cliente no viven en ningún sitio estable
-Solo se gestionan **dentro de una visita** (fila "Interlocutores" de
-Visita en curso). Fuera de una visita, un comercial no puede ver ni
-editar la lista de personas de contacto del cliente (nombres, cargos,
-teléfonos). No aparecen en la ficha de cliente ni en la de proyecto.
-→ Un comercial que quiere "llamar al de mantenimiento de X" no tiene
-dónde mirar sin abrir una visita.
+### 1.2 — [A] Los interlocutores del cliente no viven en ningún sitio estable — ✅ RESUELTO
+El directorio (personas de contacto del cliente) solo se gestionaba
+dentro de una visita. **Hecho:** se extrajo el CRUD a un componente
+compartido `DirectorioInterlocutores` (alta/edición/quitar), y ahora hay
+una sección **"Interlocutores"** en la ficha de cliente (cualquiera que
+vea la ficha; requiere conexión). La hoja de Interlocutores de la visita
+sigue igual — es el mismo componente + la capa de "quién estuvo presente
+en esta visita". Verificado en vivo: alta desde la ficha, y presencia +
+"Editar" + nombre en Zona 1 desde la visita, sin regresiones ni errores
+de consola.
 
 ### 1.3 — [A] Un comercial sin cartera se queda sin app
 "Clientes" muestra "Sin resultados" en blanco, sin explicar por qué (no
