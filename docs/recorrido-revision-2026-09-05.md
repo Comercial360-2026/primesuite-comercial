@@ -104,14 +104,26 @@ Verificado en vivo como comercial (Borja): General único fundido, URL del
 General redirige, crear 2º proyecto devuelve la lista y su ficha, el
 General con 2 proyectos ya no redirige.
 
-### 1.6 — [B] La "banda de visita en curso" ocupa una fila fija en TODAS las pantallas
+### 1.6 — [B] La "banda de visita en curso" ocupa una fila fija en TODAS las pantallas — ✅ RESUELTO
 Mientras hay una visita abierta, el banner "Visita en curso con
-[cliente]" se pega abajo (encima del menú) en cada pantalla — incluido el
-detalle de una oportunidad, donde tapa contenido ("Solución que le
-proponemos" quedaba oculta). Además es redundante con la cabecera de la
-propia Visita en curso ("Visita en curso" x2). Y **sigue apareciendo en
-la pantalla de "Visita consolidada correctamente"**, que ya es
-contradictorio (la visita ya no está en curso).
+[cliente]" se pegaba abajo en cada pantalla, incluida la propia visita
+(redundante con su cabecera "Visita en curso") y la pantalla de "Visita
+consolidada correctamente" (contradictorio: la visita ya no está en
+curso).
+**Hecho:**
+- `LayoutShell` oculta el banner cuando estás dentro de la propia visita
+  en curso (`/visita/:id` y sus subrutas, incluido el cierre) — ahí la
+  cabecera ya lo dice y el banner solo robaba una fila.
+- `cierre-visita.tsx` limpia el contexto (`cerrarVisita()`) al consolidar,
+  no al pulsar "volver" — así el banner desaparece ya en la pantalla de
+  resumen / "consolidada correctamente".
+- En el resto de pantallas (Hoy, Clientes, fichas, detalles, Tareas) el
+  banner se mantiene: ahí SÍ es útil, es el camino de vuelta a la visita.
+Lo de "tapa contenido en el detalle de una oportunidad" era el banner
+comiéndose 40 px de alto; con scroll el contenido era accesible y, fuera
+de la visita, el banner se queda a propósito. Verificado en vivo como
+comercial (Borja): visita iniciada sin banner dentro, con banner en
+Clientes, sin banner en el resumen tras consolidar.
 
 ---
 

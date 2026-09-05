@@ -210,6 +210,10 @@ export function CierreVisita() {
         onExito: ({ sincronizada }) => {
           setSincronizada(sincronizada);
           setVista('resumen');
+          // La visita ya no está en curso: quitar el banner ya, no al
+          // pulsar "volver" (1.6 — antes seguía abajo en la pantalla de
+          // "Visita consolidada correctamente", que se contradecía).
+          cerrarVisita();
         },
         mensajeError: 'No se pudo cerrar la visita. Inténtalo de nuevo.',
       }

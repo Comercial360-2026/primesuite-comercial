@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
@@ -15,6 +15,14 @@ import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/i
 // Vocabulario ahora vive dentro de la pantalla Yo, no en el menú.
 export function LayoutShell() {
   const { visitaEnCurso } = useVisitaActivaContext();
+  // El banner es un atajo de vuelta a la visita: sobra cuando ya estás
+  // dentro de ella (la cabecera de esa pantalla ya dice "Visita en curso")
+  // y en su pantalla de cierre/resumen (1.6 del recorrido de revisión).
+  const { pathname } = useLocation();
+  const dentroDeLaVisita =
+    !!visitaEnCurso &&
+    (pathname === `/visita/${visitaEnCurso.id}` ||
+      pathname.startsWith(`/visita/${visitaEnCurso.id}/`));
   // Avisos que encienden el punto de la pestaña "Yo": el "libera espacio"
   // que Dirección me haya mandado (su LÍNEA la pinta <AvisoEspacio />), y
   // las invitaciones a visitas de equipo pendientes de aceptar/rechazar
@@ -30,16 +38,16 @@ export function LayoutShell() {
 
       <AvisoEspacio />
 
-      {visitaEnCurso ? (
+      {visitaEnCurso && !dentroDeLaVisita ? (
         // Link (no <a href>): navegación SPA. Con <a href> se recargaba la
         // PWA entera en mitad de una visita — lento y se perdía el estado
         // en memoria.
         <Link to={`/visita/${visitaEnCurso.id}`} className="visita-en-curso-banner">
           Visita en curso con {visitaEnCurso.clienteNombre}
         </Link>
-      ) : (
+      ) : !visitaEnCurso ? (
         <AvisoVisitaProxima />
-      )}
+      ) : null}
 
       <BannerInstalar />
 
