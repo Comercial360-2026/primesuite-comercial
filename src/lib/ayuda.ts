@@ -113,7 +113,7 @@ const _PANTALLAS = {
   'ficha-proyecto': {
     titulo: 'Ficha de proyecto',
     queEs:
-      'Una línea de negocio dentro de un cliente: sus oportunidades activas, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente).',
+      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente).',
     cuando:
       'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día.',
   },

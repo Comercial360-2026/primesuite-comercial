@@ -17,7 +17,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
-import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
+import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 
 // Ficha de proyecto — Fase 3 del plan Cliente → Proyecto → Visita. Es lo
 // que antes vivía directamente en la ficha de cliente (oportunidades,
@@ -37,6 +37,13 @@ interface ProximoPasoPendiente {
   id: string;
   descripcion: string;
   fecha_objetivo: string | null;
+}
+
+interface HallazgoAbierto {
+  id: string;
+  naturaleza: string;
+  fecha_relevante: string | null;
+  termino: { nombre: string } | null;
 }
 
 interface VisitaHistorial {
@@ -248,6 +255,28 @@ export function FichaProyecto() {
     },
   });
 
+  // Hallazgos del proyecto (P5: se arrastran entre visitas hasta
+  // resolverse). El esquema no tiene un estado de resolución propio —
+  // "resolverlo" hoy es borrarlo desde su detalle (ver detalle-hallazgo.tsx)
+  // — así que aquí se listan sencillamente los más recientes, no un
+  // subconjunto "abierto" como en Oportunidades/Próximos pasos. Antes de
+  // esta sección no había NINGÚN sitio en la app donde un hallazgo propio
+  // fuera navegable (hueco encontrado revisando la pantalla de detalle).
+  const { data: hallazgos } = useQuery({
+    queryKey: ['hallazgos-proyecto', proyectoId],
+    enabled: !!proyectoId,
+    queryFn: async (): Promise<HallazgoAbierto[]> => {
+      const { data, error } = await supabase
+        .from('hallazgo')
+        .select('id, naturaleza, fecha_relevante, termino:termino_id(nombre)')
+        .eq('proyecto_id', proyectoId!)
+        .order('creado_en', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as unknown as HallazgoAbierto[];
+    },
+  });
+
   // La lanza la ventana "¿A qué vas?" (ObjetivoVisitaModal) — de ahí llega
   // el `objetivo`, ya validado como no vacío. Lanza en caso de fallo para
   // que la propia ventana muestre el error; si va bien, navega y la ventana
@@ -291,10 +320,14 @@ export function FichaProyecto() {
 
   // Ficha "vacía" = nada que un comercial haya registrado todavía en este
   // proyecto. `listasCargadas` evita el parpadeo de "vacía" mientras las
-  // tres queries resuelven.
+  // cuatro queries resuelven.
   const listasCargadas =
-    oportunidades !== undefined && proximosPasos !== undefined && historialVisitas !== undefined;
-  const fichaVacia = !oportunidades?.length && !proximosPasos?.length && !historialVisitas?.length;
+    oportunidades !== undefined &&
+    proximosPasos !== undefined &&
+    hallazgos !== undefined &&
+    historialVisitas !== undefined;
+  const fichaVacia =
+    !oportunidades?.length && !proximosPasos?.length && !hallazgos?.length && !historialVisitas?.length;
 
   const hoyMs = new Date().setHours(0, 0, 0, 0);
 
@@ -389,6 +422,21 @@ export function FichaProyecto() {
                     />
                   );
                 })}
+              </SeccionLista>
+            )}
+
+            {!!hallazgos?.length && (
+              <SeccionLista titulo="Hallazgos">
+                {hallazgos.map((h) => (
+                  <FilaNavegable
+                    key={h.id}
+                    titulo={h.termino?.nombre ?? '…'}
+                    tono={h.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
+                    valor={etiqueta(NATURALEZA_LABEL, h.naturaleza)}
+                    valorTenue
+                    to={`/hallazgos/${h.id}`}
+                  />
+                ))}
               </SeccionLista>
             )}
 
