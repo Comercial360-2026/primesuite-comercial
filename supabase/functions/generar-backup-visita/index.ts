@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
       stack: [
         { image: PRIMION_LOGO, width: 116 },
         { text: 'PRIMION TECHNOLOGY', bold: true, fontSize: 9, color: COLOR.signal600, characterSpacing: 1.2, margin: [0, 8, 0, 0] },
-        { text: 'PrimeSuite Comercial · Documento interno', fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
+        { text: 'PrimeNotes · Documento interno', fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
       ],
     },
     {
@@ -725,7 +725,7 @@ Deno.serve(async (req) => {
       fontSize: 8,
       color: COLOR.ink400,
       text:
-        `Generado el ${fechaLarga(ahora)}, ${horaDe(ahora)} por PrimeSuite Comercial · documento interno. ` +
+        `Generado el ${fechaLarga(ahora)}, ${horaDe(ahora)} por PrimeNotes · documento interno. ` +
         'Refleja el estado de la visita en el momento de generarlo; los cambios posteriores no se recogen aquí.',
     },
   ];
@@ -1031,7 +1031,7 @@ Deno.serve(async (req) => {
   const docDefinition = {
     info: {
       title: `Informe de visita — ${clienteInfo?.nombre ?? 'cliente'} — ${fechaCorta(visita.fecha)}`,
-      author: 'PrimeSuite Comercial',
+      author: 'PrimeNotes',
     },
     pageSize: 'A4',
     pageMargins: [48, 40, 48, 56],
@@ -1058,7 +1058,7 @@ Deno.serve(async (req) => {
         : {
             margin: [48, 0, 48, 20],
             columns: [
-              { text: 'PrimeSuite Comercial', fontSize: 8.5, color: COLOR.ink400 },
+              { text: 'PrimeNotes', fontSize: 8.5, color: COLOR.ink400 },
               { text: `Pág. ${paginaActual} de ${totalPaginas}`, alignment: 'right', fontSize: 8.5, color: COLOR.ink400 },
             ],
           },
@@ -1084,7 +1084,7 @@ Deno.serve(async (req) => {
 
   // --- LEEME.txt ---
   const leeme =
-    `PrimeSuite Comercial — copia de la visita\n` +
+    `PrimeNotes — copia de la visita\n` +
     `==========================================\n\n` +
     `Cliente:   ${clienteInfo?.nombre ?? 'cliente'}\n` +
     `Visita:    ${fechaLarga(visita.fecha)} (visita ${tipoLabel.toLowerCase()})\n` +
@@ -1103,7 +1103,7 @@ Deno.serve(async (req) => {
     (fotosNoIncluidas.length
       ? `  - ${fotosNoIncluidas.length} foto(s) no se pudieron previsualizar en el PDF (formato no compatible); están igualmente en fotos/.\n`
       : '') +
-    `\nGenerado automáticamente por PrimeSuite Comercial. No respondas a este\n` +
+    `\nGenerado automáticamente por PrimeNotes. No respondas a este\n` +
     `archivo; para dudas, contacta con tu responsable comercial.\n`;
   zip.file('LEEME.txt', leeme);
 
