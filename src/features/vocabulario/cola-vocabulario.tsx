@@ -73,6 +73,11 @@ export function ColaVocabulario() {
   const [textoBusquedaFusion, setTextoBusquedaFusion] = useState('');
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Contexto de una propuesta (auditoría 2026-09-05: la fila no llevaba a
+  // ningún sitio, no había forma de ver de dónde salió el término antes de
+  // decidir). Se despliega inline, sin pantalla nueva: cliente/fecha de la
+  // visita donde se propuso + el hallazgo que lo usa, si ya existe.
+  const [contextoAbiertoId, setContextoAbiertoId] = useState<string | null>(null);
 
   // Modo seleccionar de "Pendientes": marcar propuestas y aprobar /
   // descartar en lote, o fusionar una sola. Mismo patrón que el catálogo.
@@ -192,6 +197,36 @@ export function ColaVocabulario() {
         fecha_propuesta: t.fecha_propuesta,
         visita_origen_id: t.visita_origen_id,
       }));
+    },
+  });
+
+  const propuestaAbierta = propuestos?.find((t) => t.id === contextoAbiertoId) ?? null;
+  const { data: contextoTermino, isLoading: cargandoContexto } = useQuery({
+    queryKey: ['contexto-termino-propuesto', contextoAbiertoId],
+    enabled: !!contextoAbiertoId,
+    queryFn: async () => {
+      const [visita, hallazgos] = await Promise.all([
+        propuestaAbierta?.visita_origen_id
+          ? supabase
+              .from('visita')
+              .select('fecha, cliente:cliente_id(nombre)')
+              .eq('id', propuestaAbierta.visita_origen_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        supabase
+          .from('hallazgo')
+          .select('id, nota, creado_en, comercial:comercial_autor_id(nombre)')
+          .eq('termino_id', contextoAbiertoId!)
+          .order('creado_en', { ascending: false }),
+      ]);
+      if (visita.error) throw visita.error;
+      if (hallazgos.error) throw hallazgos.error;
+      type VisitaContexto = { fecha: string; cliente: { nombre: string } | null } | null;
+      type HallazgoContexto = { id: string; nota: string | null; creado_en: string; comercial: { nombre: string } | null };
+      return {
+        visita: visita.data as unknown as VisitaContexto,
+        hallazgos: (hallazgos.data ?? []) as unknown as HallazgoContexto[],
+      };
     },
   });
 
@@ -345,6 +380,7 @@ export function ColaVocabulario() {
     setError(null);
     setFusionandoId(null);
     setAprobarEnAbierto(false);
+    setContextoAbiertoId(null);
   }
   function salirSeleccionPend() {
     setSeleccionandoPend(false);
@@ -630,6 +666,7 @@ export function ColaVocabulario() {
     setOrdenLocal(null);
     setMarcadosTerm(new Set());
     setMarcadosPend(new Set());
+    setContextoAbiertoId(null);
     setExpandidas(new Set());
     setAprobarEnAbierto(false);
     setCategoriaAnadiendoTermino(null);
@@ -1156,17 +1193,50 @@ export function ColaVocabulario() {
                     );
                   }
 
+                  const contextoAbierto = contextoAbiertoId === t.id;
                   return (
-                    <FilaAccion
-                      key={t.id}
-                      titulo={t.nombre}
-                      subtitulo={procesandoId === t.id ? `${meta} · procesando…` : meta}
-                      seleccion={
-                        seleccionandoPend
-                          ? { activa: true, marcada: marcadosPend.has(t.id), onToggle: () => alternarPend(t.id) }
-                          : undefined
-                      }
-                    />
+                    <Fragment key={t.id}>
+                      <FilaAccion
+                        titulo={t.nombre}
+                        subtitulo={procesandoId === t.id ? `${meta} · procesando…` : meta}
+                        seleccion={
+                          seleccionandoPend
+                            ? { activa: true, marcada: marcadosPend.has(t.id), onToggle: () => alternarPend(t.id) }
+                            : undefined
+                        }
+                        onClick={
+                          seleccionandoPend ? undefined : () => setContextoAbiertoId(contextoAbierto ? null : t.id)
+                        }
+                      />
+                      {contextoAbierto && (
+                        <div style={{ padding: '2px var(--fila-pad-x) 10px', fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                          {cargandoContexto ? (
+                            'Cargando contexto…'
+                          ) : (
+                            <>
+                              {contextoTermino?.visita ? (
+                                <div>
+                                  Propuesto en visita a <strong>{contextoTermino.visita.cliente?.nombre ?? '—'}</strong>
+                                  {' · '}
+                                  {fechaCorta(contextoTermino.visita.fecha)}
+                                </div>
+                              ) : (
+                                <div>Sin visita de origen registrada.</div>
+                              )}
+                              {contextoTermino?.hallazgos.length ? (
+                                contextoTermino.hallazgos.map((h) => (
+                                  <div key={h.id} style={{ marginTop: 4 }}>
+                                    {h.nota ? `«${h.nota}»` : 'Sin nota'} — {h.comercial?.nombre ?? '—'}
+                                  </div>
+                                ))
+                              ) : (
+                                <div style={{ marginTop: 4 }}>Todavía no se ha usado en ningún hallazgo.</div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </Fragment>
                   );
                 })}
               </SeccionLista>
