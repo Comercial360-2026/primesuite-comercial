@@ -13,6 +13,7 @@ import {
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
@@ -245,7 +246,7 @@ export function DetalleComercial() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle
         titulo={data.nombre}
         ayuda="detalle-comercial"
@@ -253,60 +254,64 @@ export function DetalleComercial() {
         onVolver={() => navigate('/comerciales')}
       />
 
-      {!data.activo && (
-        <Aviso tipo="atencion" titulo="Comercial de baja">
-          No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
-        </Aviso>
-      )}
+      <div className="screen__scroll">
+       <div className="lista-agrupada">
+        {!data.activo && (
+          <Aviso tipo="atencion" titulo="Comercial de baja">
+            No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
+          </Aviso>
+        )}
 
-      {data.activo && peticionAcceso && !enlaceReenviado && (
-        <Aviso tipo="atencion" titulo="Ha pedido acceso">
-          El {fechaCorta(peticionAcceso.creado_en)}. Reenvíale el enlace y se marcará como resuelto.
-        </Aviso>
-      )}
+        {data.activo && peticionAcceso && !enlaceReenviado && (
+          <Aviso tipo="atencion" titulo="Ha pedido acceso">
+            El {fechaCorta(peticionAcceso.creado_en)}. Reenvíale el enlace y se marcará como resuelto.
+          </Aviso>
+        )}
 
-      <div className="label" style={{ marginTop: data.activo ? 0 : undefined }}>Nombre</div>
-      <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        {/* Contexto siempre visible arriba (regla 6) — antes la cartera solo
+            se veía al abrir traspaso o baja. */}
+        {activo && (
+          <div className="ficha-vitals">
+            <span>
+              {totalCartera === 0
+                ? 'sin cartera asignada'
+                : [
+                    cartera?.clientes ? `${cartera.clientes} cliente${cartera.clientes === 1 ? '' : 's'}` : null,
+                    cartera?.visitas
+                      ? `${cartera.visitas} visita${cartera.visitas === 1 ? '' : 's'} planificada${cartera.visitas === 1 ? '' : 's'}`
+                      : null,
+                    cartera?.pasos
+                      ? `${cartera.pasos} próximo${cartera.pasos === 1 ? '' : 's'} paso${cartera.pasos === 1 ? '' : 's'}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+            </span>
+          </div>
+        )}
 
-      <div className="label">Rol</div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {ROLES.map((r) => (
-          <button
-            key={r.valor}
-            type="button"
-            className={`chip${rol === r.valor ? ' chip--on' : ''}`}
-            onClick={() => setRol(r.valor)}
-          >
-            {r.etiqueta}
-          </button>
-        ))}
-      </div>
+        {/* Acciones esporádicas como chip, no botón ancho (regla 3). */}
+        {data.activo && !enlaceReenviado && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="chip" disabled={reenviando} onClick={reenviarEnlace}>
+              {reenviando ? 'Generando enlace…' : 'Reenviar enlace de acceso'}
+            </button>
+            {totalCartera > 0 && modo !== 'baja' && modo !== 'traspaso' && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => {
+                  setTraspasoHecho(null);
+                  setModo('traspaso');
+                }}
+              >
+                Traspasar cartera
+              </button>
+            )}
+          </div>
+        )}
 
-      <div className="label">Zona / cartera (opcional)</div>
-      <input className="field" value={zona} onChange={(e) => setZona(e.target.value)} />
-
-      {error && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
-          <Aviso tipo="error">{error}</Aviso>
-        </div>
-      )}
-
-      {/* Con una tarjeta de acción grande abierta abajo (baja / traspaso),
-          ese panel es el foco: "Guardar cambios" baja a secundario para no
-          dejar dos primarios azules a la vez. */}
-      <button
-        className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
-        style={{ marginTop: 'auto' }}
-        disabled={!nombre.trim() || !hayCambios || guardando}
-        onClick={guardar}
-      >
-        {guardando ? 'Guardando…' : 'Guardar cambios'}
-      </button>
-
-      {/* Reenviar enlace de acceso — contraseña perdida o enlace de alta
-          caducado. Solo tiene sentido con el comercial activo. */}
-      {data.activo && (
-        enlaceReenviado ? (
+        {enlaceReenviado && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Aviso tipo="exito" titulo="Enlace nuevo listo">
               Pásaselo a {data.nombre}. La petición queda resuelta.
@@ -331,25 +336,15 @@ export function DetalleComercial() {
               )}
             </div>
           </div>
-        ) : (
-          <button className="btn btn-secondary" disabled={reenviando} onClick={reenviarEnlace}>
-            <Icono nombre="solicitudes" size={18} />
-            {reenviando ? 'Generando enlace…' : 'Reenviar enlace de acceso'}
-          </button>
-        )
-      )}
+        )}
 
-      {traspasoHecho && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
+        {traspasoHecho && (
           <Aviso tipo="exito" titulo="Cartera traspasada">
             {traspasoHecho} {data.nombre} sigue activo.
           </Aviso>
-        </div>
-      )}
+        )}
 
-      {/* Traspasar cartera SIN dar de baja — solo si está activo y lleva algo. */}
-      {activo && totalCartera > 0 && modo !== 'baja' && (
-        modo === 'traspaso' ? (
+        {modo === 'traspaso' && (
           <div className="card">
             <ResumenCartera cartera={cartera} nombre={data.nombre} />
             <div className="label">Traspasar todo a</div>
@@ -368,17 +363,52 @@ export function DetalleComercial() {
               </button>
             </div>
           </div>
-        ) : (
-          <button className="btn btn-secondary" onClick={() => { setTraspasoHecho(null); setModo('traspaso'); }}>
-            <Icono nombre="clientes" size={18} />
-            Traspasar cartera
-          </button>
-        )
-      )}
+        )}
 
-      {/* Baja / reactivación — al fondo, tono riesgo, con confirmación. */}
-      {activo ? (
-        modo === 'baja' ? (
+        <SeccionLista titulo="Datos">
+          <div style={{ padding: '12px var(--fila-pad-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div>
+              <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+              <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            </div>
+            <div>
+              <div className="label">Rol</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {ROLES.map((r) => (
+                  <button
+                    key={r.valor}
+                    type="button"
+                    className={`chip${rol === r.valor ? ' chip--on' : ''}`}
+                    onClick={() => setRol(r.valor)}
+                  >
+                    {r.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="label">Zona / cartera (opcional)</div>
+              <input className="field" value={zona} onChange={(e) => setZona(e.target.value)} />
+            </div>
+          </div>
+        </SeccionLista>
+
+        {/* De baja: guardar cambios en los datos sigue siendo posible, pero
+            deja de ser la acción principal de la pantalla (eso es
+            Reactivar, fijo abajo) — se ofrece aquí como acción secundaria. */}
+        {!activo && (
+          <button
+            className="btn btn-secondary"
+            disabled={!nombre.trim() || !hayCambios || guardando}
+            onClick={guardar}
+          >
+            {guardando ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        )}
+
+        {error && <Aviso tipo="error">{error}</Aviso>}
+
+        {activo && modo === 'baja' && (
           <div className="card card--riesgo">
             {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
@@ -419,20 +449,38 @@ export function DetalleComercial() {
               </button>
             </div>
           </div>
-        ) : (
-          <div title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}>
-            <FilaNavegable
-              icono="borrar"
-              titulo="Dar de baja"
-              tono="riesgo"
-              chevron={false}
-              disabled={esYo}
-              onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
-            />
-          </div>
-        )
+        )}
+
+        {activo && modo !== 'baja' && (
+          <SeccionLista>
+            <div title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}>
+              <FilaNavegable
+                icono="borrar"
+                titulo="Dar de baja"
+                tono="riesgo"
+                chevron={false}
+                disabled={esYo}
+                onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
+              />
+            </div>
+          </SeccionLista>
+        )}
+       </div>
+      </div>
+
+      {/* CTA fijo abajo: Guardar cambios si está activo (secundario cuando
+          hay un panel de baja/traspaso abierto, para no competir con él),
+          Reactivar si está de baja — un solo primario visible a la vez. */}
+      {activo ? (
+        <button
+          className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
+          disabled={!nombre.trim() || !hayCambios || guardando}
+          onClick={guardar}
+        >
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </button>
       ) : (
-        <button className="btn btn-secondary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
+        <button className="btn btn-primary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
           {cambiandoEstado ? 'Reactivando…' : 'Reactivar comercial'}
         </button>
       )}

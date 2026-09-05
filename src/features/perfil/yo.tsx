@@ -17,6 +17,7 @@ import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { Aviso } from '@/components/ui/aviso';
 
 const DIAS_AVISO_BACKUP = 7;
 
@@ -310,11 +311,8 @@ export function Yo() {
         </div>
 
         {numErrores > 0 && (
-          <div className="card card--riesgo">
-            <div className="label" style={{ marginTop: 0, color: 'var(--risk-600)' }}>
-              {numErrores} elemento{numErrores > 1 ? 's' : ''} sin sincronizar
-            </div>
-            <div style={{ fontSize: 'var(--text-sm)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Aviso tipo="error" titulo={`${numErrores} elemento${numErrores > 1 ? 's' : ''} sin sincronizar`}>
               {Object.entries(
                 operacionesConError!.reduce<Record<string, number>>((acc, op) => {
                   acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
@@ -323,10 +321,8 @@ export function Yo() {
               )
                 .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
                 .join(', ')}
-            </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              Se sube solo en cuanto haya conexión — no hace falta que hagas nada.
-            </div>
+              {' — se sube solo en cuanto haya conexión.'}
+            </Aviso>
             <AyudaNota concepto="sincronizacion" />
           </div>
         )}

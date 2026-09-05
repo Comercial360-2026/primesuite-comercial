@@ -9,6 +9,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
@@ -308,6 +310,7 @@ export function RepasoCliente() {
         onVolver={() => navigate(-1)}
       />
       <div className="screen__scroll">
+      <div className="lista-agrupada">
       {(isErrorCliente || sinConexionCliente) && (
         <EstadoError
           mensaje={sinConexionCliente ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el cliente.'}
@@ -316,13 +319,10 @@ export function RepasoCliente() {
       )}
 
       {visitaIdAgendada && (
-        <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>Vas a</div>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {visitaAgendada === undefined
-              ? 'Cargando…'
-              : visitaAgendada.objetivo?.trim() || 'sin objetivo definido'}
-          </div>
+        <div className="ficha-vitals">
+          <span>
+            Vas a: <b>{visitaAgendada === undefined ? 'cargando…' : visitaAgendada.objetivo?.trim() || 'sin objetivo definido'}</b>
+          </span>
         </div>
       )}
 
@@ -332,9 +332,7 @@ export function RepasoCliente() {
           onReintentar={reintentarInterlocutores}
         />
       ) : (
-        interlocutoresConocidos === undefined ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
-        ) : interlocutoresConocidos.length ? (
+        !!interlocutoresConocidos?.length && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {interlocutoresConocidos.map((i) => (
               <span key={i.id} className="chip" style={{ fontSize: 'var(--text-xs)' }}>
@@ -342,7 +340,7 @@ export function RepasoCliente() {
               </span>
             ))}
           </div>
-        ) : null
+        )
       )}
 
       {isErrorEcosistema || sinConexionEcosistema ? (
@@ -350,47 +348,57 @@ export function RepasoCliente() {
           mensaje={sinConexionEcosistema ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el ecosistema.'}
           onReintentar={reintentarEcosistema}
         />
-      ) : ecosistema === undefined ? (
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
       ) : (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema.map((item) => (
-            <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
-          ))}
-          {!ecosistema.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
-        </div>
+        <SeccionLista titulo="Ecosistema">
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+            {ecosistema === undefined ? (
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
+            ) : ecosistema.length ? (
+              ecosistema.map((item) => (
+                <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
+              ))
+            ) : (
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>
+            )}
+          </div>
+        </SeccionLista>
       )}
 
-      {isErrorOportunidad || sinConexionOportunidad ? (
+      {(isErrorOportunidad || sinConexionOportunidad) && (
         <EstadoError
           mensaje={sinConexionOportunidad ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar la oportunidad activa.'}
           onReintentar={reintentarOportunidad}
         />
-      ) : (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Oportunidad activa</div>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {oportunidad === undefined
-              ? 'Cargando…'
-              : oportunidad
-                ? `${oportunidad.titulo} · ${etiqueta(PRIORIDAD_LABEL, oportunidad.prioridad).toLowerCase()}`
-                : 'ninguna oportunidad activa'}
-          </div>
-        </div>
       )}
-
-      {isErrorProximoPaso || sinConexionProximoPaso ? (
+      {(isErrorProximoPaso || sinConexionProximoPaso) && (
         <EstadoError
           mensaje={sinConexionProximoPaso ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el próximo paso.'}
           onReintentar={reintentarProximoPaso}
         />
-      ) : (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Próximo paso pendiente</div>
-          <div style={{ fontSize: 'var(--text-base)' }}>
-            {proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
-          </div>
-        </div>
+      )}
+      {(!(isErrorOportunidad || sinConexionOportunidad) || !(isErrorProximoPaso || sinConexionProximoPaso)) && (
+        <SeccionLista titulo="Antes de entrar">
+          {!(isErrorOportunidad || sinConexionOportunidad) && (
+            <FilaDato
+              etiqueta="Oportunidad activa"
+              valor={
+                oportunidad === undefined
+                  ? 'Cargando…'
+                  : oportunidad
+                    ? `${oportunidad.titulo} · ${etiqueta(PRIORIDAD_LABEL, oportunidad.prioridad).toLowerCase()}`
+                    : 'ninguna'
+              }
+              valorTenue={!oportunidad}
+            />
+          )}
+          {!(isErrorProximoPaso || sinConexionProximoPaso) && (
+            <FilaDato
+              etiqueta="Próximo paso"
+              valor={proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin pendientes'}
+              valorTenue={!proximoPaso}
+            />
+          )}
+        </SeccionLista>
       )}
 
       {/* Casi siempre hay un solo proyecto (el "General" automático) y esto
@@ -413,6 +421,7 @@ export function RepasoCliente() {
         </div>
       )}
 
+      </div>
       </div>
 
       <button
