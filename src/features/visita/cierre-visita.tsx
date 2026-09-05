@@ -72,6 +72,31 @@ export function CierreVisita() {
     },
   });
 
+  // Regla 6 (contexto siempre visible): ninguna de las 3 vistas de esta
+  // pantalla decía de qué cliente era la visita que se está cerrando, solo
+  // el objetivo cuando existía. maybeSingle: una visita ad-hoc offline puede
+  // no tener fila en el servidor todavía (mismo motivo que `visitaObjetivo`
+  // arriba). El proyecto solo se nombra si no es el General (P9, regla 4).
+  const { data: contextoVisita } = useQuery({
+    queryKey: ['visita-contexto-cierre', visitaId],
+    enabled: !!visitaId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const contextoTexto = [
+    contextoVisita?.cliente?.nombre,
+    contextoVisita?.proyecto && !contextoVisita.proyecto.es_general ? contextoVisita.proyecto.nombre : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
   const terminoIdsHallazgos = hallazgosParaResumen
     .map((h) => (h.payload as { terminoId: string }).terminoId)
@@ -193,7 +218,12 @@ export function CierreVisita() {
   if (vista === 'resumen') {
     return (
       <div className="screen screen--split">
-        <CabeceraDetalle titulo="Resumen de la visita" onVolver={volverAHoy} ayuda="cierre-visita" />
+        <CabeceraDetalle
+          titulo="Resumen de la visita"
+          subtitulo={contextoTexto || undefined}
+          onVolver={volverAHoy}
+          ayuda="cierre-visita"
+        />
 
         {sincronizada ? (
           <div className="card" style={{ borderColor: 'var(--success-600)' }}>
@@ -315,6 +345,7 @@ export function CierreVisita() {
       <div className="screen screen--split">
         <CabeceraDetalle
           titulo="¿Confirmas el cierre?"
+          subtitulo={contextoTexto || undefined}
           onVolver={() => {
             consolidacion.limpiarError();
             setVista('cierre');
@@ -370,6 +401,7 @@ export function CierreVisita() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo="Cerrar visita"
+        subtitulo={contextoTexto || undefined}
         onVolver={() => navigate(`/visita/${visitaId}`)}
         ayuda="cierre-visita"
       />

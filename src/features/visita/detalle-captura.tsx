@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
@@ -7,7 +8,17 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { Icono } from '@/components/ui/iconos';
 import { enlaceMapa } from '@/lib/geo';
+
+// Regla 5 (cero jerga): el estado de sincronización de la cola offline
+// (pendiente/subiendo/completado/error) no se enseña nunca en crudo.
+const ESTADO_SYNC_TEXTO: Record<string, string> = {
+  pendiente: 'sin subir todavía',
+  subiendo: 'subiendo…',
+  completado: 'subido',
+  error: 'error al subir',
+};
 
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
 // El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
@@ -47,6 +58,30 @@ export function DetalleCaptura() {
       return () => URL.revokeObjectURL(url);
     }
   }, [operacion]);
+
+  // Regla 6 (contexto siempre visible): antes la cabecera solo decía
+  // "Nota"/"Foto"/"Audio", sin decir de qué cliente ni visita. El proyecto
+  // solo se nombra si no es el General invisible por defecto (P9, regla 4).
+  const visitaId = (operacion?.payload as CapturaLibrePayload | undefined)?.visitaId;
+  const { data: contextoVisita } = useQuery({
+    queryKey: ['captura-contexto-visita', visitaId],
+    enabled: !!visitaId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)')
+        .eq('id', visitaId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const contextoTexto = [
+    contextoVisita?.cliente?.nombre,
+    contextoVisita?.proyecto && !contextoVisita.proyecto.es_general ? contextoVisita.proyecto.nombre : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   async function guardarEdicion() {
     if (!operacion) return;
@@ -167,12 +202,13 @@ export function DetalleCaptura() {
     <div className="screen">
       <CabeceraDetalle
         titulo={payload.tipo === 'nota' ? 'Nota' : payload.tipo === 'foto' ? 'Foto' : 'Audio'}
+        subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-        {new Date(operacion.creadoEn).toLocaleString('es-ES')} · {operacion.estado}
+        {new Date(operacion.creadoEn).toLocaleString('es-ES')} · {ESTADO_SYNC_TEXTO[operacion.estado] ?? operacion.estado}
       </div>
 
       {payload.tipo === 'foto' && urlMedia && (
@@ -185,9 +221,9 @@ export function DetalleCaptura() {
           href={enlaceMapa(payload.latitud, payload.longitud)}
           target="_blank"
           rel="noreferrer"
-          style={{ display: 'inline-block', marginTop: 4 }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4 }}
         >
-          📍 Abrir en el mapa
+          <Icono nombre="ubicacion" size={14} /> Abrir en el mapa
         </a>
       )}
 

@@ -314,6 +314,14 @@ const registro = {
     </>
   ),
 
+  // Ubicación — chincheta de mapa (abrir unas coordenadas en el mapa).
+  ubicacion: (
+    <>
+      <path d="M12 3.5a6 6 0 0 0-6 6c0 4.2 6 11 6 11s6-6.8 6-11a6 6 0 0 0-6-6z" />
+      <circle cx="12" cy="9.3" r="2.1" />
+    </>
+  ),
+
   // Equipo — tú y tus compañeros: tres cabezas en grupo, distinto de
   // "clientes" (dos personas, relación comercial) e "interlocutor" (una
   // persona con globo de conversación).
