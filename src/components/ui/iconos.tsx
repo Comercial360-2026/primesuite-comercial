@@ -302,6 +302,31 @@ const registro = {
       <circle cx="17" cy="7" r="1.2" />
     </>
   ),
+
+  // Interlocutor — la persona con la que hablas en la visita: cabeza +
+  // globo de conversación. Distinto de "clientes" (dos personas, relación
+  // comercial) y de "equipo" (grupo, compañeros).
+  interlocutor: (
+    <>
+      <circle cx="8" cy="8" r="3" />
+      <path d="M3.5 19.5c0-3 2-5 4.5-5s4.5 2 4.5 5" />
+      <path d="M14.5 6h5.5a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1H19v2.3l-2.3-2.3h-2.2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" />
+    </>
+  ),
+
+  // Equipo — tú y tus compañeros: tres cabezas en grupo, distinto de
+  // "clientes" (dos personas, relación comercial) e "interlocutor" (una
+  // persona con globo de conversación).
+  equipo: (
+    <>
+      <circle cx="12" cy="7.2" r="3" />
+      <circle cx="5.5" cy="9.5" r="2.3" />
+      <circle cx="18.5" cy="9.5" r="2.3" />
+      <path d="M7 19.5c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6" />
+      <path d="M1.8 18.5c.2-2.2 1.7-3.6 3.7-3.6" />
+      <path d="M22.2 18.5c-.2-2.2-1.7-3.6-3.7-3.6" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type NombreIcono = keyof typeof registro;

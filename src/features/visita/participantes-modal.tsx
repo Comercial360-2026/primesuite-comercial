@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 
 interface ParticipantesModalProps {
   visitaId: string;
@@ -228,7 +228,7 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
   }
 
   return (
-    <Modal titulo="Participantes" onCerrar={onCerrar}>
+    <HojaInferior titulo="Equipo" onCerrar={onCerrar}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
           {participantes.map((p) => {
             const esYo = p.comercial_id === comercial?.id;
@@ -370,6 +370,6 @@ export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalPro
         )}
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </Modal>
+    </HojaInferior>
   );
 }

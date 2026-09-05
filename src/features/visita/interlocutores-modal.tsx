@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 
 interface InterlocutoresModalProps {
   visitaId: string;
@@ -229,7 +229,7 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
   };
 
   return (
-    <Modal titulo="Interlocutores" onCerrar={cerrar}>
+    <HojaInferior titulo="Interlocutores" onCerrar={cerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           Quién ha estado presente en esta visita
         </div>
@@ -442,6 +442,6 @@ export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: Interlocu
         )}
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </Modal>
+    </HojaInferior>
   );
 }

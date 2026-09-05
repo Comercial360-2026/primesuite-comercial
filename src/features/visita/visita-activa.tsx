@@ -3,7 +3,8 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
@@ -25,7 +26,6 @@ import { Aviso } from '@/components/ui/aviso';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
-import { FilaAccion } from '@/components/ui/fila-accion';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
@@ -343,10 +343,11 @@ export function VisitaActiva() {
   const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
-  // Panel "Lo capturado": todo lo de la visita de un vistazo, sin bajar por
-  // debajo de la rejilla de captura. Se abre desde la tira de arriba.
-  const [repasoAbierto, setRepasoAbierto] = useState(false);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
+  // D1 (rediseño Zona 3): "En esta visita" agrupa por tipo por defecto; el
+  // conmutador a "por zona" solo tiene sentido si la visita ha usado el
+  // Recorrido (si no, no hay zonas que agrupar).
+  const [ordenPorZona, setOrdenPorZona] = useState(false);
   const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
   const [pasoAbierto, setPasoAbierto] = useState(false);
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
@@ -429,20 +430,87 @@ export function VisitaActiva() {
     }
   }, [visitaId, cliente, iniciarVisita]);
 
-  const { data: numInterlocutores } = useQuery({
+  // Nombres (no solo el número) — Zona 1 los enseña de un vistazo: "Ana
+  // López y 1 más". Solo cuentan los que siguen en el directorio del
+  // cliente: si a uno se le da de baja ("Quitar del directorio"), su fila de
+  // visita_interlocutor se conserva por el histórico de visitas cerradas,
+  // pero deja de contar aquí.
+  const { data: interlocutoresPresentes } = useQuery({
     queryKey: ['interlocutores-count', visitaId],
     enabled: !!visitaId,
-    queryFn: async (): Promise<number> => {
-      // Solo cuentan los que siguen en el directorio del cliente. Si a uno
-      // se le da de baja ("Quitar del directorio"), su fila de
-      // visita_interlocutor se conserva por el histórico de visitas
-      // cerradas, pero deja de contar en el chip.
+    queryFn: async (): Promise<string[]> => {
       const { data, error } = await supabase
         .from('visita_interlocutor')
-        .select('interlocutor:interlocutor_id(activo)')
+        .select('interlocutor:interlocutor_id(nombre, activo)')
         .eq('visita_id', visitaId!);
       if (error) throw error;
-      return (data ?? []).filter((r) => (r.interlocutor as unknown as { activo: boolean } | null)?.activo).length;
+      return (data ?? [])
+        .map((r) => r.interlocutor as unknown as { nombre: string; activo: boolean } | null)
+        .filter((i): i is { nombre: string; activo: boolean } => !!i?.activo)
+        .map((i) => i.nombre);
+    },
+  });
+
+  // Equipo de la visita: misma clave y misma forma de select que
+  // participantes-modal.tsx (comparten caché a propósito — ver
+  // primesuite-query-key-colision, el riesgo es solo cuando el select
+  // difiere, aquí es idéntico).
+  const { data: participantesEquipo } = useQuery({
+    queryKey: ['participantes-visita', visitaId],
+    enabled: !!visitaId,
+    queryFn: async (): Promise<{ comercial_id: string; rol: string; estado: string }[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('comercial_id, rol, estado')
+        .eq('visita_id', visitaId!)
+        .in('estado', ['pendiente', 'aceptado']);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const { data: nombresComercialesEquipo } = useQuery({
+    queryKey: ['comerciales-nombres'],
+    enabled: !!participantesEquipo?.length,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, string>> => {
+      const { data, error } = await supabase.rpc('fn_comerciales_seleccionables');
+      if (error) throw error;
+      return new Map((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
+  // Nombre del proyecto (línea de negocio) de esta visita, para la Zona 1 —
+  // el "General" es invisible por defecto (P9, regla 4), igual que en
+  // Agenda: solo se nombra un proyecto real.
+  const { data: proyectoVisita } = useQuery({
+    queryKey: ['proyecto-nombre', visitaLocal?.proyectoId],
+    enabled: !!visitaLocal?.proyectoId,
+    queryFn: async (): Promise<{ nombre: string; es_general: boolean } | null> => {
+      const { data, error } = await supabase
+        .from('proyecto')
+        .select('nombre, es_general')
+        .eq('id', visitaLocal!.proyectoId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Ordinal de esta visita dentro de su proyecto y fecha de la anterior
+  // (P11) — "3.ª visita · última hace 2 meses" de la Zona 1. Es un recuento
+  // retrospectivo (como en Ficha de proyecto), no el "N de N" de un
+  // recorrido.
+  const { data: visitasProyectoOrdenadas } = useQuery({
+    queryKey: ['visitas-proyecto-orden', visitaLocal?.proyectoId],
+    enabled: !!visitaLocal?.proyectoId,
+    queryFn: async (): Promise<{ id: string; fecha: string }[]> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha')
+        .eq('proyecto_id', visitaLocal!.proyectoId!)
+        .order('fecha', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -957,15 +1025,6 @@ export function VisitaActiva() {
     };
   }, [fotosVisor]);
 
-  useEffect(() => {
-    if (!repasoAbierto) return;
-    const alPulsar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setRepasoAbierto(false);
-    };
-    document.addEventListener('keydown', alPulsar);
-    return () => document.removeEventListener('keydown', alPulsar);
-  }, [repasoAbierto]);
-
   const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
   const visorFotos =
     indiceVisor >= 0 ? (
@@ -1342,84 +1401,134 @@ export function VisitaActiva() {
 
   // Resumen de lo capturado, para la tira de arriba. Las fotos/audios/notas
   // van todas en `capturas` (captura_libre), se separan por su `tipo`.
-  const nFotos = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto').length;
-  const nAudios = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio').length;
-  const nNotas = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota').length;
-  const totalCapturado = capturas.length + hallazgos.length + oportunidades.length + pasos.length;
-  const resumenCapturado = [
+  const fotosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto');
+  const audiosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio');
+  const notasOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota');
+  const nFotos = fotosOwn.length;
+  const nAudios = audiosOwn.length;
+  const nNotas = notasOwn.length;
+
+  // Con proyecto real (no el "General" invisible por defecto, P9): mismo
+  // criterio que Agenda — el nombre se añade tal cual, sin la palabra
+  // "Proyecto" delante.
+  const proyectoTexto = proyectoVisita && !proyectoVisita.es_general ? proyectoVisita.nombre : '';
+
+  // Zona 1 — "3.ª visita · última hace 2 meses" (P11): ordinal de ESTA
+  // visita dentro de su proyecto, y cuándo fue la anterior.
+  const indiceVisita = visitasProyectoOrdenadas?.findIndex((v) => v.id === visitaId) ?? -1;
+  const numeroVisita = indiceVisita >= 0 ? indiceVisita + 1 : null;
+  const visitaAnterior = indiceVisita > 0 ? visitasProyectoOrdenadas![indiceVisita - 1] : null;
+  const contextoVisitaTexto = numeroVisita
+    ? [`${numeroVisita}.ª visita`, visitaAnterior ? `última hace ${haceRelativo(visitaAnterior.fecha)}` : null]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+
+  // Zona 1 — interlocutores presentes, de un vistazo.
+  const nInterlocutores = interlocutoresPresentes?.length ?? 0;
+  const interlocutoresTexto =
+    nInterlocutores === 0
+      ? 'Sin interlocutores registrados en esta visita'
+      : nInterlocutores === 1
+        ? interlocutoresPresentes![0]
+        : nInterlocutores === 2
+          ? `${interlocutoresPresentes![0]} y ${interlocutoresPresentes![1]}`
+          : `${interlocutoresPresentes![0]} y ${nInterlocutores - 1} más`;
+
+  // Zona 1 — equipo de la visita, "tú" primero.
+  const nombresEquipo = (participantesEquipo ?? [])
+    .filter((p) => p.comercial_id !== comercial.id)
+    .map((p) => nombresComercialesEquipo?.get(p.comercial_id) ?? '…');
+  const equipoTexto = ['tú', ...nombresEquipo].join(', ');
+
+  // Zona 3 — "En esta visita" fundido: lo tuyo + lo de compañeros, con un
+  // único contador (D2) y un único indicador de sincronización (regla 5),
+  // en vez de las cuatro listas de antes (capturas, oportunidades, próximos
+  // pasos, de compañeros).
+  const totalAudios = nAudios + audiosCompaneros.length;
+  const totalNotas = nNotas + notasCompaneros.length;
+  const totalHallazgos = hallazgos.length + hallazgosCompaneros.length;
+  const totalOportunidades = oportunidades.length + oportunidadesCompaneros.length;
+  const totalPasos = pasos.length + pasosCompaneros.length;
+  const totalEnVisita = nFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
+  const desgloseTipos = [
     nFotos && `${nFotos} foto${nFotos > 1 ? 's' : ''}`,
-    nAudios && `${nAudios} audio${nAudios > 1 ? 's' : ''}`,
-    nNotas && `${nNotas} nota${nNotas > 1 ? 's' : ''}`,
-    hallazgos.length && `${hallazgos.length} hallazgo${hallazgos.length > 1 ? 's' : ''}`,
-    oportunidades.length && `${oportunidades.length} oportunidad${oportunidades.length > 1 ? 'es' : ''}`,
-    pasos.length && `${pasos.length} ${pasos.length > 1 ? 'próximos pasos' : 'próximo paso'}`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+    totalAudios && `${totalAudios} audio${totalAudios > 1 ? 's' : ''}`,
+    totalNotas && `${totalNotas} nota${totalNotas > 1 ? 's' : ''}`,
+    totalHallazgos && `${totalHallazgos} hallazgo${totalHallazgos > 1 ? 's' : ''}`,
+    totalOportunidades && `${totalOportunidades} oportunidad${totalOportunidades > 1 ? 'es' : ''}`,
+    totalPasos && `${totalPasos} próximo${totalPasos > 1 ? 's pasos' : ' paso'}`,
+  ].filter((t): t is string => !!t);
+  // D2: desglose corto si hay pocos tipos, si no colapsa a "N elementos".
+  const contadorEnVisita =
+    desgloseTipos.length > 3 ? `${totalEnVisita} elemento${totalEnVisita === 1 ? '' : 's'}` : desgloseTipos.join(' · ');
+  // Solo lo MÍO tiene estado de sincronización — lo de compañeros ya viene
+  // del servidor. Regla 5: un único indicador en cristiano, no por ítem.
+  const pendientesSync = [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
+    (op) => op.estado !== 'completado'
+  ).length;
+  const estadoSyncTexto = pendientesSync === 0 ? 'todo subido' : `${pendientesSync} sin subir`;
+  // El conmutador "por zona" (D1) solo aparece si el Recorrido se ha usado
+  // de verdad en esta visita.
+  const zonaUsada = [...capturas, ...hallazgos, ...oportunidades].some(
+    (op) => !!(op.payload as { zonaTexto?: string }).zonaTexto
+  );
+
+  // Fila de "En esta visita": icono + texto (con acento para oportunidad) +
+  // coletilla gris opcional (naturaleza, prioridad, o "· de Fulano" en lo
+  // ajeno — regla 4). Mismo patrón que `itemFila` de CapturasPorUbicacion,
+  // aquí sin agrupar por zona.
+  const filaEnVisita = (
+    key: string,
+    icono: NombreIcono,
+    texto: string,
+    sub?: string,
+    onClick?: () => void,
+    acento?: boolean
+  ) =>
+    onClick ? (
+      <button key={key} type="button" className="va-item" onClick={onClick}>
+        <Icono nombre={icono} size={16} />
+        <span className={`va-item__texto${acento ? ' va-item__texto--acento' : ''}`}>{texto}</span>
+        {sub && <span className="va-item__sub">{sub}</span>}
+      </button>
+    ) : (
+      <div key={key} className="va-item">
+        <Icono nombre={icono} size={16} />
+        <span className={`va-item__texto${acento ? ' va-item__texto--acento' : ''}`}>{texto}</span>
+        {sub && <span className="va-item__sub">{sub}</span>}
+      </div>
+    );
 
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
-        subtitulo="Visita en curso"
+        subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
         ayuda="visita-activa"
         onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
       />
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" className="chip" onClick={() => setInterlocutoresAbierto(true)}>
-          Interlocutores{numInterlocutores ? ` · ${numInterlocutores}` : ''}
-        </button>
-        <button type="button" className="chip" onClick={() => setParticipantesAbierto(true)}>
-          Participantes
-        </button>
-      </div>
-
-      {/* Qué llevas capturado, de un vistazo y desde arriba. Se abre en un
-          panel a pantalla completa (la lista de abajo queda debajo de la
-          rejilla de captura y en un móvil no se ve al entrar). */}
-      {totalCapturado > 0 ? (
-        <button type="button" className="repaso-tira" onClick={() => setRepasoAbierto(true)}>
-          <span>
-            <strong>
-              {totalCapturado} {totalCapturado === 1 ? 'elemento' : 'elementos'}
-            </strong>
-            {resumenCapturado && ` · ${resumenCapturado}`}
-          </span>
-          <span className="repaso-tira__ir" aria-hidden>
-            ›
-          </span>
-        </button>
-      ) : (
-        <div className="repaso-tira repaso-tira--vacia">Aún no has capturado nada en esta visita</div>
-      )}
-
-      {/* Todo lo que no es cabecera/chips/tira y no son los dos botones del
-          pie va en la franja de scroll — si no, en un móvil la rejilla de
-          captura ocupa la pantalla entera y lo de abajo ("Próximos pasos…",
-          "Cerrar visita") queda recortado. Al abrir el panel "Lo capturado"
-          esta misma franja pasa a pantalla completa y oculta el objetivo y
-          la rejilla, dejando solo la lista. */}
-      <div className={`screen__scroll${repasoAbierto ? ' screen__scroll--panel' : ''}`}>
-        {repasoAbierto && (
-          <div className="screen__scroll-cab">
-            <span className="screen__scroll-tit">Lo capturado</span>
-            <button
-              type="button"
-              className="screen__scroll-x"
-              onClick={() => setRepasoAbierto(false)}
-              aria-label="cerrar"
-            >
-              ×
-            </button>
+      <div className="screen__scroll">
+        {/* Zona 1 · Contexto: dónde estoy — cliente/proyecto ya en la
+            cabecera, aquí el nº de visita, el objetivo y con quién. */}
+        {contextoVisitaTexto && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '-6px 2px 2px' }}>
+            {contextoVisitaTexto}
           </div>
         )}
 
-        {!repasoAbierto && (
-          <>
-      {objetivoActual != null && (
-        <div>
-          <div className="label" style={{ marginTop: 0 }}>Objetivo de la visita</div>
+        {/* Objetivo: SIEMPRE visible con lápiz, nunca desaparece (antes se
+            ocultaba entero mientras `objetivoActual` era null). */}
+        <div style={{ border: '1px dashed var(--ink-200)', borderRadius: 'var(--radius-field)', padding: 10 }}>
+          <div
+            style={{
+              display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
+              color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
+            }}
+          >
+            <Icono nombre="editar" size={13} /> A qué vienes
+          </div>
           <textarea
             className="field"
             style={{ height: 'auto', padding: 8, opacity: objetivoEditable ? 1 : 0.7 }}
@@ -1461,275 +1570,329 @@ export function VisitaActiva() {
             <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
           )}
         </div>
-      )}
 
-      <input
-        ref={inputFotoRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const archivo = e.target.files?.[0];
-          if (archivo) void capturarFoto(archivo);
-          e.target.value = '';
-        }}
-      />
-
-      {/* Todas las formas de añadir algo a la visita, juntas. Antes iban
-          repartidas: Foto/Audio/Nota/Oportunidad arriba y Hallazgo/Próximo
-          paso abajo, sin criterio visible. */}
-      <div className="label" style={{ marginTop: 0 }}>Añadir a la visita</div>
-      <div className="capture-grid">
-        <button
-          className="capture-btn"
-          disabled={capturaFoto.cargando || espacioBloqueado}
-          onClick={() => inputFotoRef.current?.click()}
-        >
-          <Icono nombre="foto" size={22} />
-          {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
-        </button>
-        <button
-          className="capture-btn"
-          disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
-          onClick={iniciarODetenerAudio}
-        >
-          <Icono nombre="audio" size={22} />
-          {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
-        </button>
-        <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
-          <Icono nombre="nota" size={22} />
-          Nota
-        </button>
-        <button className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
-          <Icono nombre="hallazgo" size={22} />
-          Hallazgo
-        </button>
-        <button className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
-          <Icono nombre="oportunidad" size={22} />
-          Oportunidad
-        </button>
-        <button className="capture-btn" onClick={() => setPasoAbierto(true)}>
-          <Icono nombre="paso" size={22} />
-          Próximo paso
-        </button>
-      </div>
-
-      {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
-      {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
-      {grabando && (
-        <Aviso tipo="atencion" titulo="Grabando">
-          No bloquees la pantalla ni cambies de app o la grabación se cortará.
-        </Aviso>
-      )}
-
-      {notaAbierta && (
-        <div className="card">
-          <input
-            className="field"
-            style={{ marginBottom: 8 }}
-            autoFocus
-            value={notaTitulo}
-            onChange={(e) => setNotaTitulo(e.target.value)}
-            placeholder="título breve (opcional)"
+        <SeccionLista>
+          <FilaNavegable
+            icono="interlocutor"
+            titulo="Interlocutores"
+            subtitulo={interlocutoresTexto}
+            onClick={() => setInterlocutoresAbierto(true)}
           />
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={2}
-            value={notaTexto}
-            onChange={(e) => setNotaTexto(e.target.value)}
-            placeholder="escribe la nota…"
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button
-              className="btn btn-secondary"
-              disabled={guardadoNota.cargando}
-              onClick={() => {
-                guardadoNota.limpiarError();
-                setNotaAbierta(false);
-              }}
-            >
-              Cancelar
-            </button>
-            <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-              {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-          {guardadoNota.error && (
-            <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
-          )}
-        </div>
-      )}
+          <FilaNavegable icono="equipo" titulo="Equipo" subtitulo={equipoTexto} onClick={() => setParticipantesAbierto(true)} />
+        </SeccionLista>
 
-      {(fotoPendiente || audioPendiente) && (
-        <div className="card">
-          {fotoPendiente && (
-            <img
-              src={URL.createObjectURL(fotoPendiente)}
-              alt="vista previa"
-              style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
-            />
-          )}
-          {audioPendiente && <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />}
-          <input
-            className="field"
-            autoFocus
-            value={tituloPendiente}
-            onChange={(e) => setTituloPendiente(e.target.value)}
-            placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button
-              className="btn btn-secondary"
-              disabled={capturaFoto.cargando || capturaAudio.cargando}
-              onClick={() => {
-                setFotoPendiente(null);
-                setAudioPendiente(null);
-                setTituloPendiente('');
-              }}
-            >
-              Descartar
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={capturaFoto.cargando || capturaAudio.cargando}
-              onClick={confirmarCapturaPendiente}
-            >
-              {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-          {(capturaFoto.error || capturaAudio.error) && (
-            <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
-          )}
-        </div>
-      )}
-          </>
-        )}
-
-        {/* General de la visita + zonas del recorrido, agrupado y plegable.
-            La oportunidad NO se lista aquí — tiene su sección propia debajo. */}
-        <CapturasPorUbicacion
-          contexto="normal"
-          capturas={capturas}
-          hallazgos={hallazgos}
-          oportunidades={oportunidades}
-          nombresUbicaciones={nombresUbicacionesVisita}
-          nombresTerminos={nombresTerminos}
-          onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
-          onAbrirFoto={setFotoVisorId}
+        {/* Zona 2 · Capturar: la acción. Foto/Nota/Audio grandes (lo de
+            campo); Hallazgo/Oportunidad/Próximo paso como chips (lo
+            estructurado) — regla 3, nunca rejilla de botones idénticos. */}
+        <input
+          ref={inputFotoRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            if (archivo) void capturarFoto(archivo);
+            e.target.value = '';
+          }}
         />
 
-        {/* Oportunidades: sección propia (es el negocio de la visita), con
-            etiqueta de la zona donde se detectó, si la hay. */}
-        {oportunidades.length > 0 && (
-          <SeccionLista titulo={`Oportunidades (${oportunidades.length})`}>
-            {oportunidades.map((o) => {
-              const p = o.payload as { titulo: string; prioridad?: string; zonaTexto?: string; ubicacionId?: string };
-              const zona = p.zonaTexto ?? (p.ubicacionId ? nombresUbicacionesVisita[p.ubicacionId] : null);
-              const sub = [p.prioridad, zona ? `en: ${zona}` : null].filter(Boolean).join(' · ');
-              return (
-                <FilaNavegable
-                  key={o.id}
-                  icono="oportunidad"
-                  titulo={p.titulo}
-                  subtitulo={sub || undefined}
-                  onClick={() => navigate(`/oportunidades/${o.id}`)}
-                />
-              );
-            })}
-          </SeccionLista>
+        <div className="label" style={{ marginTop: 0 }}>Captura lo que veas</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)' }}>
+          <button
+            className="capture-btn"
+            disabled={capturaFoto.cargando || espacioBloqueado}
+            onClick={() => inputFotoRef.current?.click()}
+          >
+            <Icono nombre="foto" size={22} />
+            {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
+          </button>
+          <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
+            <Icono nombre="nota" size={22} />
+            Nota
+          </button>
+          <button
+            className="capture-btn"
+            disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
+            onClick={iniciarODetenerAudio}
+          >
+            <Icono nombre="audio" size={22} />
+            {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          <button type="button" className="chip" onClick={() => setHallazgoAbierto(true)}>
+            <Icono nombre="hallazgo" size={14} /> Hallazgo
+          </button>
+          <button type="button" className="chip" onClick={() => setOportunidadAbierta(true)}>
+            <Icono nombre="oportunidad" size={14} /> Oportunidad
+          </button>
+          <button type="button" className="chip" onClick={() => setPasoAbierto(true)}>
+            <Icono nombre="paso" size={14} /> Próximo paso
+          </button>
+        </div>
+
+        {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
+        {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+        {grabando && (
+          <Aviso tipo="atencion" titulo="Grabando">
+            No bloquees la pantalla ni cambies de app o la grabación se cortará.
+          </Aviso>
         )}
 
-        {/* Próximos pasos: lo que va a pasar después de la visita. */}
-        {pasos.length > 0 && (
-          <SeccionLista titulo={`Próximos pasos (${pasos.length})`}>
-            {pasos.map((p) => {
-              const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
-              // OJO: p.estado es el estado de SINCRONIZACIÓN de la cola
-              // offline (pendiente/subiendo/completado/error) — no tiene
-              // nada que ver con el estado de NEGOCIO del próximo paso
-              // (pendiente/completado, si el comercial ya lo hizo). Ambos
-              // usan la palabra "completado" con significados distintos,
-              // así que aquí se traduce explícitamente para no confundir
-              // "ya se guardó en el servidor" con "ya está hecho".
-              const etiquetaSync: Record<string, string> = {
-                pendiente: 'guardando localmente…',
-                subiendo: 'sincronizando…',
-                completado: 'guardado en el servidor',
-                error: 'error al sincronizar',
-              };
-              const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
-              return (
-                <FilaAccion
-                  key={p.id}
-                  icono="paso"
-                  titulo={payload.descripcion}
-                  subtitulo={`${fecha} · ${etiquetaSync[p.estado] ?? p.estado}`}
-                />
-              );
-            })}
-          </SeccionLista>
+        {notaAbierta && (
+          <div className="card">
+            <input
+              className="field"
+              style={{ marginBottom: 8 }}
+              autoFocus
+              value={notaTitulo}
+              onChange={(e) => setNotaTitulo(e.target.value)}
+              placeholder="título breve (opcional)"
+            />
+            <textarea
+              className="field"
+              style={{ height: 'auto', padding: 8 }}
+              rows={2}
+              value={notaTexto}
+              onChange={(e) => setNotaTexto(e.target.value)}
+              placeholder="escribe la nota…"
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={guardadoNota.cargando}
+                onClick={() => {
+                  guardadoNota.limpiarError();
+                  setNotaAbierta(false);
+                }}
+              >
+                Cancelar
+              </button>
+              <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
+                {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+            {guardadoNota.error && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
+            )}
+          </div>
         )}
 
-        {/* De compañeros: todo lo que ha capturado otro comercial en esta
-            misma visita, en una sola sección. */}
-        {hayCompaneros && (
-          <SeccionLista titulo="De compañeros">
-            {notasCompaneros.map((c) => (
-              <FilaNavegable
-                key={c.id}
-                icono="nota"
-                titulo={c.titulo || c.contenido_texto || '(nota vacía)'}
-                subtitulo={`Nota · de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`}
-                onClick={() => navigate(`/capturas/${c.id}`)}
+        {(fotoPendiente || audioPendiente) && (
+          <div className="card">
+            {fotoPendiente && (
+              <img
+                src={URL.createObjectURL(fotoPendiente)}
+                alt="vista previa"
+                style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
               />
-            ))}
-            {audiosCompaneros.map((c) => (
-              <FilaNavegable
-                key={c.id}
-                icono="audio"
-                titulo={c.titulo || 'sin título'}
-                subtitulo={`Audio · de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`}
-                onClick={() => navigate(`/capturas/${c.id}`)}
+            )}
+            {audioPendiente && <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />}
+            <input
+              className="field"
+              autoFocus
+              value={tituloPendiente}
+              onChange={(e) => setTituloPendiente(e.target.value)}
+              placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={capturaFoto.cargando || capturaAudio.cargando}
+                onClick={() => {
+                  setFotoPendiente(null);
+                  setAudioPendiente(null);
+                  setTituloPendiente('');
+                }}
+              >
+                Descartar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={capturaFoto.cargando || capturaAudio.cargando}
+                onClick={confirmarCapturaPendiente}
+              >
+                {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+            {(capturaFoto.error || capturaAudio.error) && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
+            )}
+          </div>
+        )}
+
+        <button type="button" className="ghost-row" onClick={() => setModoRecorrido(true)}>
+          <Icono nombre="recorrido" size={16} />
+          Recorrer las instalaciones
+        </button>
+
+        {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
+            tuyo + oportunidades + próximos pasos + lo de compañeros, regla
+            2) con un contador y un estado de sincronización únicos. */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '10px 2px 6px' }}>
+          <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>En esta visita</span>
+          {totalEnVisita > 0 && (
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{contadorEnVisita}</span>
+          )}
+          {totalEnVisita > 0 && (
+            <span
+              style={{
+                marginLeft: zonaUsada ? undefined : 'auto',
+                fontSize: 'var(--text-xs)',
+                color: pendientesSync === 0 ? 'var(--success-600)' : 'var(--ink-400)',
+              }}
+            >
+              {estadoSyncTexto}
+            </span>
+          )}
+          {zonaUsada && (
+            <button
+              type="button"
+              className="btn-enlace"
+              style={{ marginLeft: 'auto', padding: 0 }}
+              onClick={() => setOrdenPorZona((v) => !v)}
+            >
+              {ordenPorZona ? 'ver por tipo' : 'ver por zona'}
+            </button>
+          )}
+        </div>
+
+        {totalEnVisita === 0 ? (
+          <div className="card" style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
+            Aún no has capturado nada en esta visita
+          </div>
+        ) : (
+          <div className="card" style={{ padding: '2px 10px' }}>
+            {ordenPorZona ? (
+              <CapturasPorUbicacion
+                contexto="normal"
+                capturas={capturas}
+                hallazgos={hallazgos}
+                oportunidades={oportunidades}
+                nombresUbicaciones={nombresUbicacionesVisita}
+                nombresTerminos={nombresTerminos}
+                onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
+                onAbrirFoto={setFotoVisorId}
               />
-            ))}
-            {hallazgosCompaneros.map((h) => (
-              <FilaNavegable
-                key={h.id}
-                icono="hallazgo"
-                titulo={(h.termino as unknown as { nombre: string } | null)?.nombre ?? '…'}
-                subtitulo={`${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`}
-                onClick={() => navigate(`/hallazgos/${h.id}`)}
-              />
-            ))}
-            {oportunidadesCompaneros.map((o) => (
-              <FilaNavegable
-                key={o.id}
-                icono="oportunidad"
-                titulo={o.titulo}
-                subtitulo={`Oportunidad · de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`}
-                onClick={() => navigate(`/oportunidades/${o.id}`)}
-              />
-            ))}
-            {pasosCompaneros.map((p) => (
-              <FilaAccion
-                key={p.id}
-                icono="paso"
-                titulo={p.descripcion}
-                subtitulo={`${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha objetivo'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`}
-              />
-            ))}
-          </SeccionLista>
+            ) : (
+              <>
+                {fotosOwn.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 0' }}>
+                    {[...fotosOwn].reverse().map((f) => {
+                      const blob = f.archivoLocal as Blob | undefined;
+                      const titulo = (f.payload as { titulo?: string }).titulo;
+                      return blob ? (
+                        <img
+                          key={f.id}
+                          src={URL.createObjectURL(blob)}
+                          alt={titulo ?? 'foto'}
+                          onClick={() => setFotoVisorId(f.id)}
+                          style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+                        />
+                      ) : (
+                        <div
+                          key={f.id}
+                          onClick={() => setFotoVisorId(f.id)}
+                          style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                {audiosOwn.map((a) =>
+                  filaEnVisita(
+                    a.id,
+                    'audio',
+                    capitalizarFrase((a.payload as { titulo?: string }).titulo || 'sin título'),
+                    undefined,
+                    () => navigate(`/capturas/${a.id}`)
+                  )
+                )}
+                {audiosCompaneros.map((c) =>
+                  filaEnVisita(
+                    c.id,
+                    'audio',
+                    capitalizarFrase(c.titulo || 'sin título'),
+                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                    () => navigate(`/capturas/${c.id}`)
+                  )
+                )}
+                {notasOwn.map((n) => {
+                  const p = n.payload as { titulo?: string; contenidoTexto?: string };
+                  return filaEnVisita(
+                    n.id,
+                    'nota',
+                    capitalizarFrase(p.titulo || p.contenidoTexto || '(nota vacía)'),
+                    undefined,
+                    () => navigate(`/capturas/${n.id}`)
+                  );
+                })}
+                {notasCompaneros.map((c) =>
+                  filaEnVisita(
+                    c.id,
+                    'nota',
+                    capitalizarFrase(c.titulo || c.contenido_texto || '(nota vacía)'),
+                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                    () => navigate(`/capturas/${c.id}`)
+                  )
+                )}
+                {hallazgos.map((h) => {
+                  const p = h.payload as { terminoId: string; naturaleza: string };
+                  return filaEnVisita(h.id, 'hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza));
+                })}
+                {hallazgosCompaneros.map((h) =>
+                  filaEnVisita(
+                    h.id,
+                    'hallazgo',
+                    (h.termino as unknown as { nombre: string } | null)?.nombre ?? '…',
+                    `${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
+                    () => navigate(`/hallazgos/${h.id}`)
+                  )
+                )}
+                {oportunidades.map((o) => {
+                  const p = o.payload as { titulo: string; prioridad?: string };
+                  return filaEnVisita(
+                    o.id,
+                    'oportunidad',
+                    capitalizarFrase(p.titulo),
+                    p.prioridad,
+                    () => navigate(`/oportunidades/${o.id}`),
+                    true
+                  );
+                })}
+                {oportunidadesCompaneros.map((o) =>
+                  filaEnVisita(
+                    o.id,
+                    'oportunidad',
+                    capitalizarFrase(o.titulo),
+                    `de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`,
+                    () => navigate(`/oportunidades/${o.id}`),
+                    true
+                  )
+                )}
+                {pasos.map((p) => {
+                  const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
+                  const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
+                  return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha);
+                })}
+                {pasosCompaneros.map((p) =>
+                  filaEnVisita(
+                    p.id,
+                    'paso',
+                    capitalizarFrase(p.descripcion),
+                    `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`
+                  )
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Lo que NO es "añadir": el recorrido es un modo, y cerrar es el
-          final. Van aparte de la rejilla de arriba. */}
-      <button className="btn btn-secondary" onClick={() => setModoRecorrido(true)}>
-        <Icono nombre="recorrido" size={18} />
-        Iniciar recorrido
-      </button>
+      {/* Cerrar es el final de la visita — aparte de todo lo de arriba.
+          "Recorrer las instalaciones" ya no va aquí: es una opción de
+          captura más (Zona 2), no un modo aparte al pie. */}
       <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
         Cerrar visita
       </button>

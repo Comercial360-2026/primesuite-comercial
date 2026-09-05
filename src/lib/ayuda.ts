@@ -193,9 +193,9 @@ const _PANTALLAS = {
   'visita-activa': {
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente: fotos, audios, notas, hallazgos, oportunidades y próximos pasos. Arriba tienes el objetivo con el que ibas y los contactos de la visita.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente, en tres bloques: arriba, el contexto (nº de visita, el objetivo con el que ibas, interlocutores y equipo); en medio, capturar (foto, nota, audio, hallazgo, oportunidad, próximo paso, o recorrer las instalaciones); abajo, «En esta visita», con todo lo capturado —lo tuyo y lo de tus compañeros— en una sola lista.',
     cuando:
-      'Durante la visita. Cada botón de la rejilla «añadir a la visita» abre una captura rápida, y lo que vas metiendo se lista debajo. Al terminar, «Cerrar visita».',
+      'Durante la visita. Cada botón o chip de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. Al terminar, «Cerrar visita».',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada.',
   },
   'visita-planificada': {
