@@ -10,7 +10,8 @@ import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
-import { Icono } from '@/components/ui/iconos';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { Aviso } from '@/components/ui/aviso';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { ModalDetalleCierre, type GrupoCierre } from './modal-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -227,32 +228,18 @@ export function CierreVisita() {
         />
 
         {sincronizada ? (
-          <div className="card" style={{ borderColor: 'var(--success-600)' }}>
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500,
-              }}
-            >
-              <Icono nombre="check" size={16} /> Visita consolidada correctamente
-            </div>
-          </div>
+          <Aviso tipo="exito">Visita consolidada correctamente.</Aviso>
         ) : (
-          <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
-              guardado localmente, pendiente de conexión
-            </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que hagas nada más.
-            </div>
-          </div>
+          <Aviso tipo="atencion" titulo="Guardado localmente, pendiente de conexión">
+            El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que
+            hagas nada más.
+          </Aviso>
         )}
 
         <div className="screen__scroll">
           {visitaObjetivo?.objetivo?.trim() && (
-            <div className="card" style={{ background: 'var(--surface-1)' }}>
-              <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
-              <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
+            <div className="ficha-vitals">
+              <span>Ibas a: <b>{visitaObjetivo.objetivo}</b></span>
             </div>
           )}
 
@@ -266,40 +253,44 @@ export function CierreVisita() {
           </div>
 
           {oportunidades.length > 0 && (
-            <div className="card card--oportunidad" style={{ padding: '10px 16px' }}>
+            <SeccionLista titulo="Oportunidades">
               {oportunidades.map((o) => (
-                <div key={o.id} style={{ fontSize: 'var(--text-sm)' }}>
-                  {(o.payload as { titulo: string }).titulo}
-                </div>
+                <FilaDato key={o.id} etiqueta={(o.payload as { titulo: string }).titulo} valor="" />
               ))}
-            </div>
+            </SeccionLista>
           )}
 
           {hallazgos.length > 0 && (
-            <div className="card" style={{ padding: '10px 16px' }}>
+            <SeccionLista titulo="Hallazgos">
               {hallazgos.map((h) => {
                 const payload = h.payload as { terminoId: string; naturaleza: string };
                 return (
-                  <div key={h.id} style={{ fontSize: 'var(--text-sm)' }}>
-                    {nombresTerminos?.[payload.terminoId] ?? '…'} · {payload.naturaleza.replace('_', ' ')}
-                  </div>
+                  <FilaDato
+                    key={h.id}
+                    etiqueta={nombresTerminos?.[payload.terminoId] ?? '…'}
+                    valor={payload.naturaleza.replace('_', ' ')}
+                    valorTenue
+                    tono={payload.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
+                  />
                 );
               })}
-            </div>
+            </SeccionLista>
           )}
 
           {pasos.length > 0 && (
-            <div className="card" style={{ padding: '10px 16px' }}>
+            <SeccionLista titulo="Próximos pasos">
               {pasos.map((p) => {
                 const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                 return (
-                  <div key={p.id} style={{ fontSize: 'var(--text-sm)' }}>
-                    {payload.descripcion}
-                    {payload.fechaObjetivo && ` · ${fechaCorta(payload.fechaObjetivo)}`}
-                  </div>
+                  <FilaDato
+                    key={p.id}
+                    etiqueta={payload.descripcion}
+                    valor={payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : ''}
+                    valorTenue
+                  />
                 );
               })}
-            </div>
+            </SeccionLista>
           )}
 
           {/* El informe solo se puede generar si la visita ya está en el
@@ -370,17 +361,13 @@ export function CierreVisita() {
           </div>
 
           {capturasPendientes.length > 0 && (
-            <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
-                {capturasPendientes.length} captura(s) todavía sin confirmar en el servidor
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-                Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable, espera unos segundos para asegurarte de que todo suba antes de cerrar.
-              </div>
-            </div>
+            <Aviso tipo="atencion" titulo={`${capturasPendientes.length} captura(s) todavía sin confirmar en el servidor`}>
+              Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable,
+              espera unos segundos para asegurarte de que todo suba antes de cerrar.
+            </Aviso>
           )}
 
-          {consolidacion.error && <div className="field-error-text">{consolidacion.error}</div>}
+          {consolidacion.error && <Aviso tipo="error">{consolidacion.error}</Aviso>}
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
@@ -428,32 +415,35 @@ export function CierreVisita() {
       </div>
 
       {visitaObjetivo?.objetivo?.trim() && (
-        <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
-          <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
+        <div className="ficha-vitals">
+          <span>Ibas a: <b>{visitaObjetivo.objetivo}</b></span>
         </div>
       )}
 
       <div className="screen__scroll">
-        <div className="label" style={{ marginTop: 0 }}>Revisar por ubicación</div>
-        {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
-          const resumen = [
-            n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
-            n.audios && `${n.audios} audio${n.audios > 1 ? 's' : ''}`,
-            n.notas && `${n.notas} nota${n.notas > 1 ? 's' : ''}`,
-            n.hallazgos && `${n.hallazgos} hallazgo${n.hallazgos > 1 ? 's' : ''}`,
-            n.oportunidades && `${n.oportunidades} oportunidad${n.oportunidades > 1 ? 'es' : ''}`,
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          return (
-            <div key={ubicacionId} className="card">
-              {ubicacionId === 'sin ubicación' ? 'sin ubicación' : (nombresUbicaciones?.[ubicacionId] ?? '…')}
-              {' · '}
-              {resumen}
-            </div>
-          );
-        })}
+        {Object.keys(elementosPorUbicacion).length > 0 && (
+          <SeccionLista titulo="Revisar por ubicación">
+            {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
+              const resumen = [
+                n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
+                n.audios && `${n.audios} audio${n.audios > 1 ? 's' : ''}`,
+                n.notas && `${n.notas} nota${n.notas > 1 ? 's' : ''}`,
+                n.hallazgos && `${n.hallazgos} hallazgo${n.hallazgos > 1 ? 's' : ''}`,
+                n.oportunidades && `${n.oportunidades} oportunidad${n.oportunidades > 1 ? 'es' : ''}`,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <FilaDato
+                  key={ubicacionId}
+                  etiqueta={ubicacionId === 'sin ubicación' ? 'sin ubicación' : nombresUbicaciones?.[ubicacionId] ?? '…'}
+                  valor={resumen}
+                  valorTenue
+                />
+              );
+            })}
+          </SeccionLista>
+        )}
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
