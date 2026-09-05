@@ -5,6 +5,11 @@ import { supabase } from '@/lib/supabase-client';
 
 interface VisitaLocalMinima {
   clienteId: string;
+  // Puede faltar si la visita todavía está solo en cola local y se creó por
+  // un camino que no fija proyecto explícito (p. ej. alta rápida de
+  // cliente) — el servidor ya lo habrá derivado al sincronizar, pero aquí
+  // en cliente aún no se conoce.
+  proyectoId?: string;
   // Objetivo tal como se guardó en la cola al arrancar la visita. Solo
   // disponible mientras la visita sigue local (aún no sincronizada); en
   // cuanto está en el servidor se lee de ahí. Se usa en Visita Activa para
@@ -34,14 +39,16 @@ export function useVisitaLocal(visitaId: string | undefined) {
       const op = await obtenerOperacion(visitaId!);
       if (op?.entidad === 'visita') {
         const payload = op.payload as VisitaPayload;
-        if (!cancelado) setDatos({ clienteId: payload.clienteId, objetivo: payload.objetivo });
+        if (!cancelado) {
+          setDatos({ clienteId: payload.clienteId, proyectoId: payload.proyectoId, objetivo: payload.objetivo });
+        }
         return;
       }
 
       // Fallback: no hay registro local — consulta Supabase directamente.
       const { data, error } = await supabase
         .from('visita')
-        .select('cliente_id')
+        .select('cliente_id, proyecto_id')
         .eq('id', visitaId!)
         .single();
 
@@ -50,7 +57,7 @@ export function useVisitaLocal(visitaId: string | undefined) {
           console.error(`No se pudo resolver la visita ${visitaId}: ni local ni en Supabase.`, error);
           setDatos(null);
         } else {
-          setDatos({ clienteId: data.cliente_id });
+          setDatos({ clienteId: data.cliente_id, proyectoId: data.proyecto_id });
         }
       }
     }

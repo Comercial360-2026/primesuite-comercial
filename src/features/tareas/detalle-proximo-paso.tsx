@@ -42,7 +42,7 @@ export function DetalleProximoPaso() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, visita:visita_id(cliente:cliente_id(id, nombre))')
+        .select('id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre))')
         .eq('id', pasoId!)
         .single();
       if (err) throw err;
@@ -111,7 +111,7 @@ export function DetalleProximoPaso() {
     // La descripción del paso es el objetivo de la visita — obligatorio, así
     // que no se planifica si está vacía (el botón de guardar del paso ya lo
     // exige, pero esto cubre el caso de haberla borrado sin guardar).
-    if (!comercial || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada) return;
+    if (!comercial || !paso || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada) return;
     setPlanificando(true);
     setErrorPlan(null);
     try {
@@ -125,10 +125,11 @@ export function DetalleProximoPaso() {
       });
       if (err) throw new Error(err);
       // La visita hereda la descripción del paso como objetivo — "esto lo
-      // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
+      // tengo que hacer" se convierte en "voy a esta visita a hacer esto" —
+      // y el mismo proyecto del paso (continuidad, no "vuelve al General").
       const { error: errParche } = await supabase
         .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim() })
+        .update({ hora_definida: false, objetivo: descripcion.trim(), proyecto_id: paso.proyecto_id })
         .eq('id', nuevaId);
       if (errParche) throw new Error(errParche.message);
       setVisitaPlanificada(true);

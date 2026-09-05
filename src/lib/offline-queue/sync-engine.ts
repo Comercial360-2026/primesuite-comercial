@@ -94,6 +94,7 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
         await sincronizarVisita(operacion);
         break;
       case 'cliente':
+      case 'proyecto':
       case 'hallazgo':
       case 'oportunidad':
       case 'proximo_paso':
@@ -123,7 +124,7 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
+  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
   const { error } = await crearVisitaConResponsable({
     pVisitaId: operacion.id,
     pClienteId: clienteId,
@@ -133,15 +134,18 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
     pEstadoCaptura: agendada ? 'agendada' : null,
   });
   if (error) throw new Error(error);
-  // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front
-  // al planificar desde la ficha. Si falla, se lanza para reintentar toda
-  // la operación (la visita ya existe; el UPDATE es idempotente).
-  if (objetivo?.trim()) {
-    const { error: errObjetivo } = await supabase
-      .from('visita')
-      .update({ objetivo: objetivo.trim() })
-      .eq('id', operacion.id);
-    if (errObjetivo) throw new Error(errObjetivo.message);
+  // La RPC no conoce `objetivo` ni `proyecto_id` — UPDATE posterior, igual
+  // que hace el front al planificar desde la ficha. Si falla, se lanza para
+  // reintentar toda la operación (la visita ya existe; el UPDATE es
+  // idempotente). Si no se conoce proyectoId, no se toca: la propia
+  // inserción ya lo dejó bien vía fn_set_proyecto_id_visita (cliente_id →
+  // su Proyecto General).
+  const parche: { objetivo?: string; proyecto_id?: string } = {};
+  if (objetivo?.trim()) parche.objetivo = objetivo.trim();
+  if (proyectoId) parche.proyecto_id = proyectoId;
+  if (Object.keys(parche).length) {
+    const { error: errParche } = await supabase.from('visita').update(parche).eq('id', operacion.id);
+    if (errParche) throw new Error(errParche.message);
   }
 }
 
@@ -149,7 +153,7 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
 // problema de doble escritura atómica que sí tiene Visita (§1 de
 // 10_rpc_functions.sql), así que no necesitan pasar por una RPC.
 async function sincronizarInsertSimple(
-  tabla: 'cliente' | 'hallazgo' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
+  tabla: 'cliente' | 'proyecto' | 'hallazgo' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
   operacion: OperacionPendiente
 ): Promise<void> {
   const fila = aPayloadSnakeCase(operacion);

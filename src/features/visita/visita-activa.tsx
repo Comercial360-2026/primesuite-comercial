@@ -380,8 +380,12 @@ export function VisitaActiva() {
   const audioChunksRef = useRef<Blob[]>([]);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
+  // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con
+  // más columnas) — mismo motivo que en repaso-cliente.tsx y
+  // ficha-proyecto.tsx: con la misma clave, TanStack Query serviría aquí la
+  // caché de la ficha completa, o al revés.
   const { data: cliente } = useQuery({
-    queryKey: ['cliente', visitaLocal?.clienteId],
+    queryKey: ['cliente-nombre', visitaLocal?.clienteId],
     enabled: !!visitaLocal?.clienteId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -800,7 +804,12 @@ export function VisitaActiva() {
       pEstadoCaptura: 'agendada',
     });
     if (error) throw new Error(error);
-    const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
+    // Sigue en el mismo proyecto (línea de negocio) que la visita desde la
+    // que se planifica — continuidad, no "vuelve al General" por defecto.
+    // Si aún no se conoce (visita muy reciente, todavía en cola local), se
+    // omite: el servidor ya habrá aplicado su propia reserva al crearla.
+    const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null; proyecto_id?: string } = {};
+    if (visitaLocal.proyectoId) parche.proyecto_id = visitaLocal.proyectoId;
     if (objetivo.trim()) parche.objetivo = objetivo.trim();
     if (!hora) {
       parche.hora_definida = false;

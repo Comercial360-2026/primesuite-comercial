@@ -105,10 +105,17 @@ const _PANTALLAS = {
   'ficha-cliente': {
     titulo: 'Ficha de cliente',
     queEs:
-      'Todo lo del cliente en un sitio: sus datos, oportunidades activas, próximos pasos, su ecosistema (qué tiene instalado y de quién) y el historial de visitas.',
+      'Los datos del cliente, sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…) y su ecosistema (qué tiene instalado y de quién). Un cliente siempre tiene al menos un proyecto — si nunca has creado ninguno, es el que se llama «General».',
     cuando:
-      'Antes o después de visitarlo. Desde abajo arrancas una visita ahora o la planificas para otro día; en «Más» están sus ubicaciones.',
-    ojo: '«Borrar cliente» elimina la ficha y su historial y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+      'Para entrar en un proyecto concreto y, desde ahí, arrancar o planificar una visita. «Nuevo proyecto» abre otra línea de negocio del mismo cliente.',
+    ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+  },
+  'ficha-proyecto': {
+    titulo: 'Ficha de proyecto',
+    queEs:
+      'Una línea de negocio dentro de un cliente: sus oportunidades activas, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente).',
+    cuando:
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día.',
   },
   'alta-rapida-cliente': {
     titulo: 'Nuevo cliente',

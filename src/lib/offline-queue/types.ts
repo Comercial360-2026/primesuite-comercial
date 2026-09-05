@@ -5,6 +5,7 @@
 
 export type EntidadSincronizable =
   | 'cliente'
+  | 'proyecto'
   | 'visita'
   | 'hallazgo'
   | 'captura_libre'
@@ -34,8 +35,25 @@ export interface ClientePayload {
   estadoRelacion?: string; // por defecto 'borrador' en la BD
 }
 
+// Igual que ClientePayload: reserva para cuando no hay red. Con conexión,
+// la creación de un proyecto sigue siendo un INSERT directo. `dependeDe`
+// encadena con el ClientePayload cuando ambos se crean en el mismo tramo
+// offline (cliente nuevo → primer proyecto nuevo → visita).
+export interface ProyectoPayload {
+  clienteId: string;
+  nombre: string;
+  estado?: string; // por defecto 'activo' en la BD
+}
+
 export interface VisitaPayload {
   clienteId: string;
+  // Proyecto (línea de negocio) al que pertenece la visita. Opcional: si
+  // quien encola no lo conoce (p. ej. alta rápida de un cliente que solo
+  // puede tener un proyecto en ese instante, su "General"), el servidor lo
+  // deriva solo del cliente_id (fn_set_proyecto_id_visita). Cuando SÍ se
+  // conoce (ficha de proyecto, repaso de cliente, seguir un próximo paso…)
+  // se manda siempre explícito para no depender de esa reserva.
+  proyectoId?: string;
   comercialResponsableId: string;
   tipoVisita: 'comercial' | 'demo' | 'tecnica' | 'seguimiento' | 'relacion' | null;
   // Objetivo de la visita, en palabras del comercial. Obligatorio en la UI
@@ -138,6 +156,7 @@ export interface UbicacionPayload {
 
 export type PayloadPorEntidad = {
   cliente: ClientePayload;
+  proyecto: ProyectoPayload;
   visita: VisitaPayload;
   hallazgo: HallazgoPayload;
   captura_libre: CapturaLibrePayload;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -58,6 +58,31 @@ export function RepasoCliente() {
     else setObjetivoModalAbierto(true);
   }
 
+  // Proyecto (línea de negocio) al que va la visita — casi siempre solo hay
+  // uno (el "General" automático), así que esto es invisible en la
+  // práctica: se auto-elige y no se dibuja ningún selector. Si el cliente
+  // tiene más de uno, aparece un selector sencillo antes de arrancar.
+  const [proyectoElegido, setProyectoElegido] = useState('');
+  const { data: proyectosCliente } = useQuery({
+    queryKey: ['proyectos-cliente-repaso', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean }>> => {
+      const { data, error } = await supabase
+        .from('proyecto')
+        .select('id, nombre, es_general')
+        .eq('cliente_id', clienteId!)
+        .order('es_general', { ascending: false })
+        .order('creado_en', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  useEffect(() => {
+    if (proyectosCliente?.length && !proyectoElegido) {
+      setProyectoElegido(proyectosCliente[0].id);
+    }
+  }, [proyectosCliente, proyectoElegido]);
+
   // Si venimos de una visita ya planificada, traemos su objetivo para
   // recordar "a qué vengo" antes de entrar.
   const { data: visitaAgendada } = useQuery({
@@ -74,7 +99,12 @@ export function RepasoCliente() {
     },
   });
 
-  const clienteQueryKey = ['cliente', clienteId];
+  // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con
+  // más columnas): con la misma clave, TanStack Query serviría aquí o allá
+  // la caché de la otra pantalla — bug real de fondo, no hipotético, visto
+  // al navegar Ficha de proyecto → Ficha de cliente con la misma clave que
+  // usaba esta pantalla.
+  const clienteQueryKey = ['cliente-nombre', clienteId];
   const {
     data: cliente,
     isError: isErrorCliente,
@@ -260,6 +290,7 @@ export function RepasoCliente() {
     const visitaId = uuid();
     await encolar(visitaId, 'visita', {
       clienteId: cliente.id,
+      proyectoId: proyectoElegido || undefined,
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
@@ -359,6 +390,26 @@ export function RepasoCliente() {
           <div style={{ fontSize: 'var(--text-base)' }}>
             {proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
           </div>
+        </div>
+      )}
+
+      {/* Casi siempre hay un solo proyecto (el "General" automático) y esto
+          no se dibuja — solo aparece si el cliente tiene más de una línea
+          de negocio, para elegir a cuál va esta visita. */}
+      {!visitaIdAgendada && proyectosCliente && proyectosCliente.length > 1 && (
+        <div className="card">
+          <div className="label" style={{ marginTop: 0 }}>Proyecto</div>
+          <select
+            className="field"
+            value={proyectoElegido}
+            onChange={(e) => setProyectoElegido(e.target.value)}
+          >
+            {proyectosCliente.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

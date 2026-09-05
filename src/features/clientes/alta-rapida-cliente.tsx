@@ -175,9 +175,10 @@ export function AltaRapidaCliente() {
     navigate(`/visita/${visitaId}`);
   }
 
-  // "Lo visito otro día": crea la ficha y abre en ella el formulario de
-  // planificar (?planificar=1). Planificar necesita el cliente ya en el
-  // servidor, así que este flujo exige conexión.
+  // "Lo visito otro día": crea la ficha y abre en su Proyecto General el
+  // formulario de planificar (?planificar=1) — un cliente recién creado
+  // solo puede tener ese proyecto todavía. Planificar necesita el cliente
+  // (y su proyecto) ya en el servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
     if (!nombre.trim() || creacionCliente.cargando) return;
     if (!navigator.onLine) {
@@ -186,15 +187,31 @@ export function AltaRapidaCliente() {
       );
       return;
     }
-    await creacionCliente.ejecutar(crearCliente, {
-      onExito: (cliente) => {
-        if (cliente.enCola) {
-          creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
-          return;
+    await creacionCliente.ejecutar(
+      async () => {
+        const cliente = await crearCliente();
+        if (cliente.enCola) return { cliente, proyectoId: null };
+        const { data: proyecto, error: errorProyecto } = await supabase
+          .from('proyecto')
+          .select('id')
+          .eq('cliente_id', cliente.id)
+          .eq('es_general', true)
+          .single();
+        if (errorProyecto || !proyecto) {
+          throw new Error('El cliente se creó pero no se pudo localizar su proyecto. Ábrelo desde la ficha.');
         }
-        navigate(`/clientes/${cliente.id}?planificar=1`);
+        return { cliente, proyectoId: proyecto.id as string };
       },
-    });
+      {
+        onExito: ({ cliente, proyectoId }) => {
+          if (cliente.enCola || !proyectoId) {
+            creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
+            return;
+          }
+          navigate(`/clientes/${cliente.id}/proyectos/${proyectoId}?planificar=1`);
+        },
+      }
+    );
   }
 
   // "Aún no sé cuándo": solo crea la ficha. Si se encoló (sin red), la

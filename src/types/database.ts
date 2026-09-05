@@ -448,6 +448,7 @@ export type Database = {
           naturaleza: string
           nota: string | null
           origen: string
+          proyecto_id: string
           termino_id: string
           tipo_fecha_relevante: string | null
           ubicacion_id: string | null
@@ -465,6 +466,7 @@ export type Database = {
           naturaleza: string
           nota?: string | null
           origen?: string
+          proyecto_id: string
           termino_id: string
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
@@ -482,6 +484,7 @@ export type Database = {
           naturaleza?: string
           nota?: string | null
           origen?: string
+          proyecto_id?: string
           termino_id?: string
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
@@ -572,6 +575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "hallazgo_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "hallazgo_termino_id_fkey"
@@ -698,6 +708,7 @@ export type Database = {
           oportunidad_antecedente_id: string | null
           origen: string
           prioridad: string
+          proyecto_id: string
           titulo: string
           ubicacion_id: string | null
           valor_estimado: number | null
@@ -720,6 +731,7 @@ export type Database = {
           oportunidad_antecedente_id?: string | null
           origen?: string
           prioridad?: string
+          proyecto_id: string
           titulo: string
           ubicacion_id?: string | null
           valor_estimado?: number | null
@@ -742,6 +754,7 @@ export type Database = {
           oportunidad_antecedente_id?: string | null
           origen?: string
           prioridad?: string
+          proyecto_id?: string
           titulo?: string
           ubicacion_id?: string | null
           valor_estimado?: number | null
@@ -825,6 +838,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["oportunidad_id"]
+          },
+          {
+            foreignKeyName: "oportunidad_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "oportunidad_ubicacion_id_fkey"
@@ -1016,6 +1036,7 @@ export type Database = {
           id: string
           oportunidad_id: string | null
           origen: string
+          proyecto_id: string
           visita_id: string
           zona_texto: string | null
         }
@@ -1030,6 +1051,7 @@ export type Database = {
           id?: string
           oportunidad_id?: string | null
           origen?: string
+          proyecto_id: string
           visita_id: string
           zona_texto?: string | null
         }
@@ -1044,6 +1066,7 @@ export type Database = {
           id?: string
           oportunidad_id?: string | null
           origen?: string
+          proyecto_id?: string
           visita_id?: string
           zona_texto?: string | null
         }
@@ -1098,6 +1121,13 @@ export type Database = {
             referencedColumns: ["oportunidad_id"]
           },
           {
+            foreignKeyName: "proximo_paso_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "proximo_paso_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
@@ -1110,6 +1140,60 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_resumen_visita"
             referencedColumns: ["visita_id"]
+          },
+        ]
+      }
+      proyecto: {
+        Row: {
+          actualizado_en: string
+          cliente_id: string
+          creado_en: string
+          creado_por: string | null
+          descripcion: string | null
+          es_general: boolean
+          estado: string
+          id: string
+          nombre: string
+          valor_estimado: number | null
+        }
+        Insert: {
+          actualizado_en?: string
+          cliente_id: string
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          es_general?: boolean
+          estado?: string
+          id?: string
+          nombre: string
+          valor_estimado?: number | null
+        }
+        Update: {
+          actualizado_en?: string
+          cliente_id?: string
+          creado_en?: string
+          creado_por?: string | null
+          descripcion?: string | null
+          es_general?: boolean
+          estado?: string
+          id?: string
+          nombre?: string
+          valor_estimado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "cliente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "vw_cliente_resuelto"
+            referencedColumns: ["cliente_id"]
           },
         ]
       }
@@ -1588,6 +1672,7 @@ export type Database = {
           hora_definida: boolean
           id: string
           objetivo: string | null
+          proyecto_id: string
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null
@@ -1603,6 +1688,7 @@ export type Database = {
           hora_definida?: boolean
           id?: string
           objetivo?: string | null
+          proyecto_id: string
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null
@@ -1618,6 +1704,7 @@ export type Database = {
           hora_definida?: boolean
           id?: string
           objetivo?: string | null
+          proyecto_id?: string
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null
@@ -1637,6 +1724,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_cliente_resuelto"
             referencedColumns: ["cliente_id"]
+          },
+          {
+            foreignKeyName: "visita_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1715,6 +1809,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "comercial"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_participante_anadido_por_fkey"
+            columns: ["anadido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_participante_anadido_por_fkey"
+            columns: ["anadido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_participante_anadido_por_fkey"
+            columns: ["anadido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_motivos_perdida"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_participante_anadido_por_fkey"
+            columns: ["anadido_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
           },
           {
             foreignKeyName: "visita_participante_comercial_id_fkey"
@@ -2018,6 +2140,7 @@ export type Database = {
           hora_definida: boolean
           id: string
           objetivo: string | null
+          proyecto_id: string
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null

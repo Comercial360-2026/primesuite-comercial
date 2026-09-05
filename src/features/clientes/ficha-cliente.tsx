@@ -1,53 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { haceRelativo } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { crearVisitaConResponsable } from '@/lib/rpc';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
-import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
-import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
-import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
-import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
-import { Icono } from '@/components/ui/iconos';
-import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
-
-interface OportunidadActiva {
-  id: string;
-  titulo: string;
-  prioridad: string;
-  etapa: string;
-  valor_estimado: number | null;
-}
-
-interface ProximoPasoPendiente {
-  id: string;
-  descripcion: string;
-  fecha_objetivo: string | null;
-}
 
 interface EcosistemaItem {
   termino_id: string;
   naturaleza: string;
 }
 
-interface VisitaHistorial {
+interface ProyectoDelCliente {
   id: string;
-  fecha: string;
-  tipo_visita: string | null;
-  objetivo: string | null;
-  estado_captura: string;
+  nombre: string;
+  estado: string;
+  es_general: boolean;
 }
 
 interface PrevisualizacionBorrado {
@@ -65,25 +42,18 @@ interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
   num_ubicaciones: number;
 }
 
+const ESTADO_PROYECTO_LABEL: Record<string, string> = {
+  activo: 'activo',
+  pausado: 'pausado',
+  terminado: 'terminado',
+};
+
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
-  const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
-
-  // Ventana "¿A qué vas?" antes de arrancar una visita sobre la marcha — el
-  // objetivo es obligatorio también aquí, igual que al planificar. Antes, si
-  // ya hay una visita en curso con este cliente, se avisa (enCursoModal).
-  const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
-  const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
-
-  function pedirIniciarVisitaAdHoc() {
-    if (visitaEnCurso) setEnCursoModalAbierto(true);
-    else setObjetivoAdHocAbierto(true);
-  }
 
   const [ecoTodos, setEcoTodos] = useState(false);
   const ECO_VISIBLE = 10;
@@ -93,32 +63,20 @@ export function FichaCliente() {
   const borrandoCliente = useAccionAsync();
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  // ?planificar=1 → se llega aquí desde "Nuevo cliente" con la intención de
-  // planificar una visita: el formulario se abre solo.
-  const [searchParams] = useSearchParams();
-  const [planificando, setPlanificando] = useState(searchParams.get('planificar') === '1');
-  const planificarRef = useRef<HTMLDivElement>(null);
-  const [fechaPlan, setFechaPlan] = useState('');
-  const [horaPlan, setHoraPlan] = useState('');
-  // Solo se usa cuando no hay hora: '' = sin hora fija, 'manana' | 'tarde' =
-  // franja sin hora concreta.
-  const [franjaPlan, setFranjaPlan] = useState<'' | 'manana' | 'tarde'>('');
-  const [objetivoPlan, setObjetivoPlan] = useState('');
-  const [comercialPlan, setComercialPlan] = useState('');
-  const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
-  const planificacion = useAccionAsync();
-  const hoyISO = new Date().toISOString().slice(0, 10);
 
-  // Cambiar responsable del cliente (Fase 6b) — solo Dirección Comercial.
+  // Cambiar responsable del cliente — solo Dirección Comercial.
   const [cambiandoResp, setCambiandoResp] = useState(false);
   const [respNuevo, setRespNuevo] = useState('');
   const cambioResp = useAccionAsync();
 
-  // Solo Dirección Comercial: lista de comerciales activos para "planificar
-  // para otro" y para "cambiar responsable".
+  // Nuevo proyecto (línea de negocio) — cualquier comercial activo.
+  const [creandoProyecto, setCreandoProyecto] = useState(false);
+  const [nombreProyecto, setNombreProyecto] = useState('');
+  const creacionProyecto = useAccionAsync();
+
   const { data: comercialesActivos } = useQuery({
     queryKey: ['comerciales-activos'],
-    enabled: esDireccionComercial && (planificando || cambiandoResp),
+    enabled: esDireccionComercial && cambiandoResp,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('comercial')
@@ -130,73 +88,6 @@ export function FichaCliente() {
     },
   });
 
-  async function planificarVisita() {
-    await planificacion.ejecutar(
-      async () => {
-        if (!cliente || !comercial) {
-          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-        }
-        if (!fechaPlan) throw new Error('Elige una fecha para la visita.');
-        if (!objetivoPlan.trim()) throw new Error('Escribe el objetivo de la visita.');
-        const responsableId = esDireccionComercial && comercialPlan ? comercialPlan : comercial.id;
-        // Llamada directa, NO por la cola offline: planificar una visita para
-        // otro día se hace organizando, con conexión. Si fuera por la cola,
-        // la visita tardaría en llegar al servidor y no aparecería en "Hoy"
-        // hasta que algo volviera a pedir la lista — daba sensación de que
-        // no se guardaba.
-        const visitaId = uuid();
-        const { error } = await crearVisitaConResponsable({
-          pVisitaId: visitaId,
-          pClienteId: cliente.id,
-          pComercialId: responsableId,
-          // `fecha` siempre lleva hora (para ordenar). Si el comercial no
-          // metió una, se usa 09:00 de relleno y se marca hora_definida=false
-          // — la agenda la mostrará como "sin hora".
-          pFecha: new Date(`${fechaPlan}T${horaPlan || '09:00'}:00`).toISOString(),
-          pEstadoCaptura: 'agendada',
-        });
-        if (error) throw new Error(error);
-        // La RPC no conoce `hora_definida`, `franja` ni `objetivo`: un UPDATE
-        // posterior los fija — hora/franja solo si no hay hora concreta, el
-        // objetivo siempre (es obligatorio, ya validado arriba).
-        const parche: {
-          objetivo?: string;
-          hora_definida?: boolean;
-          franja?: string | null;
-        } = { objetivo: objetivoPlan.trim() };
-        if (!horaPlan) {
-          parche.hora_definida = false;
-          parche.franja = franjaPlan || null;
-        }
-        if (Object.keys(parche).length) {
-          const { error: errParche } = await supabase.from('visita').update(parche).eq('id', visitaId);
-          if (errParche) throw new Error(errParche.message);
-        }
-        return fechaPlan;
-      },
-      {
-        onExito: (fecha) => {
-          setPlanificadaPara(fecha);
-          setPlanificando(false);
-          setFechaPlan('');
-          setHoraPlan('');
-          setFranjaPlan('');
-          setObjetivoPlan('');
-          setComercialPlan('');
-          for (const k of [
-            ['historial-visitas', clienteId],
-            ['visitas-hoy'],
-            ['visitas-proximas'],
-            ['visitas-atrasadas'],
-            ['num-grupos-duplicados'],
-          ]) {
-            queryClient.invalidateQueries({ queryKey: k });
-          }
-        },
-      }
-    );
-  }
-
   async function cambiarResponsable() {
     if (!respNuevo) return;
     await cambioResp.ejecutar(() => reasignarCliente(clienteId!, respNuevo), {
@@ -205,7 +96,6 @@ export function FichaCliente() {
         setRespNuevo('');
         queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
         queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-        queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
       },
       mensajeError: (e) => (e instanceof Error ? e.message : 'No se pudo cambiar el responsable.'),
     });
@@ -250,35 +140,18 @@ export function FichaCliente() {
     },
   });
 
-  const { data: oportunidades } = useQuery({
-    queryKey: ['oportunidades-activas', clienteId],
+  const { data: proyectos } = useQuery({
+    queryKey: ['proyectos-cliente', clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<OportunidadActiva[]> => {
+    queryFn: async (): Promise<ProyectoDelCliente[]> => {
       const { data, error } = await supabase
-        .from('oportunidad')
-        .select('id, titulo, prioridad, etapa, valor_estimado')
+        .from('proyecto')
+        .select('id, nombre, estado, es_general')
         .eq('cliente_id', clienteId!)
-        .not('etapa', 'in', '(ganada,perdida,descartada)')
-        .order('creado_en', { ascending: false })
-        .limit(5);
+        .order('es_general', { ascending: false })
+        .order('creado_en', { ascending: true });
       if (error) throw error;
       return data ?? [];
-    },
-  });
-
-  const { data: proximosPasos } = useQuery({
-    queryKey: ['proximos-pasos-cliente', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<ProximoPasoPendiente[]> => {
-      const { data, error } = await supabase
-        .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, visita:visita_id!inner(cliente_id)')
-        .eq('visita.cliente_id', clienteId!)
-        .eq('estado', 'pendiente')
-        .order('fecha_objetivo', { ascending: true })
-        .limit(3);
-      if (error) throw error;
-      return (data ?? []) as unknown as ProximoPasoPendiente[];
     },
   });
 
@@ -315,63 +188,44 @@ export function FichaCliente() {
     },
   });
 
-  // La lanza la ventana "¿A qué vas?" (ObjetivoVisitaModal) — de ahí llega
-  // el `objetivo`, ya validado como no vacío. Lanza en caso de fallo para
-  // que la propia ventana muestre el error; si va bien, navega y la ventana
-  // se desmonta con la pantalla.
-  async function iniciarVisitaAdHoc(objetivo: string) {
-    if (!cliente || !comercial) {
-      throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-    }
-    const visitaId = uuid();
-    await encolar(visitaId, 'visita', {
-      clienteId: cliente.id,
-      comercialResponsableId: comercial.id,
-      tipoVisita: null,
-      objetivo,
-    });
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
-    navigate(`/visita/${visitaId}`);
+  // Con red: INSERT directo (instantáneo, la ficha ya es navegable) — mismo
+  // criterio que crearCliente() en alta-rapida-cliente.tsx. Sin red: se
+  // encola (P14) y se sincroniza luego; entrar en su ficha antes de que
+  // sincronice no encontraría la fila todavía, así que solo se navega si se
+  // pudo confirmar al momento.
+  async function crearProyecto() {
+    if (!nombreProyecto.trim() || !comercial || !clienteId) return;
+    await creacionProyecto.ejecutar(
+      async () => {
+        const proyectoId = uuid();
+        const nombreLimpio = nombreProyecto.trim();
+
+        if (navigator.onLine) {
+          const { data, error } = await supabase
+            .from('proyecto')
+            .insert({ id: proyectoId, cliente_id: clienteId, nombre: nombreLimpio })
+            .select('id')
+            .single();
+          if (!error && data) return { id: data.id, enCola: false };
+          const esFalloDeRed =
+            !navigator.onLine || /fetch|network|load failed/i.test(error?.message ?? '');
+          if (!esFalloDeRed) throw new Error(error?.message ?? 'No se pudo crear el proyecto.');
+        }
+
+        await encolar(proyectoId, 'proyecto', { clienteId, nombre: nombreLimpio });
+        return { id: proyectoId, enCola: true };
+      },
+      {
+        onExito: ({ id, enCola }) => {
+          setCreandoProyecto(false);
+          setNombreProyecto('');
+          queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
+          if (enCola) return;
+          navigate(`/clientes/${clienteId}/proyectos/${id}`);
+        },
+      }
+    );
   }
-
-  const { data: historialVisitas } = useQuery({
-    queryKey: ['historial-visitas', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<VisitaHistorial[]> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('id, fecha, tipo_visita, objetivo, estado_captura')
-        .eq('cliente_id', clienteId!)
-        .order('fecha', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  // Aviso suave si ya hay una visita planificada (hoy o futura) con este
-  // cliente — para no acumular planes duplicados sin querer. No bloquea.
-  const visitaYaPlanificada = historialVisitas?.find(
-    (v) => v.estado_captura === 'agendada' && new Date(v.fecha).getTime() >= new Date().setHours(0, 0, 0, 0)
-  );
-
-  // Ficha "vacía" = nada que un comercial haya registrado (ni oportunidades,
-  // ni próximos pasos, ni ecosistema, ni visitas). Las secciones vacías no
-  // se dibujan — antes cada una metía una fila "Sin …" de relleno. Si TODO
-  // está vacío, una sola línea con presencia (EstadoLista). `listasCargadas`
-  // evita el parpadeo de "vacía" mientras las cuatro queries resuelven.
-  const listasCargadas =
-    oportunidades !== undefined &&
-    proximosPasos !== undefined &&
-    ecosistema !== undefined &&
-    historialVisitas !== undefined;
-  const fichaVacia =
-    !oportunidades?.length &&
-    !proximosPasos?.length &&
-    !ecosistema?.length &&
-    !historialVisitas?.length;
-  const hayBasicos =
-    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
   // Línea de contexto de la cabecera ("lo de un vistazo"). Todo sale de
   // datos ya guardados — no se pide rellenar nada.
@@ -382,15 +236,8 @@ export function FichaCliente() {
     ? nombresComerciales?.[cliente.creado_por] ?? null
     : null;
   const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
-  const hoyMs = new Date().setHours(0, 0, 0, 0);
-
-  // Al llegar con ?planificar=1 el formulario ya está abierto, pero vive al
-  // final de la pantalla — se acerca a la vista para que se vea.
-  useEffect(() => {
-    if (planificando && searchParams.get('planificar') === '1') {
-      planificarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [planificando, searchParams]);
+  const hayBasicos =
+    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -456,199 +303,160 @@ export function FichaCliente() {
             : undefined
         }
         volverA="/clientes"
-        derecha={semaforo ? <EtiquetaSemaforo valor={semaforo.semaforo} /> : undefined}
       />
 
       <div className="screen__scroll">
-       {ultimaVisitaRel && (
-         <div className="ficha-vitals">
-           <span>Última visita <b>{ultimaVisitaRel}</b></span>
+       {(ultimaVisitaRel || semaforo) && (
+         <div className="ficha-vitals" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+           {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}
+           {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
          </div>
        )}
+       {/* Acción: lo esporádico como chip, no como fila de lista ni botón
+           ancho — regla 3 del modelo de 10 reglas. */}
+       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
+         <button type="button" className="chip" onClick={() => setCreandoProyecto(true)}>
+           + Nuevo proyecto
+         </button>
+         {esDireccionComercial && (
+           <button
+             type="button"
+             className="chip"
+             onClick={() => {
+               setRespNuevo(cliente?.responsable_id ?? '');
+               setCambiandoResp(true);
+             }}
+           >
+             Responsable: {responsableNombre ?? 'sin asignar'}
+           </button>
+         )}
+       </div>
+
+       {creandoProyecto && (
+         <div className="card">
+           <div className="label" style={{ marginTop: 0 }}>Nuevo proyecto</div>
+           <input
+             className={`field${creacionProyecto.error ? ' field--error' : ''}`}
+             autoFocus
+             value={nombreProyecto}
+             onChange={(e) => setNombreProyecto(e.target.value)}
+             placeholder="mantenimiento, obra nueva, postventa…"
+           />
+           {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
+           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+             <button
+               className="btn btn-secondary"
+               disabled={creacionProyecto.cargando}
+               onClick={() => {
+                 setCreandoProyecto(false);
+                 setNombreProyecto('');
+                 creacionProyecto.limpiarError();
+               }}
+             >
+               Cancelar
+             </button>
+             <button
+               className="btn btn-primary"
+               disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+               onClick={crearProyecto}
+             >
+               {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
+             </button>
+           </div>
+         </div>
+       )}
+
+       {cambiandoResp && (
+         <div className="card">
+           <div className="label" style={{ marginTop: 0 }}>Responsable del cliente</div>
+           <select
+             className="field"
+             value={respNuevo}
+             onChange={(e) => setRespNuevo(e.target.value)}
+           >
+             <option value="">— elige un comercial —</option>
+             {comercialesActivos?.map((c) => (
+               <option key={c.id} value={c.id}>
+                 {c.nombre}
+               </option>
+             ))}
+           </select>
+           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+             Sus visitas planificadas y próximos pasos pendientes de este cliente pasan también. El historial
+             no cambia.
+           </div>
+           {cambioResp.error && (
+             <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+           )}
+           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+             <button
+               className="btn btn-secondary"
+               disabled={cambioResp.cargando}
+               onClick={() => {
+                 setCambiandoResp(false);
+                 cambioResp.limpiarError();
+               }}
+             >
+               Cancelar
+             </button>
+             <button
+               className="btn btn-primary"
+               disabled={cambioResp.cargando || !respNuevo || respNuevo === cliente?.responsable_id}
+               onClick={cambiarResponsable}
+             >
+               {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
+             </button>
+           </div>
+         </div>
+       )}
+
        <div className="lista-agrupada">
-        {(hayBasicos || responsableNombre || esDireccionComercial) && (
+        {(hayBasicos || (responsableNombre && !esDireccionComercial)) && (
           <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
               <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
             )}
             {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
-            {esDireccionComercial ? (
-              <FilaNavegable
-                titulo="Responsable"
-                valor={responsableNombre ?? 'Sin asignar'}
-                valorTenue={!responsableNombre}
-                chevron
-                onClick={() => {
-                  setRespNuevo(cliente?.responsable_id ?? '');
-                  setCambiandoResp(true);
-                }}
-              />
-            ) : (
-              responsableNombre && <FilaDato etiqueta="Responsable" valor={responsableNombre} />
+            {responsableNombre && !esDireccionComercial && (
+              <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
           </SeccionLista>
         )}
 
-        {cambiandoResp && (
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>Responsable del cliente</div>
-            <select
-              className="field"
-              value={respNuevo}
-              onChange={(e) => setRespNuevo(e.target.value)}
-            >
-              <option value="">— elige un comercial —</option>
-              {comercialesActivos?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-              Sus visitas planificadas y próximos pasos pendientes de este cliente pasan también. El historial
-              no cambia.
-            </div>
-            {cambioResp.error && (
-              <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button
-                className="btn btn-secondary"
-                disabled={cambioResp.cargando}
-                onClick={() => {
-                  setCambiandoResp(false);
-                  cambioResp.limpiarError();
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={cambioResp.cargando || !respNuevo || respNuevo === cliente?.responsable_id}
-                onClick={cambiarResponsable}
-              >
-                {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
-              </button>
-            </div>
-          </div>
-        )}
+        <SeccionLista titulo="Proyectos" prominencia="principal">
+          {proyectos?.map((p) => (
+            <FilaNavegable
+              key={p.id}
+              titulo={p.es_general ? `${p.nombre} (todo lo que no encaja en otro)` : p.nombre}
+              subtitulo={p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined}
+              to={`/clientes/${clienteId}/proyectos/${p.id}`}
+            />
+          ))}
+        </SeccionLista>
 
-        {listasCargadas && fichaVacia ? (
-          <EstadoLista
-            estado="vacio"
-            mensaje="Todavía no hay nada registrado. Empieza una visita para llenar la ficha."
-          />
-        ) : (
-          <>
-            {!!oportunidades?.length && (
-              <SeccionLista titulo="Oportunidades activas" prominencia="principal">
-                {oportunidades.map((o) => (
-                  <FilaNavegable
-                    key={o.id}
-                    titulo={o.titulo}
-                    subtitulo={
-                      [
-                        o.etapa ? etiqueta(ETAPA_LABEL, o.etapa) : null,
-                        o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || undefined
-                    }
-                    valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
-                    to={`/oportunidades/${o.id}`}
-                  />
+        {!!ecosistema?.length && (
+          <SeccionLista titulo="Ecosistema">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+              {/* Riesgos y oportunidades primero — es lo que mira el
+                  comercial de un vistazo. Se recorta a ECO_VISIBLE. */}
+              {[...ecosistema]
+                .sort(
+                  (a, b) =>
+                    (a.naturaleza === 'riesgo' ? 0 : a.naturaleza === 'oportunidad' ? 1 : 2) -
+                    (b.naturaleza === 'riesgo' ? 0 : b.naturaleza === 'oportunidad' ? 1 : 2)
+                )
+                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
+                .map((item) => (
+                  <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
                 ))}
-              </SeccionLista>
-            )}
-
-            {!!proximosPasos?.length && (
-              <SeccionLista titulo="Próximos pasos">
-                {proximosPasos.map((p) => {
-                  const vencido =
-                    !!p.fecha_objetivo && new Date(p.fecha_objetivo).getTime() < hoyMs;
-                  return (
-                    <FilaNavegable
-                      key={p.id}
-                      titulo={p.descripcion}
-                      tono={vencido ? 'riesgo' : 'neutral'}
-                      valor={
-                        p.fecha_objetivo
-                          ? vencido
-                            ? `vencido ${haceRelativo(p.fecha_objetivo)}`
-                            : fechaCorta(p.fecha_objetivo)
-                          : undefined
-                      }
-                      valorTenue={!vencido}
-                      to={`/proximos-pasos/${p.id}`}
-                    />
-                  );
-                })}
-              </SeccionLista>
-            )}
-
-            {!!ecosistema?.length && (
-              <SeccionLista titulo="Ecosistema">
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-                  {/* Riesgos y oportunidades primero — es lo que mira el
-                      comercial de un vistazo. Se recorta a ECO_VISIBLE. */}
-                  {[...ecosistema]
-                    .sort(
-                      (a, b) =>
-                        (a.naturaleza === 'riesgo' ? 0 : a.naturaleza === 'oportunidad' ? 1 : 2) -
-                        (b.naturaleza === 'riesgo' ? 0 : b.naturaleza === 'oportunidad' ? 1 : 2)
-                    )
-                    .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
-                    .map((item) => (
-                      <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
-                    ))}
-                  {ecosistema.length > ECO_VISIBLE && (
-                    <button type="button" className="btn-enlace" onClick={() => setEcoTodos((v) => !v)}>
-                      {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
-                    </button>
-                  )}
-                </div>
-              </SeccionLista>
-            )}
-
-            {!!historialVisitas?.length && (
-              <SeccionLista titulo="Historial de visitas">
-                {historialVisitas.map((v) => {
-                  // La fila solo navega. Descargar informe y Borrar viven
-                  // dentro de la visita (detalle / Visita Activa) — así el
-                  // historial no es un muro de botones.
-                  const estadoLegible =
-                    v.estado_captura === 'agendada'
-                      ? 'planificada'
-                      : v.estado_captura === 'en_curso'
-                        ? 'en curso'
-                        : 'cerrada';
-                  const accion =
-                    v.estado_captura === 'agendada'
-                      ? 'gestionar'
-                      : v.estado_captura === 'en_curso'
-                        ? 'continuar visita'
-                        : 'ver contenido';
-                  const to =
-                    v.estado_captura === 'agendada'
-                      ? `/visita/${v.id}/planificada`
-                      : v.estado_captura === 'en_curso'
-                        ? `/visita/${v.id}`
-                        : `/visita/${v.id}/detalle`;
-                  return (
-                    <FilaNavegable
-                      key={v.id}
-                      titulo={fechaCorta(v.fecha)}
-                      subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
-                      valor={accion}
-                      valorTenue
-                      to={to}
-                    />
-                  );
-                })}
-              </SeccionLista>
-            )}
-          </>
+              {ecosistema.length > ECO_VISIBLE && (
+                <button type="button" className="btn-enlace" onClick={() => setEcoTodos((v) => !v)}>
+                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
+                </button>
+              )}
+            </div>
+          </SeccionLista>
         )}
 
         {creadorNombre && (
@@ -669,8 +477,8 @@ export function FichaCliente() {
                   {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
                   {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
                   {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
-                  {previsualizacionCliente.num_ubicaciones} ubicación(es). Todo eso se borrará también,
-                  para siempre. No se puede deshacer.
+                  {previsualizacionCliente.num_ubicaciones} ubicación(es), en todos sus proyectos. Todo eso se
+                  borrará también, para siempre. No se puede deshacer.
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
                   Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
@@ -705,154 +513,6 @@ export function FichaCliente() {
         )}
        </div>
       </div>
-
-      {planificadaPara && !planificando && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-          Visita planificada para el{' '}
-          {fechaCorta(`${planificadaPara}T09:00:00`)}
-          . Aparecerá en «Hoy» ese día.
-        </div>
-      )}
-
-      {planificando ? (
-        <div className="card" ref={planificarRef}>
-          {visitaYaPlanificada && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 8 }}>
-              Ya tienes una visita planificada con este cliente el{' '}
-              {fechaCorta(visitaYaPlanificada.fecha)}. Puedes
-              planificar otra igualmente.
-            </div>
-          )}
-          <div className="label" style={{ marginTop: 0 }}>Fecha de la visita</div>
-          <input
-            type="date"
-            className="field"
-            min={hoyISO}
-            value={fechaPlan}
-            onChange={(e) => setFechaPlan(e.target.value)}
-          />
-          <div className="label">Objetivo</div>
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={2}
-            placeholder="a qué vas: cerrar pedido, presentar gama, primera toma de contacto…"
-            value={objetivoPlan}
-            onChange={(e) => setObjetivoPlan(e.target.value)}
-          />
-          <div className="label">Hora (opcional)</div>
-          <input
-            type="time"
-            className="field"
-            value={horaPlan}
-            onChange={(e) => setHoraPlan(e.target.value)}
-          />
-          {!horaPlan && (
-            <>
-              <div className="label">Sin hora concreta, ¿cuándo?</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {([
-                  ['manana', 'Mañana'],
-                  ['tarde', 'Tarde'],
-                  ['', 'Sin hora fija'],
-                ] as const).map(([val, txt]) => (
-                  <button
-                    key={val || 'sin'}
-                    type="button"
-                    className={`chip${franjaPlan === val ? ' chip--on' : ''}`}
-                    onClick={() => setFranjaPlan(val)}
-                  >
-                    {txt}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {esDireccionComercial && (
-            <>
-              <div className="label">Para</div>
-              <select
-                className="field"
-                value={comercialPlan}
-                onChange={(e) => setComercialPlan(e.target.value)}
-              >
-                <option value="">Yo ({comercial?.nombre ?? '—'})</option>
-                {comercialesActivos
-                  ?.filter((c) => c.id !== comercial?.id)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-              </select>
-            </>
-          )}
-          {planificacion.error && <div className="field-error-text" style={{ marginTop: 8 }}>{planificacion.error}</div>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button
-              className="btn btn-secondary"
-              disabled={planificacion.cargando}
-              onClick={() => {
-                setPlanificando(false);
-                planificacion.limpiarError();
-              }}
-            >
-              Cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={planificacion.cargando || !fechaPlan || !objetivoPlan.trim()}
-              onClick={planificarVisita}
-            >
-              {planificacion.cargando ? 'Planificando…' : 'Planificar'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          className="btn btn-secondary"
-          onClick={() => {
-            setPlanificadaPara(null);
-            setPlanificando(true);
-          }}
-        >
-          Planificar visita para otro día
-        </button>
-      )}
-
-      {/* Con un panel inline abierto (planificar / cambiar responsable /
-          confirmar borrado), ese panel es el foco: "Iniciar visita ahora"
-          baja a secundario para dejar un solo primario azul en pantalla. */}
-      <button
-        className={`btn ${
-          planificando || cambiandoResp || confirmandoBorrarCliente ? 'btn-secondary' : 'btn-primary'
-        }`}
-        onClick={pedirIniciarVisitaAdHoc}
-      >
-        Iniciar visita ahora
-        <Icono nombre="chevron" size={18} />
-      </button>
-
-      {enCursoModalAbierto && visitaEnCurso && (
-        <VisitaEnCursoModal
-          clienteNombre={cliente?.nombre}
-          objetivo={visitaEnCurso.objetivo}
-          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
-          onEmpezarOtra={() => {
-            setEnCursoModalAbierto(false);
-            setObjetivoAdHocAbierto(true);
-          }}
-          onCerrar={() => setEnCursoModalAbierto(false)}
-        />
-      )}
-
-      {objetivoAdHocAbierto && (
-        <ObjetivoVisitaModal
-          clienteNombre={cliente?.nombre}
-          onConfirmar={iniciarVisitaAdHoc}
-          onCerrar={() => setObjetivoAdHocAbierto(false)}
-        />
-      )}
     </div>
   );
 }

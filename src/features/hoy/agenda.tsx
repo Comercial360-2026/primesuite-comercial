@@ -31,6 +31,7 @@ interface VisitaAgenda {
   objetivo: string | null;
   tipo_visita: string | null;
   cliente: { id: string; nombre: string } | null;
+  proyecto: { nombre: string; es_general: boolean } | null;
 }
 
 function inicioDeHoy() {
@@ -87,7 +88,10 @@ export function Agenda() {
 
   // "+ Planificar visita": buscador de cliente en línea. null = cerrado (solo
   // el botón); string = abierto con ese texto. Al elegir cliente se salta a
-  // su ficha con el formulario de planificar ya abierto (?planificar=1).
+  // su ficha: planificar vive en Ficha de proyecto, y un cliente encontrado
+  // por búsqueda puede tener más de un proyecto — no se puede adivinar cuál,
+  // así que aquí se entra a elegir en vez de abrir el formulario directo
+  // (a diferencia de "Nuevo cliente", donde solo puede haber uno).
   const [buscarCliente, setBuscarCliente] = useState<string | null>(null);
   const terminoBuscar = (buscarCliente ?? '').trim();
   const { data: clientesEncontrados, isFetching: buscandoClientes } = useQuery({
@@ -112,7 +116,9 @@ export function Agenda() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre)')
+        .select(
+          'id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre, es_general)'
+        )
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true });
       if (error) throw error;
@@ -270,6 +276,10 @@ export function Agenda() {
     const deOtro = resp && resp !== comercial?.id;
     const deQuien = deOtro ? `de ${nombresComerciales?.[resp] ?? '…'}` : '';
     const horaTexto = v.hora_definida ? hora(v.fecha) : 'sin hora';
+    // El proyecto "General" es el invisible por defecto (P9) — solo se
+    // nombra cuando es un proyecto real, para no repetir "· General" en
+    // cada fila de cada cliente (regla 4: metadatos solo si aportan).
+    const proyectoTexto = v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : '';
     return (
       <FilaNavegable
         key={v.id}
@@ -281,8 +291,8 @@ export function Agenda() {
           // `valor`: ahí es largo y en un iPhone estrecho aplasta el título
           // hasta partirlo en varias líneas. `valor` se queda solo con la hora.
           (atrasada
-            ? [v.objetivo, `era para el ${cap(fechaDiaMes(v.fecha))}`, deQuien]
-            : [v.objetivo, deQuien]
+            ? [v.objetivo, proyectoTexto, `era para el ${cap(fechaDiaMes(v.fecha))}`, deQuien]
+            : [v.objetivo, proyectoTexto, deQuien]
           )
             .filter(Boolean)
             .join(' · ') || undefined
@@ -440,7 +450,7 @@ export function Agenda() {
                     <FilaNavegable
                       key={c.id}
                       titulo={c.nombre}
-                      to={`/clientes/${c.id}?planificar=1`}
+                      to={`/clientes/${c.id}`}
                     />
                   ))}
                 </SeccionLista>
