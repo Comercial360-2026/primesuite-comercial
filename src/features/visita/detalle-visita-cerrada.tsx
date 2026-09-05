@@ -14,6 +14,7 @@ import {
 } from '@/lib/etiquetas-visita';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -70,6 +71,29 @@ export function DetalleVisitaCerrada() {
   const { estadoDe, descargar } = useDescargarInforme();
   const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
+
+  const { comercial } = useSesionActual();
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  // Mismo criterio que el backend (eliminar_visita_completa: responsable de
+  // la visita o Dirección) — ver hallazgo gemelo en Ficha de cliente
+  // (auditoría 2026-09-05): la UI no debe ofrecer "Borrar" a un simple
+  // acompañante, aunque el servidor lo fuera a rechazar igualmente.
+  const { data: esResponsable } = useQuery({
+    queryKey: ['soy-responsable-visita', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial?.id && !esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('visita_participante')
+        .select('id')
+        .eq('visita_id', visitaId!)
+        .eq('comercial_id', comercial!.id)
+        .eq('rol', 'responsable')
+        .maybeSingle();
+      if (err) throw err;
+      return !!data;
+    },
+  });
+  const puedeBorrarVisita = esDireccionComercial || !!esResponsable;
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -474,7 +498,7 @@ export function DetalleVisitaCerrada() {
         </div>
       )}
 
-      {data && visitaId && (
+      {data && visitaId && puedeBorrarVisita && (
         <div style={{ marginTop: 4 }}>
           {borrar.visitaBorrarId === visitaId ? (
             <ConfirmarBorradoVisita ctrl={borrar} />
