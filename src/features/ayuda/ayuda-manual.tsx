@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { PANTALLAS, CONCEPTOS } from '@/lib/ayuda';
 
@@ -53,6 +54,7 @@ export function AyudaManual() {
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
   const [busqueda, setBusqueda] = useState('');
+  const buscador = useBuscador(!!busqueda);
   // Título de la entrada abierta (uno a la vez). Al buscar se ignora: los
   // resultados salen desplegados para ver por qué casan.
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
@@ -87,15 +89,22 @@ export function AyudaManual() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Cómo funciona PrimeNotes" />
-
-      <input
-        className="field"
-        type="search"
-        placeholder="Buscar…"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
+      <CabeceraDetalle
+        titulo="Cómo funciona PrimeNotes"
+        derecha={!buscador.abierto && <BotonBuscar etiqueta="Buscar…" onClick={buscador.abrir} />}
       />
+
+      {buscador.abierto && (
+        <CampoBuscar
+          value={busqueda}
+          onChange={setBusqueda}
+          placeholder="Buscar…"
+          onCerrar={() => {
+            setBusqueda('');
+            buscador.cerrar();
+          }}
+        />
+      )}
 
       <div className="screen__scroll">
         {nada && <p className="ayuda-manual__vacio">Nada coincide con «{busqueda}».</p>}

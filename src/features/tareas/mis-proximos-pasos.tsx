@@ -9,6 +9,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
 interface ProximoPaso {
@@ -188,22 +189,16 @@ export function MisProximosPasos() {
     <div className="screen">
       <CabeceraSeccion titulo="Mis próximos pasos" icono="tareas" ayuda="mis-proximos-pasos" />
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          type="button"
-          className={`chip${filtro === 'pendiente' ? ' chip--on' : ''}`}
-          onClick={() => setFiltro('pendiente')}
-        >
-          Pendientes
-        </button>
-        <button
-          type="button"
-          className={`chip${filtro === 'completado' ? ' chip--on' : ''}`}
-          onClick={() => setFiltro('completado')}
-        >
-          Completados
-        </button>
-      </div>
+      <Segmentado
+        opciones={
+          [
+            { valor: 'pendiente', etiqueta: 'Pendientes' },
+            { valor: 'completado', etiqueta: 'Completados' },
+          ] as const
+        }
+        valor={filtro}
+        onCambio={setFiltro}
+      />
 
       {isLoading && <EstadoLista estado="cargando" />}
 

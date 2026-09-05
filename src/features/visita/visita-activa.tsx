@@ -1278,7 +1278,7 @@ export function VisitaActiva() {
                     Cancelar
                   </button>
                   <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-                    {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
+                    {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
                   </button>
                 </div>
                 {guardadoNota.error && (
@@ -1670,7 +1670,7 @@ export function VisitaActiva() {
                 Cancelar
               </button>
               <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-                {guardadoNotaConExito ? 'Guardado ✓' : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
+                {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
             {guardadoNota.error && (

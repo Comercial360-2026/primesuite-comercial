@@ -9,6 +9,7 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
+import { Segmentado } from '@/components/ui/segmentado';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 import { BloqueAhora } from './bloque-ahora';
 
@@ -52,8 +53,8 @@ export function AgendaDelDia() {
   // comercial normal ve siempre solo sus propias visitas de hoy, sin poder
   // cambiarlo; el interruptor "Todos" es exclusivo de Dirección Comercial.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [soloMiasElegido, setSoloMias] = useState(true);
-  const soloMias = esDireccionComercial ? soloMiasElegido : true;
+  const [vistaDireccion, setVistaDireccion] = useState<'mias' | 'todas'>('mias');
+  const soloMias = esDireccionComercial ? vistaDireccion === 'mias' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
@@ -263,20 +264,36 @@ export function AgendaDelDia() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Hoy" icono="hoy" ayuda="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
+      <CabeceraSeccion
+        titulo="Hoy"
+        icono="hoy"
+        ayuda="hoy"
+        subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)}
+        derecha={
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Empezar visita sin planificar"
+            title="Empezar visita sin planificar"
+            onClick={() => navigate('/clientes')}
+          >
+            <Icono nombre="mas" size={18} />
+          </button>
+        }
+      />
 
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         {esDireccionComercial && (
-          <>
-            {/* El seleccionado por defecto (Solo mías) va primero — es la
-                vista natural; "Todas" es abrir el foco, va después. */}
-            <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
-              Solo mías
-            </button>
-            <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-              Todas
-            </button>
-          </>
+          <Segmentado
+            opciones={
+              [
+                { valor: 'mias', etiqueta: 'Solo mías' },
+                { valor: 'todas', etiqueta: 'Todas' },
+              ] as const
+            }
+            valor={vistaDireccion}
+            onCambio={setVistaDireccion}
+          />
         )}
         {/* Atajo a la agenda completa: un icono junto a los filtros, no una
             fila de texto al fondo del scroll. */}
@@ -391,12 +408,6 @@ export function AgendaDelDia() {
         )}
       </div>
 
-      {/* Acción de pantalla anclada abajo, misma pinta que "Nuevo cliente"
-          en Clientes: primaria (relleno azul) y fija, no se va con el scroll. */}
-      <button className="btn btn-primary" onClick={() => navigate('/clientes')}>
-        <Icono nombre="mas" size={18} />
-        Empezar visita sin planificar
-      </button>
     </div>
   );
 }

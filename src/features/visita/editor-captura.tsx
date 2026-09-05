@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { Icono } from '@/components/ui/iconos';
 
 interface EditorCapturaProps {
   capturaId: string;
@@ -130,7 +131,7 @@ export function EditorCaptura({ capturaId, onCerrar }: EditorCapturaProps) {
               Borrar
             </button>
             <button className="btn btn-primary" onClick={guardarEdicion} disabled={guardado.cargando}>
-              {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar'}
+              {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardado.cargando ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
           {guardado.error && <div className="field-error-text" style={{ marginTop: 8 }}>{guardado.error}</div>}

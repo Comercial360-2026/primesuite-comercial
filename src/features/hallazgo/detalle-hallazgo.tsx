@@ -13,6 +13,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { Icono } from '@/components/ui/iconos';
 
 const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
@@ -233,7 +234,7 @@ export function DetalleHallazgo() {
         disabled={guardando || guardadoConExito}
         onClick={guardar}
       >
-        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
+        {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (

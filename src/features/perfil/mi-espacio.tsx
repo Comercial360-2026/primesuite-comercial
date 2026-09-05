@@ -13,6 +13,7 @@ import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { Aviso } from '@/components/ui/aviso';
+import { Segmentado } from '@/components/ui/segmentado';
 
 type VisitaEspacio = {
   visita_id: string;
@@ -240,21 +241,17 @@ export function MiEspacio() {
         )}
 
         {!!visitas?.length && !seleccionando && (
-          <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
-            <button
-              type="button"
-              className={`chip${orden === 'antiguas' ? ' chip--on' : ''}`}
-              onClick={() => setOrden('antiguas')}
-            >
-              Más antiguas primero
-            </button>
-            <button
-              type="button"
-              className={`chip${orden === 'tamano' ? ' chip--on' : ''}`}
-              onClick={() => setOrden('tamano')}
-            >
-              Las que más ocupan
-            </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingInline: 'var(--fila-pad-x)' }}>
+            <Segmentado
+              opciones={
+                [
+                  { valor: 'antiguas', etiqueta: 'Más antiguas primero' },
+                  { valor: 'tamano', etiqueta: 'Las que más ocupan' },
+                ] as const
+              }
+              valor={orden}
+              onCambio={setOrden}
+            />
             <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccion}>
               Seleccionar
             </button>

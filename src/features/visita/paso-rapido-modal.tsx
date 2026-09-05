@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
 import { Modal } from '@/components/ui/modal';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Icono } from '@/components/ui/iconos';
 
 interface PasoRapidoModalProps {
   visitaId: string;
@@ -91,27 +93,20 @@ export function PasoRapidoModal({
 
   return (
     <Modal titulo="Qué queda pendiente" onCerrar={onCerrar}>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <button
-            type="button"
-            className={`chip${modo === 'tarea' ? ' chip--on' : ''}`}
-            onClick={() => {
-              setModo('tarea');
+        <div style={{ marginTop: 8 }}>
+          <Segmentado
+            opciones={
+              [
+                { valor: 'tarea', etiqueta: 'Tarea' },
+                { valor: 'visita', etiqueta: 'Próxima visita' },
+              ] as const
+            }
+            valor={modo}
+            onCambio={(v) => {
+              setModo(v);
               setError(null);
             }}
-          >
-            Tarea
-          </button>
-          <button
-            type="button"
-            className={`chip${modo === 'visita' ? ' chip--on' : ''}`}
-            onClick={() => {
-              setModo('visita');
-              setError(null);
-            }}
-          >
-            Próxima visita
-          </button>
+          />
         </div>
 
         {modo === 'tarea' ? (
@@ -200,8 +195,8 @@ export function PasoRapidoModal({
         >
           {guardadoConExito
             ? modo === 'tarea'
-              ? 'Guardado ✓'
-              : 'Planificada ✓'
+              ? <><Icono nombre="check" size={16} /> Guardado</>
+              : <><Icono nombre="check" size={16} /> Planificada</>
             : guardando
               ? 'Guardando…'
               : modo === 'tarea'

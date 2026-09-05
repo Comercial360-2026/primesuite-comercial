@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { OportunidadPayload } from '@/lib/offline-queue/types';
 import { Modal } from '@/components/ui/modal';
+import { Icono } from '@/components/ui/iconos';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface OportunidadRapidaModalProps {
@@ -76,8 +77,8 @@ export function OportunidadRapidaModal({
     <Modal titulo="Oportunidad rápida" onCerrar={onCerrar}>
       {guardadoConExito ? (
         <>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
-            Guardado ✓
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
+            <Icono nombre="check" size={16} /> Guardado
           </div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 0 12px' }}>
             «{titulo.trim()}» — {etiqueta(PRIORIDAD_LABEL, prioridad)}. Puedes completarla ahora (etapa,

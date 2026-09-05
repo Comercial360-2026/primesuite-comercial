@@ -244,7 +244,7 @@ export function DetalleCaptura() {
             disabled={guardado.cargando || guardadoConExito}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
+            {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
@@ -271,7 +271,7 @@ export function DetalleCaptura() {
             disabled={guardado.cargando || guardadoConExito || !textoEdit.trim()}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? 'Guardado ✓' : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
+            {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>

@@ -9,6 +9,8 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Segmentado } from '@/components/ui/segmentado';
+import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
 
 interface ClienteConSemaforo {
@@ -25,14 +27,15 @@ export function ListadoClientes() {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
+  const buscador = useBuscador(!!busqueda);
   // Decisión de producto (29/8/2026): un comercial normal ve siempre solo
   // lo suyo, sin posibilidad de cambiarlo — el interruptor "Todos" es
   // exclusivo de Dirección Comercial. No es una restricción de permisos
   // (a nivel de base de datos sigue siendo visible para todos, igual que
   // siempre), es una decisión de qué mostrar en esta pantalla en concreto.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [soloMiosElegido, setSoloMios] = useState(true);
-  const soloMios = esDireccionComercial ? soloMiosElegido : true;
+  const [vistaDireccion, setVistaDireccion] = useState<'mios' | 'todos'>('mios');
+  const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
   const queryClient = useQueryClient();
 
   const queryKey = ['listado-clientes', busqueda];
@@ -112,32 +115,54 @@ export function ListadoClientes() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Clientes" icono="clientes" ayuda="clientes" />
-
-      <input
-        className="field"
-        placeholder="buscar cliente…"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
+      <CabeceraSeccion
+        titulo="Clientes"
+        icono="clientes"
+        ayuda="clientes"
+        derecha={
+          <>
+            {!buscador.abierto && <BotonBuscar etiqueta="buscar cliente…" onClick={buscador.abrir} />}
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Nuevo cliente"
+              title="Nuevo cliente"
+              onClick={() => navigate('/clientes/nuevo')}
+            >
+              <Icono nombre="mas" size={18} />
+            </button>
+          </>
+        }
       />
 
+      {buscador.abierto && (
+        <CampoBuscar
+          value={busqueda}
+          onChange={setBusqueda}
+          placeholder="buscar cliente…"
+          onCerrar={() => {
+            setBusqueda('');
+            buscador.cerrar();
+          }}
+        />
+      )}
+
       {esDireccionComercial && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* El seleccionado por defecto (Solo míos) va primero. */}
-          <button
-            type="button"
-            className={`chip${soloMios ? ' chip--on' : ''}`}
-            onClick={() => setSoloMios(true)}
-          >
-            Solo míos
-          </button>
-          <button
-            type="button"
-            className={`chip${!soloMios ? ' chip--on' : ''}`}
-            onClick={() => setSoloMios(false)}
-          >
-            Todos
-          </button>
+        <Segmentado
+          opciones={
+            [
+              { valor: 'mios', etiqueta: 'Solo míos' },
+              { valor: 'todos', etiqueta: 'Todos' },
+            ] as const
+          }
+          valor={vistaDireccion}
+          onCambio={setVistaDireccion}
+        />
+      )}
+
+      {!!clientesFiltrados?.length && (
+        <div className="contador">
+          {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'}
         </div>
       )}
 
@@ -169,7 +194,7 @@ export function ListadoClientes() {
               const subtitulo =
                 [
                   // En "Todos" (Dirección): quién lleva la cuenta, o el aviso.
-                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : '⚠ Sin responsable') : null,
+                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : 'Sin responsable') : null,
                   heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
                   c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
                 ]
@@ -204,11 +229,6 @@ export function ListadoClientes() {
         <EstadoLista estado="vacio" mensaje="Sin resultados." />
       )}
       </div>
-
-      <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
-        <Icono nombre="mas" size={18} />
-        Nuevo cliente
-      </button>
     </div>
   );
 }

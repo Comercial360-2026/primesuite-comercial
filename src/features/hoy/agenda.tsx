@@ -9,6 +9,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, ordenFranja } from '@/lib/franja-visita';
@@ -79,8 +80,8 @@ export function Agenda() {
   // Igual que Hoy y Clientes: se entra viendo lo tuyo; "Todas" es abrir el
   // foco al equipo, un toque. (Antes esta pantalla entraba en "Todas" y
   // rompía la coherencia con el resto.)
-  const [soloMiasElegido, setSoloMias] = useState(true);
-  const soloMias = esDireccionComercial ? soloMiasElegido : true;
+  const [vistaDireccion, setVistaDireccion] = useState<'mias' | 'todas'>('mias');
+  const soloMias = esDireccionComercial ? vistaDireccion === 'mias' : true;
 
   // Lista (por defecto) o rejilla de mes. La lista es mejor para "qué toca
   // ahora"; el mes, para ver de un vistazo cómo viene la planificación.
@@ -318,16 +319,36 @@ export function Agenda() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Agenda" ayuda="agenda" />
+      <CabeceraDetalle
+        titulo="Agenda"
+        ayuda="agenda"
+        derecha={
+          !seleccionando && buscarCliente === null ? (
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Planificar visita"
+              title="Planificar visita"
+              onClick={() => setBuscarCliente('')}
+            >
+              <Icono nombre="mas" size={18} />
+            </button>
+          ) : undefined
+        }
+      />
 
       {!seleccionando && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className={`chip${vista === 'lista' ? ' chip--on' : ''}`} onClick={() => setVista('lista')}>
-            Lista
-          </button>
-          <button type="button" className={`chip${vista === 'mes' ? ' chip--on' : ''}`} onClick={() => setVista('mes')}>
-            Mes
-          </button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Segmentado
+            opciones={
+              [
+                { valor: 'lista', etiqueta: 'Lista' },
+                { valor: 'mes', etiqueta: 'Mes' },
+              ] as const
+            }
+            valor={vista}
+            onCambio={setVista}
+          />
           {vista === 'lista' && (atrasadas.length > 0 || dias.length > 0) && (
             <button type="button" className="chip" style={{ marginLeft: 'auto' }} onClick={entrarSeleccion}>
               Seleccionar
@@ -337,13 +358,65 @@ export function Agenda() {
       )}
 
       {esDireccionComercial && !seleccionando && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* El seleccionado por defecto (Solo mías) va primero. */}
-          <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
-            Solo mías
-          </button>
-          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todas
+        <Segmentado
+          opciones={
+            [
+              { valor: 'mias', etiqueta: 'Solo mías' },
+              { valor: 'todas', etiqueta: 'Todas' },
+            ] as const
+          }
+          valor={vistaDireccion}
+          onCambio={setVistaDireccion}
+        />
+      )}
+
+      {buscarCliente !== null && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="label" style={{ marginTop: 0 }}>Planificar visita — busca el cliente</div>
+          <input
+            className="field"
+            autoFocus
+            placeholder="nombre del cliente"
+            value={buscarCliente}
+            onChange={(e) => setBuscarCliente(e.target.value)}
+          />
+          {terminoBuscar.length >= 2 && (
+            <>
+              {buscandoClientes && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>
+              )}
+              {!buscandoClientes && clientesEncontrados?.length === 0 && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  Sin resultados. Si es un cliente nuevo, créalo primero en Clientes.
+                </div>
+              )}
+              {!!clientesEncontrados?.length && (
+                <SeccionLista>
+                  {clientesEncontrados.map((c) => (
+                    <FilaNavegable
+                      key={c.id}
+                      titulo={c.nombre}
+                      to={`/clientes/${c.id}`}
+                    />
+                  ))}
+                </SeccionLista>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            style={{
+              border: 'none',
+              background: 'none',
+              color: 'var(--ink-400)',
+              fontSize: 'var(--text-sm)',
+              cursor: 'pointer',
+              alignSelf: 'flex-start',
+              padding: 0,
+            }}
+            onClick={() => setBuscarCliente(null)}
+          >
+            Cancelar
           </button>
         </div>
       )}
@@ -397,9 +470,19 @@ export function Agenda() {
           <div className="lista-agrupada">
             {/* Atrasadas: un montón a resolver, no a ojear. Plegable y cerrado
                 de inicio para que no empuje hacia abajo los días que sí miras.
-                Cabecera ámbar + ⚠, igual que en "Hoy". */}
+                Icono de atención + tono ámbar, igual que en "Hoy" — no un
+                "⚠" suelto en el texto (única grieta de emoji de esta
+                pantalla; el resto de la app ya no lo usa). */}
             {atrasadas.length > 0 && (
-              <SeccionColapsable titulo="⚠ Atrasadas" cantidad={atrasadas.length}>
+              <SeccionColapsable
+                titulo={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Icono nombre="atencion" size={14} /> Atrasadas
+                  </span>
+                }
+                cantidad={atrasadas.length}
+                tono="aviso"
+              >
                 <div className="seccion-lista__grupo">{atrasadas.map((v) => fila(v, true))}</div>
               </SeccionColapsable>
             )}
@@ -416,64 +499,6 @@ export function Agenda() {
         )}
       </div>
 
-      {/* Acción principal anclada abajo, igual que "Nuevo cliente" en
-          Clientes: botón primario (relleno, no solo borde — el usuario es
-          daltónico) y siempre visible, no se va con el scroll. */}
-      {buscarCliente === null ? (
-        <button className="btn btn-primary" onClick={() => setBuscarCliente('')}>
-          <Icono nombre="mas" size={18} />
-          Planificar visita
-        </button>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="label" style={{ marginTop: 0 }}>Planificar visita — busca el cliente</div>
-          <input
-            className="field"
-            autoFocus
-            placeholder="nombre del cliente"
-            value={buscarCliente}
-            onChange={(e) => setBuscarCliente(e.target.value)}
-          />
-          {terminoBuscar.length >= 2 && (
-            <>
-              {buscandoClientes && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>
-              )}
-              {!buscandoClientes && clientesEncontrados?.length === 0 && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                  Sin resultados. Si es un cliente nuevo, créalo primero en Clientes.
-                </div>
-              )}
-              {!!clientesEncontrados?.length && (
-                <SeccionLista>
-                  {clientesEncontrados.map((c) => (
-                    <FilaNavegable
-                      key={c.id}
-                      titulo={c.nombre}
-                      to={`/clientes/${c.id}`}
-                    />
-                  ))}
-                </SeccionLista>
-              )}
-            </>
-          )}
-          <button
-            type="button"
-            style={{
-              border: 'none',
-              background: 'none',
-              color: 'var(--ink-400)',
-              fontSize: 'var(--text-sm)',
-              cursor: 'pointer',
-              alignSelf: 'flex-start',
-              padding: 0,
-            }}
-            onClick={() => setBuscarCliente(null)}
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { crearComercial, traspasarCartera, type RolComercial } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { Aviso } from '@/components/ui/aviso';
+import { Icono } from '@/components/ui/iconos';
 
 const ROLES: { valor: RolComercial; etiqueta: string }[] = [
   { valor: 'comercial', etiqueta: 'Comercial' },
@@ -137,7 +138,7 @@ export function AltaComercial() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiar}>
-                    {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+                    {copiado ? <><Icono nombre="check" size={16} /> Copiado</> : 'Copiar enlace'}
                   </button>
                   {puedeCompartir && (
                     <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={compartir}>

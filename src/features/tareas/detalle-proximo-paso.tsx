@@ -8,6 +8,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
@@ -249,7 +250,7 @@ export function DetalleProximoPaso() {
         disabled={!descripcion.trim() || guardando || guardadoConExito}
         onClick={guardar}
       >
-        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
+        {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (

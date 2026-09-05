@@ -7,6 +7,7 @@ import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
@@ -455,7 +456,7 @@ export function DetalleOportunidad() {
         disabled={guardando || guardadoConExito}
         onClick={guardar}
       >
-        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
+        {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (

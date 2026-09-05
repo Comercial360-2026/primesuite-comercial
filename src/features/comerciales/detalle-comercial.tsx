@@ -314,7 +314,7 @@ export function DetalleComercial() {
             <div className="enlace-copia">{enlaceReenviado}</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiarEnlace}>
-                {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+                {copiado ? <><Icono nombre="check" size={16} /> Copiado</> : 'Copiar enlace'}
               </button>
               {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
                 <button

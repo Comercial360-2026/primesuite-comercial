@@ -10,6 +10,7 @@ import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
+import { Icono } from '@/components/ui/iconos';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { ModalDetalleCierre, type GrupoCierre } from './modal-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -227,8 +228,13 @@ export function CierreVisita() {
 
         {sincronizada ? (
           <div className="card" style={{ borderColor: 'var(--success-600)' }}>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
-              ✓ visita consolidada correctamente
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500,
+              }}
+            >
+              <Icono nombre="check" size={16} /> Visita consolidada correctamente
             </div>
           </div>
         ) : (

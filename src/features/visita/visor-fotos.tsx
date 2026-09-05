@@ -87,7 +87,7 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar, onEditar }: Pro
                 target="_blank"
                 rel="noreferrer"
               >
-                📍 Abrir en el mapa
+                <Icono nombre="ubicacion" size={14} /> Abrir en el mapa
               </a>
             )}
             {onEditar && (

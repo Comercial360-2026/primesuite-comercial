@@ -335,6 +335,17 @@ const registro = {
       <path d="M22.2 18.5c-.2-2.2-1.7-3.6-3.7-3.6" />
     </>
   ),
+
+  // Opciones — "más acciones sobre esto" (kebab vertical). Único icono con
+  // relleno del set, como "reproducir": un kebab de trazo no se lee bien
+  // a tamaño pequeño.
+  opciones: (
+    <>
+      <circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type NombreIcono = keyof typeof registro;

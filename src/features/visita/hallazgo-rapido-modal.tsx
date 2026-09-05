@@ -3,6 +3,7 @@ import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Modal } from '@/components/ui/modal';
+import { Icono } from '@/components/ui/iconos';
 import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface HallazgoRapidoModalProps {
@@ -112,7 +113,7 @@ export function HallazgoRapidoModal({
           disabled={!terminoSeleccionado || guardando || guardadoConExito}
           onClick={guardar}
         >
-          {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
+          {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
