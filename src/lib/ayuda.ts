@@ -98,9 +98,9 @@ const _PANTALLAS = {
   clientes: {
     titulo: 'Clientes',
     queEs:
-      'La lista de tus cuentas. Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar».',
+      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar».',
     cuando:
-      'Para buscar un cliente y entrar en su ficha. Si diriges el equipo, «Solo míos / Todos» cambia entre tu cartera y la de todos, y ahí ves quién lleva cada cuenta.',
+      'Para entrar en la ficha de un cliente. La lista muestra por defecto tu cartera, pero el buscador encuentra CUALQUIER cliente de la empresa — útil para cubrir a un compañero o para comprobar si ya existe antes de darlo de alta. Si diriges el equipo, «Solo míos / Todos» cambia la vista y ahí ves quién lleva cada cuenta.',
   },
   'ficha-cliente': {
     titulo: 'Ficha de cliente',

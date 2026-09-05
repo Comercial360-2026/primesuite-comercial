@@ -28,11 +28,12 @@ export function ListadoClientes() {
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
   const buscador = useBuscador(!!busqueda);
-  // Decisión de producto (29/8/2026): un comercial normal ve siempre solo
-  // lo suyo, sin posibilidad de cambiarlo — el interruptor "Todos" es
-  // exclusivo de Dirección Comercial. No es una restricción de permisos
-  // (a nivel de base de datos sigue siendo visible para todos, igual que
-  // siempre), es una decisión de qué mostrar en esta pantalla en concreto.
+  // Decisión de producto (29/8/2026, ajustada 2026-09-05): un comercial
+  // normal ve por defecto solo su cartera — el interruptor "Todos" es
+  // exclusivo de Dirección. PERO al escribir en el buscador cualquiera
+  // encuentra cualquier cliente (cubrir a un compañero, no crear
+  // duplicados). No es una restricción de permisos (la BD lo permite a
+  // todos), es qué se muestra por defecto en esta pantalla.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const [vistaDireccion, setVistaDireccion] = useState<'mios' | 'todos'>('mios');
   const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
@@ -99,8 +100,14 @@ export function ListadoClientes() {
     },
   });
 
+  // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
+  // compañero, comprobar antes de dar de alta un duplicado) — un buscador
+  // que esconde coincidencias confunde. Sin búsqueda, un comercial normal
+  // ve solo su cartera y Dirección respeta su interruptor "Solo míos".
+  const buscando = !!busqueda.trim();
+  const restringirACartera = soloMios && !buscando;
   const clientesFiltrados = clientes?.filter(
-    (c) => !soloMios || meta?.[c.cliente_id]?.responsable_id === comercial?.id
+    (c) => !restringirACartera || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );
 
   const sinConexion = isPaused && clientes === undefined;
@@ -226,7 +233,16 @@ export function ListadoClientes() {
       )}
 
       {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
-        <EstadoLista estado="vacio" mensaje="Sin resultados." />
+        <EstadoLista
+          estado="vacio"
+          mensaje={
+            buscando
+              ? 'Sin resultados.'
+              : restringirACartera
+                ? 'Todavía no tienes clientes en tu cartera. Crea uno con «+», o usa el buscador para encontrar cualquier cliente.'
+                : 'No hay clientes.'
+          }
+        />
       )}
       </div>
     </div>

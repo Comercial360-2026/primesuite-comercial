@@ -48,14 +48,24 @@ en esta visita". Verificado en vivo: alta desde la ficha, y presencia +
 "Editar" + nombre en Zona 1 desde la visita, sin regresiones ni errores
 de consola.
 
-### 1.3 — [A] Un comercial sin cartera se queda sin app
-"Clientes" muestra "Sin resultados" en blanco, sin explicar por qué (no
-tiene cartera asignada) ni qué hacer. El buscador también está limitado a
-su cartera: buscar "MADRID" (que existe) devuelve "Sin resultados".
-→ Falta: estado vacío con acción ("aún no tienes clientes; crea uno con +
-o pide a Dirección que te asigne cartera"). Y valorar si un comercial
-debería poder **encontrar** (aunque sea en solo lectura) un cliente de un
-compañero para dar soporte / no duplicarlo.
+### 1.3 — [A] Un comercial sin cartera se queda sin app — ✅ RESUELTO (opción 2)
+Cesar eligió: la lista sigue mostrando tu cartera por defecto, pero **el
+buscador encuentra CUALQUIER cliente** de la empresa (cubrir a un
+compañero, comprobar antes de crear). No hace falta migración — la RLS de
+`cliente` ya permite leer cualquiera. **Hecho** en `listado-clientes.tsx`:
+al buscar se ignora el filtro de cartera; estado vacío nuevo ("Todavía no
+tienes clientes en tu cartera. Crea uno con «+», o usa el buscador para
+encontrar cualquier cliente."). `ayuda.ts` de `clientes` actualizada.
+Verificado en vivo: Borja (sin cartera) busca "MADRID" y encuentra MADRID
+DIGITAL (cartera de otro).
+**El bug de duplicados NO existía:** el chequeo de "ya existe parecido" del
+alta ya consulta TODOS los clientes (comprobado en el código, `alta-rapida-
+cliente.tsx` no filtra por responsable). En el recorrido no saltó porque
+el nombre era único, no por estar limitado a la cartera.
+La ficha de un cliente ajeno **no se pone en solo lectura**: el modelo ya
+permite a propósito que cualquier comercial trabaje el cliente de otro;
+"Borrar cliente" y "Editar datos" ya tienen su propio candado
+(creador/responsable/Dirección).
 
 ### 1.4 — [A] Planificar una visita no tiene camino directo
 Desde **Agenda** hay un "+" y el texto vacío dice "Planifica una desde la
