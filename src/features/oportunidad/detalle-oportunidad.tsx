@@ -65,7 +65,9 @@ export function DetalleOportunidad() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('oportunidad')
-        .select('id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, cliente:cliente_id(nombre)')
+        .select(
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+        )
         .eq('id', oportunidadId!)
         .maybeSingle();
       if (err) throw err;
@@ -86,6 +88,7 @@ export function DetalleOportunidad() {
           motivo_cierre: p.motivoCierre ?? null,
           comentario_cierre: p.comentarioCierre ?? null,
           cliente: null as { nombre: string } | null,
+          proyecto: null as { nombre: string; es_general: boolean } | null,
           enCola: true,
         };
       }
@@ -93,6 +96,15 @@ export function DetalleOportunidad() {
     },
   });
   const enCola = oportunidad?.enCola === true;
+  // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
+  // cliente era la oportunidad. El proyecto solo se nombra si no es el
+  // General invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
+  const contextoCliente = [
+    oportunidad?.cliente?.nombre,
+    oportunidad?.proyecto && !oportunidad.proyecto.es_general ? oportunidad.proyecto.nombre : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   async function cargarTerminosPorRol(rol: 'solucion_propuesta' | 'tecnologia_motivadora'): Promise<TerminoAsociado[]> {
     const { data: rels, error: err } = await supabase
@@ -287,6 +299,7 @@ export function DetalleOportunidad() {
     <div className="screen">
       <CabeceraDetalle
         titulo="Oportunidad"
+        subtitulo={contextoCliente || undefined}
         ayuda="detalle-oportunidad"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />

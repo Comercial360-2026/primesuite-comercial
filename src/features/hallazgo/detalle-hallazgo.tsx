@@ -43,13 +43,24 @@ export function DetalleHallazgo() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('hallazgo')
-        .select('id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, termino:termino_id(id, nombre, categoria_id)')
+        .select(
+          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+        )
         .eq('id', hallazgoId!)
         .single();
       if (err) throw err;
       return data;
     },
   });
+  // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
+  // cliente era el hallazgo. El proyecto solo se nombra si no es el General
+  // invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
+  const contextoCliente = [
+    hallazgo?.cliente?.nombre,
+    hallazgo?.proyecto && !hallazgo.proyecto.es_general ? hallazgo.proyecto.nombre : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   useEffect(() => {
     if (!hallazgo) return;
@@ -146,9 +157,14 @@ export function DetalleHallazgo() {
       <CabeceraDetalle
         titulo="Hallazgo"
         ayuda="detalle-hallazgo"
-        subtitulo={(hallazgo.termino as unknown as { nombre: string })?.nombre ?? undefined}
+        subtitulo={contextoCliente || undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
       />
+      {(hallazgo.termino as unknown as { nombre: string } | null)?.nombre && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '-6px 2px 0' }}>
+          {(hallazgo.termino as unknown as { nombre: string }).nombre}
+        </div>
+      )}
 
       <div className="label">Naturaleza</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -42,7 +42,9 @@ export function DetalleProximoPaso() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre))')
+        .select(
+          'id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre, es_general)'
+        )
         .eq('id', pasoId!)
         .single();
       if (err) throw err;
@@ -175,6 +177,12 @@ export function DetalleProximoPaso() {
 
   const cliente = (paso.visita as unknown as { cliente: { id: string; nombre: string } | null })?.cliente;
   const clienteNombre = cliente?.nombre;
+  // Regla 6 (contexto siempre visible): el proyecto solo se nombra si no es
+  // el General invisible por defecto (P9, regla 4) — mismo criterio que
+  // Agenda y las otras dos pantallas de detalle.
+  const contextoCliente = [clienteNombre, paso.proyecto && !paso.proyecto.es_general ? paso.proyecto.nombre : null]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="screen">
@@ -182,7 +190,7 @@ export function DetalleProximoPaso() {
         <CabeceraDetalle
           titulo="Próximo paso"
           ayuda="proximo-paso"
-          subtitulo={clienteNombre}
+          subtitulo={contextoCliente || undefined}
           onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
         />
       </div>
