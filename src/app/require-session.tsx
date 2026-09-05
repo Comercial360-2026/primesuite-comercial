@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface RequireSessionProps {
   children: ReactNode;
@@ -16,7 +17,15 @@ export function RequireSession({ children }: RequireSessionProps) {
   const { comercial, cargando } = useSesionActual();
   const location = useLocation();
 
-  if (cargando) return null;
+  // Antes devolvía `null` — la app se quedaba en blanco, sin ninguna
+  // señal, mientras resolvía la sesión (auth + fila de comercial).
+  if (cargando) {
+    return (
+      <div className="screen">
+        <EstadoLista estado="cargando" />
+      </div>
+    );
+  }
   if (!comercial) {
     return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
   }

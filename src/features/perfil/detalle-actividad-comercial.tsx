@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaDato } from '@/components/ui/fila-dato';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface ActividadProyecto {
@@ -73,9 +73,10 @@ export function DetalleActividadComercial() {
               const capturas = p.num_fotos + p.num_audios + p.num_notas;
               const etiqueta = p.es_general ? p.cliente_nombre : `${p.cliente_nombre} › ${p.proyecto_nombre}`;
               return (
-                <FilaDato
+                <FilaNavegable
                   key={p.proyecto_id}
-                  etiqueta={etiqueta}
+                  titulo={etiqueta}
+                  to={`/clientes/${p.cliente_id}/proyectos/${p.proyecto_id}`}
                   valor={
                     <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                       <span>
