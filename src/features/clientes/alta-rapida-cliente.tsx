@@ -9,6 +9,8 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
@@ -242,63 +244,50 @@ export function AltaRapidaCliente() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle titulo="Nuevo cliente" ayuda="alta-rapida-cliente" onVolver={() => navigate(-1)} />
 
-      <div className="label" style={{ marginTop: 0 }}>Nombre</div>
-      <input
-        className={`field${creacionCliente.error ? ' field--error' : ''}`}
-        autoFocus
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        placeholder="razón social"
-      />
-      {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
-
-      {coincidencias.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          <div
-            style={{
-              fontSize: 'var(--text-sm)',
-              fontWeight: hayExacto ? 600 : 400,
-              color: hayExacto ? 'var(--warning-600)' : 'var(--ink-400)',
-            }}
-          >
-            {hayExacto ? 'Ya existe un cliente con este nombre:' : 'Ya existen clientes parecidos:'}
-          </div>
-          {coincidencias.map((c) => (
-            <div
-              key={c.id}
-              className="card"
-              style={{
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 8,
-                opacity: creacionCliente.cargando ? 0.5 : 1,
-              }}
-              onClick={() => visitarExistente(c.id, c.nombre)}
-            >
-              <span style={{ fontSize: 'var(--text-base)' }}>{c.nombre}</span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', flexShrink: 0 }}>
-                iniciar visita →
-              </span>
-            </div>
-          ))}
-          {hayExacto && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-              Si es otro negocio con el mismo nombre, puedes crearlo igual con el botón de abajo.
-            </div>
-          )}
+      <div className="screen__scroll">
+       <div className="lista-agrupada">
+        <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+          <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+          <input
+            className={`field${creacionCliente.error ? ' field--error' : ''}`}
+            autoFocus
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="razón social"
+          />
+          {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
         </div>
-      )}
 
-      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-        El resto de la ficha (sector, tamaño, ubicación) se completa después.
-      </p>
+        {coincidencias.length > 0 && (
+          <SeccionLista titulo={hayExacto ? 'Ya existe un cliente con este nombre' : 'Ya existen clientes parecidos'}>
+            {coincidencias.map((c) => (
+              <FilaNavegable
+                key={c.id}
+                titulo={c.nombre}
+                valor="iniciar visita"
+                valorTenue
+                disabled={creacionCliente.cargando}
+                onClick={() => visitarExistente(c.id, c.nombre)}
+              />
+            ))}
+          </SeccionLista>
+        )}
+        {hayExacto && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
+            Si es otro negocio con el mismo nombre, puedes crearlo igual con el botón de abajo.
+          </div>
+        )}
 
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
+          El resto de la ficha (sector, tamaño, ubicación) se completa después.
+        </p>
+       </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button
           className="btn btn-primary"
           disabled={!nombre.trim() || creacionCliente.cargando}

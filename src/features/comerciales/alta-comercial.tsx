@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { crearComercial, traspasarCartera, type RolComercial } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 
@@ -108,9 +109,10 @@ export function AltaComercial() {
   if (resultado) {
     const puedeCompartir = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
     return (
-      <div className="screen">
+      <div className="screen screen--split">
         <CabeceraDetalle titulo="Comercial creado" />
-        <div className="lista-agrupada">
+        <div className="screen__scroll">
+         <div className="lista-agrupada">
           <Aviso tipo="exito" titulo={`${nombre.trim()} está dada de alta`}>
             {resultado.action_link
               ? 'Pásale este enlace (WhatsApp, en persona…). Con él elige su contraseña. Caduca en 1 hora; si hace falta, se reenvía desde su ficha.'
@@ -149,6 +151,7 @@ export function AltaComercial() {
               </>
             )}
           </div>
+         </div>
         </div>
 
         <button className="btn btn-primary" onClick={() => navigate('/comerciales')}>
@@ -159,73 +162,83 @@ export function AltaComercial() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle titulo="Nuevo comercial" ayuda="alta-comercial" onVolver={() => navigate(-1)} />
 
-      <div className="label" style={{ marginTop: 0 }}>Nombre</div>
-      <input
-        className="field"
-        autoFocus
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        placeholder="nombre y apellidos"
-      />
+      <div className="screen__scroll">
+       <div className="lista-agrupada">
+        <SeccionLista titulo="Datos">
+          <div style={{ padding: '12px var(--fila-pad-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div>
+              <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+              <input
+                className="field"
+                autoFocus
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="nombre y apellidos"
+              />
+            </div>
+            <div>
+              <div className="label">Correo</div>
+              <input
+                className="field"
+                type="email"
+                autoCapitalize="none"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nombre@primion.com"
+              />
+            </div>
+            <div>
+              <div className="label">Rol</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {ROLES.map((r) => (
+                  <button
+                    key={r.valor}
+                    type="button"
+                    className={`chip${rol === r.valor ? ' chip--on' : ''}`}
+                    onClick={() => setRol(r.valor)}
+                  >
+                    {r.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="label">Zona / cartera (opcional)</div>
+              <input
+                className="field"
+                value={zona}
+                onChange={(e) => setZona(e.target.value)}
+                placeholder="p. ej. Cataluña, Grandes cuentas…"
+              />
+            </div>
+            <div>
+              <div className="label">Heredar la cartera de (opcional)</div>
+              <select className="field" value={heredarDe} onChange={(e) => setHeredarDe(e.target.value)}>
+                <option value="">Nadie</option>
+                {comerciales?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                    {c.activo ? '' : ' (de baja)'}
+                  </option>
+                ))}
+              </select>
+              {heredarDe && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                  Al crearlo se le pasan los clientes, visitas planificadas y próximos pasos de ese comercial.
+                </div>
+              )}
+            </div>
+          </div>
+        </SeccionLista>
 
-      <div className="label">Correo</div>
-      <input
-        className="field"
-        type="email"
-        autoCapitalize="none"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="nombre@primion.com"
-      />
-
-      <div className="label">Rol</div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {ROLES.map((r) => (
-          <button
-            key={r.valor}
-            type="button"
-            className={`chip${rol === r.valor ? ' chip--on' : ''}`}
-            onClick={() => setRol(r.valor)}
-          >
-            {r.etiqueta}
-          </button>
-        ))}
+        {error && <Aviso tipo="error">{error}</Aviso>}
+       </div>
       </div>
 
-      <div className="label">Zona / cartera (opcional)</div>
-      <input
-        className="field"
-        value={zona}
-        onChange={(e) => setZona(e.target.value)}
-        placeholder="p. ej. Cataluña, Grandes cuentas…"
-      />
-
-      <div className="label">Heredar la cartera de (opcional)</div>
-      <select className="field" value={heredarDe} onChange={(e) => setHeredarDe(e.target.value)}>
-        <option value="">Nadie</option>
-        {comerciales?.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nombre}
-            {c.activo ? '' : ' (de baja)'}
-          </option>
-        ))}
-      </select>
-      {heredarDe && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-          Al crearlo se le pasan los clientes, visitas planificadas y próximos pasos de ese comercial.
-        </div>
-      )}
-
-      {error && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
-          <Aviso tipo="error">{error}</Aviso>
-        </div>
-      )}
-
-      <button className="btn btn-primary" style={{ marginTop: 'auto' }} disabled={!puedeGuardar} onClick={crear}>
+      <button className="btn btn-primary" disabled={!puedeGuardar} onClick={crear}>
         {creando ? 'Creando…' : 'Crear comercial'}
       </button>
     </div>
