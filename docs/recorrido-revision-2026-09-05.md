@@ -1,0 +1,276 @@
+# Recorrido de revisión — PrimeNotes (2026-09-05)
+
+Recorrido en solitario, haciendo de comercial (sesión de Borja Senra) el
+ciclo completo: Hoy → alta de cliente → visita en curso (nota, hallazgo,
+oportunidad, próximo paso, zona) → cierre → informe → detalle de visita
+cerrada → Tareas → Yo → Ayuda → Agenda → ficha de cliente/proyecto.
+
+Formato: cada punto es **pendiente** hasta que lo revisemos y decidamos
+si se cambia. No se ha tocado nada de código.
+
+Escala de prioridad orientativa:
+- **A** = hueco de producto o fricción real en el uso diario.
+- **B** = incoherencia o roce que conviene arreglar.
+- **C** = detalle menor / pulido.
+
+---
+
+## 1. Hallazgos estructurales (los que más pesan)
+
+### 1.1 — [A] No hay dónde rellenar los datos del cliente
+Al dar de alta un cliente, el texto dice *"El resto de la ficha (sector,
+tamaño, ubicación) se completa después."* Pero en la **ficha de cliente**
+la sección "Datos" solo tiene una fila de solo lectura ("Responsable").
+No hay sector, tamaño, dirección, teléfono, web, CIF, ni forma de
+añadirlos. La promesa de "lo completas después" no tiene pantalla.
+→ Decidir: ¿los datos del cliente los rellena solo Dirección? ¿hay una
+pantalla de edición que no encontré? ¿o falta del todo?
+
+### 1.2 — [A] Los interlocutores del cliente no viven en ningún sitio estable
+Solo se gestionan **dentro de una visita** (fila "Interlocutores" de
+Visita en curso). Fuera de una visita, un comercial no puede ver ni
+editar la lista de personas de contacto del cliente (nombres, cargos,
+teléfonos). No aparecen en la ficha de cliente ni en la de proyecto.
+→ Un comercial que quiere "llamar al de mantenimiento de X" no tiene
+dónde mirar sin abrir una visita.
+
+### 1.3 — [A] Un comercial sin cartera se queda sin app
+"Clientes" muestra "Sin resultados" en blanco, sin explicar por qué (no
+tiene cartera asignada) ni qué hacer. El buscador también está limitado a
+su cartera: buscar "MADRID" (que existe) devuelve "Sin resultados".
+→ Falta: estado vacío con acción ("aún no tienes clientes; crea uno con +
+o pide a Dirección que te asigne cartera"). Y valorar si un comercial
+debería poder **encontrar** (aunque sea en solo lectura) un cliente de un
+compañero para dar soporte / no duplicarlo.
+
+### 1.4 — [A] Planificar una visita no tiene camino directo
+Desde **Agenda** hay un "+" y el texto vacío dice "Planifica una desde la
+ficha de un cliente" (se contradicen). El "+" abre un buscador de
+cliente, pero al elegir uno **te deja en la ficha del cliente**, no en un
+formulario de planificación. Desde ahí: entrar en el proyecto → bajar →
+"Planificar para otro día". Son 3-4 toques y ningún paso dice "aquí
+planificas".
+→ Falta un flujo "Planificar visita" de verdad (elige cliente → fecha →
+franja → objetivo), accesible desde Agenda y desde Hoy.
+
+### 1.5 — [B] El "Proyecto General" sigue costando un nivel de navegación
+Para un cliente con un solo proyecto (el General, P9), la ficha de
+cliente y la ficha de proyecto son casi lo mismo, pero hay que pasar por
+las dos. "Iniciar visita" / "Planificar" / Oportunidades / Hallazgos /
+Historial están **solo** en la ficha de proyecto.
+→ Con un único proyecto, la ficha de cliente podría abrir directamente el
+General, o fundir ambas hasta que exista un 2º proyecto.
+
+### 1.6 — [B] La "banda de visita en curso" ocupa una fila fija en TODAS las pantallas
+Mientras hay una visita abierta, el banner "Visita en curso con
+[cliente]" se pega abajo (encima del menú) en cada pantalla — incluido el
+detalle de una oportunidad, donde tapa contenido ("Solución que le
+proponemos" quedaba oculta). Además es redundante con la cabecera de la
+propia Visita en curso ("Visita en curso" x2). Y **sigue apareciendo en
+la pantalla de "Visita consolidada correctamente"**, que ya es
+contradictorio (la visita ya no está en curso).
+
+---
+
+## 2. Por pantalla
+
+### Hoy
+- [C] Vacío: "No tienes visitas para hoy." sin siguiente paso (¿planificar?
+  ¿ver agenda?).
+- [C] Iconos de cabecera ("+" y calendario) sin etiqueta ni tooltip —
+  hay que pulsarlos para saber qué hacen.
+- [C] "Hecho hoy" es una sección plegable incluso con una sola visita —
+  arranca mostrando "ocultar"; el plegado sobra si hay 0-1 filas.
+
+### Nuevo cliente
+- [C] Sin control de duplicados visible al escribir (la memoria dice que
+  lo hay; quizá también limitado a la cartera del comercial → se podría
+  crear un duplicado de un cliente de un compañero sin aviso).
+- [B] La barra de navegación inferior sigue visible en el formulario;
+  tocar "Clientes/Hoy" a media alta pierde lo escrito sin avisar.
+
+### Visita en curso
+- [A] La lista "En esta visita" se trunca a ~3 filas al pie, entre la zona
+  de captura y "Cerrar visita" + el banner. A partir del 4º elemento hay
+  que hacer scroll dentro de una tarjeta que no parece scrollable. En una
+  visita real con 10+ capturas no puedes repasar lo que llevas.
+- [B] Inconsistencia de patrón de captura: Foto/Nota/Audio se abren
+  **en línea** (empujan la página); Hallazgo/Oportunidad/Próximo paso se
+  abren como **modal a pantalla completa sobre fondo en blanco**. Mismo
+  gesto ("capturar algo"), dos comportamientos.
+- [B] "ver por zona / ver por tipo" se **recorta por la derecha** en móvil
+  ("ver por zon"). Visto en 3-4 estados distintos.
+- [B] Oportunidad en la lista se pinta en **rojo** (acento de Oportunidad,
+  `--signal-600`). Junto a filas negras, una fila roja se lee como
+  "error/urgente", no como "oportunidad".
+- [C] La caja "A qué vieni" arranca gris con borde discontinuo y "La
+  visita se está guardando" — parece un estado de error unos instantes.
+- [C] Nota: el foco inicial va al campo "título breve (opcional)", no al
+  cuerpo. La mayoría quiere escribir la nota, no titularla.
+- [C] Hallazgo rápido: no hay campo de nota — el término se guarda solo y
+  la nota se añade luego desde el detalle. En caliente uno espera poder
+  apuntar el contexto ahí mismo.
+
+### Modal de Hallazgo
+- [B] Subtítulo "lo que el cliente tiene, sea de quién sea" — críptico.
+- [B] Se muestran categorías con **(0)**: 4 de 7 vacías ("Software (0)",
+  "Hardware (0)"…). Tocar una no lleva a nada. Ocultar las vacías o
+  mostrarlas apagadas.
+- [B] Dos enlaces "ⓘ Qué es…" apilados dentro de un modal pequeño
+  (Términos y modelos / Naturaleza). Señal de que el concepto no se
+  explica solo.
+- [C] Al desplegar una categoría, el árbol de términos se intercala entre
+  los chips de las otras categorías (chip / chip / árbol / chip / chip):
+  layout desordenado.
+
+### Detalle de oportunidad
+- [B] **Tres** enlaces "ⓘ Qué es…" en una pantalla (Etapa, Prioridad,
+  Horizonte). El modelo de oportunidad se apoya mucho en ayuda inline.
+- [B] ¿Los chips (Etapa/Prioridad) se autoguardan o necesitan el botón
+  "Guardar" del final? No está claro; si es lo segundo, cambiar Etapa y
+  salir pierde el cambio sin aviso de "cambios sin guardar".
+- [C] Pantalla larga y con mucho formulario para algo que se hace en
+  campo. Contrasta con el modal "rápido" (solo Título + Prioridad).
+- [B] "Descartada" / "Perdida" como chips de Etapa sin confirmación —
+  cerrar una oportunidad por error es fácil.
+- [C] Sin contexto de la visita/fecha en la cabecera (solo el cliente).
+
+### Detalle de captura (Nota)
+- [B] No muestra ni deja cambiar la **zona** donde se tomó ("Recepción").
+  Ahora que la zona es más visible en la captura, aquí se pierde.
+- [C] Marca de tiempo en crudo con segundos: "5/9/2026, 20:16:14 · subido".
+  El resto de la app usa "5 sept" / "hace X".
+
+### Cerrar visita (3 pantallas: Cerrar → Confirmar → Resumen)
+- [B] **Tres verbos para la misma acción**: botón "Cerrar visita" → botón
+  "Consolidar visita" → confirmación "Sí, cerrar visita". "Consolidar" es
+  jerga; un comercial no sabe que es lo mismo que cerrar/terminar.
+- [B] Plural mal en la confirmación y en el resumen: "1 notas",
+  "1 hallazgos", "1 oportunidades", "1 próximos pasos".
+- [B] En "Resumen" no hay sección de **Notas** (el chip dice "1 notas"
+  pero no hay forma de verla ahí; sí salen Oportunidades/Hallazgos/Pasos).
+- [C] "¿Confirmas el cierre?" tiene un gran hueco blanco entre los chips y
+  los botones — parece incompleta.
+- [C] En "Cerrar visita" no hay aviso de "faltan interlocutores" ni
+  "faltan datos del cliente" para un cliente recién creado.
+
+### Detalle de visita cerrada
+- [A/B] La primera fila, destacada con barra azul, es **"RESUMEN — Sin
+  resumen registrado"** y es de solo lectura. El flujo de cierre nunca
+  pide un resumen. ¿Dónde se escribe? Parece UI muerta o un paso que
+  falta (un "cómo fue la visita" al cerrar).
+- [C] Fila de "Historial de visitas" recortada a media palabra:
+  "…ver instalaciones · cerr…".
+- [C] "ver contenido" como etiqueta de acción de fila (gris, a la
+  derecha) — el resto de filas solo llevan "›".
+
+### Tareas / Mis próximos pasos
+- [B] El menú dice "Tareas", la pantalla se titula "Mis próximos pasos",
+  y los ítems son "próximo paso". Tres nombres para lo mismo. (Y el modal
+  de creación se titula "Qué queda pendiente" con opción "Tarea".)
+
+### Yo (comercial)
+- [B] Muy escueto: 3 filas (Mi espacio / Manual / Cerrar sesión). No hay
+  "mis datos" (nombre, zona de cartera), ni preferencias, ni versión de
+  app, ni "reportar un problema".
+- [C] "Mi espacio" (gestión de disco) es la fila principal — para un
+  comercial es una preocupación de borde, no la portada de "Yo".
+
+### Ayuda / "Cómo funciona PrimeNotes"
+- [B] Lista plana de 20+ entradas sin orden claro (ni alfabético ni por
+  flujo): "Yo, Hoy, Agenda, Preparar la visita, Mis próximos pasos,
+  Clientes…". Cuesta encontrar algo.
+- [B] Nombres de la ayuda ≠ nombres en la app ("Preparar la visita",
+  "Cerrar una visita" vs "Consolidar").
+- Es un índice de pantallas, no una guía de uso → es justo el hueco que
+  taparía la **guía rápida** pendiente.
+
+### Agenda
+- [C] Bien: el estado vacío sí guía ("Planifica una desde la ficha de un
+  cliente"). Pero ese texto ya está desfasado porque existe el "+"
+  (ver 1.4).
+
+### Ficha de cliente
+- [B] Estado "borrador" en la cabecera de un cliente que ya tiene visita
+  cerrada y oportunidad. ¿Qué significa "borrador" para el comercial?
+- [B] "General (todo lo que no encaja en otro)" — el nombre del proyecto
+  General se muestra literal, con el paréntesis. Verboso.
+- Ver 1.1 (datos) y 1.2 (interlocutores).
+
+### Ficha de proyecto
+- [C] "Hallazgos" solo crece (no hay estado de "resuelto"); en un cliente
+  de años será un muro. Valorar archivar/ocultar hallazgos viejos.
+
+---
+
+## 3. Transversales
+
+### Nomenclatura (varios nombres para un concepto)
+- Cerrar visita = "Cerrar" / "Consolidar" / "cerrar".
+- Tareas = "Tareas" / "Mis próximos pasos" / "próximo paso" / "Qué queda
+  pendiente".
+- Recorrido/zona: coherente ya (campo "Zona"), pero la ayuda todavía
+  habla de "recorrer las instalaciones".
+
+### Plurales
+- "1 notas / 1 hallazgos / 1 oportunidades / 1 próximos pasos" en cierre y
+  resumen. En otros sitios sí concuerda ("1 nota", "1 visita").
+
+### Layout / móvil
+- Recortes por la derecha: "ver por zona", historial de visitas, línea de
+  contexto de "En esta visita".
+- La lista "En esta visita" no gestiona bien el crecimiento (ver 1.6 y
+  Visita en curso).
+- El banner "Visita en curso" roba una fila en todas las pantallas
+  (ver 1.6).
+
+### Ayuda inline
+- Muchos "ⓘ Qué es…" en oportunidad (3) y hallazgo (2). Si un concepto
+  necesita explicarse cada vez que se usa, o el nombre es malo o el
+  modelo es demasiado.
+
+---
+
+## 4. Lo que funciona bien (no tocar)
+
+- El ciclo alta → visita → captura → cierre → informe **se entiende y
+  fluye**; en 2 minutos tienes una visita real cerrada con PDF.
+- El campo **Zona** nuevo: claro, sin modo, chips para volver.
+- Los 3 CTAs jerarquizados de "Nuevo cliente" (iniciar / planificar /
+  solo guardar).
+- El "✓ Guardado — ¿Completar ahora?" tras crear una oportunidad rápida.
+- El patrón de botón destructivo (rojo borgoña + panel de confirmación con
+  el desglose de lo que se borra) es consistente y honesto.
+- "En esta visita" con contador desglosado y "ver por zona/tipo".
+- El estado vacío de Agenda sí orienta.
+
+---
+
+## 5. Pendiente de revisar contigo (no cubierto en esta pasada)
+
+- **Pantallas exclusivas de Dirección**: Vocabulario (cola + catálogo),
+  Equipo/comerciales (alta, detalle, baja, traspaso de cartera),
+  Solicitudes de reasignación, Deduplicación, Peticiones de acceso,
+  Actividad por comercial, Consumo/Mi espacio (ya se fusionaron esta
+  sesión). Se revisaron en la homogeneización de diseño, pero no con la
+  mirada de "¿es cómodo / falta algo?".
+- **Visitas de equipo**: invitar a un compañero a una visita, aceptar/
+  rechazar, expulsar. No se probó (hace falta 2 sesiones a la vez).
+- **Offline real**: no se probó cortar la red durante una visita.
+- **El informe PDF**: no se abrió el PDF generado en esta pasada (el
+  retoque de color del Grupo 7 ya está desplegado; conviene mirarlo en la
+  próxima generación real).
+
+---
+
+## 6. Propuesta de orden para el recorrido conjunto
+
+1. Hoy → Agenda → planificar (validar 1.4).
+2. Clientes → ficha de cliente → datos e interlocutores (validar 1.1, 1.2).
+3. Ficha de proyecto → iniciar visita.
+4. Visita en curso: cada tipo de captura + zona + "En esta visita".
+5. Cerrar visita (3 pantallas) → resumen → informe.
+6. Detalle de visita cerrada + detalles de oportunidad/hallazgo/paso.
+7. Tareas, Yo, Ayuda.
+8. Cambio a sesión de Dirección: Vocabulario, Equipo, Solicitudes,
+   Deduplicación, Consumo, Actividad.
