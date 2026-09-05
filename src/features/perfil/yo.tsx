@@ -435,7 +435,7 @@ export function Yo() {
                 icono="consumo"
                 titulo="Consumo por comercial"
                 subtitulo="Cuánto ocupa cada uno"
-                to="/consumo-comerciales"
+                to="/mi-espacio?vista=equipo"
               />
               <FilaNavegable
                 icono="equipo"

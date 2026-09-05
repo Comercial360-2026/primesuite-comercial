@@ -35,7 +35,6 @@ import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignac
 import { Yo } from '@/features/perfil/yo';
 import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
-import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
 import { ActividadComerciales } from '@/features/perfil/actividad-comerciales';
 import { DetalleActividadComercial } from '@/features/perfil/detalle-actividad-comercial';
 import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
@@ -108,15 +107,10 @@ export function AppRoutes() {
           {/* Manual in-app — "Cómo funciona PrimeNotes". Cualquier rol. */}
           <Route path="/ayuda" element={<AyudaManual />} />
 
-          {/* Nivel 0 — Consumo por comercial — exclusivo de Dirección Comercial */}
-          <Route
-            path="/consumo-comerciales"
-            element={
-              <RequireRole roles={['direccion_comercial']}>
-                <ConsumoComerciales />
-              </RequireRole>
-            }
-          />
+          {/* "Consumo por comercial" se fundió en "Mi espacio" como la vista
+              "Por comercial" (segmentado, solo Dirección). Se mantiene la
+              ruta como redirección por si hay algún enlace guardado. */}
+          <Route path="/consumo-comerciales" element={<Navigate to="/mi-espacio?vista=equipo" replace />} />
 
           {/* Nivel 0 — Actividad por comercial — exclusivo de Dirección Comercial */}
           <Route
