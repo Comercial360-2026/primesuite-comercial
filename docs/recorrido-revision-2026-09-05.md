@@ -84,13 +84,25 @@ Verificado en vivo end-to-end como comercial: Agenda + → busca MADRID
 DIGITAL (de otro) → forma → Planificar → aparece en la Agenda con fecha,
 objetivo y franja correctos. Sin errores de consola.
 
-### 1.5 — [B] El "Proyecto General" sigue costando un nivel de navegación
+### 1.5 — [B] El "Proyecto General" sigue costando un nivel de navegación — ✅ RESUELTO (fundir)
 Para un cliente con un solo proyecto (el General, P9), la ficha de
-cliente y la ficha de proyecto son casi lo mismo, pero hay que pasar por
-las dos. "Iniciar visita" / "Planificar" / Oportunidades / Hallazgos /
-Historial están **solo** en la ficha de proyecto.
-→ Con un único proyecto, la ficha de cliente podría abrir directamente el
-General, o fundir ambas hasta que exista un 2º proyecto.
+cliente y la ficha de proyecto eran casi lo mismo, pero había que pasar
+por las dos. **Hecho:** cuando el cliente solo tiene su Proyecto General,
+su actividad (Oportunidades activas / Próximos pasos / Hallazgos /
+Historial) se muestra **dentro de la propia ficha de cliente**, con la
+barra "Iniciar visita ahora" + "Planificar para otro día" abajo. En
+cuanto se crea un 2º proyecto, reaparece la lista "Proyectos" y cada uno
+tiene su ficha. La ruta directa al General único (`/clientes/:id/
+proyectos/:generalId`, p. ej. desde "Actividad por comercial") redirige a
+la ficha de cliente. Componentes compartidos nuevos `ActividadProyecto` y
+`AccionesProyecto` (la ficha de proyecto es ahora una cáscara sobre
+ellos); consulta única `useProyectosCliente` para las dos pantallas — así
+"cuántos proyectos hay" es un solo dato y basta invalidarlo al crear uno.
+De paso: "última hace hace X" → "última hace X" en la línea de contexto
+del proyecto. `ayuda.ts` (`ficha-cliente`, `ficha-proyecto`) actualizada.
+Verificado en vivo como comercial (Borja): General único fundido, URL del
+General redirige, crear 2º proyecto devuelve la lista y su ficha, el
+General con 2 proyectos ya no redirige.
 
 ### 1.6 — [B] La "banda de visita en curso" ocupa una fila fija en TODAS las pantallas
 Mientras hay una visita abierta, el banner "Visita en curso con

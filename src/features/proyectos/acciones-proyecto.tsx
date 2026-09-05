@@ -1,0 +1,101 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { uuid } from '@/lib/uuid';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { Icono } from '@/components/ui/iconos';
+
+// La barra fija de abajo de un proyecto: "Iniciar visita ahora" (lo diario,
+// regla 3 → botón primario) y "Planificar para otro día" (esporádico → chip,
+// abre el flujo único /planificar ya apuntando a este cliente y proyecto).
+// Se comparte entre la Ficha de proyecto y la Ficha de cliente cuando el
+// cliente solo tiene su Proyecto General (ver actividad-proyecto.tsx). Va
+// como hermano de `.screen__scroll` para quedar fija.
+
+interface Props {
+  clienteId: string;
+  proyectoId: string;
+  clienteNombre?: string;
+}
+
+export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props) {
+  const navigate = useNavigate();
+  const { comercial } = useSesionActual();
+  const { iniciarVisita } = useVisitaActivaContext();
+  const { encolar } = useSyncQueue(undefined);
+
+  // Ventana "¿A qué vas?" antes de arrancar una visita sobre la marcha — el
+  // objetivo es obligatorio también aquí, igual que al planificar. Si ya hay
+  // una visita en curso con este cliente (en cualquiera de sus proyectos),
+  // se avisa antes (enCursoModal).
+  const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
+  const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
+  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+
+  function pedirIniciarVisitaAdHoc() {
+    if (visitaEnCurso) setEnCursoModalAbierto(true);
+    else setObjetivoAdHocAbierto(true);
+  }
+
+  // La lanza la ventana "¿A qué vas?" (ObjetivoVisitaModal) — de ahí llega el
+  // `objetivo`, ya validado como no vacío. Lanza en caso de fallo para que la
+  // propia ventana muestre el error; si va bien, navega y la ventana se
+  // desmonta con la pantalla.
+  async function iniciarVisitaAdHoc(objetivo: string) {
+    if (!comercial) {
+      throw new Error('No se ha podido identificar tu sesión. Recarga la página.');
+    }
+    const visitaId = uuid();
+    await encolar(visitaId, 'visita', {
+      clienteId,
+      proyectoId,
+      comercialResponsableId: comercial.id,
+      tipoVisita: null,
+      objetivo,
+    });
+    iniciarVisita({ id: visitaId, clienteNombre: clienteNombre ?? '' });
+    navigate(`/visita/${visitaId}`);
+  }
+
+  return (
+    <>
+      <button className="btn btn-primary" onClick={pedirIniciarVisitaAdHoc}>
+        Iniciar visita ahora
+        <Icono nombre="chevron" size={18} />
+      </button>
+      <button
+        type="button"
+        className="chip"
+        style={{ alignSelf: 'flex-start' }}
+        onClick={() => navigate(`/planificar?clienteId=${clienteId}&proyectoId=${proyectoId}`)}
+      >
+        Planificar para otro día
+      </button>
+
+      {enCursoModalAbierto && visitaEnCurso && (
+        <VisitaEnCursoModal
+          clienteNombre={clienteNombre}
+          objetivo={visitaEnCurso.objetivo}
+          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
+          onEmpezarOtra={() => {
+            setEnCursoModalAbierto(false);
+            setObjetivoAdHocAbierto(true);
+          }}
+          onCerrar={() => setEnCursoModalAbierto(false)}
+        />
+      )}
+
+      {objetivoAdHocAbierto && (
+        <ObjetivoVisitaModal
+          clienteNombre={clienteNombre}
+          onConfirmar={iniciarVisitaAdHoc}
+          onCerrar={() => setObjetivoAdHocAbierto(false)}
+        />
+      )}
+    </>
+  );
+}

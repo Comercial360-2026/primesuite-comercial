@@ -15,17 +15,13 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { DirectorioInterlocutores } from './directorio-interlocutores';
+import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
+import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
+import { useProyectosCliente } from '@/hooks/use-proyectos-cliente';
 
 interface EcosistemaItem {
   termino_id: string;
   naturaleza: string;
-}
-
-interface ProyectoDelCliente {
-  id: string;
-  nombre: string;
-  estado: string;
-  es_general: boolean;
 }
 
 interface PrevisualizacionBorrado {
@@ -203,20 +199,7 @@ export function FichaCliente() {
     },
   });
 
-  const { data: proyectos } = useQuery({
-    queryKey: ['proyectos-cliente', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<ProyectoDelCliente[]> => {
-      const { data, error } = await supabase
-        .from('proyecto')
-        .select('id, nombre, estado, es_general')
-        .eq('cliente_id', clienteId!)
-        .order('es_general', { ascending: false })
-        .order('creado_en', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  const { data: proyectos } = useProyectosCliente(clienteId);
 
   const { data: ecosistema } = useQuery({
     queryKey: ['ecosistema-completo', clienteId],
@@ -301,6 +284,14 @@ export function FichaCliente() {
   const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
   const hayBasicos =
     !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
+
+  // 1.5 del recorrido de revisión: si el cliente solo tiene su Proyecto
+  // General, la ficha de proyecto no aporta nada sobre esta — se muestra su
+  // actividad (oportunidades, próximos pasos, hallazgos, historial) aquí
+  // mismo, y la barra de "Iniciar visita / Planificar" abajo. En cuanto haya
+  // un 2º proyecto, vuelve la lista "Proyectos" y cada uno tiene su ficha.
+  const proyectoGeneral =
+    proyectos && proyectos.length === 1 && proyectos[0].es_general ? proyectos[0] : null;
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -549,16 +540,23 @@ export function FichaCliente() {
           </SeccionLista>
         )}
 
-        <SeccionLista titulo="Proyectos" prominencia="principal">
-          {proyectos?.map((p) => (
-            <FilaNavegable
-              key={p.id}
-              titulo={p.es_general ? `${p.nombre} (todo lo que no encaja en otro)` : p.nombre}
-              subtitulo={p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined}
-              to={`/clientes/${clienteId}/proyectos/${p.id}`}
-            />
-          ))}
-        </SeccionLista>
+        {proyectos && proyectoGeneral ? (
+          <ActividadProyecto
+            proyectoId={proyectoGeneral.id}
+            mensajeVacio="Aún no hay oportunidades, hallazgos ni visitas. Empieza una visita para llenarlo."
+          />
+        ) : proyectos && proyectos.length > 0 ? (
+          <SeccionLista titulo="Proyectos" prominencia="principal">
+            {proyectos.map((p) => (
+              <FilaNavegable
+                key={p.id}
+                titulo={p.es_general ? `${p.nombre} (todo lo que no encaja en otro)` : p.nombre}
+                subtitulo={p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined}
+                to={`/clientes/${clienteId}/proyectos/${p.id}`}
+              />
+            ))}
+          </SeccionLista>
+        ) : null}
 
         {clienteId && (
           <SeccionLista titulo="Interlocutores">
@@ -653,6 +651,14 @@ export function FichaCliente() {
         )}
        </div>
       </div>
+
+      {proyectoGeneral && clienteId && (
+        <AccionesProyecto
+          clienteId={clienteId}
+          proyectoId={proyectoGeneral.id}
+          clienteNombre={cliente?.nombre}
+        />
+      )}
     </div>
   );
 }

@@ -107,7 +107,7 @@ const _PANTALLAS = {
     queEs:
       'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Un cliente siempre tiene al menos un proyecto — si nunca has creado ninguno, es el que se llama «General».',
     cuando:
-      'Para entrar en un proyecto concreto y, desde ahí, arrancar o planificar una visita. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
+      'Si el cliente solo tiene el proyecto «General», aquí mismo ves sus oportunidades, hallazgos, próximos pasos e historial de visitas, y arrancas o planificas una visita desde abajo. Cuando hay más de un proyecto, cada uno tiene su propia ficha: entra en el que toque. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
     ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
   },
   'gestionar-sectores': {
@@ -128,7 +128,7 @@ const _PANTALLAS = {
   'ficha-proyecto': {
     titulo: 'Ficha de proyecto',
     queEs:
-      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente).',
+      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente). Un cliente con un solo proyecto (el «General») no tiene esta pantalla aparte: su actividad se ve en la propia ficha de cliente.',
     cuando:
       'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día.',
   },
