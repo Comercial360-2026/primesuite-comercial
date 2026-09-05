@@ -114,24 +114,6 @@ body {
 .va-item__texto--acento { color: var(--signal-600); font-weight: 500; }
 .va-item__sub { color: var(--ink-400); font-size: var(--text-xs); flex-shrink: 0; }
 
-/* Modo Recorrido: mismos botones que la captura normal, pero enmarcado en
-   una zona. El marco lateral y la cabecera cargada dejan claro el modo. */
-.screen.recorrido { border-left: 3px solid var(--brand-600); }
-.recorrido-cab {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);
-}
-.recorrido-cab__modo {
-  font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--ink-400);
-}
-.recorrido-cab__zona {
-  display: block; margin-top: 2px; padding: 0; border: none; background: none;
-  font-size: var(--text-lg); font-weight: 600; color: var(--ink-900);
-  text-align: left; cursor: pointer; max-width: 100%;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.recorrido-cab__cuenta { font-size: var(--text-xs); color: var(--ink-700); margin-top: 2px; }
-
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
   height: 32px; padding: 0 var(--space-3);

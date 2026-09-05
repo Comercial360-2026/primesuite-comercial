@@ -155,11 +155,15 @@ export function CierreVisita() {
     { grupo: 'pasos', label: 'Próximos pasos', items: pasos },
   ];
 
-  // Agrupación por zona: todo lo capturado en el recorrido (fotos, audios,
-  // notas, hallazgos, oportunidades) para repasarlo zona a zona antes de
-  // cerrar, no elemento a elemento.
-  const zonaDe = (op: (typeof operaciones)[number]) =>
-    (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin ubicación';
+  // Agrupación por zona: todo lo capturado con una zona anotada (fotos,
+  // audios, notas, hallazgos, oportunidades) para repasarlo zona a zona
+  // antes de cerrar, no elemento a elemento. La zona es la etiqueta de
+  // texto libre `zonaTexto`; `ubicacionId` es el campo antiguo de
+  // catálogo, solo por si una visita quedó abierta desde antes del cambio.
+  const zonaDe = (op: (typeof operaciones)[number]) => {
+    const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
+    return p.zonaTexto?.trim() || p.ubicacionId || 'sin ubicación';
+  };
   const elementosPorUbicacion = (() => {
     const acc: Record<
       string,
@@ -421,8 +425,8 @@ export function CierreVisita() {
       )}
 
       <div className="screen__scroll">
-        {Object.keys(elementosPorUbicacion).length > 0 && (
-          <SeccionLista titulo="Revisar por ubicación">
+        {Object.keys(elementosPorUbicacion).some((k) => k !== 'sin ubicación') && (
+          <SeccionLista titulo="Revisar por zona">
             {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
               const resumen = [
                 n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
@@ -436,7 +440,7 @@ export function CierreVisita() {
               return (
                 <FilaDato
                   key={ubicacionId}
-                  etiqueta={ubicacionId === 'sin ubicación' ? 'sin ubicación' : nombresUbicaciones?.[ubicacionId] ?? '…'}
+                  etiqueta={ubicacionId === 'sin ubicación' ? 'General' : nombresUbicaciones?.[ubicacionId] ?? ubicacionId}
                   valor={resumen}
                   valorTenue
                 />

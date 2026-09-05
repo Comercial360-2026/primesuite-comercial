@@ -194,13 +194,13 @@ const _PANTALLAS = {
     queEs:
       'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has usado el recorrido, pulsas «Consolidar visita» y confirmas. En el resumen que sale después puedes descargar el informe en PDF (también está luego en el detalle de la visita).',
+      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Consolidar visita» y confirmas. En el resumen que sale después puedes descargar el informe en PDF (también está luego en el detalle de la visita).',
     ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
   'visita-activa': {
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente, en tres bloques: arriba, el contexto (nº de visita, el objetivo con el que ibas, interlocutores y equipo); en medio, capturar (foto, nota, audio, hallazgo, oportunidad, próximo paso, o recorrer las instalaciones); abajo, «En esta visita», con todo lo capturado —lo tuyo y lo de tus compañeros— en una sola lista.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente, en tres bloques: arriba, el contexto (nº de visita, el objetivo con el que ibas, interlocutores y equipo); en medio, capturar (foto, nota, audio, hallazgo, oportunidad, próximo paso, y una casilla «Zona» opcional para atarlo todo al sitio que estás recorriendo); abajo, «En esta visita», con todo lo capturado —lo tuyo y lo de tus compañeros— en una sola lista.',
     cuando:
       'Durante la visita. Cada botón o chip de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. Al terminar, «Cerrar visita».',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada.',
@@ -280,10 +280,10 @@ const _CONCEPTOS = {
       'Cierras la última oportunidad de un cliente como ganada o perdida → deja de estar «Con oportunidad» y pasa a «En seguimiento».',
   },
   'modo-recorrido': {
-    titulo: 'Modo recorrido',
+    titulo: 'Zona de la captura',
     queEs:
-      'Una forma de hacer la visita andando por las instalaciones del cliente. Escribes una etiqueta libre para lo que vas a mirar (una puerta, una barrera, un rincón) y todo lo que captures a continuación queda atado a esa etiqueta; al cerrar lo repasas zona por zona. La etiqueta es de usar y tirar: no se guarda en ninguna lista, pero las que ya has usado en esta misma visita te aparecen como sugerencia.',
-    cuando: 'Útil en clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio.',
+      'La casilla «Zona» opcional encima de «Captura lo que veas». Escribes una etiqueta libre para lo que estás mirando (una puerta, una barrera, un rincón) y todo lo que captures a continuación queda atado a esa etiqueta; al cerrar lo repasas zona por zona. Si la dejas vacía, las capturas van al grupo «General». La etiqueta es de usar y tirar: no se guarda en ninguna lista, pero las que ya has usado en esta misma visita te aparecen como chip para volver a ellas.',
+    cuando: 'Úsala en clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio. Si no vas por zonas, déjala vacía y captura normal.',
   },
   sincronizacion: {
     titulo: 'Trabajar sin conexión',

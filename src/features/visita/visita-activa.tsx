@@ -19,7 +19,6 @@ import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
 import { PasoRapidoModal } from './paso-rapido-modal';
 import { InterlocutoresModal } from './interlocutores-modal';
 import { ParticipantesModal } from './participantes-modal';
-import { EditorCaptura } from './editor-captura';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
@@ -324,23 +323,17 @@ export function VisitaActiva() {
   const { iniciarVisita } = useVisitaActivaContext();
   const { operaciones, encolar } = useSyncQueue(visitaId);
 
-  const [modoRecorrido, setModoRecorrido] = useState(false);
-  // Zona del Recorrido: una ETIQUETA DE TEXTO LIBRE que el comercial
-  // escribe sobre la marcha (la puerta / barrera / rincón que va a
-  // revisar). No es una entidad de catálogo — no se guarda en ninguna
-  // lista reutilizable, solo se copia en cada captura de la visita.
-  const [zonaActual, setZonaActual] = useState<string | null>(null);
-  const [zonaBorrador, setZonaBorrador] = useState('');
-  const [zonaSelectorAbierto, setZonaSelectorAbierto] = useState(false);
-  // En Recorrido no se captura nada hasta elegir una zona; "sin zona" es la
-  // salida explícita para una captura suelta que no pertenece a ningún
-  // punto concreto.
-  const [sinZona, setSinZona] = useState(false);
+  // Zona (opcional) de la captura: una ETIQUETA DE TEXTO LIBRE que el
+  // comercial escribe sobre la marcha (la puerta / barrera / rincón que va
+  // a revisar). No es una entidad de catálogo — no se guarda en ninguna
+  // lista reutilizable, solo se copia en cada captura. Vacía => la captura
+  // va al grupo "General". Antes esto era el "Modo Recorrido", una
+  // pantalla aparte con su propio "¿en qué modo estoy?"; ahora es un campo
+  // más de la zona de captura, siempre visible.
+  const [zonaActual, setZonaActual] = useState('');
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
-  // audio, nota, hallazgo, oportunidad, próximo paso): solo en Recorrido y
-  // solo si hay zona elegida. "sin zona" o fuera del recorrido => undefined.
-  const zonaParaCaptura = modoRecorrido ? zonaActual ?? undefined : undefined;
-  const [capturaEditandoId, setCapturaEditandoId] = useState<string | null>(null);
+  // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
+  const zonaParaCaptura = zonaActual.trim() || undefined;
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
   const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
@@ -1043,8 +1036,7 @@ export function VisitaActiva() {
         onCambiar={(i) => setFotoVisorId(fotosVisor[i]?.id ?? null)}
         onEditar={(id) => {
           setFotoVisorId(null);
-          if (modoRecorrido) setCapturaEditandoId(id);
-          else navigate(`/capturas/${id}`);
+          navigate(`/capturas/${id}`);
         }}
       />
     ) : null;
@@ -1053,351 +1045,6 @@ export function VisitaActiva() {
   // pantalla que pintar; sin `comercial`, `RequireSession` ya habría
   // redirigido, pero se comprueba igual por si acaso.
   if (!visitaId || !comercial) return null;
-
-  if (modoRecorrido) {
-    const zonaElegida = !!zonaActual || sinZona;
-    const salirRecorrido = () => {
-      setModoRecorrido(false);
-      setZonaSelectorAbierto(false);
-      setSinZona(false);
-      setZonaActual(null);
-      setZonaBorrador('');
-      setNotaAbierta(false);
-    };
-    // Zonas ya usadas en ESTA visita (cola local + lo sincronizado): para
-    // volver a una sin reescribirla, hoy o cualquier otro día.
-    const zonasUsadas = [
-      ...new Set(
-        operaciones
-          .map((op) => (op.payload as { zonaTexto?: string }).zonaTexto)
-          .filter((z): z is string => !!z && z.trim().length > 0)
-      ),
-    ].sort((a, b) => a.localeCompare(b, 'es'));
-    const usarZona = (z: string) => {
-      const v = z.trim();
-      if (!v) return;
-      setZonaActual(v);
-      setSinZona(false);
-      setZonaSelectorAbierto(false);
-      setZonaBorrador('');
-    };
-    const nEnZonaActual = zonaActual
-      ? [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
-          (op) => (op.payload as { zonaTexto?: string }).zonaTexto === zonaActual
-        ).length
-      : 0;
-
-    return (
-      <div className="screen recorrido">
-        {/* Cabecera del modo — marcada, para que se lea de un vistazo que
-            estás capturando "dentro de una zona". */}
-        <div className="recorrido-cab">
-          <div style={{ minWidth: 0 }}>
-            <div className="recorrido-cab__modo">Recorrido</div>
-            {zonaActual ? (
-              <>
-                <button
-                  type="button"
-                  className="recorrido-cab__zona"
-                  onClick={() => setZonaSelectorAbierto((v) => !v)}
-                >
-                  {zonaActual} <span aria-hidden>▾</span>
-                </button>
-                <div className="recorrido-cab__cuenta">
-                  {nEnZonaActual} {nEnZonaActual === 1 ? 'captura' : 'capturas'} en esta zona
-                </div>
-              </>
-            ) : sinZona ? (
-              <button type="button" className="btn-enlace" onClick={() => setSinZona(false)}>
-                Sin zona · elegir una →
-              </button>
-            ) : null}
-          </div>
-          <button
-            className="btn btn-secondary"
-            style={{ width: 'auto', padding: '0 16px', flexShrink: 0 }}
-            onClick={salirRecorrido}
-          >
-            Salir
-          </button>
-        </div>
-
-        {/* Elegir / cambiar zona: texto libre, obligatorio mientras no hay zona */}
-        {(!zonaElegida || zonaSelectorAbierto) && (
-          <div className="card">
-            {!zonaElegida && (
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', marginBottom: 8 }}>
-                ¿Qué vas a revisar? Escribe la puerta, barrera o rincón — todo lo que
-                captures se guarda con esa etiqueta.
-              </div>
-            )}
-            <input
-              className="field"
-              autoFocus
-              value={zonaBorrador}
-              onChange={(e) => setZonaBorrador(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') usarZona(zonaBorrador);
-              }}
-              placeholder="p. ej. Puerta muelle de carga"
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ marginTop: 8 }}
-              disabled={!zonaBorrador.trim()}
-              onClick={() => usarZona(zonaBorrador)}
-            >
-              Usar esta zona
-            </button>
-
-            {zonasUsadas.length > 0 && (
-              <>
-                <div className="label" style={{ marginTop: 10 }}>
-                  Zonas de esta visita
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {zonasUsadas.map((z) => (
-                    <button
-                      key={z}
-                      type="button"
-                      className={`chip${zonaActual === z ? ' chip--on' : ''}`}
-                      onClick={() => usarZona(z)}
-                    >
-                      {z}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div style={{ display: 'flex', gap: 12, marginTop: 10 }}>
-              {zonaElegida ? (
-                <button
-                  type="button"
-                  className="btn-enlace"
-                  onClick={() => setZonaSelectorAbierto(false)}
-                >
-                  cerrar
-                </button>
-              ) : (
-                <button type="button" className="btn-enlace" onClick={() => setSinZona(true)}>
-                  capturar sin asignar a una zona
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Captura: solo con zona elegida y el selector cerrado */}
-        {zonaElegida && !zonaSelectorAbierto && (
-          <>
-            <input
-              ref={inputFotoRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const archivo = e.target.files?.[0];
-                if (archivo) void capturarFoto(archivo);
-                e.target.value = '';
-              }}
-            />
-
-            {fotoPendiente || audioPendiente ? (
-              <div className="card">
-                {fotoPendiente && (
-                  <img
-                    src={URL.createObjectURL(fotoPendiente)}
-                    alt="vista previa"
-                    style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
-                  />
-                )}
-                {audioPendiente && (
-                  <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />
-                )}
-                <input
-                  className="field"
-                  autoFocus
-                  value={tituloPendiente}
-                  onChange={(e) => setTituloPendiente(e.target.value)}
-                  placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
-                />
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button
-                    className="btn btn-secondary"
-                    disabled={capturaFoto.cargando || capturaAudio.cargando}
-                    onClick={() => {
-                      setFotoPendiente(null);
-                      setAudioPendiente(null);
-                      setTituloPendiente('');
-                    }}
-                  >
-                    Descartar
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    disabled={capturaFoto.cargando || capturaAudio.cargando}
-                    onClick={confirmarCapturaPendiente}
-                  >
-                    {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
-                  </button>
-                </div>
-                {(capturaFoto.error || capturaAudio.error) && (
-                  <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
-                )}
-              </div>
-            ) : notaAbierta ? (
-              <div className="card">
-                <input
-                  className="field"
-                  style={{ marginBottom: 8 }}
-                  autoFocus
-                  value={notaTitulo}
-                  onChange={(e) => setNotaTitulo(e.target.value)}
-                  placeholder="título breve (opcional)"
-                />
-                <textarea
-                  className="field"
-                  style={{ height: 'auto', padding: 8 }}
-                  rows={2}
-                  value={notaTexto}
-                  onChange={(e) => setNotaTexto(e.target.value)}
-                  placeholder="escribe la nota…"
-                />
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button
-                    className="btn btn-secondary"
-                    disabled={guardadoNota.cargando}
-                    onClick={() => {
-                      guardadoNota.limpiarError();
-                      setNotaAbierta(false);
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-                    {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
-                  </button>
-                </div>
-                {guardadoNota.error && (
-                  <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* Mismos seis botones que "Añadir a la visita", solo que aquí
-                    todo lo que captures se estampa con la zona actual. */}
-                <div className="capture-grid">
-                  <button
-                    className="capture-btn"
-                    disabled={capturaFoto.cargando || espacioBloqueado}
-                    onClick={() => {
-                      if (espacioBloqueado) {
-                        capturaFoto.establecerError(MSG_ESPACIO_LLENO);
-                        return;
-                      }
-                      inputFotoRef.current?.click();
-                    }}
-                  >
-                    <Icono nombre="foto" size={22} />
-                    Foto
-                  </button>
-                  <button
-                    className="capture-btn"
-                    disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
-                    onClick={iniciarODetenerAudio}
-                  >
-                    <Icono nombre="audio" size={22} />
-                    {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
-                  </button>
-                  <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
-                    <Icono nombre="nota" size={22} />
-                    Nota
-                  </button>
-                  <button className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
-                    <Icono nombre="hallazgo" size={22} />
-                    Hallazgo
-                  </button>
-                  <button className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
-                    <Icono nombre="oportunidad" size={22} />
-                    Oportunidad
-                  </button>
-                  <button className="capture-btn" onClick={() => setPasoAbierto(true)}>
-                    <Icono nombre="paso" size={22} />
-                    Próximo paso
-                  </button>
-                </div>
-                {(capturaFoto.error || capturaAudio.error) && (
-                  <div className="field-error-text">{capturaFoto.error || capturaAudio.error}</div>
-                )}
-                {grabando && (
-                  <Aviso tipo="atencion" titulo="Grabando">
-                    No bloquees la pantalla ni cambies de app o la grabación se cortará.
-                  </Aviso>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {(() => {
-          const n = capturas.length + hallazgos.length + oportunidades.length + pasos.length;
-          return (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-              {n} {n === 1 ? 'elemento' : 'elementos'} en esta visita
-            </div>
-          );
-        })()}
-
-        <CapturasPorUbicacion
-          contexto="recorrido"
-          capturas={capturas}
-          hallazgos={hallazgos}
-          oportunidades={oportunidades}
-          nombresUbicaciones={nombresUbicacionesVisita}
-          nombresTerminos={nombresTerminos}
-          zonaActiva={zonaActual ?? undefined}
-          onTocarCaptura={setCapturaEditandoId}
-          onAbrirFoto={setFotoVisorId}
-        />
-
-        {capturaEditandoId && <EditorCaptura capturaId={capturaEditandoId} onCerrar={() => setCapturaEditandoId(null)} />}
-        {visorFotos}
-
-        {/* Estos modales van también aquí: este `return` es anticipado y los
-            del final del componente no se montan en Modo Recorrido. */}
-        {hallazgoAbierto && (
-          <HallazgoRapidoModal
-            visitaId={visitaId}
-            comercialId={comercial.id}
-            onGuardar={guardarHallazgo}
-            onCerrar={() => setHallazgoAbierto(false)}
-          />
-        )}
-        {oportunidadAbierta && (
-          <OportunidadRapidaModal
-            visitaId={visitaId}
-            clienteId={visitaLocal?.clienteId}
-            comercialId={comercial.id}
-            onGuardar={guardarOportunidad}
-            onCompletar={completarOportunidad}
-            onCerrar={() => setOportunidadAbierta(false)}
-          />
-        )}
-        {pasoAbierto && visitaLocal?.clienteId && (
-          <PasoRapidoModal
-            visitaId={visitaId}
-            comercialId={comercial.id}
-            onGuardar={guardarPaso}
-            onPlanificarVisita={planificarVisitaDesdePaso}
-            onCerrar={() => setPasoAbierto(false)}
-          />
-        )}
-      </div>
-    );
-  }
 
   // Resumen de lo capturado, para la tira de arriba. Las fotos/audios/notas
   // van todas en `capturas` (captura_libre), se separan por su `tipo`.
@@ -1468,11 +1115,20 @@ export function VisitaActiva() {
     (op) => op.estado !== 'completado'
   ).length;
   const estadoSyncTexto = pendientesSync === 0 ? 'todo subido' : `${pendientesSync} sin subir`;
-  // El conmutador "por zona" (D1) solo aparece si el Recorrido se ha usado
-  // de verdad en esta visita.
+  // El conmutador "por zona" (D1) solo aparece si se han anotado zonas en
+  // esta visita.
   const zonaUsada = [...capturas, ...hallazgos, ...oportunidades].some(
     (op) => !!(op.payload as { zonaTexto?: string }).zonaTexto
   );
+  // Zonas ya anotadas en ESTA visita (cola local + lo sincronizado): chips
+  // para volver a una sin reescribirla.
+  const zonasUsadas = [
+    ...new Set(
+      [...capturas, ...hallazgos, ...oportunidades, ...pasos]
+        .map((op) => (op.payload as { zonaTexto?: string }).zonaTexto)
+        .filter((z): z is string => !!z && z.trim().length > 0)
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Fila de "En esta visita": icono + texto (con acento para oportunidad) +
   // coletilla gris opcional (naturaleza, prioridad, o "· de Fulano" en lo
@@ -1598,6 +1254,46 @@ export function VisitaActiva() {
         />
 
         <div className="label" style={{ marginTop: 0 }}>Captura lo que veas</div>
+
+        {/* Zona (opcional): etiqueta de texto libre que se estampa en todo
+            lo que captures a partir de ahora. Vacía → las capturas van al
+            grupo "General". Sustituye al antiguo Modo Recorrido, que era
+            una pantalla aparte. */}
+        <input
+          className="field"
+          value={zonaActual}
+          onChange={(e) => setZonaActual(e.target.value)}
+          placeholder="Zona (opcional) · p. ej. Puerta muelle de carga"
+        />
+        {zonasUsadas.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: -4 }}>
+            {zonasUsadas.map((z) => (
+              <button
+                key={z}
+                type="button"
+                className={`chip${zonaActual.trim() === z ? ' chip--on' : ''}`}
+                onClick={() => setZonaActual(zonaActual.trim() === z ? '' : z)}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
+        )}
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: -4 }}>
+          {zonaActual.trim() ? (
+            <>
+              Se guarda en{' '}
+              <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
+              {' · '}
+              <button type="button" className="btn-enlace" style={{ padding: 0 }} onClick={() => setZonaActual('')}>
+                quitar
+              </button>
+            </>
+          ) : (
+            'Sin zona, las capturas van a «General».'
+          )}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)' }}>
           <button
             className="capture-btn"
@@ -1721,11 +1417,6 @@ export function VisitaActiva() {
             )}
           </div>
         )}
-
-        <button type="button" className="ghost-row" onClick={() => setModoRecorrido(true)}>
-          <Icono nombre="recorrido" size={16} />
-          Recorrer las instalaciones
-        </button>
 
         {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
             tuyo + oportunidades + próximos pasos + lo de compañeros, regla
@@ -1890,9 +1581,7 @@ export function VisitaActiva() {
         )}
       </div>
 
-      {/* Cerrar es el final de la visita — aparte de todo lo de arriba.
-          "Recorrer las instalaciones" ya no va aquí: es una opción de
-          captura más (Zona 2), no un modo aparte al pie. */}
+      {/* Cerrar es el final de la visita — aparte de todo lo de arriba. */}
       <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
         Cerrar visita
       </button>
