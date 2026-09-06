@@ -431,9 +431,29 @@ trabajo: A0 → A → B → C. Verde (typecheck/lint/build) entre tandas;
 - Verificado en vivo: rejilla pegada al título, editor de zona abre/cierra
   limpio, consola sin errores.
 
-Pendiente de ejercer en vivo (verde en build, no probado en navegador):
-A0.1 (visita ya consolidada), A0.2 (dos visitas en curso), B6 (cambiar de
-zona a media captura), B2 (recordatorio con ≥3 capturas).
+**Verificación en vivo (2026-09-06, dev, visita ARCELOR):**
+- **A0.1 ✅** abierta una visita `consolidada` → pantalla "esta visita ya
+  está cerrada" + "Ver detalle". *Minor:* el nombre del cliente se quedó
+  en «…» (la query `cliente-nombre` no resolvió para una visita
+  consolidada ajena — probable RLS); cosmético, pantalla terminal.
+- **A0.2 ✅** con 2 visitas `en_curso` del mismo comercial → aviso "Tienes
+  otra visita abierta · ir a ella".
+- **B6 ✅** (prueba fuerte) foto capturada con zona "Acceso Vehículos";
+  cambiado el campo de zona a "CAMBIADA_DESPUES" ANTES de Guardar; en BD la
+  foto quedó con `zona_texto = "Acceso Vehículos"`. El comportamiento
+  viejo habría guardado la nueva.
+- **B2 ✅** con 3 elementos (1 foto + 2 notas) y sin oportunidad ni paso →
+  línea "No has apuntado ninguna oportunidad ni próximo paso…".
+- Limpieza: borradas las 4 capturas de prueba; la visita ARCELOR vuelve a
+  su 1 foto original.
+- **PENDIENTE Cesar:** la visita ARCELOR del 7-sept (`463f6ac1`) quedó
+  `en_curso` (hubo que arrancarla para A0.2); revertir a `agendada`
+  (SQL de dev; las escrituras están bloqueadas para Claude).
+
+**#2 (conflicto "duro" del objetivo) — APUNTADO para el final del
+recorrido** (decisión Cesar): si dos comerciales guardan el objetivo casi a
+la vez, gana el último sin avisar. Muy raro. Revisar al cerrar todo el
+recorrido, no ahora.
 
 ### `/` — Hoy
 
