@@ -190,13 +190,16 @@ Clientes, sin banner en el resumen tras consolidar.
   (0)"…) — ✅ RESUELTO. `SelectorTermino` oculta las categorías sin
   términos (el catálogo lo gestiona Dirección desde Vocabulario, no desde
   este selector).
-- [B] Dos enlaces "ⓘ Qué es…" apilados (Términos y modelos / Naturaleza).
-  PENDIENTE — reducir ayuda inline es decisión de producto sobre el modelo.
-- [C] Al desplegar una categoría, el árbol de términos se intercala entre
-  los chips (chip / chip / árbol / chip / chip): layout desordenado.
-  PENDIENTE — reestructurar `SelectorTermino` (chips en fila que envuelve +
-  panel debajo); afecta también a Detalle de Oportunidad, merece su propio
-  pase.
+- [B] Dos enlaces "ⓘ Qué es…" apilados (Términos y modelos / Naturaleza) —
+  ✅ RESUELTO. Quitada la nota "termino-modelo" de `SelectorTermino` (el
+  placeholder "buscar término o modelo…" ya lo nombra y el árbol lo enseña,
+  MIFARE › DESFire EV2; sigue en /ayuda). Queda solo la de "naturaleza",
+  que es el concepto propio. Aplica también a Detalle de Oportunidad, donde
+  se apilaba con Etapa / Prioridad / Horizonte.
+- [C] Al desplegar una categoría, el árbol se intercalaba entre los chips —
+  ✅ RESUELTO. `SelectorTermino`: todas las categorías en una fila que
+  envuelve; el árbol de la que abres aparece DEBAJO de la fila entera.
+  Verificado en la hoja de Hallazgo y en Detalle de Oportunidad (×2 usos).
 
 ### Detalle de oportunidad
 - [B] **Tres** enlaces "ⓘ Qué es…" en una pantalla (Etapa, Prioridad,

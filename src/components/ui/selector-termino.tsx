@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { NOMBRE_CATEGORIA_SIN_CLASIFICAR } from '@/lib/vocabulario';
 
 interface Termino {
@@ -88,6 +87,23 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
     return m;
   }, [terminosLista]);
 
+  // Categorías con al menos un término de primer nivel, cada una con esos
+  // términos ya resueltos. Las vacías no se muestran (aquí no hay nada que
+  // elegir en ellas — el catálogo lo gestiona Dirección desde Vocabulario).
+  const categoriasConTerminos = useMemo(
+    () =>
+      (categorias ?? [])
+        .map((c) => ({
+          ...c,
+          primerNivel: terminosLista.filter(
+            (t) => t.categoria_id === c.id && (!t.parent_id || !porId.get(t.parent_id))
+          ),
+        }))
+        .filter((c) => c.primerNivel.length > 0),
+    [categorias, terminosLista, porId]
+  );
+  const categoriaAbierta = categoriasConTerminos.find((c) => c.id === categoriaAbiertaId) ?? null;
+
   // "MIFARE › DESFire EV2" para un modelo; sólo el nombre para un término
   // de primer nivel (o si el padre está descartado y no aparece).
   function rutaDe(t: Termino): string {
@@ -171,7 +187,10 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
         onChange={(e) => setTextoBusqueda(e.target.value)}
         placeholder="buscar término o modelo…"
       />
-      <AyudaNota concepto="termino-modelo" />
+      {/* Sin nota "¿qué es un término / modelo?" aquí: el placeholder ya lo
+          nombra y el árbol lo enseña (MIFARE › DESFire EV2). Se apilaba con
+          la de "naturaleza" en la hoja de Hallazgo y con las de Etapa /
+          Prioridad / Horizonte en Detalle de Oportunidad. Sigue en /ayuda. */}
 
       {textoBusqueda.trim() ? (
         <>
@@ -208,60 +227,58 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
         </>
       ) : (
         <div style={{ marginTop: 8 }}>
-          {categorias?.map((c) => {
-            const primerNivel = terminosLista.filter(
-              (t) => t.categoria_id === c.id && (!t.parent_id || !porId.get(t.parent_id))
-            );
-            // Las categorías sin términos no se muestran: aquí no hay nada
-            // que elegir en ellas y solo añaden ruido (el catálogo lo
-            // gestiona Dirección desde Vocabulario, no desde este selector).
-            if (primerNivel.length === 0) return null;
-            const abierta = categoriaAbiertaId === c.id;
-            return (
-              <div key={c.id} style={{ marginBottom: 6 }}>
+          {/* Todas las categorías en una fila que envuelve; el árbol de la
+              que abras aparece DEBAJO de la fila entera, no intercalado
+              entre los chips. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {categoriasConTerminos.map((c) => {
+              const abierta = categoriaAbiertaId === c.id;
+              return (
                 <button
+                  key={c.id}
                   type="button"
                   className={`chip${abierta ? ' chip--on' : ''}`}
                   onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
                 >
-                  {c.nombre} ({primerNivel.length})
+                  {c.nombre} ({c.primerNivel.length})
                 </button>
-                {abierta && (
-                    <div className="selector-pick">
-                      {primerNivel.map((t) => {
-                        const hijos = hijosPorPadre.get(t.id) ?? [];
-                        return (
-                          <Fragment key={t.id}>
-                            <button
-                              type="button"
-                              className="selector-term"
-                              onClick={() => onSeleccionar({ id: t.id, nombre: t.nombre })}
-                            >
-                              <span className="selector-term__n">{t.nombre}</span>
-                              {hijos.length > 0 && <span className="fila__badge">{hijos.length}</span>}
-                            </button>
-                            {hijos.length > 0 && (
-                              <div className="selector-rama">
-                                {hijos.map((h) => (
-                                  <button
-                                    key={h.id}
-                                    type="button"
-                                    className="selector-model"
-                                    onClick={() => onSeleccionar({ id: h.id, nombre: rutaDe(h) })}
-                                  >
-                                    {h.nombre}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </Fragment>
-                        );
-                      })}
-                    </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {categoriaAbierta && (
+            <div className="selector-pick">
+              {categoriaAbierta.primerNivel.map((t) => {
+                const hijos = hijosPorPadre.get(t.id) ?? [];
+                return (
+                  <Fragment key={t.id}>
+                    <button
+                      type="button"
+                      className="selector-term"
+                      onClick={() => onSeleccionar({ id: t.id, nombre: t.nombre })}
+                    >
+                      <span className="selector-term__n">{t.nombre}</span>
+                      {hijos.length > 0 && <span className="fila__badge">{hijos.length}</span>}
+                    </button>
+                    {hijos.length > 0 && (
+                      <div className="selector-rama">
+                        {hijos.map((h) => (
+                          <button
+                            key={h.id}
+                            type="button"
+                            className="selector-model"
+                            onClick={() => onSeleccionar({ id: h.id, nombre: rutaDe(h) })}
+                          >
+                            {h.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
