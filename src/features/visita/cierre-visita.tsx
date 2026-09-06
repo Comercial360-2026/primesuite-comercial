@@ -515,6 +515,11 @@ export function CierreVisita() {
         ayuda="cierre-visita"
       />
 
+      {/* Todo el contenido (recuento, objetivo, avisos y "Revisar por
+          zona") va en el MISMO scroll: antes el recuento y los avisos
+          quedaban fijos y, con un aviso largo, "Revisar por zona" se
+          quedaba aplastado en una tira de 40px imposible de leer. */}
+      <div className="screen__scroll" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {casillasCierre.map(({ grupo, sing, plur, items }) => (
           <button
@@ -587,7 +592,6 @@ export function CierreVisita() {
           </Aviso>
         )}
 
-      <div className="screen__scroll">
         {Object.keys(elementosPorUbicacion).some((k) => k !== 'sin ubicación') && (
           <SeccionLista titulo="Revisar por zona">
             {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {

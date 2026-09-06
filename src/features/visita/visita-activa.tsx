@@ -27,6 +27,8 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Segmentado } from '@/components/ui/segmentado';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { actualizarOperacion } from '@/lib/offline-queue';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
@@ -261,7 +263,7 @@ export function VisitaActiva() {
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
   const { iniciarVisita } = useVisitaActivaContext();
-  const { operaciones, encolar } = useSyncQueue(visitaId);
+  const { operaciones, encolar, recargar: recargarCola } = useSyncQueue(visitaId);
 
   // Zona (opcional) de la captura: una ETIQUETA DE TEXTO LIBRE que el
   // comercial escribe sobre la marcha (la puerta / barrera / rincón que va
@@ -277,6 +279,10 @@ export function VisitaActiva() {
   // título; no vive fijo entre el título y los botones (eso empujaba la
   // captura hacia abajo aunque ya no estuvieras marcando zonas).
   const [zonaEditorAbierto, setZonaEditorAbierto] = useState(false);
+  // Zona (de la lista de "zonas de esta visita") pendiente de confirmar su
+  // borrado. Borrarla = sus capturas pasan a «General».
+  const [zonaABorrar, setZonaABorrar] = useState<string | null>(null);
+  const [borrandoZona, setBorrandoZona] = useState(false);
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
   // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
   const zonaParaCaptura = zonaActual.trim() || undefined;
@@ -889,6 +895,40 @@ export function VisitaActiva() {
     setTimeout(() => setPasoAbierto(false), 700);
   }
 
+  // Borrar una zona de la visita (te equivocaste al escribirla, sobra…):
+  // todo lo que la lleva —esté aún en la cola local o ya sincronizado—
+  // pasa a «General». No borra ninguna captura.
+  async function borrarZona(zona: string) {
+    if (!visitaId) return;
+    setBorrandoZona(true);
+    try {
+      // Todas las operaciones locales con esa zona — pendientes y ya
+      // sincronizadas. Para las pendientes es lo que viaja al servidor; para
+      // las sincronizadas, alinea la copia local con el UPDATE de abajo (si
+      // no, el chip seguiría saliendo hasta recargar la pantalla).
+      const locales = operaciones.filter(
+        (op) => (op.payload as { zonaTexto?: string }).zonaTexto === zona
+      );
+      for (const op of locales) {
+        await actualizarOperacion(op.id, {
+          payload: { ...(op.payload as object), zonaTexto: undefined } as OperacionPendiente['payload'],
+        });
+      }
+      await Promise.all([
+        supabase.from('captura_libre').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
+        supabase.from('hallazgo').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
+        supabase.from('oportunidad').update({ zona_texto: null }).eq('visita_origen_id', visitaId).eq('zona_texto', zona),
+        supabase.from('proximo_paso').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
+      ]);
+      if (zonaActual.trim() === zona) setZonaActual('');
+      await recargarCola();
+      queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
+      setZonaABorrar(null);
+    } finally {
+      setBorrandoZona(false);
+    }
+  }
+
   async function planificarVisitaDesdePaso({
     fecha,
     hora,
@@ -1421,13 +1461,14 @@ export function VisitaActiva() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
           <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
-          {/* Sin zona: enlace discreto para empezar a marcar. Con zona
-              activa, el enlace desaparece y manda la banda de abajo. */}
+          {/* Sin zona: chip (control, no un texto que hay que adivinar que
+              se pincha). Con zona activa, desaparece y manda la banda. */}
           {!hayZonaActiva && (
             <button
               type="button"
-              className="btn-enlace"
-              style={{ padding: 0, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+              className="chip"
+              style={{ flexShrink: 0 }}
+              aria-expanded={zonaEditorAbierto}
               onClick={() => setZonaEditorAbierto((v) => !v)}
             >
               <Icono nombre="ubicacion" size={14} /> Marcar zonas
@@ -1479,26 +1520,68 @@ export function VisitaActiva() {
               placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
               autoFocus
             />
+
+            {/* Confirmar / aplicar la zona escrita (nueva o no) — cierra el
+                editor y deja la banda "Guardando en X" arriba. */}
+            {zonaActual.trim() && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setZonaEditorAbierto(false)}
+              >
+                Usar zona «{zonaActual.trim()}»
+              </button>
+            )}
+
             {zonasUsadas.length > 0 && (
               <>
                 <div className="label" style={{ marginTop: 4 }}>Zonas de esta visita</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {zonasUsadas.map((z) => (
-                    <button
-                      key={z}
-                      type="button"
-                      className="chip"
-                      onClick={() => {
-                        setZonaActual(z);
-                        setZonaEditorAbierto(false);
-                      }}
-                    >
-                      {z}
-                    </button>
+                    <span key={z} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        className="chip"
+                        style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                        onClick={() => {
+                          setZonaActual(z);
+                          setZonaEditorAbierto(false);
+                        }}
+                      >
+                        {z}
+                      </button>
+                      <button
+                        type="button"
+                        className="chip"
+                        aria-label={`Quitar la zona «${z}» de la visita`}
+                        title={`Quitar «${z}» — sus capturas pasan a «General»`}
+                        style={{
+                          borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0,
+                          padding: '0 8px', color: 'var(--ink-400)',
+                        }}
+                        onClick={() => setZonaABorrar(z)}
+                      >
+                        ✕
+                      </button>
+                    </span>
                   ))}
                 </div>
               </>
             )}
+
+            {zonaABorrar && (
+              <ConfirmacionBorrado
+                reversible="Podrás volver a marcarla escribiéndola de nuevo."
+                confirmar="Sí, quitar la zona"
+                cargandoTexto="Quitando…"
+                cargando={borrandoZona}
+                onCancelar={() => setZonaABorrar(null)}
+                onConfirmar={() => void borrarZona(zonaABorrar)}
+              >
+                Quitar «{zonaABorrar}» de la visita: sus capturas pasan a «General».
+              </ConfirmacionBorrado>
+            )}
+
             <button
               type="button"
               className="btn-enlace"
