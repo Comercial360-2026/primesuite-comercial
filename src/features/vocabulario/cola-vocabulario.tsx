@@ -1143,11 +1143,13 @@ export function ColaVocabulario() {
             <div className="lista-agrupada">
               <SeccionLista>
                 {propuestos.map((t) => {
+                  // El subtítulo se quedaba en "categoría · propuesto por X ·
+                  // 1 sept 20…" y la fecha se cortaba. Ahora: categoría +
+                  // fecha en el subtítulo; "propuesto por X" baja al bloque
+                  // de contexto que se despliega al tocar.
                   const meta =
-                    `${capitalizarFrase(t.categoria_nombre)} · propuesto por ${t.propuesto_por_nombre}` +
-                    (t.fecha_propuesta
-                      ? ` · ${fechaCorta(t.fecha_propuesta)}`
-                      : '');
+                    capitalizarFrase(t.categoria_nombre) +
+                    (t.fecha_propuesta ? ` · ${fechaCorta(t.fecha_propuesta)}` : '');
 
                   if (fusionandoId === t.id) {
                     return (
@@ -1214,6 +1216,7 @@ export function ColaVocabulario() {
                             'Cargando contexto…'
                           ) : (
                             <>
+                              <div>Propuesto por {t.propuesto_por_nombre}.</div>
                               {contextoTermino?.visita ? (
                                 <div>
                                   Propuesto en visita a <strong>{contextoTermino.visita.cliente?.nombre ?? '—'}</strong>

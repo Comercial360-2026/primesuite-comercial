@@ -274,7 +274,7 @@ export function DetalleComercial() {
           <div className="ficha-vitals">
             <span>
               {totalCartera === 0
-                ? 'sin cartera asignada'
+                ? 'Sin clientes asignados todavía'
                 : [
                     cartera?.clientes ? `${cartera.clientes} cliente${cartera.clientes === 1 ? '' : 's'}` : null,
                     cartera?.visitas

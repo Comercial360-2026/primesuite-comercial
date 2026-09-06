@@ -424,7 +424,7 @@ export function Yo() {
 
         {esDireccionComercial && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <SeccionLista titulo="Salud del equipo">
+            <SeccionLista titulo="El equipo">
               <FilaDato
                 icono="almacenamiento"
                 etiqueta="Espacio del equipo"
@@ -482,6 +482,8 @@ export function Yo() {
 
         {esDireccionComercial && (
           <SeccionLista titulo="Gestión">
+            {/* Primero lo que puede estar esperando una respuesta (llevan
+                badge / tono aviso cuando hay algo); luego los catálogos. */}
             {!!numPeticionesAcceso && (
               <FilaNavegable
                 icono="solicitudes"
@@ -493,27 +495,9 @@ export function Yo() {
               />
             )}
             <FilaNavegable
-              icono="clientes"
-              titulo="Equipo"
-              subtitulo="Dar de alta, editar o dar de baja comerciales"
-              to="/comerciales"
-            />
-            <FilaNavegable
-              icono="vocabulario"
-              titulo="Vocabulario"
-              subtitulo="Revisar propuestas y organizar el catálogo"
-              to="/vocabulario"
-            />
-            <FilaNavegable
-              icono="clientes"
-              titulo="Sectores"
-              subtitulo="La lista de sectores que se elige en la ficha de cliente"
-              to="/sectores"
-            />
-            <FilaNavegable
               icono="solicitudes"
               titulo="Solicitudes de ayuda"
-              subtitulo="Comerciales que necesitan que alguien les sustituya en una visita"
+              subtitulo="Comerciales que piden que alguien les cubra una visita"
               badge={numSolicitudesPendientes || undefined}
               tono={numSolicitudesPendientes ? 'aviso' : 'neutral'}
               to="/solicitudes-reasignacion"
@@ -532,6 +516,24 @@ export function Yo() {
                 to="/deduplicacion"
               />
             )}
+            <FilaNavegable
+              icono="clientes"
+              titulo="Equipo"
+              subtitulo="Dar de alta, editar o dar de baja comerciales"
+              to="/comerciales"
+            />
+            <FilaNavegable
+              icono="vocabulario"
+              titulo="Vocabulario"
+              subtitulo="Revisar propuestas y organizar el catálogo"
+              to="/vocabulario"
+            />
+            <FilaNavegable
+              icono="vocabulario"
+              titulo="Sectores"
+              subtitulo="La lista de sectores que se elige en la ficha de cliente"
+              to="/sectores"
+            />
           </SeccionLista>
         )}
 

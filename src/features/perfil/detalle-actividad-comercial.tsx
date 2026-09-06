@@ -97,23 +97,21 @@ export function DetalleActividadComercial() {
             {porProyecto?.map((p) => {
               const capturas = p.num_fotos + p.num_audios + p.num_notas;
               const etiqueta = p.es_general ? p.cliente_nombre : `${p.cliente_nombre} › ${p.proyecto_nombre}`;
+              // Toda la métrica en el subtítulo (ancho completo, como en la
+              // lista) — antes iba en `valor`, apretada a la derecha, y
+              // "oportunidades activas" caía a su propia línea.
+              const metrica = [
+                `${p.num_visitas} visita${p.num_visitas === 1 ? '' : 's'}`,
+                `${p.num_hallazgos} hallazgo${p.num_hallazgos === 1 ? '' : 's'}`,
+                `${capturas} captura${capturas === 1 ? '' : 's'}`,
+                `${p.num_oportunidades_en_curso} oportunidad${p.num_oportunidades_en_curso === 1 ? '' : 'es'} activa${p.num_oportunidades_en_curso === 1 ? '' : 's'}`,
+              ].join(' · ');
               return (
                 <FilaNavegable
                   key={p.proyecto_id}
                   titulo={etiqueta}
+                  subtitulo={metrica}
                   to={`/clientes/${p.cliente_id}/proyectos/${p.proyecto_id}`}
-                  valor={
-                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                      <span>
-                        {p.num_visitas} visita{p.num_visitas === 1 ? '' : 's'} · {p.num_hallazgos} hallazgo
-                        {p.num_hallazgos === 1 ? '' : 's'}
-                      </span>
-                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400 }}>
-                        {capturas} captura{capturas === 1 ? '' : 's'} · {p.num_oportunidades_en_curso} oportunidad
-                        {p.num_oportunidades_en_curso === 1 ? '' : 'es'} activa{p.num_oportunidades_en_curso === 1 ? '' : 's'}
-                      </span>
-                    </span>
-                  }
                 />
               );
             })}
