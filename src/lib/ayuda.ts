@@ -115,9 +115,9 @@ const _PANTALLAS = {
     grupo: 'tu',
     titulo: 'Yo',
     queEs:
-      'Tu pantalla personal: quién eres, cuánto ocupan tus visitas y, si diriges el equipo, los accesos de gestión.',
+      'Tu pantalla personal: quién eres, cuánto ocupan tus visitas, «Reportar un problema» para avisar a Dirección de que algo falla, y —si diriges el equipo— los accesos de gestión y los partes que han mandado los comerciales. Al pie, la versión de la app: dila cuando reportes un fallo.',
     cuando:
-      'Para cerrar sesión, ver si tienes algo sin sincronizar, o entrar a las herramientas del equipo.',
+      'Para cerrar sesión, ver si tienes algo sin sincronizar, contar un problema o entrar a las herramientas del equipo.',
   },
   'mi-espacio': {
     grupo: 'tu',

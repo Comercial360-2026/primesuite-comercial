@@ -1218,6 +1218,51 @@ export type Database = {
         }
         Relationships: []
       }
+      reporte_problema: {
+        Row: {
+          comercial_id: string
+          contexto: Json
+          creado_en: string
+          id: string
+          resuelto_en: string | null
+          resuelto_por: string | null
+          texto: string
+        }
+        Insert: {
+          comercial_id: string
+          contexto?: Json
+          creado_en?: string
+          id?: string
+          resuelto_en?: string | null
+          resuelto_por?: string | null
+          texto: string
+        }
+        Update: {
+          comercial_id?: string
+          contexto?: Json
+          creado_en?: string
+          id?: string
+          resuelto_en?: string | null
+          resuelto_por?: string | null
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reporte_problema_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sector: {
         Row: {
           activo: boolean

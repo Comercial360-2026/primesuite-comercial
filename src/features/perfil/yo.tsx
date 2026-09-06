@@ -11,6 +11,7 @@ import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -79,6 +80,7 @@ export function Yo() {
   const [error, setError] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
+  const [reportando, setReportando] = useState(false);
 
   const { invitaciones, rechazos, expulsiones, aceptar, rechazar, marcarRechazoVisto, marcarExpulsionVista } =
     useAvisosParticipacion();
@@ -152,6 +154,32 @@ export function Yo() {
       return Object.values(cuenta).filter((n) => n >= 2).length;
     },
   });
+
+  // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
+  // visitas de equipo), no en una pantalla aparte.
+  const { data: reportesPendientes } = useQuery({
+    queryKey: ['reportes-problema-pendientes'],
+    refetchOnMount: 'always',
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('reporte_problema')
+        .select('id, texto, creado_en, contexto, comercial:comercial_id(nombre)')
+        .is('resuelto_en', null)
+        .order('creado_en', { ascending: false });
+      if (err) throw err;
+      return data ?? [];
+    },
+  });
+
+  async function marcarReporteVisto(id: string) {
+    const { error: err } = await supabase
+      .from('reporte_problema')
+      .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id })
+      .eq('id', id);
+    if (err) throw new Error(err.message);
+    queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
+  }
 
   // Visible para cualquier comercial, no solo Dirección Comercial: es la
   // cola local de SU PROPIO dispositivo, no un dato compartido. Antes, un
@@ -409,6 +437,37 @@ export function Yo() {
           </div>
         )}
 
+        {esDireccionComercial && (reportesPendientes?.length ?? 0) > 0 && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Problemas reportados</div>
+            {reportesPendientes!.map((r) => {
+              const ctx = (r.contexto ?? {}) as { version?: string; url?: string };
+              return (
+                <div key={r.id} style={{ marginTop: 'var(--space-3)' }}>
+                  <div style={{ fontSize: 'var(--text-sm)', whiteSpace: 'pre-wrap' }}>{r.texto}</div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                    {(r.comercial as unknown as { nombre: string } | null)?.nombre ?? '—'} · {fechaCorta(r.creado_en)}
+                    {ctx.version ? ` · v${ctx.version}` : ''}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={procesandoAviso === r.id}
+                      onClick={() => resolverAviso(r.id, () => marcarReporteVisto(r.id))}
+                    >
+                      {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {errorAviso && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{errorAviso}</div>
+            )}
+          </div>
+        )}
+
         {!esDireccionComercial && (
           <SeccionLista titulo="Tu espacio">
             <FilaNavegable
@@ -552,6 +611,12 @@ export function Yo() {
             subtitulo="Manual de la app, pantalla por pantalla"
             to="/ayuda"
           />
+          <FilaNavegable
+            icono="atencion"
+            titulo="Reportar un problema"
+            subtitulo="Algo va mal o no se entiende — se lo cuentas a Dirección"
+            onClick={() => setReportando(true)}
+          />
         </SeccionLista>
 
         <SeccionLista>
@@ -568,7 +633,31 @@ export function Yo() {
             {error}
           </div>
         )}
+
+        <div
+          style={{
+            paddingInline: 'var(--fila-pad-x)',
+            marginTop: 'var(--space-4)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--ink-400)',
+          }}
+        >
+          PrimeNotes · v{__APP_VERSION__} · {__BUILD_DATE__}
+        </div>
       </div>
+
+      {reportando && comercial && (
+        <ReportarProblemaHoja
+          comercialId={comercial.id}
+          rol={comercial.rol}
+          onCerrar={() => {
+            setReportando(false);
+            if (esDireccionComercial) {
+              queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
