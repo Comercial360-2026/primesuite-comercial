@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { fechaCorta } from '@/lib/fechas';
 import { NATURALEZA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -32,7 +32,7 @@ interface Props {
 // "Cerrar". Los datos salen de la cola offline (useSyncQueue) → valen con o
 // sin conexión. Las fotos y audios se ven/oyen aquí: el binario está en el
 // móvil (IndexedDB) mientras no se ha subido, y en Storage cuando ya sí.
-export function ModalDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: Props) {
+export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: Props) {
   const esMedia = grupo === 'fotos' || grupo === 'audios';
 
   // Capturas todavía en el móvil: URL directa al Blob local. Se crea en un
@@ -81,7 +81,7 @@ export function ModalDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: 
   const urlDe = (op: OperacionPendiente) => urlsLocales.get(op.id) ?? urlsRemotas?.[op.id] ?? null;
 
   return (
-    <Modal titulo={`${TITULO[grupo]} (${items.length})`} onCerrar={onCerrar}>
+    <HojaInferior titulo={`${TITULO[grupo]} (${items.length})`} onCerrar={onCerrar}>
       <ul className="detalle-cierre">
         {items.map((op) => {
           const pendiente = op.estado !== 'completado';
@@ -170,7 +170,7 @@ export function ModalDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: 
           );
         })}
       </ul>
-    </Modal>
+    </HojaInferior>
   );
 }
 

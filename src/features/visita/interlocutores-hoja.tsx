@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { DirectorioInterlocutores } from '@/features/clientes/directorio-interlocutores';
 
-interface InterlocutoresModalProps {
+interface InterlocutoresHojaProps {
   visitaId: string;
   clienteId: string;
   onCerrar: () => void;
@@ -14,7 +14,7 @@ interface InterlocutoresModalProps {
 // personas del cliente (alta/edición/baja) vive en
 // `DirectorioInterlocutores`, compartido con la ficha de cliente; aquí solo
 // se añade la capa de "quién estuvo presente en ESTA visita".
-export function InterlocutoresModal({ visitaId, clienteId, onCerrar }: InterlocutoresModalProps) {
+export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: InterlocutoresHojaProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 

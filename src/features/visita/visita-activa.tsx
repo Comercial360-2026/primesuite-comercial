@@ -14,11 +14,11 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
-import { OportunidadRapidaModal } from './oportunidad-rapida-modal';
-import { HallazgoRapidoModal } from './hallazgo-rapido-modal';
-import { PasoRapidoModal } from './paso-rapido-modal';
-import { InterlocutoresModal } from './interlocutores-modal';
-import { ParticipantesModal } from './participantes-modal';
+import { OportunidadRapidaHoja } from './oportunidad-rapida-hoja';
+import { HallazgoRapidoHoja } from './hallazgo-rapido-hoja';
+import { PasoRapidoHoja } from './paso-rapido-hoja';
+import { InterlocutoresHoja } from './interlocutores-hoja';
+import { ParticipantesHoja } from './participantes-hoja';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
@@ -406,7 +406,7 @@ export function VisitaActiva() {
   });
 
   // Equipo de la visita: misma clave y misma forma de select que
-  // participantes-modal.tsx (comparten caché a propósito — ver
+  // participantes-hoja.tsx (comparten caché a propósito — ver
   // primesuite-query-key-colision, el riesgo es solo cuando el select
   // difiere, aquí es idéntico).
   const { data: participantesEquipo } = useQuery({
@@ -1484,7 +1484,7 @@ export function VisitaActiva() {
       </button>
 
       {oportunidadAbierta && (
-        <OportunidadRapidaModal
+        <OportunidadRapidaHoja
           visitaId={visitaId}
           clienteId={visitaLocal?.clienteId}
           comercialId={comercial.id}
@@ -1495,7 +1495,7 @@ export function VisitaActiva() {
       )}
 
       {hallazgoAbierto && (
-        <HallazgoRapidoModal
+        <HallazgoRapidoHoja
           visitaId={visitaId}
           comercialId={comercial.id}
           onGuardar={guardarHallazgo}
@@ -1504,7 +1504,7 @@ export function VisitaActiva() {
       )}
 
       {pasoAbierto && visitaLocal?.clienteId && (
-        <PasoRapidoModal
+        <PasoRapidoHoja
           visitaId={visitaId}
           comercialId={comercial.id}
           onGuardar={guardarPaso}
@@ -1514,14 +1514,14 @@ export function VisitaActiva() {
       )}
 
       {interlocutoresAbierto && visitaLocal?.clienteId && (
-        <InterlocutoresModal
+        <InterlocutoresHoja
           visitaId={visitaId}
           clienteId={visitaLocal.clienteId}
           onCerrar={() => setInterlocutoresAbierto(false)}
         />
       )}
       {participantesAbierto && visitaId && (
-        <ParticipantesModal visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
+        <ParticipantesHoja visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
       )}
 
       {/* Nota — misma hoja inferior que el resto de capturas (foto, audio,

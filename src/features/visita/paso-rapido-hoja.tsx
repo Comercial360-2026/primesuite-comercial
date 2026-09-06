@@ -5,7 +5,7 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
-interface PasoRapidoModalProps {
+interface PasoRapidoHojaProps {
   visitaId: string;
   comercialId: string;
   onGuardar: (payload: ProximoPasoPayload) => Promise<void>;
@@ -27,13 +27,13 @@ interface PasoRapidoModalProps {
 //     proximo_paso.
 // Antes solo existía la primera y una "revisita" quedaba invisible fuera
 // de la pestaña Tareas.
-export function PasoRapidoModal({
+export function PasoRapidoHoja({
   onGuardar,
   onPlanificarVisita,
   visitaId,
   comercialId,
   onCerrar,
-}: PasoRapidoModalProps) {
+}: PasoRapidoHojaProps) {
   const [modo, setModo] = useState<'tarea' | 'visita'>('tarea');
 
   const [descripcion, setDescripcion] = useState('');

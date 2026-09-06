@@ -19,7 +19,7 @@ const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
 // Pantalla de edición (no de creación): el Hallazgo se crea con captura
 // mínima (término + naturaleza) desde el botón "Hallazgo" en Visita Activa
-// (ver hallazgo-rapido-modal.tsx). Esta pantalla sirve para
+// (ver hallazgo-rapido-hoja.tsx). Esta pantalla sirve para
 // estructurar/completar después (nota, ubicación, fecha relevante),
 // tal como se cerró en el flujo funcional.
 export function DetalleHallazgo() {

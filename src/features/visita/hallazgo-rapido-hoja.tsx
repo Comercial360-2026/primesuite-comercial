@@ -6,7 +6,7 @@ import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Icono } from '@/components/ui/iconos';
 import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
-interface HallazgoRapidoModalProps {
+interface HallazgoRapidoHojaProps {
   visitaId: string;
   comercialId: string;
   onGuardar: (payload: HallazgoPayload) => Promise<void>;
@@ -34,12 +34,12 @@ const NATURALEZAS: HallazgoPayload['naturaleza'][] = [
 // sin contexto. El resto (ubicación, fecha relevante) sí se completa
 // después. El selector de término vive en SelectorTermino, reutilizado
 // también en Detalle de Oportunidad.
-export function HallazgoRapidoModal({
+export function HallazgoRapidoHoja({
   visitaId,
   comercialId,
   onGuardar,
   onCerrar,
-}: HallazgoRapidoModalProps) {
+}: HallazgoRapidoHojaProps) {
   const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoSeleccionado | null>(null);
   const [naturaleza, setNaturaleza] = useState<HallazgoPayload['naturaleza']>('contexto');
   const [nota, setNota] = useState('');

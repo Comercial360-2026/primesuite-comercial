@@ -56,7 +56,7 @@ export function MisProximosPasos() {
   });
 
   // "Tarea" vs "Próxima visita": la elección se hace al crear el paso
-  // (PasoRapidoModal) y una "próxima visita" NO crea proximo_paso — planifica
+  // (PasoRapidoHoja) y una "próxima visita" NO crea proximo_paso — planifica
   // una visita. Así que aquí todo son tareas. Lo útil de distinguir en esta
   // pantalla es cuáles ya han derivado en una revisita planificada: se
   // cruza cada paso pendiente con las visitas 'agendada' futuras de su

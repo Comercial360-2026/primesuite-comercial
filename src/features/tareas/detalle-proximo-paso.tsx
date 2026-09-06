@@ -14,7 +14,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
-// vía paso-rapido-modal.tsx). Mismo patrón que detalle-hallazgo.tsx:
+// vía paso-rapido-hoja.tsx). Mismo patrón que detalle-hallazgo.tsx:
 // carga, edición con confirmación explícita de éxito, y borrado en dos
 // pasos con comprobación de `count` (ver adenda_punto1_delete_silencioso.md
 // — sin comprobar count, un DELETE sin política que lo autorice se ve

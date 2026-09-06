@@ -89,7 +89,7 @@ export function AltaRapidaCliente() {
   // Defensa explícita: sin pantalla de login construida todavía, `comercial`
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
   // de forma silenciosa — ahora se muestra como un error visible, mismo
-  // patrón ya usado en OportunidadRapidaModal.
+  // patrón ya usado en OportunidadRapidaHoja.
   // Con red: INSERT directo (instantáneo, la ficha ya es navegable).
   // Sin red o corte puntual: se encola y se sincroniza luego. `enCola` dice
   // cuál de los dos pasó, para que cada flujo actúe en consecuencia.

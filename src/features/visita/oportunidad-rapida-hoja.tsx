@@ -5,7 +5,7 @@ import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Icono } from '@/components/ui/iconos';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
-interface OportunidadRapidaModalProps {
+interface OportunidadRapidaHojaProps {
   visitaId: string;
   clienteId: string | undefined;
   comercialId: string;
@@ -22,14 +22,14 @@ const PRIORIDADES: OportunidadPayload['prioridad'][] = ['baja', 'media', 'alta',
 // Captura mínima según lo cerrado: título, prioridad. Nada más — el resto
 // se completa en Detalle de Oportunidad. Tras guardar, el comercial elige:
 // completar la oportunidad ahora, o seguir en la visita y hacerlo luego.
-export function OportunidadRapidaModal({
+export function OportunidadRapidaHoja({
   visitaId,
   clienteId,
   comercialId,
   onGuardar,
   onCompletar,
   onCerrar,
-}: OportunidadRapidaModalProps) {
+}: OportunidadRapidaHojaProps) {
   const [oportunidadId] = useState(() => uuid());
   const [titulo, setTitulo] = useState('');
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');

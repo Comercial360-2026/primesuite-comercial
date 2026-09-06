@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
 
-interface ParticipantesModalProps {
+interface ParticipantesHojaProps {
   visitaId: string;
   onCerrar: () => void;
 }
@@ -30,7 +30,7 @@ interface Participante extends ParticipanteCrudo {
 // Un comercial normal no puede leer la tabla `comercial` (RLS), así que
 // el selector se llena con la RPC fn_comerciales_seleccionables
 // (SECURITY DEFINER, solo id + nombre de activos).
-export function ParticipantesModal({ visitaId, onCerrar }: ParticipantesModalProps) {
+export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps) {
   const { comercial } = useSesionActual();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const queryClient = useQueryClient();

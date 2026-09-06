@@ -13,7 +13,7 @@ const MS_HASTA_TARDANDO = 8_000;
 
 // Mecanismo común para acciones asíncronas disparadas desde un botón/formulario
 // (guardar, encolar, navegar tras confirmar). Extraído del patrón ya validado
-// en oportunidad-rapida-modal.tsx ("BUG CORREGIDO": sin try/catch, `guardando`
+// en oportunidad-rapida-hoja.tsx ("BUG CORREGIDO": sin try/catch, `guardando`
 // quedaba en `true` para siempre si la acción fallaba, sin ningún error visible).
 //
 // Responsabilidades:

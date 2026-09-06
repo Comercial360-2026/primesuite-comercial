@@ -13,7 +13,7 @@ import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { Aviso } from '@/components/ui/aviso';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
-import { ModalDetalleCierre, type GrupoCierre } from './modal-detalle-cierre';
+import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
 // Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
@@ -459,7 +459,7 @@ export function CierreVisita() {
       </button>
 
       {detalle && (
-        <ModalDetalleCierre
+        <HojaDetalleCierre
           grupo={detalle.grupo}
           items={detalle.items}
           nombresTerminos={nombresTerminos}
