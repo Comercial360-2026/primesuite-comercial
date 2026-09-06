@@ -653,10 +653,14 @@ de prueba en CAPSA, datos borrados al final (SQL comprobado).
   `rechazo_visto=false`, que es lo que dispara el aviso "Te han quitado de
   la visita de …" en el "Yo" del afectado (mismo hook y misma columna que
   invitación/rechazo, ya verificados en vivo).
-- Papercut menor anotado (no bloquea): al expulsar, el candidato vuelve a
-  la lista de "añadir" como "+ Añadir" normal, sin la marca "expulsado ·
-  reinvitar" que sí lleva un rechazo. Consistente con el código
-  (`rechazadosSet` solo mira estado `rechazado`).
+- Papercut menor → ✅ RESUELTO (`48db1e7`). Nueva query
+  `participantes-expulsados` (misma RLS que `participantes-rechazados`) +
+  `expulsadoPrevio` en los candidatos → chip "expulsado · reinvitar". El
+  `upsert` de `añadir()` ya reactivaba la fila a `pendiente`. De paso,
+  `ayuda.ts` (`interlocutor-participante`): "a quien ha rechazado solo lo
+  puede volver a invitar Dirección" era falso desde 2026-09-05 —
+  corregido. NO verificado en vivo (2 sesiones) — pendiente Deploy
+  Preview / próxima pasada.
 
 ### Offline real — ✅ VERIFICADO (2026-09-06), 1 fleco corregido (`f17d385`)
 
