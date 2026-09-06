@@ -488,10 +488,12 @@ colores Grupo 7 y resumen "Se registró 1 nota" → OK.
    registró 1 nota" / "Se registraron 2 notas". Verificado en vivo con
    Borja.
 
-7. **[C] "(s)" en el panel de borrado de visita** ("1 nota(s)", "0
-   oportunidad(es)") — ✅ RESUELTO (`ce554e2`). `plural()` de `lib/texto`
-   en `confirmar-borrado-visita.tsx`: "1 nota", "0 oportunidades", "1
-   próximo paso". Concuerda como el resto de la app.
+7. **[C] "(s)" de recuento** ("1 nota(s)", "0 oportunidad(es)") — ✅
+   RESUELTO (`ce554e2` + `2ecb797`). `plural()` de `lib/texto` en el
+   panel de borrado de visita, el de borrado de cliente
+   (`ficha-cliente.tsx`), el aviso "Cartera heredada" del alta de
+   comercial, el mensaje del traspaso de cartera suelto y el aria-label
+   de `MapaFotos`. `grep "(s)"` sobre `src/**/*.tsx` = 0.
 8. **[C] Ruta muerta `/cierre` al borrar una visita** — ✅ RESUELTO
    (`ce554e2`). Desde el detalle de una visita cerrada, `navigate(-1)`
    podía volver a `/visita/:id/cierre` (pintada con caché de una visita
