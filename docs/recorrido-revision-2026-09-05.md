@@ -290,11 +290,20 @@ Clientes, sin banner en el resumen tras consolidar.
 ### Ayuda / "Cómo funciona PrimeNotes"
 - [B] Lista plana de 20+ entradas sin orden claro (ni alfabético ni por
   flujo): "Yo, Hoy, Agenda, Preparar la visita, Mis próximos pasos,
-  Clientes…". Cuesta encontrar algo.
+  Clientes…". Cuesta encontrar algo. — ✅ RESUELTO. Cada entrada de
+  `ayuda.ts` lleva ahora un `grupo`; la lista va ordenada por el flujo real
+  y partida en bloques con sub-cabecera: Pantallas → «El día a día / Tú y tu
+  espacio / Un cliente / Una visita paso a paso / Lo que registras en una
+  visita / Si diriges el equipo»; Conceptos → «Durante la visita /
+  Oportunidades y vocabulario / Planificar y hacer seguimiento / La app por
+  dentro». Al buscar, los bloques vacíos no salen. Ni una cadena de ayuda
+  cambia (solo orden + `grupo`).
 - [B] Nombres de la ayuda ≠ nombres en la app ("Preparar la visita",
-  "Cerrar una visita" vs "Consolidar").
+  "Cerrar una visita" vs "Consolidar"). — El "Consolidar" ya se unificó a
+  "Cerrar visita" en toda la app (commit `b4b636d`); los títulos de la
+  ayuda son "en frase" a propósito y quedan como están.
 - Es un índice de pantallas, no una guía de uso → es justo el hueco que
-  taparía la **guía rápida** pendiente.
+  taparía la **guía rápida** pendiente (sigue pendiente, es otra tarea).
 
 ### Agenda
 - [C] Bien: el estado vacío sí guía ("Planifica una desde la ficha de un
