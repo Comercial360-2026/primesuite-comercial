@@ -13,6 +13,13 @@ Escala de prioridad orientativa:
 - **B** = incoherencia o roce que conviene arreglar.
 - **C** = detalle menor / pulido.
 
+> **Estado (2026-09-06): recorrido CERRADO.** Todos los hallazgos A/B/C —
+> incluidos los de §8 (pasada de Dirección) y los transversales— están
+> resueltos o marcados explícitamente como "se deja a propósito". Lo único
+> que sigue abierto por causa externa: las ligaduras del PDF quedaron
+> resueltas aparte (fuente sin GSUB, edge fn v15) y el informe se revisa en
+> cada generación real. Trabajo en `feature/proyectos`, local, sin push.
+
 ---
 
 ## 1. Hallazgos estructurales (los que más pesan)
@@ -380,19 +387,22 @@ Clientes, sin banner en el resumen tras consolidar.
 - Tareas = "Tareas" / "Mis próximos pasos" / "próximo paso" / "Qué queda
   pendiente" — ✅ RESUELTO. Gana "próximos pasos"; menú → "Pasos", opción de
   la hoja → "Próximo paso" (ver "Tareas / Mis próximos pasos").
-- Recorrido/zona: coherente ya (campo "Zona"), pero la ayuda todavía
-  habla de "recorrer las instalaciones".
+- Recorrido/zona: ✅ RESUELTO. El texto de ayuda ya habla de «Zona» (no
+  quedaba ningún "modo recorrido" / "recorrer las instalaciones" visible);
+  de paso, la clave interna del concepto `modo-recorrido` → `zona-captura`
+  (`ayuda.ts`), sin usos en JSX.
 
 ### Plurales
 - "1 notas / 1 hallazgos / 1 oportunidades / 1 próximos pasos" en cierre y
   resumen. En otros sitios sí concuerda ("1 nota", "1 visita"). — ✅
   RESUELTO. `plural()` (`lib/texto.ts`) en los chips de "¿Confirmas?" y del
   resumen (commit `b4b636d`), y en las **cajas de recuento** de la primera
-  pantalla de "Cerrar visita" (commit `dab303b`, salió en la pasada final:
-  seguían fijas en plural "1 Notas"). Queda el estilo "(s)" de los paneles
-  de confirmación de borrado ("2 visita(s), 1 oportunidad(es)") — es un
-  formato compacto a propósito para el desglose de "esto se borrará", menor
-  prioridad.
+  pantalla de "Cerrar visita" (commit `dab303b`). El estilo "(s)" de los
+  paneles de confirmación de borrado ("2 visita(s), 1 oportunidad(es)") →
+  ✅ también barrido (commits `ce554e2` + `2ecb797`): `plural()` en el
+  panel de borrado de visita y de cliente, el aviso "Cartera heredada", el
+  traspaso de cartera y el aria-label de `MapaFotos`. `grep "(s)"` sobre
+  `src/**/*.tsx` = 0.
 
 ### Layout / móvil
 - Recortes por la derecha: "ver por zona", historial de visitas, línea de
@@ -405,7 +415,11 @@ Clientes, sin banner en el resumen tras consolidar.
 ### Ayuda inline
 - Muchos "ⓘ Qué es…" en oportunidad (3) y hallazgo (2). Si un concepto
   necesita explicarse cada vez que se usa, o el nombre es malo o el
-  modelo es demasiado.
+  modelo es demasiado. — ✅ RESUELTO. Detalle de oportunidad: 3 → 1
+  (`b1fd9e4`). Hallazgo: los 2 `AyudaNota` que quedan están en pantallas
+  distintas (uno en la captura rápida = "naturaleza", otro en el detalle =
+  "tipo/fecha"), no apilados; cada uno cubre un campo concreto. Sin más
+  cambios.
 
 ---
 

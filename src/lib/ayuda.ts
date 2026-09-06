@@ -333,7 +333,7 @@ const _PANTALLAS = {
 
 const _CONCEPTOS = {
   // — Durante la visita —
-  'modo-recorrido': {
+  'zona-captura': {
     grupo: 'visita',
     titulo: 'Zona de la captura',
     queEs:
