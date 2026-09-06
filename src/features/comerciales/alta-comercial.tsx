@@ -206,7 +206,7 @@ export function AltaComercial() {
               </div>
             </div>
             <div>
-              <div className="label">Zona / cartera (opcional)</div>
+              <div className="label">Zona (opcional)</div>
               <input
                 className="field"
                 value={zona}

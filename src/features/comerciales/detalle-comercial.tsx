@@ -387,8 +387,13 @@ export function DetalleComercial() {
               </div>
             </div>
             <div>
-              <div className="label">Zona / cartera (opcional)</div>
-              <input className="field" value={zona} onChange={(e) => setZona(e.target.value)} />
+              <div className="label">Zona (opcional)</div>
+              <input
+                className="field"
+                placeholder="p. ej. Cataluña, Grandes cuentas…"
+                value={zona}
+                onChange={(e) => setZona(e.target.value)}
+              />
             </div>
           </div>
         </SeccionLista>

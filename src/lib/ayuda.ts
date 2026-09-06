@@ -261,14 +261,14 @@ const _PANTALLAS = {
     queEs:
       'Da de alta a un miembro del equipo. Recibe un correo con un enlace para poner su contraseña; no se la fijas tú.',
     cuando:
-      'Al incorporar a alguien. Eliges su rol (comercial o dirección comercial) y, si quieres, su zona de cartera.',
+      'Al incorporar a alguien. Eliges su rol (comercial o dirección comercial) y, si quieres, su zona y de quién hereda la cartera de clientes.',
     soloDireccion: true,
   },
   'detalle-comercial': {
     grupo: 'direccion',
     titulo: 'Ficha de comercial',
     queEs:
-      'Los datos de un miembro del equipo: nombre, rol y zona de cartera. Desde aquí se le da de baja o se reactiva, y se traspasa su cartera a otra persona.',
+      'Los datos de un miembro del equipo: nombre, rol y zona. Desde aquí se le da de baja o se reactiva, y se traspasa su cartera de clientes a otra persona.',
     cuando:
       'Para editarlo o cuando alguien deja el equipo: al dar de baja puedes traspasar en el mismo paso sus clientes, visitas planificadas y próximos pasos a otro comercial.',
     ojo: 'Dar de baja bloquea el acceso de esa persona, pero conserva todo lo que registró. Se puede reactivar después.',
