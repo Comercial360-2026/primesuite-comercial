@@ -571,8 +571,9 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   esa persona; la ficha solo muestra la carga de cartera. Añadir enlace
   "Ver actividad" (→ `/actividad-comerciales/:id`) y/o un par de números. —
   ✅ RESUELTO (`49a3917`): sección "Actividad" con fila "Ver actividad".
-  (Queda el papercut menor: el ← de esa pantalla vuelve a la lista, no a
-  la ficha — el back del navegador sí funciona.)
+  El ← del detalle de actividad volvía siempre a la lista aunque vinieras
+  de la ficha → ✅ (`515a538`) `navigate(-1)` en vez de `volverA` fijo;
+  acierta desde la lista y desde la ficha, y conserva el `?dias=todo`.
 - [C] "sin cartera asignada" en gris parece un aviso; para un alta reciente
   es solo un hecho. — ✅ (`ca10a2e`) → "Sin clientes asignados todavía"
   (sin el residuo de "cartera").
