@@ -503,3 +503,75 @@ ruta muerta `/cierre` con datos de caché (cosmético).
 7. Tareas, Yo, Ayuda.
 8. Cambio a sesión de Dirección: Vocabulario, Equipo, Solicitudes,
    Deduplicación, Consumo, Actividad.
+
+---
+
+## 8. Pasada UX de las pantallas de Dirección (2026-09-06)
+
+Recorrido en vivo con la sesión de Dirección (`Comercial Prueba`) contra
+`localhost:5173`: Yo (Dirección) → Consumo/Mi espacio → Actividad por
+comercial (+ detalle) → Equipo → Ficha de comercial → Alta de comercial →
+Vocabulario (Catálogo + Pendientes) → Solicitudes de ayuda → Clientes
+duplicados. Los estados vacíos de Solicitudes y Duplicados están bien; no
+se pudo ver el estado con datos. **Sin cubrir:** visitas de equipo
+(invitar/aceptar/expulsar — hace falta 2 sesiones) y offline real.
+
+Tema recurrente: **"cartera"** se usa con dos sentidos (una etiqueta de
+texto libre tipo "Cataluña" vs. el conjunto de clientes) y aparece así en
+Yo, Ficha de comercial y Alta.
+
+### Yo (Dirección)
+- [B] Tres filas de almacenamiento repartidas en dos secciones: "Mi
+  espacio" (en "Tu espacio", con MB), "Espacio del equipo %" (FilaDato en
+  "Salud del equipo") y "Consumo por comercial". **"Mi espacio" y "Consumo
+  por comercial" abren la MISMA pantalla** (`/mi-espacio`, segmentado
+  Yo/Equipo). Fundir en una sola entrada y no repetir la pantalla en dos
+  sitios.
+- [C] "Salud del equipo" incluye "Copia de seguridad" — no es "salud" sino
+  seguridad de datos. Reagrupar (¿"Datos y espacio"?).
+- [C] "Mi espacio" y "Espacio del equipo" usan el mismo icono de cilindro
+  → parecen lo mismo. "Sectores" usa icono de personas.
+- [C] Subtítulo de "Solicitudes de ayuda" se corta con "…".
+- [C] En "Gestión", lo accionable (Solicitudes de ayuda, que lleva badge)
+  va el último. Subir lo que tiene aviso.
+
+### Ficha de comercial (`/comerciales/:id`)
+- [B] "Zona / cartera (opcional)" (texto libre) choca con "sin cartera
+  asignada" (vitals) y con "Heredar/Traspasar la cartera" (= clientes).
+  Renombrar el campo a solo **"Zona"**.
+- [B] No hay vistazo de actividad ni enlace a "Actividad por comercial" de
+  esa persona; la ficha solo muestra la carga de cartera. Añadir enlace
+  "Ver actividad" (→ `/actividad-comerciales/:id`) y/o un par de números.
+- [C] "sin cartera asignada" en gris parece un aviso; para un alta reciente
+  es solo un hecho. Suavizar ("Todavía sin clientes asignados").
+
+### Consumo por comercial (`/mi-espacio?vista=equipo`)
+- [B] El botón "Seleccionar" también sale en la pestaña "Por comercial",
+  donde no hace nada (es para elegir visitas a borrar en "Mis visitas").
+  Ocultarlo en esa pestaña.
+- [C] Filas por comercial sin chevron / no navegables — tocar un comercial
+  para ver sus visitas sería natural (opcional).
+
+### Actividad por comercial (`/actividad-comerciales` + detalle)
+- [B] Sin ventana temporal: todo es histórico total. Para "¿quién está
+  activo?" hace falta "este mes" / "últimos 30 días".
+- [C] En el detalle, la métrica de la columna de valor envuelve feo ("2
+  oportunidades\nactivas"). Revisar en móvil.
+- [C] El detalle se titula "Por proyecto" pero lista nombres de cliente
+  (la mayoría solo tienen el General) → de hecho es "por cliente".
+- [C] Lista principal alfabética, sin distinguir a los de 0 actividad.
+- [C] "capturas" como métrica de primer nivel para Dirección — ¿aporta?
+  (visitas/hallazgos/oportunidades son resultados; capturas es volumen).
+
+### Vocabulario → Pendientes
+- [B] No hay acciones por ítem. Para aprobar/descartar un término hay que
+  entrar en "Seleccionar" → marcar → acción (3 toques para 1 ítem). Tocar
+  el ítem solo despliega metadatos. Poner Aprobar/Descartar directos.
+- [C] Fecha del subtítulo se corta ("1 sept 20…").
+- [C] "Catálogo completo": 5 de 7 categorías a "0 términos" — parece roto
+  (es dato de prueba; baja prioridad).
+
+### Alta de comercial (`/comerciales/nuevo`)
+- [C] Mismo problema de nombre: "Zona / cartera (opcional)" → "Zona".
+- [C] Verbos distintos para mover cartera: "Heredar … de" (alta) vs
+  "Traspasar … a" (baja/ficha).
