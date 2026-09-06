@@ -1019,22 +1019,22 @@ export function VisitaActiva() {
       const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto')
           .eq('visita_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
         supabase
           .from('hallazgo')
-          .select('id, naturaleza, comercial_autor_id, termino:termino_id(nombre)')
+          .select('id, naturaleza, comercial_autor_id, zona_texto, termino:termino_id(nombre)')
           .eq('visita_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
         supabase
           .from('proximo_paso')
-          .select('id, descripcion, fecha_objetivo, comercial_responsable_id')
+          .select('id, descripcion, fecha_objetivo, comercial_responsable_id, zona_texto')
           .eq('visita_id', visitaId!)
           .neq('comercial_responsable_id', comercial!.id),
         supabase
           .from('oportunidad')
-          .select('id, titulo, etapa, comercial_autor_id')
+          .select('id, titulo, etapa, comercial_autor_id, zona_texto')
           .eq('visita_origen_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
       ]);
@@ -1192,9 +1192,6 @@ export function VisitaActiva() {
   const fotosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto');
   const audiosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio');
   const notasOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota');
-  const nFotos = fotosOwn.length;
-  const nAudios = audiosOwn.length;
-  const nNotas = notasOwn.length;
 
   // Con proyecto real (no el "General" invisible por defecto, P9): mismo
   // criterio que Agenda — el nombre se añade tal cual, sin la palabra
@@ -1235,16 +1232,35 @@ export function VisitaActiva() {
     .map((p) => nombresComercialesEquipo?.get(p.comercial_id) ?? '…');
   const equipoTexto = ['tú', ...nombresEquipo].join(', ');
 
+  // Zona activa como FILTRO de "En esta visita": con una zona marcada, la
+  // lista (y su contador) muestran solo lo de esa zona — así, al volver a la
+  // visita a completar un sitio, ves lo que ya hay ahí sin rebuscar entre
+  // todo. El ✕ de la banda quita la zona y vuelve a verse todo.
+  // `zonaParaCaptura` es `zonaActual.trim() || undefined`.
+  const enZona = (z: string | null | undefined) => !zonaParaCaptura || (z ?? '') === zonaParaCaptura;
+  const zTexto = (op: { payload: unknown }) => (op.payload as { zonaTexto?: string }).zonaTexto;
+  const fotosOwnV = fotosOwn.filter((c) => enZona(zTexto(c)));
+  const audiosOwnV = audiosOwn.filter((c) => enZona(zTexto(c)));
+  const notasOwnV = notasOwn.filter((c) => enZona(zTexto(c)));
+  const hallazgosV = hallazgos.filter((c) => enZona(zTexto(c)));
+  const oportunidadesV = oportunidades.filter((c) => enZona(zTexto(c)));
+  const pasosV = pasos.filter((c) => enZona(zTexto(c)));
+  const fotosCompanerosV = fotosCompaneros.filter((c) => enZona(c.zona_texto));
+  const audiosCompanerosV = audiosCompaneros.filter((c) => enZona(c.zona_texto));
+  const notasCompanerosV = notasCompaneros.filter((c) => enZona(c.zona_texto));
+  const hallazgosCompanerosV = hallazgosCompaneros.filter((c) => enZona(c.zona_texto));
+  const oportunidadesCompanerosV = oportunidadesCompaneros.filter((c) => enZona(c.zona_texto));
+  const pasosCompanerosV = pasosCompaneros.filter((c) => enZona(c.zona_texto));
+
   // Zona 3 — "En esta visita" fundido: lo tuyo + lo de compañeros, con un
-  // único contador (D2) y un único indicador de sincronización (regla 5),
-  // en vez de las cuatro listas de antes (capturas, oportunidades, próximos
-  // pasos, de compañeros).
-  const totalFotos = nFotos + fotosCompaneros.length;
-  const totalAudios = nAudios + audiosCompaneros.length;
-  const totalNotas = nNotas + notasCompaneros.length;
-  const totalHallazgos = hallazgos.length + hallazgosCompaneros.length;
-  const totalOportunidades = oportunidades.length + oportunidadesCompaneros.length;
-  const totalPasos = pasos.length + pasosCompaneros.length;
+  // único contador (D2) y un único indicador de sincronización (regla 5).
+  // Los `total*` cuentan lo MOSTRADO (ya filtrado por zona si la hay).
+  const totalFotos = fotosOwnV.length + fotosCompanerosV.length;
+  const totalAudios = audiosOwnV.length + audiosCompanerosV.length;
+  const totalNotas = notasOwnV.length + notasCompanerosV.length;
+  const totalHallazgos = hallazgosV.length + hallazgosCompanerosV.length;
+  const totalOportunidades = oportunidadesV.length + oportunidadesCompanerosV.length;
+  const totalPasos = pasosV.length + pasosCompanerosV.length;
   const totalEnVisita = totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
   const desgloseTipos = [
     totalFotos && `${totalFotos} foto${totalFotos > 1 ? 's' : ''}`,
@@ -1259,21 +1275,31 @@ export function VisitaActiva() {
     desgloseTipos.length > 3 ? `${totalEnVisita} elemento${totalEnVisita === 1 ? '' : 's'}` : desgloseTipos.join(' · ');
   // Solo lo MÍO tiene estado de sincronización — lo de compañeros ya viene
   // del servidor. Regla 5: un único indicador en cristiano, no por ítem.
+  // Whole-visita: el estado de subida no lo acota el filtro de zona.
   const pendientesSync = [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
     (op) => op.estado !== 'completado'
   ).length;
   const estadoSyncTexto = pendientesSync === 0 ? 'todo subido' : `${pendientesSync} sin subir`;
   // B2 · Con varias capturas hechas pero sin ninguna oportunidad ni ningún
   // próximo paso, se recuerda AQUÍ (no solo al cerrar). Umbral 3 para no
-  // saltar a la primera foto.
+  // saltar a la primera foto. Va sobre la visita ENTERA (no el filtro de
+  // zona): es un aviso de "antes de cerrar", no de la vista actual.
+  const oportunidadesEnVisita = oportunidades.length + oportunidadesCompaneros.length;
+  const pasosEnVisita = pasos.length + pasosCompaneros.length;
+  const totalTodoEnVisita =
+    fotosOwn.length + fotosCompaneros.length +
+    audiosOwn.length + audiosCompaneros.length +
+    notasOwn.length + notasCompaneros.length +
+    hallazgos.length + hallazgosCompaneros.length +
+    oportunidadesEnVisita + pasosEnVisita;
   const recordatorioFaltaTexto =
-    totalEnVisita < 3
+    totalTodoEnVisita < 3
       ? null
-      : totalOportunidades === 0 && totalPasos === 0
+      : oportunidadesEnVisita === 0 && pasosEnVisita === 0
         ? 'No has apuntado ninguna oportunidad ni próximo paso. Si viste algo, apúntalo antes de cerrar.'
-        : totalOportunidades === 0
+        : oportunidadesEnVisita === 0
           ? 'No has apuntado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.'
-          : totalPasos === 0
+          : pasosEnVisita === 0
             ? 'No has apuntado ningún próximo paso. Si queda algo pendiente, apúntalo antes de cerrar.'
             : null;
   // El conmutador "por zona" (D1) solo aparece si se han anotado zonas en
@@ -1497,15 +1523,15 @@ export function VisitaActiva() {
         </div>
 
         {/* Banda de ZONA ACTIVA — siempre visible mientras hay zona, encima
-            de los botones: deja claro que TODO lo que se capture ahora va a
-            esa zona y no a «General». Relleno sólido (regla #11: se ve sin
-            depender del color). "cambiar" abre el campo; ✕ vuelve a
-            «General». */}
+            de los botones: con una zona marcada, TODO lo que se capture va a
+            esa zona (no a «General») Y la lista "En esta visita" muestra solo
+            lo de esa zona. Relleno sólido (regla #11: se ve sin depender del
+            color). "cambiar" abre el campo; ✕ quita la zona (ver todo). */}
         {hayZonaActiva && (
           <div className="zona-banda">
             <Icono nombre="ubicacion" size={16} weight="fill" />
             <span>
-              Guardando en <strong>{zonaActual.trim()}</strong>
+              <strong>{zonaActual.trim()}</strong> · guardas y ves solo esto
             </span>
             <button
               type="button"
@@ -1517,7 +1543,7 @@ export function VisitaActiva() {
             <button
               type="button"
               className="zona-banda__x"
-              aria-label="Dejar de usar esta zona (volver a «General»)"
+              aria-label="Quitar la zona: ver todo y guardar en «General»"
               onClick={() => {
                 setZonaActual('');
                 setZonaEditorAbierto(false);
@@ -1552,7 +1578,8 @@ export function VisitaActiva() {
             />
 
             {/* Confirmar / aplicar la zona escrita (nueva o no) — cierra el
-                editor y deja la banda "Guardando en X" arriba. */}
+                editor y deja la banda de zona activa arriba (guardas y ves
+                solo esa zona). */}
             {zonaActual.trim() && (
               <button
                 type="button"
@@ -1693,8 +1720,12 @@ export function VisitaActiva() {
             veían 3 filas. */}
         <div style={{ margin: '10px 2px 4px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>En esta visita</span>
-            {zonaUsada && (
+            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>
+              En esta visita{zonaParaCaptura ? ` · ${zonaParaCaptura}` : ''}
+            </span>
+            {/* Con una zona activa la lista ya es de una sola zona: agrupar
+                "por Tipo/Zona" no aporta y el conmutador se oculta. */}
+            {zonaUsada && !zonaParaCaptura && (
               <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                 <Segmentado
                   opciones={[
@@ -1739,12 +1770,21 @@ export function VisitaActiva() {
 
         {totalEnVisita === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', padding: '12px 0' }}>
-            Aún no has capturado nada.<br />
-            Toca Foto, Nota o Audio para empezar.
+            {zonaParaCaptura ? (
+              <>
+                Aún no has capturado nada en «{zonaParaCaptura}».<br />
+                Captura algo, o quita la zona (✕) para ver todo.
+              </>
+            ) : (
+              <>
+                Aún no has capturado nada.<br />
+                Toca Foto, Nota o Audio para empezar.
+              </>
+            )}
           </div>
         ) : (
           <div style={{ padding: '0 4px' }}>
-            {ordenPorZona ? (
+            {ordenPorZona && !zonaParaCaptura ? (
               <CapturasPorUbicacion
                 capturas={capturas}
                 hallazgos={hallazgos}
@@ -1755,9 +1795,9 @@ export function VisitaActiva() {
               />
             ) : (
               <>
-                {fotosOwn.length > 0 && (
+                {fotosOwnV.length > 0 && (
                   <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 0' }}>
-                    {[...fotosOwn].reverse().map((f) => {
+                    {[...fotosOwnV].reverse().map((f) => {
                       const blob = f.archivoLocal as Blob | undefined;
                       const titulo = (f.payload as { titulo?: string }).titulo;
                       return blob ? (
@@ -1780,7 +1820,7 @@ export function VisitaActiva() {
                 )}
                 {/* B4 · Fotos de compañeros: fila de texto (el binario está
                     en Storage, no en la cola local). */}
-                {fotosCompaneros.map((c) =>
+                {fotosCompanerosV.map((c) =>
                   filaEnVisita(
                     c.id,
                     'foto',
@@ -1789,7 +1829,7 @@ export function VisitaActiva() {
                     () => navigate(`/capturas/${c.id}`)
                   )
                 )}
-                {audiosOwn.map((a) =>
+                {audiosOwnV.map((a) =>
                   filaEnVisita(
                     a.id,
                     'audio',
@@ -1798,7 +1838,7 @@ export function VisitaActiva() {
                     () => navigate(`/capturas/${a.id}`)
                   )
                 )}
-                {audiosCompaneros.map((c) =>
+                {audiosCompanerosV.map((c) =>
                   filaEnVisita(
                     c.id,
                     'audio',
@@ -1807,7 +1847,7 @@ export function VisitaActiva() {
                     () => navigate(`/capturas/${c.id}`)
                   )
                 )}
-                {notasOwn.map((n) => {
+                {notasOwnV.map((n) => {
                   const p = n.payload as { titulo?: string; contenidoTexto?: string };
                   return filaEnVisita(
                     n.id,
@@ -1817,7 +1857,7 @@ export function VisitaActiva() {
                     () => navigate(`/capturas/${n.id}`)
                   );
                 })}
-                {notasCompaneros.map((c) =>
+                {notasCompanerosV.map((c) =>
                   filaEnVisita(
                     c.id,
                     'nota',
@@ -1826,11 +1866,11 @@ export function VisitaActiva() {
                     () => navigate(`/capturas/${c.id}`)
                   )
                 )}
-                {hallazgos.map((h) => {
+                {hallazgosV.map((h) => {
                   const p = h.payload as { terminoId: string; naturaleza: string };
                   return filaEnVisita(h.id, 'hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza));
                 })}
-                {hallazgosCompaneros.map((h) =>
+                {hallazgosCompanerosV.map((h) =>
                   filaEnVisita(
                     h.id,
                     'hallazgo',
@@ -1839,7 +1879,7 @@ export function VisitaActiva() {
                     () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )
                 )}
-                {oportunidades.map((o) => {
+                {oportunidadesV.map((o) => {
                   const p = o.payload as { titulo: string; prioridad?: string };
                   return filaEnVisita(
                     o.id,
@@ -1849,7 +1889,7 @@ export function VisitaActiva() {
                     () => navigate(`/oportunidades/${o.id}`, { state: origen })
                   );
                 })}
-                {oportunidadesCompaneros.map((o) =>
+                {oportunidadesCompanerosV.map((o) =>
                   filaEnVisita(
                     o.id,
                     'oportunidad',
@@ -1858,12 +1898,12 @@ export function VisitaActiva() {
                     () => navigate(`/oportunidades/${o.id}`, { state: origen })
                   )
                 )}
-                {pasos.map((p) => {
+                {pasosV.map((p) => {
                   const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                   const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
                   return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha);
                 })}
-                {pasosCompaneros.map((p) =>
+                {pasosCompanerosV.map((p) =>
                   filaEnVisita(
                     p.id,
                     'paso',
