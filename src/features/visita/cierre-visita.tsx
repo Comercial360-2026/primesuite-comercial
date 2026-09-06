@@ -539,7 +539,10 @@ export function CierreVisita() {
       )}
 
       {prechequeoCierre &&
-        (prechequeoCierre.nInterlocutores === 0 || prechequeoCierre.sinDatosCliente) && (
+        (prechequeoCierre.nInterlocutores === 0 ||
+          prechequeoCierre.sinDatosCliente ||
+          pasos.length === 0 ||
+          oportunidades.length === 0) && (
           <Aviso tipo="atencion" titulo="Antes de cerrar">
             <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
               {prechequeoCierre.nInterlocutores === 0 && (
@@ -555,6 +558,24 @@ export function CierreVisita() {
                   </button>{' '}
                   para añadir interlocutores.
                 </li>
+              )}
+              {pasos.length === 0 && (
+                <li>
+                  No has apuntado ningún próximo paso. Si acordasteis algo (mandar oferta, llamar,
+                  otra visita),{' '}
+                  <button
+                    type="button"
+                    className="btn-enlace"
+                    style={{ padding: 0 }}
+                    onClick={() => navigate(`/visita/${visitaId}`)}
+                  >
+                    vuelve a la visita
+                  </button>{' '}
+                  para dejarlo anotado.
+                </li>
+              )}
+              {oportunidades.length === 0 && (
+                <li>No has registrado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.</li>
               )}
               {prechequeoCierre.sinDatosCliente && (
                 <li>

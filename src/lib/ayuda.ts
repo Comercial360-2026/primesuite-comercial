@@ -186,9 +186,9 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente, en tres bloques: arriba, el contexto (nº de visita, el objetivo con el que ibas, interlocutores y equipo); en medio, capturar (foto, nota, audio, hallazgo, oportunidad, próximo paso, y una casilla «Zona» opcional para atarlo todo al sitio que estás recorriendo); abajo, «En esta visita», con todo lo capturado —lo tuyo y lo de tus compañeros— en una sola lista.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente. Arriba, una línea de contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos chips para interlocutores y equipo. En medio, «Captura lo que veas»: seis botones iguales —foto, nota, audio, hallazgo, oportunidad, próximo paso—. Abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista. Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, todo va a «General».',
     cuando:
-      'Durante la visita. Cada botón o chip de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. Al terminar, «Cerrar visita».',
+      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En la nota puedes dictar en vez de escribir. Al terminar, «Cerrar visita».',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada.',
   },
   'cierre-visita': {

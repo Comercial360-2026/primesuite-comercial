@@ -124,7 +124,15 @@ pero sin ocupar sitio.
   no sabes cuál es cuál. → la hoja de Foto muestra la zona y hace el título
   más visible.
 
-Progreso: _pendiente de empezar._
+Progreso:
+- **B1 ✅** contexto compacto (objetivo 1 línea + chips interlocutores/equipo).
+- **B2 ✅** zona escondida tras "Marcar zonas".
+- **B3 ✅** 6 capturas iguales, rejilla 2×3.
+- **B4 ✅** dictado voz→texto en la nota (`useDictado`).
+- **B5 ✅** aviso "Antes de cerrar" ampliado: sin próximo paso / sin oportunidad.
+- **B6 ✅** ya cumplía — el alta de interlocutor pide solo el nombre.
+- **B7** (rotular foto en el momento) — pendiente, baja prioridad; la hoja de Foto ya pide título.
+Verde (typecheck/lint/build). ayuda.ts al día. Verificado en vivo: B1-B4.
 
 ### `/` — Hoy
 
