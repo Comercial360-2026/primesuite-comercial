@@ -3,7 +3,7 @@ import { Icono, type NombreIcono } from './iconos';
 import { BotonAyuda } from './boton-ayuda';
 import type { PantallaAyudaId } from '@/lib/ayuda';
 
-// Cabecera de las 4 pantallas del menú de abajo (Hoy / Clientes / Tareas /
+// Cabecera de las 4 pantallas del menú de abajo (Hoy / Clientes / Pasos /
 // Yo). Antes cada una ponía un `<h1>` suelto con estilos inline y sin
 // icono. Es a las pantallas de nivel 0 lo que `CabeceraDetalle` es a las de
 // detalle. Ver 08_sistema_diseno.md §"Cabeceras".

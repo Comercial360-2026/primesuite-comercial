@@ -100,7 +100,7 @@ export function AppRoutes() {
           <Route path="/oportunidades/:oportunidadId" element={<DetalleOportunidad />} />
           <Route path="/proximos-pasos/:pasoId" element={<DetalleProximoPaso />} />
 
-          {/* Nivel 0 — Tareas */}
+          {/* Nivel 0 — Próximos pasos (ruta histórica /tareas) */}
           <Route path="/tareas" element={<MisProximosPasos />} />
 
           {/* Nivel 0 — Yo — hueco real: el bottom nav apuntaba aquí desde

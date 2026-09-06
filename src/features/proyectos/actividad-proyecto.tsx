@@ -202,21 +202,18 @@ export function ActividadProyecto({
       {!!historialVisitas?.length && (
         <SeccionLista titulo="Historial de visitas">
           {historialVisitas.map((v) => {
-            // La fila solo navega. Descargar informe y Borrar viven dentro
-            // de la visita (detalle / Visita Activa) — así el historial no
-            // es un muro de botones.
+            // La fila solo navega (el chevron ya lo dice). Descargar informe
+            // y Borrar viven dentro de la visita (detalle / Visita Activa) —
+            // así el historial no es un muro de botones. El estado va en
+            // `valor` como en las secciones hermanas (prioridad, naturaleza…),
+            // no como verbo gris, y el subtítulo se queda solo con el
+            // objetivo para que trunque limpio sin comerse el estado.
             const estadoLegible =
               v.estado_captura === 'agendada'
                 ? 'planificada'
                 : v.estado_captura === 'en_curso'
                   ? 'en curso'
                   : 'cerrada';
-            const accion =
-              v.estado_captura === 'agendada'
-                ? 'gestionar'
-                : v.estado_captura === 'en_curso'
-                  ? 'continuar visita'
-                  : 'ver contenido';
             const to =
               v.estado_captura === 'agendada'
                 ? `/visita/${v.id}/planificada`
@@ -227,8 +224,8 @@ export function ActividadProyecto({
               <FilaNavegable
                 key={v.id}
                 titulo={fechaCorta(v.fecha)}
-                subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
-                valor={accion}
+                subtitulo={v.objetivo ?? undefined}
+                valor={estadoLegible}
                 valorTenue
                 to={to}
               />

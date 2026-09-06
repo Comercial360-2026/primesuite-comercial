@@ -254,14 +254,31 @@ Clientes, sin banner en el resumen tras consolidar.
   Verificado en vivo: resumen con la nota del riesgo entre paréntesis;
   edición manual; objetivo por fallback al cerrar de inmediato.
 - [C] Fila de "Historial de visitas" recortada a media palabra:
-  "…ver instalaciones · cerr…".
+  "…ver instalaciones · cerr…" — ✅ RESUELTO. El subtítulo concatenaba
+  `objetivo · estado` y al truncar se comía el estado. Ahora el subtítulo
+  es solo el objetivo (trunca limpio) y el estado va en `valor`
+  (`actividad-proyecto.tsx`, sección compartida ficha-cliente/ficha-proyecto).
 - [C] "ver contenido" como etiqueta de acción de fila (gris, a la
-  derecha) — el resto de filas solo llevan "›".
+  derecha) — el resto de filas solo llevan "›" — ✅ RESUELTO. Quitado el
+  verbo pseudo-acción ("ver contenido" / "gestionar" / "continuar visita");
+  `valor` = estado ("cerrada" / "planificada" / "en curso"), como en las
+  otras tres secciones del mismo componente (prioridad, fecha, naturaleza).
+  El destino sigue dependiendo del estado.
 
 ### Tareas / Mis próximos pasos
 - [B] El menú dice "Tareas", la pantalla se titula "Mis próximos pasos",
   y los ítems son "próximo paso". Tres nombres para lo mismo. (Y el modal
-  de creación se titula "Qué queda pendiente" con opción "Tarea".)
+  de creación se titula "Qué queda pendiente" con opción "Tarea.") — ✅
+  RESUELTO. Cesar eligió que gane **"próximos pasos"**. Menú "Tareas" →
+  **"Pasos"** (forma corta que cabe en la barra inferior; la ruta sigue
+  siendo `/tareas`). Hoja de alta: opción "Tarea" → **"Próximo paso"** (y
+  su gemela "Próxima visita" ya estaba bien); el título "Qué queda
+  pendiente" se queda como paraguas de las dos ramas, no como sinónimo de
+  la entidad. `ayuda.ts` (`mis-proximos-pasos`, `proximo-paso`) y los
+  comentarios internos ("pestaña Tareas", cabeceras de nivel 0) al día.
+  La pantalla ya se titulaba "Mis próximos pasos" y los ítems ya eran
+  "próximo paso" (sin cambios). `detalle-proximo-paso` ya usaba "Próximo
+  paso".
 
 ### Yo (comercial)
 - [B] Muy escueto: 3 filas (Mi espacio / Manual / Cerrar sesión). No hay
@@ -300,9 +317,10 @@ Clientes, sin banner en el resumen tras consolidar.
 ## 3. Transversales
 
 ### Nomenclatura (varios nombres para un concepto)
-- Cerrar visita = "Cerrar" / "Consolidar" / "cerrar".
+- Cerrar visita = "Cerrar" / "Consolidar" / "cerrar" — ✅ (ver "Cerrar visita").
 - Tareas = "Tareas" / "Mis próximos pasos" / "próximo paso" / "Qué queda
-  pendiente".
+  pendiente" — ✅ RESUELTO. Gana "próximos pasos"; menú → "Pasos", opción de
+  la hoja → "Próximo paso" (ver "Tareas / Mis próximos pasos").
 - Recorrido/zona: coherente ya (campo "Zona"), pero la ayuda todavía
   habla de "recorrer las instalaciones".
 

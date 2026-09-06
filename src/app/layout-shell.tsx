@@ -62,7 +62,7 @@ export function LayoutShell() {
         </NavLink>
         <NavLink to="/tareas">
           <IconoTareas />
-          Tareas
+          Pasos
         </NavLink>
         <NavLink to="/yo">
           <IconoYo />

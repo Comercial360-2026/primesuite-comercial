@@ -20,13 +20,13 @@ interface PasoRapidoHojaProps {
 
 // Al terminar una visita, lo que queda pendiente es de dos tipos y el
 // comercial lo sabe en caliente:
-//   - Tarea: algo de despacho ("enviar propuesta", "llamar a compras").
-//     Va a proximo_paso y aparece en "Mis próximos pasos".
+//   - Próximo paso: algo de despacho ("enviar propuesta", "llamar a
+//     compras"). Va a proximo_paso y aparece en "Mis próximos pasos".
 //   - Próxima visita: hay que volver otro día. Se planifica ahí mismo y
 //     aparece en Agenda / calendario / "Hoy" — no se crea ningún
 //     proximo_paso.
 // Antes solo existía la primera y una "revisita" quedaba invisible fuera
-// de la pestaña Tareas.
+// de la pestaña de próximos pasos.
 export function PasoRapidoHoja({
   onGuardar,
   onPlanificarVisita,
@@ -97,7 +97,7 @@ export function PasoRapidoHoja({
           <Segmentado
             opciones={
               [
-                { valor: 'tarea', etiqueta: 'Tarea' },
+                { valor: 'tarea', etiqueta: 'Próximo paso' },
                 { valor: 'visita', etiqueta: 'Próxima visita' },
               ] as const
             }

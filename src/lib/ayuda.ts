@@ -91,7 +91,7 @@ const _PANTALLAS = {
   'mis-proximos-pasos': {
     titulo: 'Mis próximos pasos',
     queEs:
-      'Tus tareas pendientes de las visitas —llamar, enviar propuesta, volver a pasar—, ordenadas por urgencia: vencidas, esta semana, más adelante, y las que ya tienen una revisita en la agenda.',
+      'Lo que quedó pendiente de las visitas —llamar, enviar propuesta, volver a pasar—, ordenado por urgencia: vencidos, esta semana, más adelante, y los que ya tienen una revisita en la agenda.',
     cuando:
       'Para ir cerrando lo que dejaste apuntado. La marca de verificación a la derecha de cada fila la da por hecha; tocar el texto abre el detalle.',
   },
@@ -259,9 +259,9 @@ const _PANTALLAS = {
   'proximo-paso': {
     titulo: 'Próximo paso',
     queEs:
-      'Una tarea que quedó pendiente de una visita: qué hay que hacer y, si quieres, para cuándo. Aparece en «Tareas».',
+      'Algo que quedó pendiente de una visita: qué hay que hacer y, si quieres, para cuándo. Aparece en «Próximos pasos».',
     cuando:
-      'Para editarla, marcarla como hecha, o —si en realidad es volver a ver al cliente— convertirla en una visita planificada para su fecha.',
+      'Para editarlo, marcarlo como hecho, o —si en realidad es volver a ver al cliente— convertirlo en una visita planificada para su fecha.',
   },
 } satisfies Record<string, EntradaPantalla>;
 
