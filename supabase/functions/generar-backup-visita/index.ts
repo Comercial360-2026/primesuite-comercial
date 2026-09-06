@@ -44,13 +44,20 @@ import JSZip from 'https://esm.sh/jszip@3.10.1';
 import pdfMake from 'https://esm.sh/pdfmake@0.2.10/build/pdfmake.js';
 // @ts-ignore — default export presente en runtime
 import pdfFonts from 'https://esm.sh/pdfmake@0.2.10/build/vfs_fonts.js';
+import { ROBOTO_SIN_LIGADURAS } from './roboto-sin-ligaduras.ts';
 
 // vfs_fonts.js expone el objeto de fuentes en una forma u otra según cómo
 // lo resuelva esm.sh — cubrimos las dos.
 // deno-lint-ignore no-explicit-any
 const _fonts = pdfFonts as any;
+const _vfsStock = _fonts.pdfMake ? _fonts.pdfMake.vfs : _fonts.vfs;
+// Pisamos las 4 caras de Roboto con una versión cuya tabla GSUB no trae las
+// ligaduras (liga/dlig: fi, fl, ff…). pdfmake mapea la familia 'Roboto' a
+// estos mismos nombres de fichero, así que no hay que tocar `pdfMake.fonts`
+// ni `defaultStyle`. El motivo, en scripts/fuentes-informe/README.md y en la
+// nota "Ligaduras del PDF" más abajo.
 // deno-lint-ignore no-explicit-any
-(pdfMake as any).vfs = _fonts.pdfMake ? _fonts.pdfMake.vfs : _fonts.vfs;
+(pdfMake as any).vfs = { ..._vfsStock, ...ROBOTO_SIN_LIGADURAS };
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -175,14 +182,14 @@ function etiqueta(mapa: Record<string, string>, valor: string | null | undefined
   return mapa[valor] ?? capitalizar(valor);
 }
 
-// NOTA (conocido, sin resolver): pdfmake aplica las ligaduras OpenType de
-// Roboto (fi, fl, ff…) y el ToUnicode que genera para el glifo de ligadura
-// se come la 2ª letra — el PDF se VE bien, pero al copiar texto / buscar
-// con Ctrl+F / con lector de pantalla sale "unifcado", "Refeja". Se probó
-// meter un U+200C entre la f y la letra siguiente para impedir la ligadura:
-// pdfmake lo renderiza como un cuadrado .notdef visible, así que peor el
-// remedio que la enfermedad. Vive con ello hasta cambiar de fuente o de
-// motor de PDF.
+// Ligaduras del PDF (RESUELTO): pdfmake/pdfkit aplicaban las ligaduras
+// OpenType de Roboto (fi, fl, ff…) y el ToUnicode del glifo de ligadura hace
+// que muchos extractores de texto se coman la 2ª letra — el PDF se VE bien,
+// pero al copiar / Ctrl+F / con lector de pantalla salía "unifcado",
+// "refejo". Solución: se embebe Roboto con la tabla GSUB recortada, sin
+// liga/dlig (ver la carga del vfs arriba y scripts/fuentes-informe/). El
+// render queda igual a simple vista. Descartado meter un U+200C entre la f y
+// la letra: pdfmake lo pinta como un cuadrado .notdef visible.
 
 function fechaLarga(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
