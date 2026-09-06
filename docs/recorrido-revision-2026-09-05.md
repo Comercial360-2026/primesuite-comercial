@@ -335,7 +335,14 @@ Clientes, sin banner en el resumen tras consolidar.
 
 ### Plurales
 - "1 notas / 1 hallazgos / 1 oportunidades / 1 próximos pasos" en cierre y
-  resumen. En otros sitios sí concuerda ("1 nota", "1 visita").
+  resumen. En otros sitios sí concuerda ("1 nota", "1 visita"). — ✅
+  RESUELTO. `plural()` (`lib/texto.ts`) en los chips de "¿Confirmas?" y del
+  resumen (commit `b4b636d`), y en las **cajas de recuento** de la primera
+  pantalla de "Cerrar visita" (commit `dab303b`, salió en la pasada final:
+  seguían fijas en plural "1 Notas"). Queda el estilo "(s)" de los paneles
+  de confirmación de borrado ("2 visita(s), 1 oportunidad(es)") — es un
+  formato compacto a propósito para el desglose de "esto se borrará", menor
+  prioridad.
 
 ### Layout / móvil
 - Recortes por la derecha: "ver por zona", historial de visitas, línea de
@@ -380,7 +387,32 @@ Clientes, sin banner en el resumen tras consolidar.
 - **Offline real**: no se probó cortar la red durante una visita.
 - **El informe PDF**: no se abrió el PDF generado en esta pasada (el
   retoque de color del Grupo 7 ya está desplegado; conviene mirarlo en la
-  próxima generación real).
+  próxima generación real). — PARCIAL (2026-09-06, pasada final): el
+  "informe" se genera, sube a Storage y se descarga bien: un `copia-
+  visita.zip` (56 KB) con `informe.pdf` + `fotos/` + `audios/` +
+  `LEEME.txt`. El PDF por dentro (colores del Grupo 7) sigue sin abrirse —
+  hay que descomprimir y abrirlo a mano.
+
+---
+
+## 7. Pasada final del ciclo de comercial (2026-09-06)
+
+Recorrido completo Hoy → alta → visita (Zona + las 6 capturas como hojas +
+"En esta visita") → cierre → "¿Confirmas?" → resumen → informe, con la
+sesión de Dirección (las pantallas del ciclo son idénticas para los dos
+roles; lo específico de comercial ya se validó en 1.3). Todo lo tocado en
+sesiones anteriores se ve bien. Tres hallazgos nuevos, los tres corregidos
+y verificados en vivo (commit `dab303b`):
+
+1. **[B] Plurales en las cajas de recuento de "Cerrar visita"** — "1 Notas
+   / 1 Hallazgos". El `plural()` cubría los chips de "¿Confirmas?" y del
+   resumen, no estas casillas. Ahora "1 Nota / 1 Hallazgo".
+2. **[C] Doble puntuación en el resumen automático** — una nota de riesgo
+   acabada en punto salía "…no cifran.). Oportunidad:". Se recorta el signo
+   final del fragmento antes del paréntesis.
+3. **[B/C] "Informe de la visita (PDF)" descarga un ZIP** — pasa a
+   "Informe de la visita" + subtítulo "PDF con las fotos y los audios, en
+   un ZIP".
 
 ---
 
