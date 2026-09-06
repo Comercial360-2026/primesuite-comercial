@@ -1524,9 +1524,19 @@ export function VisitaActiva() {
         )}
 
         {/* Editor de zona — inline, en la propia pantalla (no una hoja).
-            Escribe una zona o repite una ya usada; se aplica al momento. */}
+            Tarjeta cerrable con la × de la casa (como las hojas), no un
+            "cerrar" en texto. Escribe una zona o repite una ya usada. */}
         {zonaEditorAbierto && (
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
+            <button
+              type="button"
+              className="hoja-cerrar"
+              aria-label="Cerrar"
+              style={{ position: 'absolute', top: 4, right: 6 }}
+              onClick={() => setZonaEditorAbierto(false)}
+            >
+              ×
+            </button>
             <AyudaNota concepto="zona-captura" />
             <input
               className="field"
@@ -1596,15 +1606,6 @@ export function VisitaActiva() {
                 Quitar «{zonaABorrar}» de la visita: sus capturas pasan a «General».
               </ConfirmacionBorrado>
             )}
-
-            <button
-              type="button"
-              className="btn-enlace"
-              style={{ padding: 0, alignSelf: 'flex-start' }}
-              onClick={() => setZonaEditorAbierto(false)}
-            >
-              cerrar
-            </button>
           </div>
         )}
 
