@@ -638,12 +638,28 @@ AHORA; rejilla 2 columnas.
   componente `Segmentado` ahora acepta `icono?` por opción (+ `soloIcono`).
   Icono nuevo `lista` (ListBullets).
 
-Estado: **`/visita/:id` — 3.er repaso hecho y verde**, verificado en vivo
-(zona inline + banda + Segmentado; consola limpia). Dictado interino sin
-probar en vivo (hace falta micro). Sigue pendiente de pulir/decidir:
-posición física de la rejilla, "pop" de la rejilla, indicador de
-grabación, `←` a Hoy, coherencia con `/cierre`, `ayuda.ts` al nuevo
-layout, icono de interlocutor.
+**4.º repaso (2026-09-06) — más cosas de la zona + bug en `/cierre`:**
+- **Guardar una zona nueva:** no había forma de confirmar la que escribías.
+  → botón **"Usar zona «X»"** en el editor (aplica + cierra; la banda
+  queda arriba). Verificado.
+- **Borrar una zona equivocada:** imposible. → **✕ en cada chip** de
+  "Zonas de esta visita" → `<ConfirmacionBorrado>` → sus capturas (cola
+  local pendiente Y filas sincronizadas) pasan a «General». Verificado en
+  BD (la foto "Acceso principal" quedó con `zona_texto = null`).
+- **"Marcar zonas"** era un enlace de texto. → **chip** (control claro).
+- **`/visita/:id/cierre` — "Revisar por zona" no se veía:** el recuento y
+  los avisos quedaban FIJOS fuera del scroll; con un aviso largo, "Revisar
+  por zona" se aplastaba en ~40 px, sin poder verse ni scrollear.
+  → **todo dentro del mismo `screen__scroll`**. Ahora se ve y se
+  desplaza. *Pendiente:* las filas de zona en `/cierre` no son tocables
+  (las casillas por tipo de arriba sí abren detalle) — hacerlas abrir el
+  detalle de esa zona.
+
+Estado: **`/visita/:id` — 4.º repaso hecho y verde**, verificado en vivo.
+Dictado interino sin probar en vivo (hace falta micro). Pendiente de
+pulir/decidir: posición física de la rejilla, "pop" de la rejilla,
+indicador de grabación, `←` a Hoy, `ayuda.ts` al nuevo layout, icono de
+interlocutor, filas de zona tocables en `/cierre`.
 
 ### `/` — Hoy
 
