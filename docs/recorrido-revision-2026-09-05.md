@@ -545,7 +545,10 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   Renombrar el campo a solo **"Zona"**. — ✅ RESUELTO (`4e48049`).
 - [B] No hay vistazo de actividad ni enlace a "Actividad por comercial" de
   esa persona; la ficha solo muestra la carga de cartera. Añadir enlace
-  "Ver actividad" (→ `/actividad-comerciales/:id`) y/o un par de números.
+  "Ver actividad" (→ `/actividad-comerciales/:id`) y/o un par de números. —
+  ✅ RESUELTO (`49a3917`): sección "Actividad" con fila "Ver actividad".
+  (Queda el papercut menor: el ← de esa pantalla vuelve a la lista, no a
+  la ficha — el back del navegador sí funciona.)
 - [C] "sin cartera asignada" en gris parece un aviso; para un alta reciente
   es solo un hecho. Suavizar ("Todavía sin clientes asignados").
 
