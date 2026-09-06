@@ -273,9 +273,9 @@ export function AgendaDelDia() {
           <button
             type="button"
             className="boton-icono"
-            aria-label="Empezar visita sin planificar"
-            title="Empezar visita sin planificar"
-            onClick={() => navigate('/clientes')}
+            aria-label="Nueva visita"
+            title="Nueva visita"
+            onClick={() => navigate('/planificar')}
           >
             <Icono nombre="mas" size={18} />
           </button>

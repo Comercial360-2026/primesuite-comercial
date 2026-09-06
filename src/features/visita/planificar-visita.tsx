@@ -6,6 +6,10 @@ import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -16,11 +20,15 @@ interface Proyecto {
   es_general: boolean;
 }
 
-// Flujo único de "Planificar visita": cliente → proyecto (solo si hay más
-// de uno) → fecha/objetivo/hora/franja → [para otro comercial, si eres
-// Dirección] → guarda y vuelve a la Agenda. Se abre desde el "+" de la
-// Agenda (sin parámetros) y desde la ficha de proyecto (con
-// ?clienteId=&proyectoId= ya puestos, saltándose los dos primeros pasos).
+// "Nueva visita" — un solo sitio para crear una visita, se abre desde el
+// "+" de Hoy y de la Agenda. Pasos: cliente → proyecto (solo si hay más de
+// uno) → ¿cuándo?
+//   · "Ahora"     → objetivo y arranca la visita en curso (cola offline),
+//                    misma vía que "Iniciar visita ahora" de la ficha.
+//   · "Otro día"  → fecha / objetivo / hora / franja / [para otro comercial,
+//                    si eres Dirección] y queda agendada.
+// También se abre desde la ficha de proyecto con ?clienteId=&proyectoId=
+// ya puestos (se salta los dos primeros pasos).
 export function PlanificarVisita() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -81,7 +89,8 @@ export function PlanificarVisita() {
     if (!proyectoId && proyectos && proyectos.length === 1) setProyectoId(proyectos[0].id);
   }, [proyectos, proyectoId]);
 
-  // --- Paso 3: formulario ---
+  // --- Paso 3: ¿cuándo? ---
+  const [cuando, setCuando] = useState<'ahora' | 'otro'>('ahora');
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState('');
   const [objetivo, setObjetivo] = useState('');
@@ -89,6 +98,14 @@ export function PlanificarVisita() {
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');
   const [comercialPlan, setComercialPlan] = useState('');
   const guardado = useAccionAsync();
+
+  // Vía "Ahora" — misma que "Iniciar visita ahora" de la ficha de proyecto.
+  const { iniciarVisita } = useVisitaActivaContext();
+  const { encolar } = useSyncQueue(undefined);
+  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId || undefined);
+  const [enCursoAbierto, setEnCursoAbierto] = useState(false);
+  const [errorAhora, setErrorAhora] = useState<string | null>(null);
+  const [arrancando, setArrancando] = useState(false);
 
   const { data: comercialesActivos } = useQuery({
     queryKey: ['comerciales-activos'],
@@ -103,6 +120,42 @@ export function PlanificarVisita() {
       return data ?? [];
     },
   });
+
+  async function lanzarVisitaAhora() {
+    if (!comercial || !clienteId || !proyectoId) {
+      setErrorAhora('Recarga la página e inténtalo de nuevo.');
+      return;
+    }
+    setArrancando(true);
+    setErrorAhora(null);
+    try {
+      const visitaId = uuid();
+      await encolar(visitaId, 'visita', {
+        clienteId,
+        proyectoId,
+        comercialResponsableId: comercial.id,
+        tipoVisita: null,
+        objetivo: objetivo.trim(),
+      });
+      iniciarVisita({ id: visitaId, clienteNombre: cliente?.nombre ?? '' });
+      navigate(`/visita/${visitaId}`);
+    } catch (e) {
+      setArrancando(false);
+      setErrorAhora(e instanceof Error ? e.message : 'No se pudo empezar la visita.');
+    }
+  }
+
+  function empezarAhora() {
+    if (!objetivo.trim()) {
+      setErrorAhora('Escribe a qué vas.');
+      return;
+    }
+    if (visitaEnCurso) {
+      setEnCursoAbierto(true);
+      return;
+    }
+    void lanzarVisitaAhora();
+  }
 
   async function planificar() {
     await guardado.ejecutar(
@@ -152,13 +205,12 @@ export function PlanificarVisita() {
   return (
     <div className="screen">
       <CabeceraDetalle
-        titulo="Planificar visita"
+        titulo="Nueva visita"
         subtitulo={
           cliente
             ? `${cliente.nombre}${proyectoElegido && !proyectoElegido.es_general ? ` · ${proyectoElegido.nombre}` : ''}`
             : undefined
         }
-        volverA="/agenda"
         ayuda="planificar-visita"
       />
 
@@ -212,17 +264,28 @@ export function PlanificarVisita() {
           </div>
         )}
 
-        {/* Paso 3 — formulario */}
+        {/* Paso 3 — ¿cuándo? */}
         {!!proyectoId && (
           <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>Fecha de la visita</div>
-            <input
-              type="date"
-              className="field"
-              min={hoyISO}
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-            />
+            <div className="label" style={{ marginTop: 0 }}>¿Cuándo?</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(
+                [
+                  ['ahora', 'Ahora'],
+                  ['otro', 'Otro día'],
+                ] as const
+              ).map(([val, txt]) => (
+                <button
+                  key={val}
+                  type="button"
+                  className={`chip${cuando === val ? ' chip--on' : ''}`}
+                  onClick={() => setCuando(val)}
+                >
+                  {txt}
+                </button>
+              ))}
+            </div>
+
             <div className="label">Objetivo</div>
             <textarea
               className="field"
@@ -232,60 +295,102 @@ export function PlanificarVisita() {
               value={objetivo}
               onChange={(e) => setObjetivo(e.target.value)}
             />
-            <div className="label">Hora (opcional)</div>
-            <input type="time" className="field" value={hora} onChange={(e) => setHora(e.target.value)} />
-            {!hora && (
+
+            {cuando === 'otro' && (
               <>
-                <div className="label">Sin hora concreta, ¿cuándo?</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {(
-                    [
-                      ['manana', 'Mañana'],
-                      ['tarde', 'Tarde'],
-                      ['', 'Sin hora fija'],
-                    ] as const
-                  ).map(([val, txt]) => (
-                    <button
-                      key={val || 'sin'}
-                      type="button"
-                      className={`chip${franja === val ? ' chip--on' : ''}`}
-                      onClick={() => setFranja(val)}
-                    >
-                      {txt}
-                    </button>
-                  ))}
-                </div>
+                <div className="label">Fecha de la visita</div>
+                <input
+                  type="date"
+                  className="field"
+                  min={hoyISO}
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
+                <div className="label">Hora (opcional)</div>
+                <input type="time" className="field" value={hora} onChange={(e) => setHora(e.target.value)} />
+                {!hora && (
+                  <>
+                    <div className="label">Sin hora concreta, ¿cuándo?</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {(
+                        [
+                          ['manana', 'Mañana'],
+                          ['tarde', 'Tarde'],
+                          ['', 'Sin hora fija'],
+                        ] as const
+                      ).map(([val, txt]) => (
+                        <button
+                          key={val || 'sin'}
+                          type="button"
+                          className={`chip${franja === val ? ' chip--on' : ''}`}
+                          onClick={() => setFranja(val)}
+                        >
+                          {txt}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {esDireccion && (
+                  <>
+                    <div className="label">Para</div>
+                    <select className="field" value={comercialPlan} onChange={(e) => setComercialPlan(e.target.value)}>
+                      <option value="">Yo ({comercial?.nombre ?? '—'})</option>
+                      {comercialesActivos
+                        ?.filter((c) => c.id !== comercial?.id)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                    </select>
+                  </>
+                )}
+                {guardado.error && (
+                  <div className="field-error-text" style={{ marginTop: 8 }}>{guardado.error}</div>
+                )}
+                <button
+                  className="btn btn-primary"
+                  style={{ marginTop: 12 }}
+                  disabled={guardado.cargando || !fecha || !objetivo.trim()}
+                  onClick={planificar}
+                >
+                  {guardado.cargando ? 'Planificando…' : 'Planificar'}
+                </button>
               </>
             )}
-            {esDireccion && (
+
+            {cuando === 'ahora' && (
               <>
-                <div className="label">Para</div>
-                <select className="field" value={comercialPlan} onChange={(e) => setComercialPlan(e.target.value)}>
-                  <option value="">Yo ({comercial?.nombre ?? '—'})</option>
-                  {comercialesActivos
-                    ?.filter((c) => c.id !== comercial?.id)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                </select>
+                {errorAhora && (
+                  <div className="field-error-text" style={{ marginTop: 8 }}>{errorAhora}</div>
+                )}
+                <button
+                  className="btn btn-primary"
+                  style={{ marginTop: 12 }}
+                  disabled={arrancando || !objetivo.trim()}
+                  onClick={empezarAhora}
+                >
+                  {arrancando ? 'Empezando…' : 'Empezar'}
+                </button>
               </>
             )}
-            {guardado.error && (
-              <div className="field-error-text" style={{ marginTop: 8 }}>{guardado.error}</div>
-            )}
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: 12 }}
-              disabled={guardado.cargando || !fecha || !objetivo.trim()}
-              onClick={planificar}
-            >
-              {guardado.cargando ? 'Planificando…' : 'Planificar'}
-            </button>
           </div>
         )}
       </div>
+
+      {enCursoAbierto && visitaEnCurso && (
+        <VisitaEnCursoModal
+          clienteNombre={cliente?.nombre}
+          objetivo={visitaEnCurso.objetivo}
+          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
+          onEmpezarOtra={() => {
+            setEnCursoAbierto(false);
+            void lanzarVisitaAhora();
+          }}
+          onCerrar={() => setEnCursoAbierto(false)}
+        />
+      )}
     </div>
   );
 }

@@ -159,11 +159,11 @@ const _PANTALLAS = {
   // — Una visita, paso a paso —
   'planificar-visita': {
     grupo: 'visita',
-    titulo: 'Planificar visita',
+    titulo: 'Nueva visita',
     queEs:
-      'El formulario para dejar una visita agendada para otro día: eliges el cliente, el proyecto (solo si tiene más de uno), la fecha y el objetivo. Aparece en la Agenda y en «Hoy» ese día.',
+      'El único sitio para crear una visita: eliges el cliente, el proyecto (solo si tiene más de uno) y cuándo. «Ahora» pide solo el objetivo y arranca la visita en curso. «Otro día» pide además fecha, hora u orientación (mañana/tarde) y —si diriges el equipo— para quién; queda agendada y aparece en la Agenda y en «Hoy» ese día.',
     cuando:
-      'Al organizar la semana. Se abre desde el «+» de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». Necesita conexión.',
+      'Se abre desde el «+» de «Hoy» y de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». «Otro día» necesita conexión; «Ahora» funciona sin cobertura (se sincroniza luego).',
   },
   'visita-planificada': {
     grupo: 'visita',
