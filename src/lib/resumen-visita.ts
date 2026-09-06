@@ -24,6 +24,14 @@ function listaCorta(nombres: string[], max = 3): string {
   return `${limpios.slice(0, max).join(', ')} y ${limpios.length - max} más`;
 }
 
+// Fragmentos de texto libre (la nota de un riesgo, la descripción de un
+// paso) van EN MEDIO de una frase, dentro de un paréntesis. Si el comercial
+// los cerró con punto, sale "…le preocupa.). Oportunidad:" con doble
+// puntuación. Se le quita el signo final antes de incrustarlo.
+function sinPuntuacionFinal(s: string): string {
+  return s.trim().replace(/[.;,\s]+$/, '');
+}
+
 export function generarResumenReglas(d: DatosResumenVisita): string {
   const frases: string[] = [];
 
@@ -36,7 +44,7 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
     .filter((h) => h.naturaleza === 'riesgo')
     .map((h) => {
       const n = h.nota?.trim();
-      return n ? `${h.terminoNombre} (${n})` : h.terminoNombre;
+      return n ? `${h.terminoNombre} (${sinPuntuacionFinal(n)})` : h.terminoNombre;
     });
   if (riesgos.length) frases.push(`Riesgo: ${listaCorta(riesgos, 2)}.`);
 
@@ -51,7 +59,7 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
       .slice(0, 3)
       .map((p) => {
         const desc = capitalizarFrase(p.descripcion.trim());
-        return p.fecha ? `${desc} (${fechaCorta(p.fecha)})` : desc;
+        return p.fecha ? `${sinPuntuacionFinal(desc)} (${fechaCorta(p.fecha)})` : desc;
       })
       .join('; ');
     const extra = d.pasos.length > 3 ? ` y ${d.pasos.length - 3} más` : '';

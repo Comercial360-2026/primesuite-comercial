@@ -560,17 +560,17 @@ export function DetalleVisitaCerrada() {
             <SeccionLista>
               <FilaAccion
                 densidad="compacta"
-                titulo="Informe de la visita (PDF)"
+                titulo="Informe de la visita"
                 subtitulo={
                   descargaLista
-                    ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                    ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
                     : estadoDescarga === 'generando'
-                      ? 'Generando el PDF…'
+                      ? 'Generando el informe…'
                       : estadoDescarga === 'sin-red'
                         ? 'Sin conexión. Inténtalo cuando tengas red'
                         : estadoDescarga === 'error'
                           ? 'No se pudo generar, toca de nuevo'
-                          : 'Descárgalo o pásalo a otras áreas'
+                          : 'PDF con las fotos y los audios, en un ZIP'
                 }
                 acciones={[
                   {

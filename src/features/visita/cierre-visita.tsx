@@ -191,13 +191,19 @@ export function CierreVisita() {
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
 
   // Las seis casillas del resumen: cada una abre su detalle al pulsarla.
-  const casillasCierre: Array<{ grupo: GrupoCierre; label: string; items: OperacionPendiente[] }> = [
-    { grupo: 'fotos', label: 'Fotos', items: fotos },
-    { grupo: 'audios', label: 'Audios', items: audios },
-    { grupo: 'notas', label: 'Notas', items: notas },
-    { grupo: 'oportunidades', label: 'Oportunidades', items: oportunidades },
-    { grupo: 'hallazgos', label: 'Hallazgos', items: hallazgos },
-    { grupo: 'pasos', label: 'Próximos pasos', items: pasos },
+  // La etiqueta concuerda en número con el recuento ("1 nota", no "1 Notas").
+  const casillasCierre: Array<{
+    grupo: GrupoCierre;
+    sing: string;
+    plur: string;
+    items: OperacionPendiente[];
+  }> = [
+    { grupo: 'fotos', sing: 'Foto', plur: 'Fotos', items: fotos },
+    { grupo: 'audios', sing: 'Audio', plur: 'Audios', items: audios },
+    { grupo: 'notas', sing: 'Nota', plur: 'Notas', items: notas },
+    { grupo: 'oportunidades', sing: 'Oportunidad', plur: 'Oportunidades', items: oportunidades },
+    { grupo: 'hallazgos', sing: 'Hallazgo', plur: 'Hallazgos', items: hallazgos },
+    { grupo: 'pasos', sing: 'Próximo paso', plur: 'Próximos pasos', items: pasos },
   ];
 
   // Tira de chips con el recuento — misma en "¿Confirmas el cierre?" y en
@@ -413,17 +419,17 @@ export function CierreVisita() {
               <SeccionLista>
                 <FilaAccion
                   densidad="compacta"
-                  titulo="Informe de la visita (PDF)"
+                  titulo="Informe de la visita"
                   subtitulo={
                     descargaLista
-                      ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                      ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
                       : estadoDescarga === 'generando'
-                        ? 'Generando el PDF…'
+                        ? 'Generando el informe…'
                         : estadoDescarga === 'sin-red'
                           ? 'Sin conexión. Inténtalo cuando tengas red'
                           : estadoDescarga === 'error'
                             ? 'No se pudo generar, toca de nuevo'
-                            : 'Descárgalo o pásalo a otras áreas'
+                            : 'PDF con las fotos y los audios, en un ZIP'
                   }
                   acciones={[
                     {
@@ -510,7 +516,7 @@ export function CierreVisita() {
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {casillasCierre.map(({ grupo, label, items }) => (
+        {casillasCierre.map(({ grupo, sing, plur, items }) => (
           <button
             key={grupo}
             type="button"
@@ -519,7 +525,9 @@ export function CierreVisita() {
             onClick={() => setDetalle({ grupo, items })}
           >
             <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{items.length}</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{label}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+              {items.length === 1 ? sing : plur}
+            </div>
           </button>
         ))}
       </div>
