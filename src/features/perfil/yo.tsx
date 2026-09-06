@@ -14,7 +14,6 @@ import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
-import { FilaDato } from '@/components/ui/fila-dato';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
@@ -57,16 +56,20 @@ const ETIQUETA_ROL: Record<string, string> = {
 // Distribución por intención (ver 08_sistema_diseno.md §"Sistema de filas"):
 //   · cabecera de identidad (nombre + rol), sin sección
 //   · aviso rojo "N sin sincronizar" si lo hay — destaca, no es una fila
-//   · "Tu espacio": Mi espacio (con lo que ocupan tus visitas como dato)
-//   · "Salud del equipo" (solo dir. comercial): el % del pozo del equipo
-//     como dato de fila, Consumo por comercial, y la copia de seguridad
-//     (TarjetaAccion — lleva barra de antigüedad y su propio botón)
+//   · "Tu espacio" (solo comercial normal): Mi espacio, con lo que ocupan
+//     tus visitas como dato
+//   · "El equipo" (solo dir. comercial): una única fila "Almacenamiento"
+//     — lleva a "Mi espacio", que por dentro ya trae el segmentado "Mis
+//     visitas / Por comercial"; el % del pozo del equipo va como valor de
+//     esa fila. Debajo, Actividad por comercial y la copia de seguridad
+//     (TarjetaAccion — lleva barra de antigüedad y su propio botón).
 //   · "Gestión" (solo dir. comercial): accesos de administración
 //   · SeccionLista suelta: Cerrar sesión (fila roja, al final)
 //
-// El % del equipo salía además como una TarjetaAccion aparte ("Espacio de
-// almacenamiento") con el mismo dato que el medidor de dentro de "Mi
-// espacio" — repetido. Ahora es una sola fila de dato.
+// Para Dirección esto eran antes tres filas de espacio en dos secciones
+// ("Mi espacio" en "Tu espacio"; la FilaDato "Espacio del equipo" y
+// "Consumo por comercial" en "El equipo"), y dos de ellas abrían la misma
+// pantalla. Ahora es una sola fila.
 export function Yo() {
   const { comercial } = useSesionActual();
   const { cerrarVisita } = useVisitaActivaContext();
@@ -406,36 +409,41 @@ export function Yo() {
           </div>
         )}
 
-        <SeccionLista titulo="Tu espacio">
-          <FilaNavegable
-            icono="almacenamiento"
-            titulo="Mi espacio"
-            subtitulo="Tus visitas y lo que ocupan"
-            valor={
-              espacioEquipo ? (
-                <span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>
-                  {formatearMB(espacioEquipo.miUso)} MB
-                </span>
-              ) : undefined
-            }
-            to="/mi-espacio"
-          />
-        </SeccionLista>
+        {!esDireccionComercial && (
+          <SeccionLista titulo="Tu espacio">
+            <FilaNavegable
+              icono="almacenamiento"
+              titulo="Mi espacio"
+              subtitulo="Tus visitas y lo que ocupan"
+              valor={
+                espacioEquipo ? (
+                  <span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>
+                    {formatearMB(espacioEquipo.miUso)} MB
+                  </span>
+                ) : undefined
+              }
+              to="/mi-espacio"
+            />
+          </SeccionLista>
+        )}
 
         {esDireccionComercial && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <SeccionLista titulo="El equipo">
-              <FilaDato
+              {/* Una sola fila de almacenamiento: lleva a "Mi espacio", que
+                  por dentro ya tiene el segmentado "Mis visitas / Por
+                  comercial". El % del equipo (el dato que manda) va como
+                  valor, con su tono; antes esto eran tres filas —"Mi
+                  espacio", la FilaDato "Espacio del equipo" y "Consumo por
+                  comercial"— repartidas en dos secciones y dos de ellas
+                  abrían la misma pantalla. */}
+              <FilaNavegable
                 icono="almacenamiento"
-                etiqueta="Espacio del equipo"
+                titulo="Almacenamiento"
+                subtitulo="Tus visitas y el consumo del equipo"
                 tono={tonoEquipo}
                 valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
-              />
-              <FilaNavegable
-                icono="consumo"
-                titulo="Consumo por comercial"
-                subtitulo="Cuánto ocupa cada uno"
-                to="/mi-espacio?vista=equipo"
+                to="/mi-espacio"
               />
               <FilaNavegable
                 icono="equipo"
