@@ -213,6 +213,167 @@ Progreso:
 - **B7** (rotular foto en el momento) — pendiente, baja prioridad; la hoja de Foto ya pide título.
 Verde (typecheck/lint/build). ayuda.ts al día. Verificado en vivo: B1-B4.
 
+> **Nota (2026-09-06):** Cesar paró el rediseño B1-B3 por ser *parcheo*. Se
+> conservan **B3** (6 capturas iguales), **B4** (dictado en Nota) y **B5**
+> (aviso de cierre). **B1** (chips Interlocutores/Equipo) y **B2** (chip
+> "Marcar zonas") se rehacen desde el análisis formal de abajo, no por
+> retoques sueltos.
+
+---
+
+#### Análisis formal (prompt maestro) — 2026-09-06
+
+Revisado: `visita-activa.tsx`, `hallazgo-rapido-hoja.tsx`, `selector-termino.tsx`,
+`buscador.tsx`, `iconos.tsx`, `components.css`, `cierre-visita.tsx`.
+
+**0. Ficha.** `/visita/:visitaId` — Visita activa (captura). Sirve para
+capturar en caliente todo lo de una visita en curso (foto/nota/audio/
+hallazgo/oportunidad/próximo paso) y cerrarla. La usa el comercial de pie
+frente al cliente, con prisa, a veces sin cobertura; también un 2.º
+comercial del equipo sobre la misma visita. Objetivo: dejar registrada una
+cosa concreta en **1 toque + 1**.
+
+**1. Comercial en la calle**
+- ❌ Lo primero que se ve NO es lo que más necesita: contexto (nº visita,
+  objetivo, chips, label, "Marcar zonas") empuja la rejilla de captura a
+  media pantalla.
+- ✅ 1-2 toques para capturar.
+- ⚠️ "Marcar zonas" + microcopy parecen paso previo aunque no lo son.
+- ❌ Iconos/jerga: "Zona/Recorrido/General" sin explicar; **Hallazgo usa la
+  lupa** (`MagnifyingGlass`), el mismo glifo que "buscar" en toda la app.
+- ❌ Zona del pulgar: **"Cerrar visita"** ocupa el sitio más alcanzable
+  (fijo abajo, ancho, `btn-primary`, sin confirmación aquí); la captura,
+  que se repite 20 veces, está en el scroll. **Chips-control a 32px** (<44).
+- ✅ Interrupción/errores: cola offline, `flushSync`, timeslice audio,
+  parada limpia al bloquear pantalla.
+- ⚠️ Sin cobertura: captura OK, pero **objetivo no editable hasta
+  sincronizar** ("Guardando…" sin fin).
+- ✅ Permisos cámara/micro/GPS en contexto y con mensaje.
+
+**2. Director comercial**
+- ✅ Produce lo que se necesita después.
+- ❌ Puede quedarse algo sin registrar: el recordatorio "sin oportunidad /
+  sin próximo paso" **solo está en `/cierre`** (llega tarde). El commit
+  "B5" tocó `cierre-visita.tsx`, no esta pantalla.
+- ⚠️ Fricción: el selector de término no usa el buscador de la casa.
+- ❌ Fidelidad/completitud: **las fotos de un compañero no se listan** en
+  "En esta visita" (sí el resto de sus capturas).
+
+**3. Diseñador Apple / HIG**
+- ❌ Un solo foco: la rejilla de captura compite con contexto arriba y
+  "Cerrar visita" abajo.
+- ❌ Jerarquía **invertida**: secundario arriba y fijo, principal en medio
+  del scroll, final del flujo con el sitio de honor.
+- ⚠️ Ruido: microcopy de zona apila hasta 4 líneas de ayuda.
+- ❌ Patrones: buscador de término = `<input className="field">` pelado, no
+  el `Buscador` colapsable con lupa. Chips usados como navegación, no filtro.
+- ❌ Iconos: `hallazgo: MagnifyingGlass` y `BotonBuscar` renderiza
+  `<Icono nombre="hallazgo">` → un glifo, dos conceptos.
+- ✅ Color: cada tipo por icono + texto; estado de sync en texto.
+- ⚠️ Estados: error/carga OK; el vacío informa pero no orienta.
+- ✅ Texto: español, frase capitalizada, botones dicen lo que hacen.
+- ⚠️ Densidad: se puede plegar contexto y comprimir microcopy de zona.
+- ⚠️ Rejilla de 6 idénticos (rompe regla 3 a propósito): no distingue
+  captura en caliente (1 gesto) de la que abre formulario.
+
+**4. Principio rector**
+- ✅ Texto de controles coincide con lo que hacen (salvo el **icono** de
+  Hallazgo).
+- ⚠️ Punto muerto temporal: objetivo no editable hasta sync, sin indicar
+  cuándo. Navegación ← correcta (`-1` con fallback a `/`).
+- ⚠️ Menos pasos: el aviso de oportunidad/paso obliga a llegar a `/cierre`.
+- Casos límite: vacío no orienta (C); lista enorme sin virtualizar
+  (aceptable); sin red cubierto salvo objetivo; permisos con mensaje;
+  GPS denegado → foto sin coords, documentado; **`SelectorTermino` no
+  normaliza acentos** (C).
+
+**5. Consistencia**
+- ⚠️ Reutiliza casi todo; excepción: búsqueda de término no usa `Buscador`.
+- ⚠️ "zona/recorrido/General" sin glosario en pantalla ni ayuda enlazada
+  del concepto.
+- ✅ ← correcto.
+- `ayuda.ts`: existe `visita-activa`; al rehacer, actualizar + añadir
+  cobertura del concepto zona **en el mismo commit**.
+
+**Verificado después (no estaba en el 1.er pase):**
+- ❌ **`visita-activa.tsx` NO comprueba `estado_captura` en ningún sitio.**
+  Si un compañero cierra la visita, o se retoma una ya `consolidada`, la
+  pantalla sigue en modo captura; lo capturado entra/falla tras el informe.
+- ❌ **Varias visitas en curso a la vez:** `visitaEnCurso` es un único slot;
+  arrancar otra deja la anterior huérfana (`en_curso` sin banner).
+- ⚠️ **Objetivo, edición concurrente:** `update` pisa; `objetivoBorrador`
+  solo se inicializa una vez (`=== null`), no re-sincroniza.
+- ⚠️ **La zona se estampa al *guardar*, no al *capturar*:** cambiar de zona
+  mientras pones el título mete la captura anterior en la zona nueva.
+- ⚠️ **Botones `disabled` sin motivo visible** cuando el pozo de equipo
+  está lleno (`espacioBloqueado`): el mensaje solo sale si logras pulsar.
+- ⚠️ `visitaLocal` en carga: ventana async sin spinner donde "Próximo
+  paso"/"Interlocutores" no abren (hay fallback a Supabase → C).
+- ⚠️ a11y: en `CapturasPorUbicacion` las filas son `<div onClick>` (sin
+  rol ni foco por teclado); en la vista "por tipo" sí son `<button>`.
+
+**6. Salida — cambios**
+
+*A0 — bloqueantes (van primero)*
+- **A0.1** Guarda de `estado_captura`. Si `consolidada`: bloquear captura,
+  mostrar "esta visita ya está cerrada" + enlace al detalle. El query del
+  estado sondea (≤20 s) para detectar cierre por compañero.
+- **A0.2** Aviso no bloqueante si el comercial tiene otra visita `en_curso`
+  distinta de esta ("Tienes otra visita abierta · ver").
+
+*A — fricción real*
+- **A1** "Cerrar visita" **al final del scroll**, tras "En esta visita" (deja
+  de ser fijo; cerrar obliga a pasar por el resumen). ← decidido.
+- **A2** Enderezar jerarquía: rejilla de captura como primer bloque;
+  contexto (nº visita, objetivo, chips) plegado debajo o a la cabecera.
+- **A3** Icono de Hallazgo ≠ lupa: `hallazgo` pasa a otro glifo; `BotonBuscar`
+  usa un `buscar: MagnifyingGlass` propio. Toca `iconos.tsx` (global).
+- **A4** Chips-control a 44px (Interlocutores, Equipo, Marcar zonas) o
+  convertirlos en `boton-icono`/fila.
+
+*B — incoherencia*
+- **B1** Introducir el concepto zona/recorrido: `<AyudaNota>` + entrada en
+  `ayuda.ts`, o renombrar el chip a algo autoexplicativo.
+- **B2** Recordatorio **en vivo** (lo que "B5" no llegó a hacer): en "En
+  esta visita", si tras N capturas no hay oportunidad ni próximo paso,
+  línea suave. No esperar a `/cierre`.
+- **B3** `SelectorTermino` con el patrón `Buscador` de la casa (o al menos
+  la lupa). Afecta también a Detalle de Oportunidad.
+- **B4** Fotos de compañeros en "En esta visita": listarlas o justificar
+  en código por qué no.
+- **B5** Objetivo: `update` con `count`/reconciliación y re-sincronizar
+  `objetivoBorrador` si cambia en servidor.
+- **B6** Estampar la zona en el **momento de capturar**, no de guardar.
+- **B7** Botones de captura: motivo visible cuando el pozo está lleno (no
+  solo `disabled`).
+
+*C — pulido*
+- **C1** Estado vacío que oriente ("Toca Foto, Nota o Audio para empezar").
+- **C2** Rejilla de 6: separar 3 (en caliente) + 3 (con hoja) por un hueco,
+  sin volver a dos pesos.
+- **C3** Comprimir el microcopy de zona.
+- **C4** `SelectorTermino`: normalizar acentos en la búsqueda.
+- **C5** `visitaLocal` en carga: spinner / deshabilitar las hojas que lo
+  necesitan con feedback.
+- **C6** a11y: filas de `CapturasPorUbicacion` como `<button>`.
+- **B7-doc** Rotular la foto en el momento (mostrar zona + peso al título
+  en la hoja de Foto). ← entra en este pase (decidido).
+
+*Rehace / conserva / descarta*
+- **Conserva:** dictado en Nota (B4); 6 capturas al mismo nivel como base
+  (pendiente C2); lista fundida "En esta visita" con contador + estado de
+  sync únicos; visor de fotos a pantalla completa; cola offline.
+- **Rehace:** colocación y peso de "Cerrar visita" (A1); jerarquía vertical
+  (A2); forma de los chips Interlocutores/Equipo/"Marcar zonas" (A4);
+  introducción del concepto zona (B1).
+- **Descarta:** el "aviso B5" tal como quedó (solo en `/cierre`) — se
+  sustituye por el recordatorio en vivo (B2).
+- **Global:** el cambio del icono `hallazgo` (A3) se hace en `iconos.tsx`.
+
+Estado: análisis cerrado y aprobado por Cesar (2026-09-06). Orden de
+trabajo: A0 → A → B → C. Verde (typecheck/lint/build) entre tandas;
+`ayuda.ts` al día en el mismo commit que el cambio que la afecte.
+
 ### `/` — Hoy
 
 - **[A] El botón "+" miente.** `aria-label`/`title` = "Empezar visita sin

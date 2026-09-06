@@ -35,6 +35,7 @@ import {
   Microphone,
   Note,
   MagnifyingGlass,
+  Eye,
   Sparkle,
   Flag,
   Question,
@@ -97,7 +98,8 @@ const registro = {
   foto: Camera,
   audio: Microphone,
   nota: Note,
-  hallazgo: MagnifyingGlass, // algo observado sobre el terreno
+  buscar: MagnifyingGlass, // lupa de búsqueda (cabeceras, listados)
+  hallazgo: Eye, // algo observado sobre el terreno (NO la lupa: esa es `buscar`)
   oportunidad: Sparkle, // destello — mismo sentido que el acento --signal-600
   paso: Flag, // próximo paso — lo que queda pendiente al salir
 

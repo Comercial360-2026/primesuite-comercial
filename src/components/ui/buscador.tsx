@@ -24,7 +24,7 @@ interface BotonBuscarProps {
 export function BotonBuscar({ onClick, etiqueta }: BotonBuscarProps) {
   return (
     <button type="button" className="boton-icono" aria-label={etiqueta} title={etiqueta} onClick={onClick}>
-      <Icono nombre="hallazgo" size={18} />
+      <Icono nombre="buscar" size={18} />
     </button>
   );
 }

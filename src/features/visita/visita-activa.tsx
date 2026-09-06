@@ -488,15 +488,51 @@ export function VisitaActiva() {
   const { data: visitaServidor } = useQuery({
     queryKey: objetivoQueryKey,
     enabled: !!visitaId,
-    refetchInterval: (query) => (query.state.data == null ? 4000 : false),
-    queryFn: async (): Promise<{ objetivo: string | null } | null> => {
+    // Sondea rápido mientras la visita todavía no existe en el servidor
+    // (primeros segundos de una visita local); una vez existe, cada 20 s
+    // para enterarse si un compañero la ha cerrado mientras seguimos
+    // capturando (A0.1). Deja de sondear cuando ya está consolidada.
+    refetchInterval: (query) => {
+      const d = query.state.data as { estado_captura?: string } | null | undefined;
+      if (d == null) return 4000;
+      return d.estado_captura === 'consolidada' ? false : 20000;
+    },
+    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo')
+        .select('objetivo, estado_captura')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
       return data;
+    },
+  });
+  // A0.1 · La visita ya está cerrada (por este comercial en otra pestaña, o
+  // por un compañero). Solo lo sabemos cuando la fila del servidor ya
+  // existe: mientras `visitaServidor` es null asumimos "en curso".
+  const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
+
+  // A0.2 · Otras visitas del comercial que siguen `en_curso`. El banner
+  // "visita en curso" es un único slot: si se arranca otra sin cerrar
+  // esta, una queda sin nada que la recuerde. Aviso no bloqueante con
+  // enlace para volver a ella.
+  const { data: otrasVisitasEnCurso = [] } = useQuery({
+    queryKey: ['otras-visitas-en-curso', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial,
+    refetchInterval: 20000,
+    queryFn: async (): Promise<{ id: string; clienteNombre: string }[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('visita_id, visita:visita_id!inner(id, estado_captura, cliente:cliente_id(nombre))')
+        .eq('comercial_id', comercial!.id)
+        .in('estado', ['pendiente', 'aceptado'])
+        .eq('visita.estado_captura', 'en_curso')
+        .neq('visita_id', visitaId!);
+      if (error) throw error;
+      return (data ?? []).map((r) => {
+        const v = r.visita as unknown as { id: string; cliente: { nombre: string } | null };
+        return { id: v.id, clienteNombre: v.cliente?.nombre ?? 'un cliente' };
+      });
     },
   });
   // Objetivo efectivo: el del servidor si ya está, si no el que viajó en la
@@ -1032,6 +1068,34 @@ export function VisitaActiva() {
   // redirigido, pero se comprueba igual por si acaso.
   if (!visitaId || !comercial) return null;
 
+  // A0.1 · Visita ya consolidada: no se captura más. En vez de dejar la
+  // pantalla de captura viva (las capturas entrarían tarde, tras el
+  // informe), se corta aquí y se lleva al detalle.
+  if (visitaCerrada) {
+    return (
+      <div className="screen">
+        <CabeceraDetalle
+          titulo={cliente?.nombre ?? '…'}
+          subtitulo="Visita cerrada"
+          onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+        />
+        <div className="screen__scroll">
+          <Aviso tipo="info" titulo="Esta visita ya está cerrada">
+            No se pueden añadir más capturas. Si te falta algo, míralo en el
+            detalle o empieza una visita nueva.
+          </Aviso>
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 12 }}
+            onClick={() => navigate(`/visita/${visitaId}/detalle`)}
+          >
+            Ver detalle de la visita
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Resumen de lo capturado, para la tira de arriba. Las fotos/audios/notas
   // van todas en `capturas` (captura_libre), se separan por su `tipo`.
   const fotosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto');
@@ -1155,114 +1219,38 @@ export function VisitaActiva() {
       />
 
       <div className="screen__scroll">
-        {/* Zona 1 · Contexto: dónde estoy — cliente/proyecto ya en la
-            cabecera, aquí el nº de visita, el objetivo y con quién. */}
-        {contextoVisitaTexto && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '-6px 2px 2px' }}>
-            {contextoVisitaTexto}
-          </div>
+        {/* A0.2 · Otra visita abierta sin cerrar. */}
+        {otrasVisitasEnCurso.length > 0 && (
+          <Aviso
+            tipo="atencion"
+            titulo={
+              otrasVisitasEnCurso.length === 1
+                ? 'Tienes otra visita abierta'
+                : `Tienes ${otrasVisitasEnCurso.length} visitas abiertas`
+            }
+          >
+            {otrasVisitasEnCurso.length === 1 ? (
+              <>
+                Sigue sin cerrar la de {otrasVisitasEnCurso[0].clienteNombre}.{' '}
+                <button
+                  type="button"
+                  className="btn-enlace"
+                  style={{ padding: 0 }}
+                  onClick={() => navigate(`/visita/${otrasVisitasEnCurso[0].id}`)}
+                >
+                  ir a ella
+                </button>
+              </>
+            ) : (
+              'Ciérralas cuando puedas para no mezclar capturas entre visitas.'
+            )}
+          </Aviso>
         )}
 
-        {/* Objetivo plegado a una línea; se abre al tocarlo. Ya lo escribiste
-            al empezar la visita — no tiene que ocupar sitio fijo. */}
-        {!objetivoAbierto ? (
-          <button
-            type="button"
-            onClick={() => objetivoEditable && setObjetivoAbierto(true)}
-            title={objetivoEditable ? 'Editar a qué vienes' : undefined}
-            style={{
-              display: 'flex', gap: 6, alignItems: 'flex-start', width: '100%', textAlign: 'left',
-              background: 'none', border: 'none', padding: '4px 2px', font: 'inherit',
-              color: 'var(--ink-700)', fontSize: 'var(--text-sm)',
-              cursor: objetivoEditable ? 'pointer' : 'default',
-            }}
-          >
-            <Icono nombre="editar" size={13} />
-            <span style={{ flex: 1 }}>{(objetivoActual ?? '').trim() || 'A qué vienes'}</span>
-            {!objetivoEditable && (
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', flexShrink: 0 }}>Guardando…</span>
-            )}
-          </button>
-        ) : (
-          <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
-            <div
-              style={{
-                display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
-                color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
-              }}
-            >
-              <Icono nombre="editar" size={13} /> A qué vienes
-            </div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
-              rows={2}
-              autoFocus
-              value={objetivoBorrador ?? ''}
-              onChange={(e) => setObjetivoBorrador(e.target.value)}
-              placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-              <button
-                className="btn btn-secondary"
-                style={{ fontSize: 'var(--text-sm)' }}
-                disabled={guardadoObjetivo.cargando}
-                onClick={() => {
-                  guardadoObjetivo.limpiarError();
-                  setObjetivoBorrador(objetivoActual ?? '');
-                  setObjetivoAbierto(false);
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ fontSize: 'var(--text-sm)' }}
-                disabled={
-                  guardadoObjetivo.cargando ||
-                  !(objetivoBorrador ?? '').trim() ||
-                  (objetivoBorrador ?? '') === (objetivoActual ?? '')
-                }
-                onClick={async () => {
-                  await guardarObjetivo();
-                  setObjetivoAbierto(false);
-                }}
-              >
-                {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-            {guardadoObjetivo.error && (
-              <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
-            )}
-          </div>
-        )}
-
-        {/* Interlocutores y Equipo: chips con nº, no filas grandes. Se
-            consultan de vez en cuando, no son la portada de la visita. */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0' }}>
-          <button
-            type="button"
-            className="chip"
-            onClick={() => setInterlocutoresAbierto(true)}
-            title={interlocutoresTexto}
-          >
-            <Icono nombre="interlocutor" size={14} />
-            {nInterlocutores > 0 ? `Interlocutores · ${nInterlocutores}` : '+ Interlocutores'}
-          </button>
-          <button
-            type="button"
-            className="chip"
-            onClick={() => setParticipantesAbierto(true)}
-            title={equipoTexto}
-          >
-            <Icono nombre="equipo" size={14} />
-            {nombresEquipo.length > 0 ? `Equipo · ${nombresEquipo.length + 1}` : 'Equipo'}
-          </button>
-        </div>
-
-        {/* Zona 2 · Capturar: la acción. Foto/Nota/Audio grandes (lo de
-            campo); Hallazgo/Oportunidad/Próximo paso como chips (lo
-            estructurado) — regla 3, nunca rejilla de botones idénticos. */}
+        {/* Zona 2 · Capturar: la acción, lo primero de la pantalla. El
+            contexto (nº de visita, objetivo, con quién) va DESPUÉS de la
+            rejilla — se consulta al llegar, no compite con la captura
+            (jerarquía: el foco es capturar). */}
         <input
           ref={inputFotoRef}
           type="file"
@@ -1286,11 +1274,11 @@ export function VisitaActiva() {
           {!mostrarZona && (
             <button
               type="button"
-              className="chip"
+              className="chip-accion"
               onClick={() => setMarcarZonas(true)}
               title="Marca la zona que estás recorriendo para agrupar las capturas por sitio"
             >
-              <Icono nombre="recorrido" size={14} /> Marcar zonas
+              <Icono nombre="recorrido" size={16} /> Marcar zonas
             </button>
           )}
         </div>
@@ -1400,6 +1388,114 @@ export function VisitaActiva() {
             No bloquees la pantalla ni cambies de app o la grabación se cortará.
           </Aviso>
         )}
+
+        {/* Zona 1 · Contexto: quién y a qué. Debajo de la captura a
+            propósito — cliente y proyecto ya están en la cabecera; esto se
+            consulta al llegar, no manda en la pantalla. */}
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {contextoVisitaTexto && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 2px' }}>
+              {contextoVisitaTexto}
+            </div>
+          )}
+
+          {/* Objetivo plegado a una línea; se abre al tocarlo. Ya lo
+              escribiste al empezar la visita. */}
+          {!objetivoAbierto ? (
+            <button
+              type="button"
+              onClick={() => objetivoEditable && setObjetivoAbierto(true)}
+              title={objetivoEditable ? 'Editar a qué vienes' : undefined}
+              style={{
+                display: 'flex', gap: 6, alignItems: 'flex-start', width: '100%', textAlign: 'left',
+                background: 'none', border: 'none', padding: '4px 2px', font: 'inherit',
+                color: 'var(--ink-700)', fontSize: 'var(--text-sm)',
+                cursor: objetivoEditable ? 'pointer' : 'default',
+              }}
+            >
+              <Icono nombre="editar" size={13} />
+              <span style={{ flex: 1 }}>{(objetivoActual ?? '').trim() || 'A qué vienes'}</span>
+              {!objetivoEditable && (
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', flexShrink: 0 }}>Guardando…</span>
+              )}
+            </button>
+          ) : (
+            <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
+              <div
+                style={{
+                  display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
+                  color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
+                }}
+              >
+                <Icono nombre="editar" size={13} /> A qué vienes
+              </div>
+              <textarea
+                className="field"
+                style={{ height: 'auto', padding: 8 }}
+                rows={2}
+                autoFocus
+                value={objetivoBorrador ?? ''}
+                onChange={(e) => setObjetivoBorrador(e.target.value)}
+                placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: 'var(--text-sm)' }}
+                  disabled={guardadoObjetivo.cargando}
+                  onClick={() => {
+                    guardadoObjetivo.limpiarError();
+                    setObjetivoBorrador(objetivoActual ?? '');
+                    setObjetivoAbierto(false);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ fontSize: 'var(--text-sm)' }}
+                  disabled={
+                    guardadoObjetivo.cargando ||
+                    !(objetivoBorrador ?? '').trim() ||
+                    (objetivoBorrador ?? '') === (objetivoActual ?? '')
+                  }
+                  onClick={async () => {
+                    await guardarObjetivo();
+                    setObjetivoAbierto(false);
+                  }}
+                >
+                  {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+              {guardadoObjetivo.error && (
+                <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+              )}
+            </div>
+          )}
+
+          {/* Interlocutores y Equipo: controles de acción (abren una hoja),
+              no filtros — de ahí .chip-accion con toque de 44px. */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+            <button
+              type="button"
+              className="chip-accion"
+              onClick={() => setInterlocutoresAbierto(true)}
+              title={interlocutoresTexto}
+            >
+              <Icono nombre="interlocutor" size={16} />
+              {nInterlocutores > 0 ? `Interlocutores · ${nInterlocutores}` : '+ Interlocutores'}
+            </button>
+            <button
+              type="button"
+              className="chip-accion"
+              onClick={() => setParticipantesAbierto(true)}
+              title={equipoTexto}
+            >
+              <Icono nombre="equipo" size={16} />
+              {nombresEquipo.length > 0 ? `Equipo · ${nombresEquipo.length + 1}` : 'Equipo'}
+            </button>
+          </div>
+        </div>
 
         {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
             tuyo + oportunidades + próximos pasos + lo de compañeros, regla
@@ -1562,12 +1658,19 @@ export function VisitaActiva() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Cerrar es el final de la visita — aparte de todo lo de arriba. */}
-      <button className="btn btn-primary" onClick={() => navigate(`/visita/${visitaId}/cierre`)}>
-        Cerrar visita
-      </button>
+        {/* A1 · Cerrar es el final de la visita: al final del scroll, tras
+            "En esta visita" — cerrar obliga a pasar por el repaso de lo
+            capturado y deja de ocupar la zona del pulgar. Secundario: el
+            foco de la pantalla es capturar, no cerrar. */}
+        <button
+          className="btn btn-secondary"
+          style={{ marginTop: 24 }}
+          onClick={() => navigate(`/visita/${visitaId}/cierre`)}
+        >
+          Cerrar visita
+        </button>
+      </div>
 
       {oportunidadAbierta && (
         <OportunidadRapidaHoja
