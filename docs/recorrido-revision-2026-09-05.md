@@ -532,12 +532,18 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   Yo/Equipo). Fundir en una sola entrada y no repetir la pantalla en dos
   sitios.
 - [C] "Salud del equipo" incluye "Copia de seguridad" — no es "salud" sino
-  seguridad de datos. Reagrupar (¿"Datos y espacio"?).
-- [C] "Mi espacio" y "Espacio del equipo" usan el mismo icono de cilindro
-  → parecen lo mismo. "Sectores" usa icono de personas.
-- [C] Subtítulo de "Solicitudes de ayuda" se corta con "…".
+  seguridad de datos. — ✅ (`ca10a2e`) sección renombrada a **"El equipo"**;
+  la copia sigue en su bloque sin rótulo, ya no bajo "salud".
+- [C] "Sectores" usa icono de personas. — ✅ (`ca10a2e`) pasa al icono de
+  catálogo (el mismo de Vocabulario). *("Mi espacio" y "Espacio del equipo"
+  comparten el de cilindro y se deja: los dos SON almacenamiento, a distinta
+  escala, y viven en secciones rotuladas.)*
+- [C] Subtítulo de "Solicitudes de ayuda" se corta con "…". — ✅ (`ca10a2e`)
+  acortado a "Comerciales que piden que alguien les cubra una visita".
 - [C] En "Gestión", lo accionable (Solicitudes de ayuda, que lleva badge)
-  va el último. Subir lo que tiene aviso.
+  va el último. — ✅ (`ca10a2e`) reordenado: primero lo que puede esperar
+  respuesta (Solicitudes de ayuda, Peticiones de acceso, Clientes
+  duplicados), luego los catálogos (Equipo, Vocabulario, Sectores).
 
 ### Ficha de comercial (`/comerciales/:id`)
 - [B] "Zona / cartera (opcional)" (texto libre) choca con "sin cartera
@@ -550,7 +556,8 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   (Queda el papercut menor: el ← de esa pantalla vuelve a la lista, no a
   la ficha — el back del navegador sí funciona.)
 - [C] "sin cartera asignada" en gris parece un aviso; para un alta reciente
-  es solo un hecho. Suavizar ("Todavía sin clientes asignados").
+  es solo un hecho. — ✅ (`ca10a2e`) → "Sin clientes asignados todavía"
+  (sin el residuo de "cartera").
 
 ### Consumo por comercial (`/mi-espacio?vista=equipo`)
 - ~~[B] "Seleccionar" no hace nada en la pestaña "Por comercial".~~ —
@@ -570,11 +577,15 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
 - [C] Lista principal alfabética, sin distinguir a los de 0 actividad. —
   ✅ de paso en `3b1277f`: ahora ordena por actividad desc.
 - [C] En el detalle, la métrica de la columna de valor envuelve feo ("2
-  oportunidades\nactivas"). Revisar en móvil.
+  oportunidades\nactivas"). — ✅ (`ca10a2e`) pasa a `subtitulo` a ancho
+  completo, como en la lista.
 - [C] El detalle se titula "Por proyecto" pero lista nombres de cliente
   (la mayoría solo tienen el General) → de hecho es "por cliente".
+  *(Se deja: "Por proyecto" es correcto — el General ES un proyecto.)*
 - [C] "capturas" como métrica de primer nivel para Dirección — ¿aporta?
   (visitas/hallazgos/oportunidades son resultados; capturas es volumen).
+  *(Se deja: quitarlo cambia el contenido de la pantalla; pendiente de que
+  Cesar decida.)*
 
 ### Vocabulario → Pendientes
 - [B] No hay acciones por ítem. Para aprobar/descartar un término hay que
@@ -583,12 +594,15 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   ✅ RESUELTO (`fc00b07`): al desplegar la tarjeta salen 3 chips —
   "Aprobar en «<cat>»", "Fusionar con…", "Descartar" — que reutilizan
   `resolver()`. El modo lote se mantiene. ayuda.ts al día.
-- [C] Fecha del subtítulo se corta ("1 sept 20…").
+- [C] Fecha del subtítulo se corta ("1 sept 20…"). — ✅ (`ca10a2e`)
+  subtítulo = "categoría · fecha"; "propuesto por X" baja al bloque de
+  contexto.
 - [C] "Catálogo completo": 5 de 7 categorías a "0 términos" — parece roto
-  (es dato de prueba; baja prioridad).
+  (es dato de prueba; baja prioridad). *(Se deja.)*
 
 ### Alta de comercial (`/comerciales/nuevo`)
 - [C] Mismo problema de nombre: "Zona / cartera (opcional)" → "Zona". —
   ✅ RESUELTO (`4e48049`).
 - [C] Verbos distintos para mover cartera: "Heredar … de" (alta) vs
-  "Traspasar … a" (baja/ficha).
+  "Traspasar … a" (baja/ficha). *(Se deja: son direcciones distintas
+  —tirar vs. empujar— y ambos verbos son estándar.)*
