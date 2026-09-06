@@ -220,23 +220,33 @@ Clientes, sin banner en el resumen tras consolidar.
   El resto de la app usa "5 sept" / "hace X".
 
 ### Cerrar visita (3 pantallas: Cerrar → Confirmar → Resumen)
-- [B] **Tres verbos para la misma acción**: botón "Cerrar visita" → botón
-  "Consolidar visita" → confirmación "Sí, cerrar visita". "Consolidar" es
-  jerga; un comercial no sabe que es lo mismo que cerrar/terminar.
-- [B] Plural mal en la confirmación y en el resumen: "1 notas",
-  "1 hallazgos", "1 oportunidades", "1 próximos pasos".
-- [B] En "Resumen" no hay sección de **Notas** (el chip dice "1 notas"
-  pero no hay forma de verla ahí; sí salen Oportunidades/Hallazgos/Pasos).
-- [C] "¿Confirmas el cierre?" tiene un gran hueco blanco entre los chips y
-  los botones — parece incompleta.
-- [C] En "Cerrar visita" no hay aviso de "faltan interlocutores" ni
-  "faltan datos del cliente" para un cliente recién creado.
+- [B] **Tres verbos para la misma acción** — ✅ RESUELTO. Un solo verbo:
+  botón "Cerrar visita" (era "Consolidar visita") → "¿Confirmas el
+  cierre?" → "Sí, cerrar visita" → "Visita cerrada correctamente" (era
+  "consolidada"). `ayuda.ts` al día. El estado interno de la BD sigue
+  siendo `consolidada` (no se toca).
+- [B] Plural "1 notas / 1 hallazgos…" — ✅ RESUELTO. Helper `plural(n,
+  singular, formaPlural)` en `lib/texto.ts` (la forma plural se pasa
+  explícita: "oportunidad→oportunidades", "próximo paso→próximos pasos").
+  Aplicado a los chips de recuento de "¿Confirmas?" y del resumen (una
+  sola constante `chipsRecuento`, no repetida).
+- [B] En "Resumen" no había sección de **Notas** — ✅ RESUELTO. Añadida,
+  como Oportunidades / Hallazgos / Pasos.
+- [C] "¿Confirmas el cierre?" con gran hueco blanco — ✅ RESUELTO. La vista
+  deja de usar `screen--split`: los botones van justo bajo los chips, con
+  una línea que explica qué implica cerrar.
+- [C] Sin aviso de "faltan interlocutores / datos del cliente" — ✅
+  RESUELTO. Aviso NO bloqueante "Antes de cerrar" en la primera pantalla:
+  lista si no hay interlocutores registrados (con enlace "Volver a la
+  visita") y si el cliente no tiene sector/tamaño/ubicación.
 
 ### Detalle de visita cerrada
-- [A/B] La primera fila, destacada con barra azul, es **"RESUMEN — Sin
-  resumen registrado"** y es de solo lectura. El flujo de cierre nunca
-  pide un resumen. ¿Dónde se escribe? Parece UI muerta o un paso que
-  falta (un "cómo fue la visita" al cerrar).
+- [A/B] La primera fila "RESUMEN — Sin resumen registrado" (solo lectura,
+  siempre vacía). **En curso** — las columnas `resumen_texto` /
+  `resumen_origen ('reglas'|'ia')` existen en la BD pero NADA las escribe
+  (andamiaje de un resumen automático que nunca se implementó). Pendiente
+  de decidir con Cesar: resumen automático por reglas, campo manual "¿cómo
+  fue?" al cerrar, o quitar la fila.
 - [C] Fila de "Historial de visitas" recortada a media palabra:
   "…ver instalaciones · cerr…".
 - [C] "ver contenido" como etiqueta de acción de fila (gris, a la

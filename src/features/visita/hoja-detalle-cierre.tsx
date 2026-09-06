@@ -28,7 +28,7 @@ interface Props {
 
 // Detalle de una casilla de "Cerrar visita": al tocar Fotos / Notas /
 // Próximos pasos… se abre este diálogo con lo que hay en ese grupo, para
-// repasarlo antes de consolidar. Solo lectura, se cierra con la × o
+// repasarlo antes de cerrar. Solo lectura, se cierra con la × o
 // "Cerrar". Los datos salen de la cola offline (useSyncQueue) → valen con o
 // sin conexión. Las fotos y audios se ven/oyen aquí: el binario está en el
 // móvil (IndexedDB) mientras no se ha subido, y en Storage cuando ya sí.

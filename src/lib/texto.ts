@@ -9,6 +9,15 @@
 // importaba (un nombre propio, una sigla) y no hay forma fiable de separar
 // "nombre propio" de "resto de la frase" en una cadena ya toda en
 // mayúsculas — por eso solo se toca el caso extremo (todo gritado).
+// Concordancia de número: `plural(1, 'nota', 'notas')` → "1 nota";
+// `plural(3, 'nota', 'notas')` → "3 notas". La forma plural se pasa
+// explícita porque en español no siempre es "+s" ("oportunidad" →
+// "oportunidades", "próximo paso" → "próximos pasos"). Evita el "1 notas"
+// que salía en el cierre y el resumen de la visita.
+export function plural(n: number, singular: string, formaPlural: string): string {
+  return `${n} ${n === 1 ? singular : formaPlural}`;
+}
+
 export function capitalizarFrase(texto: string): string {
   if (!texto) return texto;
   const soloLetras = texto.replace(/[^\p{L}]/gu, '');

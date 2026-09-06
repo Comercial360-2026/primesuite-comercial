@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { plural } from '@/lib/texto';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -99,6 +100,40 @@ export function CierreVisita() {
     .filter(Boolean)
     .join(' · ');
 
+  // Prechequeo antes de cerrar (aviso NO bloqueante): una visita sin
+  // interlocutores registrados es un hueco real ("¿con quién hablaste?"),
+  // y un cliente recién creado suele quedarse sin sector/tamaño/ubicación
+  // (salen en la cabecera de cada informe).
+  const { data: prechequeoCierre } = useQuery({
+    queryKey: ['prechequeo-cierre', visitaId],
+    enabled: !!visitaId,
+    queryFn: async () => {
+      const { data: v } = await supabase
+        .from('visita')
+        .select('cliente_id')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (!v?.cliente_id) return null;
+      const [{ data: inters }, { data: cli }] = await Promise.all([
+        supabase
+          .from('visita_interlocutor')
+          .select('interlocutor:interlocutor_id(activo)')
+          .eq('visita_id', visitaId!),
+        supabase
+          .from('cliente')
+          .select('sector, tamano_aprox, ubicacion_general')
+          .eq('id', v.cliente_id)
+          .maybeSingle(),
+      ]);
+      const nInterlocutores = (inters ?? []).filter(
+        (r) => (r.interlocutor as unknown as { activo?: boolean } | null)?.activo
+      ).length;
+      const sinDatosCliente =
+        !!cli && !cli.sector && !cli.tamano_aprox && !cli.ubicacion_general;
+      return { nInterlocutores, sinDatosCliente };
+    },
+  });
+
   const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
   const terminoIdsHallazgos = hallazgosParaResumen
     .map((h) => (h.payload as { terminoId: string }).terminoId)
@@ -153,6 +188,17 @@ export function CierreVisita() {
     { grupo: 'oportunidades', label: 'Oportunidades', items: oportunidades },
     { grupo: 'hallazgos', label: 'Hallazgos', items: hallazgos },
     { grupo: 'pasos', label: 'Próximos pasos', items: pasos },
+  ];
+
+  // Tira de chips con el recuento — misma en "¿Confirmas el cierre?" y en
+  // el resumen. Concordancia de número correcta ("1 nota", no "1 notas").
+  const chipsRecuento = [
+    plural(fotos.length, 'foto', 'fotos'),
+    plural(audios.length, 'audio', 'audios'),
+    plural(notas.length, 'nota', 'notas'),
+    plural(hallazgos.length, 'hallazgo', 'hallazgos'),
+    plural(oportunidades.length, 'oportunidad', 'oportunidades'),
+    plural(pasos.length, 'próximo paso', 'próximos pasos'),
   ];
 
   // Agrupación por zona: todo lo capturado con una zona anotada (fotos,
@@ -212,7 +258,7 @@ export function CierreVisita() {
           setVista('resumen');
           // La visita ya no está en curso: quitar el banner ya, no al
           // pulsar "volver" (1.6 — antes seguía abajo en la pantalla de
-          // "Visita consolidada correctamente", que se contradecía).
+          // resumen, lo que se contradecía con "visita cerrada").
           cerrarVisita();
         },
         mensajeError: 'No se pudo cerrar la visita. Inténtalo de nuevo.',
@@ -236,7 +282,7 @@ export function CierreVisita() {
         />
 
         {sincronizada ? (
-          <Aviso tipo="exito">Visita consolidada correctamente.</Aviso>
+          <Aviso tipo="exito">Visita cerrada correctamente.</Aviso>
         ) : (
           <Aviso tipo="atencion" titulo="Guardado localmente, pendiente de conexión">
             El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que
@@ -252,13 +298,25 @@ export function CierreVisita() {
           )}
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="chip">{fotos.length} fotos</span>
-            <span className="chip">{audios.length} audios</span>
-            <span className="chip">{notas.length} notas</span>
-            <span className="chip">{hallazgos.length} hallazgos</span>
-            <span className="chip">{oportunidades.length} oportunidades</span>
-            <span className="chip">{pasos.length} próximos pasos</span>
+            {chipsRecuento.map((c) => (
+              <span key={c} className="chip">{c}</span>
+            ))}
           </div>
+
+          {notas.length > 0 && (
+            <SeccionLista titulo="Notas">
+              {notas.map((n) => {
+                const p = n.payload as { titulo?: string; contenidoTexto?: string };
+                return (
+                  <FilaDato
+                    key={n.id}
+                    etiqueta={p.titulo || p.contenidoTexto || '(nota vacía)'}
+                    valor=""
+                  />
+                );
+              })}
+            </SeccionLista>
+          )}
 
           {oportunidades.length > 0 && (
             <SeccionLista titulo="Oportunidades">
@@ -347,7 +405,7 @@ export function CierreVisita() {
 
   if (vista === 'confirmar') {
     return (
-      <div className="screen screen--split">
+      <div className="screen">
         <CabeceraDetalle
           titulo="¿Confirmas el cierre?"
           subtitulo={contextoTexto || undefined}
@@ -358,27 +416,26 @@ export function CierreVisita() {
           ayuda="cierre-visita"
         />
 
-        <div className="screen__scroll">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="chip">{fotos.length} fotos</span>
-            <span className="chip">{audios.length} audios</span>
-            <span className="chip">{notas.length} notas</span>
-            <span className="chip">{hallazgos.length} hallazgos</span>
-            <span className="chip">{oportunidades.length} oportunidades</span>
-            <span className="chip">{pasos.length} próximos pasos</span>
-          </div>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', margin: 0 }}>
+          Al cerrar, la visita queda fija y en solo lectura. Esto es lo que se guarda:
+        </p>
 
-          {capturasPendientes.length > 0 && (
-            <Aviso tipo="atencion" titulo={`${capturasPendientes.length} captura(s) todavía sin confirmar en el servidor`}>
-              Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable,
-              espera unos segundos para asegurarte de que todo suba antes de cerrar.
-            </Aviso>
-          )}
-
-          {consolidacion.error && <Aviso tipo="error">{consolidacion.error}</Aviso>}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {chipsRecuento.map((c) => (
+            <span key={c} className="chip">{c}</span>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        {capturasPendientes.length > 0 && (
+          <Aviso tipo="atencion" titulo={`${plural(capturasPendientes.length, 'captura', 'capturas')} todavía sin confirmar en el servidor`}>
+            Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable,
+            espera unos segundos para asegurarte de que todo suba antes de cerrar.
+          </Aviso>
+        )}
+
+        {consolidacion.error && <Aviso tipo="error">{consolidacion.error}</Aviso>}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
           <button
             className="btn btn-secondary"
             disabled={consolidacion.cargando}
@@ -387,7 +444,7 @@ export function CierreVisita() {
               setVista('cierre');
             }}
           >
-            volver
+            Volver
           </button>
           <button className="btn btn-primary" disabled={consolidacion.cargando} onClick={consolidar}>
             {consolidacion.cargando ? 'Cerrando…' : 'Sí, cerrar visita'}
@@ -428,6 +485,34 @@ export function CierreVisita() {
         </div>
       )}
 
+      {prechequeoCierre &&
+        (prechequeoCierre.nInterlocutores === 0 || prechequeoCierre.sinDatosCliente) && (
+          <Aviso tipo="atencion" titulo="Antes de cerrar">
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {prechequeoCierre.nInterlocutores === 0 && (
+                <li>
+                  No has registrado con quién hablaste.{' '}
+                  <button
+                    type="button"
+                    className="btn-enlace"
+                    style={{ padding: 0 }}
+                    onClick={() => navigate(`/visita/${visitaId}`)}
+                  >
+                    Volver a la visita
+                  </button>{' '}
+                  para añadir interlocutores.
+                </li>
+              )}
+              {prechequeoCierre.sinDatosCliente && (
+                <li>
+                  Este cliente no tiene sector, tamaño ni ubicación. Salen en la cabecera de cada
+                  informe — complétalos desde su ficha cuando puedas.
+                </li>
+              )}
+            </ul>
+          </Aviso>
+        )}
+
       <div className="screen__scroll">
         {Object.keys(elementosPorUbicacion).some((k) => k !== 'sin ubicación') && (
           <SeccionLista titulo="Revisar por zona">
@@ -455,7 +540,7 @@ export function CierreVisita() {
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
-        Consolidar visita
+        Cerrar visita
       </button>
 
       {detalle && (

@@ -209,7 +209,7 @@ const _PANTALLAS = {
     queEs:
       'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Consolidar visita» y confirmas. En el resumen que sale después puedes descargar el informe en PDF (también está luego en el detalle de la visita).',
+      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el informe en PDF (también está luego en el detalle de la visita).',
     ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
   'visita-activa': {
