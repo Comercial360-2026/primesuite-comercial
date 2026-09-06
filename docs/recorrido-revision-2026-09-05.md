@@ -516,9 +516,13 @@ duplicados. Los estados vacíos de Solicitudes y Duplicados están bien; no
 se pudo ver el estado con datos. **Sin cubrir:** visitas de equipo
 (invitar/aceptar/expulsar — hace falta 2 sesiones) y offline real.
 
-Tema recurrente: **"cartera"** se usa con dos sentidos (una etiqueta de
-texto libre tipo "Cataluña" vs. el conjunto de clientes) y aparece así en
-Yo, Ficha de comercial y Alta.
+Tema recurrente: **"cartera"** se usaba con dos sentidos (una etiqueta de
+texto libre tipo "Cataluña" vs. el conjunto de clientes) y aparecía así en
+Ficha de comercial y Alta. — ✅ RESUELTO (commit `4e48049`): el campo de
+texto libre pasa a llamarse solo **"Zona (opcional)"** en las dos
+pantallas (mismo placeholder de ejemplo). "cartera" queda con un único
+significado (el conjunto de clientes: traspasar/heredar, "sin cartera
+asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
 
 ### Yo (Dirección)
 - [B] Tres filas de almacenamiento repartidas en dos secciones: "Mi
@@ -538,7 +542,7 @@ Yo, Ficha de comercial y Alta.
 ### Ficha de comercial (`/comerciales/:id`)
 - [B] "Zona / cartera (opcional)" (texto libre) choca con "sin cartera
   asignada" (vitals) y con "Heredar/Traspasar la cartera" (= clientes).
-  Renombrar el campo a solo **"Zona"**.
+  Renombrar el campo a solo **"Zona"**. — ✅ RESUELTO (`4e48049`).
 - [B] No hay vistazo de actividad ni enlace a "Actividad por comercial" de
   esa persona; la ficha solo muestra la carga de cartera. Añadir enlace
   "Ver actividad" (→ `/actividad-comerciales/:id`) y/o un par de números.
@@ -546,9 +550,11 @@ Yo, Ficha de comercial y Alta.
   es solo un hecho. Suavizar ("Todavía sin clientes asignados").
 
 ### Consumo por comercial (`/mi-espacio?vista=equipo`)
-- [B] El botón "Seleccionar" también sale en la pestaña "Por comercial",
-  donde no hace nada (es para elegir visitas a borrar en "Mis visitas").
-  Ocultarlo en esa pestaña.
+- ~~[B] "Seleccionar" no hace nada en la pestaña "Por comercial".~~ —
+  **FALSO POSITIVO** (fallo de clic en la revisión). SÍ funciona: entra en
+  modo selección → marcar comerciales que van altos → "Pedir que liberen
+  (N)" (inserta `aviso_liberar_espacio`). Gated en `hayElegibles`. Sin
+  cambios.
 - [C] Filas por comercial sin chevron / no navegables — tocar un comercial
   para ver sus visitas sería natural (opcional).
 
@@ -572,6 +578,7 @@ Yo, Ficha de comercial y Alta.
   (es dato de prueba; baja prioridad).
 
 ### Alta de comercial (`/comerciales/nuevo`)
-- [C] Mismo problema de nombre: "Zona / cartera (opcional)" → "Zona".
+- [C] Mismo problema de nombre: "Zona / cartera (opcional)" → "Zona". —
+  ✅ RESUELTO (`4e48049`).
 - [C] Verbos distintos para mover cartera: "Heredar … de" (alta) vs
   "Traspasar … a" (baja/ficha).
