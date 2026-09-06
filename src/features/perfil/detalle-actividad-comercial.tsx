@@ -65,11 +65,11 @@ export function DetalleActividadComercial() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle
-        titulo={comercial?.nombre ?? 'Comercial'}
-        subtitulo="Actividad por proyecto"
-        volverA={`/actividad-comerciales${periodo === 'todo' ? '?dias=todo' : ''}`}
-      />
+      {/* `navigate(-1)`: se llega aquí desde la lista de actividad Y desde la
+          ficha del comercial — la vuelta natural del historial acierta en
+          ambos casos (y conserva el `?dias=todo` de la lista, que ya viaja en
+          su propia entrada de historial). */}
+      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" />
 
       <Segmentado
         opciones={[
