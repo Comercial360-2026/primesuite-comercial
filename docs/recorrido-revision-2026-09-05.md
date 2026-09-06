@@ -424,8 +424,11 @@ Clientes, sin banner en el resumen tras consolidar.
   sesión). Se revisaron en la homogeneización de diseño, pero no con la
   mirada de "¿es cómodo / falta algo?".
 - **Visitas de equipo**: invitar a un compañero a una visita, aceptar/
-  rechazar, expulsar. No se probó (hace falta 2 sesiones a la vez).
-- **Offline real**: no se probó cortar la red durante una visita.
+  rechazar, expulsar. — ✅ VERIFICADO (2026-09-06), sin cambios de código.
+  Ver §8.
+- **Offline real**: no se probó cortar la red durante una visita. — ✅
+  VERIFICADO (2026-09-06) simulando el corte de red; 1 fleco corregido
+  (`f17d385`). Ver §8.
 - **El informe PDF**: no se abrió el PDF generado en esta pasada (el
   retoque de color del Grupo 7 ya está desplegado; conviene mirarlo en la
   próxima generación real). — PARCIAL (2026-09-06, pasada final): el
@@ -513,8 +516,10 @@ Recorrido en vivo con la sesión de Dirección (`Comercial Prueba`) contra
 comercial (+ detalle) → Equipo → Ficha de comercial → Alta de comercial →
 Vocabulario (Catálogo + Pendientes) → Solicitudes de ayuda → Clientes
 duplicados. Los estados vacíos de Solicitudes y Duplicados están bien; no
-se pudo ver el estado con datos. **Sin cubrir:** visitas de equipo
-(invitar/aceptar/expulsar — hace falta 2 sesiones) y offline real.
+se pudo ver el estado con datos. ~~**Sin cubrir:** visitas de equipo
+(invitar/aceptar/expulsar — hace falta 2 sesiones) y offline real.~~ — ✅
+ambos cubiertos el 2026-09-06 (ver más abajo, "Visitas de equipo" y
+"Offline real").
 
 Tema recurrente: **"cartera"** se usaba con dos sentidos (una etiqueta de
 texto libre tipo "Cataluña" vs. el conjunto de clientes) y aparecía así en
@@ -530,7 +535,12 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
   "Salud del equipo") y "Consumo por comercial". **"Mi espacio" y "Consumo
   por comercial" abren la MISMA pantalla** (`/mi-espacio`, segmentado
   Yo/Equipo). Fundir en una sola entrada y no repetir la pantalla en dos
-  sitios.
+  sitios. — ✅ RESUELTO (commit `a0f8e81`): para Dirección desaparece la
+  sección "Tu espacio" y la FilaDato suelta; queda **una sola fila
+  "Almacenamiento"** en "El equipo" → `/mi-espacio`, con el % del pozo del
+  equipo como valor (y su tono aviso/riesgo). Dentro, el segmentado "Mis
+  visitas / Por comercial" ya estaba. El comercial normal mantiene "Mi
+  espacio" en "Tu espacio" sin cambios.
 - [C] "Salud del equipo" incluye "Copia de seguridad" — no es "salud" sino
   seguridad de datos. — ✅ (`ca10a2e`) sección renombrada a **"El equipo"**;
   la copia sigue en su bloque sin rótulo, ya no bajo "salud".
@@ -606,3 +616,60 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
 - [C] Verbos distintos para mover cartera: "Heredar … de" (alta) vs
   "Traspasar … a" (baja/ficha). *(Se deja: son direcciones distintas
   —tirar vs. empujar— y ambos verbos son estándar.)*
+
+### Visitas de equipo — ✅ VERIFICADO (2026-09-06, sin cambios de código)
+
+Recorrido en vivo con las dos sesiones reales (Comercial Prueba /
+Dirección como responsable + Borja Senra como participante), alternando
+login en la misma pestaña MCP (la de incógnito no es alcanzable). Visita
+de prueba en CAPSA, datos borrados al final (SQL comprobado).
+
+- **Invitar**: hoja "Equipo" dentro de la visita en curso (no en la
+  planificada). El responsable o Dirección añade → la fila nace "sin
+  aceptar".
+- **Rechazar**: a Borja le sale el aviso en "Yo" (sección "Visitas de
+  equipo" + punto en la pestaña). Rechazar → el aviso desaparece; a quien
+  invitó le llega "Borja Senra ha rechazado la visita de CAPSA" +
+  "Entendido".
+- **Reinvitar** tras rechazo: el candidato aparece como "rechazó ·
+  reinvitar" y vuelve a "sin aceptar".
+- **Aceptar**: la visita compartida aparece en el "Hoy" de Borja ("EN
+  CURSO · Continuar visita"), entra y puede capturar; en "Equipo" ve "tú,
+  Comercial Prueba".
+- **Permisos del participante**: en su fila solo "salir" (no puede
+  expulsar a otros), sin buscador para añadir, con "Pedir ayuda con esta
+  visita".
+- **Expulsar**: Dirección/responsable → confirma "¿Quitar?" → Borja sale
+  de la lista. En BD la fila queda `estado='expulsado'`,
+  `rechazo_visto=false`, que es lo que dispara el aviso "Te han quitado de
+  la visita de …" en el "Yo" del afectado (mismo hook y misma columna que
+  invitación/rechazo, ya verificados en vivo).
+- Papercut menor anotado (no bloquea): al expulsar, el candidato vuelve a
+  la lista de "añadir" como "+ Añadir" normal, sin la marca "expulsado ·
+  reinvitar" que sí lleva un rechazo. Consistente con el código
+  (`rechazadosSet` solo mira estado `rechazado`).
+
+### Offline real — ✅ VERIFICADO (2026-09-06), 1 fleco corregido (`f17d385`)
+
+Simulado el corte de red durante una visita en curso (intercepción de
+`fetch` a `supabase.co` + `navigator.onLine=false` + evento `offline`;
+restaurado con el par simétrico). Visita de prueba en SAPA, datos y cola
+local (IndexedDB) borrados al final.
+
+- **Sin red**: la captura (Nota) entra en la cola local — el modelo es
+  cola-primero — y aparece en "En esta visita" con el contador "N sin
+  subir". BD comprobada: **0 filas** en `captura_libre` mientras está en
+  cola. Nada toca Supabase.
+- **Al volver la red**: el motor de sincronización sube la cola solo
+  (evento `online` + su intervalo). La nota aparece en `captura_libre`
+  conservando su hora original.
+- **Fleco corregido**: si seguías en la pantalla de la visita cuando
+  volvía la conexión, el contador "N sin subir" se quedaba pegado hasta
+  salir y volver a entrar (los datos ya estaban subidos). `useSyncQueue`
+  solo recargaba tras `encolar()`. Ahora escucha `EVENTO_COLA_PROCESADA` y
+  `online` y refresca en vivo → pasa a "todo subido" solo. Mismo patrón
+  que la pantalla "Yo".
+- Observación menor (fuera de alcance, no tocada): `captura_libre.
+  estado_subida` se queda en `'pendiente'` para las notas de texto (ese
+  campo es para el pipeline de binarios/validación IA, no para la cola
+  offline; la UI lee la cola de IndexedDB, no esa columna).
