@@ -160,6 +160,9 @@ export function PlanificarVisita() {
   async function planificar() {
     await guardado.ejecutar(
       async () => {
+        if (!navigator.onLine) {
+          throw new Error('Sin conexión. Dejar una visita agendada necesita red; «Ahora» sí funciona sin cobertura.');
+        }
         if (!comercial || !clienteId || !proyectoId) throw new Error('Recarga la página e inténtalo de nuevo.');
         if (!fecha) throw new Error('Elige una fecha para la visita.');
         if (!objetivo.trim()) throw new Error('Escribe el objetivo de la visita.');
@@ -226,6 +229,11 @@ export function PlanificarVisita() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
             />
+            {termino.length === 1 && (
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                Escribe al menos 2 letras.
+              </div>
+            )}
             {termino.length >= 2 && (
               <div style={{ marginTop: 8 }}>
                 {buscando && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>}
