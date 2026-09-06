@@ -145,26 +145,33 @@ Clientes, sin banner en el resumen tras consolidar.
   tocar "Clientes/Hoy" a media alta pierde lo escrito sin avisar.
 
 ### Visita en curso
-- [A] La lista "En esta visita" se trunca a ~3 filas al pie, entre la zona
-  de captura y "Cerrar visita" + el banner. A partir del 4º elemento hay
-  que hacer scroll dentro de una tarjeta que no parece scrollable. En una
-  visita real con 10+ capturas no puedes repasar lo que llevas.
-- [B] Inconsistencia de patrón de captura: Foto/Nota/Audio se abren
-  **en línea** (empujan la página); Hallazgo/Oportunidad/Próximo paso se
-  abren como **modal a pantalla completa sobre fondo en blanco**. Mismo
-  gesto ("capturar algo"), dos comportamientos.
-- [B] "ver por zona / ver por tipo" se **recorta por la derecha** en móvil
-  ("ver por zon"). Visto en 3-4 estados distintos.
-- [B] Oportunidad en la lista se pinta en **rojo** (acento de Oportunidad,
-  `--signal-600`). Junto a filas negras, una fila roja se lee como
-  "error/urgente", no como "oportunidad".
-- [C] La caja "A qué vieni" arranca gris con borde discontinuo y "La
+- [A] La lista "En esta visita" se trunca a ~3 filas al pie — ✅ RESUELTO
+  (parcial). Estaba dentro de una `.card` con fondo y borde: parecía una
+  caja con su propio scroll y solo se veían 3 filas. Ahora la lista fluye
+  en el scroll de la pantalla (sin tarjeta), y el contador + estado de
+  sincronización van en su propia línea bajo el título. El layout de fondo
+  (`screen--split` con "Cerrar visita" fijo abajo) no se rediseña: en un
+  móvil corto la lista sigue quedando en poco espacio, pero ya se entiende
+  que el scroll es el de la página.
+- [B] Inconsistencia de patrón de captura: Foto/Nota/Audio **en línea** vs
+  Hallazgo/Oportunidad/Próximo paso **modal a pantalla completa**.
+  PENDIENTE — decisión de producto (¿todo inline? ¿todo modal? ¿se asume
+  la distinción "captura de campo" vs "registro estructurado"?).
+- [B] "ver por zona / ver por tipo" se recorta por la derecha — ✅ RESUELTO.
+  El botón ya no compite en la misma fila que el contador: va junto al
+  título "En esta visita", con `white-space: nowrap`.
+- [B] Oportunidad en la lista se pintaba en rojo (`--signal-600`) — ✅
+  RESUELTO. Quitado el acento de color del texto (y el CSS
+  `.va-item__texto--acento`, que ya no se usa). El icono ✨ y la prioridad
+  distinguen la fila; ningún tipo lleva color de texto, que en lista se
+  lee como alarma.
+- [C] La caja "A qué vienes" arranca gris con borde discontinuo y "La
   visita se está guardando" — parece un estado de error unos instantes.
-- [C] Nota: el foco inicial va al campo "título breve (opcional)", no al
-  cuerpo. La mayoría quiere escribir la nota, no titularla.
-- [C] Hallazgo rápido: no hay campo de nota — el término se guarda solo y
-  la nota se añade luego desde el detalle. En caliente uno espera poder
-  apuntar el contexto ahí mismo.
+  PENDIENTE (menor).
+- [C] Nota: el foco inicial iba al "título breve (opcional)" — ✅ RESUELTO.
+  El foco va al cuerpo; el título pasa debajo del cuerpo.
+- [C] Hallazgo rápido: no hay campo de nota. PENDIENTE (toca el modal y el
+  payload/columna de hallazgo).
 
 ### Modal de Hallazgo
 - [B] Subtítulo "lo que el cliente tiene, sea de quién sea" — críptico.

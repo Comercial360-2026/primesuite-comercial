@@ -111,7 +111,6 @@ body {
 }
 .va-item:first-child { border-top: 0; }
 .va-item__texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.va-item__texto--acento { color: var(--signal-600); font-weight: 500; }
 .va-item__sub { color: var(--ink-400); font-size: var(--text-xs); flex-shrink: 0; }
 
 .chip {

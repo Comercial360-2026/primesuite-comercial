@@ -1090,28 +1090,28 @@ export function VisitaActiva() {
     ),
   ].sort((a, b) => a.localeCompare(b, 'es'));
 
-  // Fila de "En esta visita": icono + texto (con acento para oportunidad) +
-  // coletilla gris opcional (naturaleza, prioridad, o "· de Fulano" en lo
-  // ajeno — regla 4). Mismo patrón que `itemFila` de CapturasPorUbicacion,
-  // aquí sin agrupar por zona.
+  // Fila de "En esta visita": icono + texto + coletilla gris opcional
+  // (naturaleza, prioridad, o "· de Fulano" en lo ajeno — regla 4). Cada
+  // tipo se distingue por su icono; sin colores de texto, que en una lista
+  // se leen como alarma. Mismo patrón que `itemFila` de
+  // CapturasPorUbicacion, aquí sin agrupar por zona.
   const filaEnVisita = (
     key: string,
     icono: NombreIcono,
     texto: string,
     sub?: string,
-    onClick?: () => void,
-    acento?: boolean
+    onClick?: () => void
   ) =>
     onClick ? (
       <button key={key} type="button" className="va-item" onClick={onClick}>
         <Icono nombre={icono} size={16} />
-        <span className={`va-item__texto${acento ? ' va-item__texto--acento' : ''}`}>{texto}</span>
+        <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </button>
     ) : (
       <div key={key} className="va-item">
         <Icono nombre={icono} size={16} />
-        <span className={`va-item__texto${acento ? ' va-item__texto--acento' : ''}`}>{texto}</span>
+        <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </div>
     );
@@ -1298,21 +1298,24 @@ export function VisitaActiva() {
 
         {notaAbierta && (
           <div className="card">
-            <input
-              className="field"
-              style={{ marginBottom: 8 }}
-              autoFocus
-              value={notaTitulo}
-              onChange={(e) => setNotaTitulo(e.target.value)}
-              placeholder="título breve (opcional)"
-            />
+            {/* El foco va al cuerpo, no al título: lo normal es querer
+                escribir la nota ya; el título es opcional y casi nadie lo
+                pone en caliente. */}
             <textarea
               className="field"
               style={{ height: 'auto', padding: 8 }}
               rows={2}
+              autoFocus
               value={notaTexto}
               onChange={(e) => setNotaTexto(e.target.value)}
               placeholder="escribe la nota…"
+            />
+            <input
+              className="field"
+              style={{ marginTop: 8 }}
+              value={notaTitulo}
+              onChange={(e) => setNotaTitulo(e.target.value)}
+              placeholder="título breve (opcional)"
             />
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
@@ -1380,41 +1383,45 @@ export function VisitaActiva() {
 
         {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
             tuyo + oportunidades + próximos pasos + lo de compañeros, regla
-            2) con un contador y un estado de sincronización únicos. */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '10px 2px 6px' }}>
-          <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>En esta visita</span>
+            2) con un contador y un estado de sincronización únicos. Sin
+            tarjeta con fondo: la lista fluye en el scroll de la pantalla —
+            con una caja propia parecía tener su propio scroll y solo se
+            veían 3 filas. */}
+        <div style={{ margin: '10px 2px 4px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>En esta visita</span>
+            {zonaUsada && (
+              <button
+                type="button"
+                className="btn-enlace"
+                style={{ marginLeft: 'auto', padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}
+                onClick={() => setOrdenPorZona((v) => !v)}
+              >
+                {ordenPorZona ? 'ver por tipo' : 'ver por zona'}
+              </button>
+            )}
+          </div>
           {totalEnVisita > 0 && (
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{contadorEnVisita}</span>
-          )}
-          {totalEnVisita > 0 && (
-            <span
+            <div
               style={{
-                marginLeft: zonaUsada ? undefined : 'auto',
-                fontSize: 'var(--text-xs)',
-                color: pendientesSync === 0 ? 'var(--success-600)' : 'var(--ink-400)',
+                display: 'flex', flexWrap: 'wrap', gap: '2px 8px', marginTop: 2,
+                fontSize: 'var(--text-xs)', color: 'var(--ink-400)',
               }}
             >
-              {estadoSyncTexto}
-            </span>
-          )}
-          {zonaUsada && (
-            <button
-              type="button"
-              className="btn-enlace"
-              style={{ marginLeft: 'auto', padding: 0 }}
-              onClick={() => setOrdenPorZona((v) => !v)}
-            >
-              {ordenPorZona ? 'ver por tipo' : 'ver por zona'}
-            </button>
+              <span>{contadorEnVisita}</span>
+              <span style={{ color: pendientesSync === 0 ? 'var(--success-600)' : 'var(--ink-400)' }}>
+                {estadoSyncTexto}
+              </span>
+            </div>
           )}
         </div>
 
         {totalEnVisita === 0 ? (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>
+          <div style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', padding: '12px 0' }}>
             Aún no has capturado nada en esta visita
           </div>
         ) : (
-          <div className="card" style={{ padding: '2px 10px' }}>
+          <div style={{ padding: '0 4px' }}>
             {ordenPorZona ? (
               <CapturasPorUbicacion
                 capturas={capturas}
@@ -1506,8 +1513,7 @@ export function VisitaActiva() {
                     'oportunidad',
                     capitalizarFrase(p.titulo),
                     p.prioridad,
-                    () => navigate(`/oportunidades/${o.id}`),
-                    true
+                    () => navigate(`/oportunidades/${o.id}`)
                   );
                 })}
                 {oportunidadesCompaneros.map((o) =>
@@ -1516,8 +1522,7 @@ export function VisitaActiva() {
                     'oportunidad',
                     capitalizarFrase(o.titulo),
                     `de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/oportunidades/${o.id}`),
-                    true
+                    () => navigate(`/oportunidades/${o.id}`)
                   )
                 )}
                 {pasos.map((p) => {
