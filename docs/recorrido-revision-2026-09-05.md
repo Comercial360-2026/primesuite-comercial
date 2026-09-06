@@ -241,12 +241,18 @@ Clientes, sin banner en el resumen tras consolidar.
   visita") y si el cliente no tiene sector/tamaño/ubicación.
 
 ### Detalle de visita cerrada
-- [A/B] La primera fila "RESUMEN — Sin resumen registrado" (solo lectura,
-  siempre vacía). **En curso** — las columnas `resumen_texto` /
-  `resumen_origen ('reglas'|'ia')` existen en la BD pero NADA las escribe
-  (andamiaje de un resumen automático que nunca se implementó). Pendiente
-  de decidir con Cesar: resumen automático por reglas, campo manual "¿cómo
-  fue?" al cerrar, o quitar la fila.
+- [A/B] La primera fila "RESUMEN — Sin resumen registrado" — ✅ RESUELTO
+  (opción 3: automático + editable). Al cerrar, `generarResumenReglas`
+  (`lib/resumen-visita.ts`) compone una micro-historia legible —objetivo +
+  riesgos con su nota + oportunidades + próximos pasos, NO un recuento— y
+  se guarda en `visita.resumen_texto` con `resumen_origen = 'reglas'`. El
+  objetivo se lee de la cola local si aún no sincronizó (nunca sale sin
+  él). Se muestra en la pantalla de resumen tras cerrar y en el detalle de
+  visita cerrada; ahí un botón **"Editar"** lo reescribe a mano →
+  `resumen_origen = 'manual'`. Migración **98** (el check de
+  `resumen_origen` acepta `'manual'`), aplicada en Supabase dev.
+  Verificado en vivo: resumen con la nota del riesgo entre paréntesis;
+  edición manual; objetivo por fallback al cerrar de inmediato.
 - [C] Fila de "Historial de visitas" recortada a media palabra:
   "…ver instalaciones · cerr…".
 - [C] "ver contenido" como etiqueta de acción de fila (gris, a la

@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
+import { generarResumenReglas } from '@/lib/resumen-visita';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
@@ -24,11 +26,14 @@ import type { OperacionPendiente } from '@/lib/offline-queue/types';
 // resuelve aquí con un intento directo + reintento ligero en localStorage
 // si no hay red en el momento del cierre — es una corrección puntual, no
 // una ampliación del motor de sincronización.
-function intentarConsolidarOffline(visitaId: string) {
-  localStorage.setItem(
-    `consolidar-pendiente-${visitaId}`,
-    JSON.stringify({ estado_captura: 'consolidada' })
-  );
+interface ParcheCierre {
+  estado_captura: 'consolidada';
+  resumen_texto?: string;
+  resumen_origen?: 'reglas';
+}
+
+function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
+  localStorage.setItem(`consolidar-pendiente-${visitaId}`, JSON.stringify(parche));
   const reintentar = async () => {
     const clave = `consolidar-pendiente-${visitaId}`;
     const pendiente = localStorage.getItem(clave);
@@ -46,6 +51,11 @@ export function CierreVisita() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
   const { operaciones } = useSyncQueue(visitaId);
+  // El objetivo puede no estar aún en el servidor si se cierra la visita en
+  // los primeros segundos (viaja en la cola de creación y se aplica con un
+  // UPDATE posterior). La cola local lo tiene desde el arranque — se usa
+  // como fallback para que el resumen automático nunca salga sin él.
+  const visitaLocal = useVisitaLocal(visitaId);
   const { cerrarVisita } = useVisitaActivaContext();
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
@@ -201,6 +211,30 @@ export function CierreVisita() {
     plural(pasos.length, 'próximo paso', 'próximos pasos'),
   ];
 
+  // Resumen "por reglas" que se guarda al cerrar (visita.resumen_texto). Es
+  // una micro-historia legible, no el recuento; el comercial puede
+  // reescribirlo luego desde el detalle de la visita. Cadena barata de
+  // construir sobre arrays pequeños — no necesita memo.
+  const resumenReglas = generarResumenReglas({
+    objetivo: visitaObjetivo?.objetivo ?? visitaLocal?.objetivo,
+    hallazgos: hallazgos.map((h) => {
+      const p = h.payload as { terminoId: string; naturaleza: string; nota?: string };
+      return {
+        terminoNombre: nombresTerminos?.[p.terminoId] ?? 'un término',
+        naturaleza: p.naturaleza,
+        nota: p.nota ?? null,
+      };
+    }),
+    oportunidades: oportunidades.map((o) => ({ titulo: (o.payload as { titulo: string }).titulo })),
+    pasos: pasos.map((p) => {
+      const pl = p.payload as { descripcion: string; fechaObjetivo?: string };
+      return { descripcion: pl.descripcion, fecha: pl.fechaObjetivo ?? null };
+    }),
+    nFotos: fotos.length,
+    nAudios: audios.length,
+    nNotas: notas.length,
+  });
+
   // Agrupación por zona: todo lo capturado con una zona anotada (fotos,
   // audios, notas, hallazgos, oportunidades) para repasarlo zona a zona
   // antes de cerrar, no elemento a elemento. La zona es la etiqueta de
@@ -232,13 +266,19 @@ export function CierreVisita() {
   async function consolidar() {
     if (!visitaId) return;
 
+    // El resumen "por reglas" se guarda junto con el cierre. `resumen_origen`
+    // nace 'reglas' por defecto en la BD; solo se fija explícito para dejar
+    // claro el origen aunque cambie el default.
+    const parche: ParcheCierre = { estado_captura: 'consolidada' };
+    if (resumenReglas) {
+      parche.resumen_texto = resumenReglas;
+      parche.resumen_origen = 'reglas';
+    }
+
     await consolidacion.ejecutar(
       async () => {
         if (navigator.onLine) {
-          const { error } = await supabase
-            .from('visita')
-            .update({ estado_captura: 'consolidada' })
-            .eq('id', visitaId);
+          const { error } = await supabase.from('visita').update(parche).eq('id', visitaId);
           if (error) {
             // Con conexión presente, un error de Supabase es un fallo real
             // (RLS, validación, servidor) — no desconexión. Se lanza para
@@ -248,7 +288,7 @@ export function CierreVisita() {
           }
           return { sincronizada: true };
         } else {
-          intentarConsolidarOffline(visitaId);
+          intentarConsolidarOffline(visitaId, parche);
           return { sincronizada: false };
         }
       },
@@ -291,10 +331,15 @@ export function CierreVisita() {
         )}
 
         <div className="screen__scroll">
-          {visitaObjetivo?.objetivo?.trim() && (
-            <div className="ficha-vitals">
-              <span>Ibas a: <b>{visitaObjetivo.objetivo}</b></span>
-            </div>
+          {resumenReglas && (
+            <SeccionLista titulo="Resumen">
+              <div style={{ padding: '2px var(--fila-pad-x) 6px', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                {resumenReglas}
+              </div>
+              <div style={{ padding: '0 var(--fila-pad-x) 4px', fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                Generado automáticamente. Puedes reescribirlo desde el detalle de la visita.
+              </div>
+            </SeccionLista>
           )}
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

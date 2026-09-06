@@ -23,7 +23,7 @@ export interface VisitaRow {
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   resumen_texto: string | null;
-  resumen_origen: 'reglas' | 'ia';
+  resumen_origen: 'reglas' | 'ia' | 'manual';
   creado_en: string;
   actualizado_en: string;
 }

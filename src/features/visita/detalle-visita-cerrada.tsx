@@ -15,6 +15,7 @@ import {
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -71,6 +72,13 @@ export function DetalleVisitaCerrada() {
   const { estadoDe, descargar } = useDescargarInforme();
   const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
+
+  // Editar a mano el resumen de la visita (pasa a `resumen_origen = 'manual'`).
+  // UPDATE directo, sin cola offline — requiere conexión, como "Editar datos"
+  // del cliente.
+  const [editandoResumen, setEditandoResumen] = useState(false);
+  const [borradorResumen, setBorradorResumen] = useState('');
+  const guardadoResumen = useAccionAsync();
 
   const { comercial } = useSesionActual();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
@@ -195,6 +203,38 @@ export function DetalleVisitaCerrada() {
     refetch();
   }
 
+  const puedeEditarResumen = puedeBorrarVisita;
+
+  function abrirEditarResumen() {
+    setBorradorResumen(data?.resumen_texto ?? '');
+    guardadoResumen.limpiarError();
+    setEditandoResumen(true);
+  }
+
+  async function guardarResumen() {
+    if (!visitaId) return;
+    if (!navigator.onLine) {
+      guardadoResumen.establecerError('Necesitas conexión para editar el resumen.');
+      return;
+    }
+    const texto = borradorResumen.trim();
+    await guardadoResumen.ejecutar(
+      async () => {
+        const { error } = await supabase
+          .from('visita')
+          .update({ resumen_texto: texto || null, resumen_origen: 'manual' })
+          .eq('id', visitaId);
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          setEditandoResumen(false);
+          queryClient.invalidateQueries({ queryKey });
+        },
+      }
+    );
+  }
+
   const estadoLegible: Record<string, string> = {
     en_curso: 'en curso',
     consolidada: 'cerrada',
@@ -288,11 +328,61 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {/* Resumen — primero y destacado, como en el informe. */}
+          {/* Resumen — primero y destacado, como en el informe. Se genera
+              solo al cerrar la visita; aquí se puede reescribir a mano. */}
           {!sinNada && (
             <div className="dvc-bloque dvc-bloque--resumen">
-              <div className="dvc-bloque__lb">Resumen</div>
-              {data.resumen_texto ? (
+              <div
+                style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}
+              >
+                <div className="dvc-bloque__lb">Resumen</div>
+                {puedeEditarResumen && !editandoResumen && (
+                  <button
+                    type="button"
+                    className="btn-enlace"
+                    style={{ padding: 0, fontSize: 'var(--text-xs)' }}
+                    onClick={abrirEditarResumen}
+                  >
+                    {data.resumen_texto ? 'Editar' : 'Escribir resumen'}
+                  </button>
+                )}
+              </div>
+
+              {editandoResumen ? (
+                <div style={{ marginTop: 6 }}>
+                  <textarea
+                    className="field"
+                    style={{ height: 'auto', padding: 8 }}
+                    rows={4}
+                    autoFocus
+                    value={borradorResumen}
+                    onChange={(e) => setBorradorResumen(e.target.value)}
+                    placeholder="cómo fue la visita: sensación, siguiente movimiento…"
+                  />
+                  {guardadoResumen.error && (
+                    <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoResumen.error}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={guardadoResumen.cargando}
+                      onClick={() => {
+                        guardadoResumen.limpiarError();
+                        setEditandoResumen(false);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      disabled={guardadoResumen.cargando}
+                      onClick={guardarResumen}
+                    >
+                      {guardadoResumen.cargando ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : data.resumen_texto ? (
                 <div className="dvc-bloque__texto">{data.resumen_texto}</div>
               ) : (
                 <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
