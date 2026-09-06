@@ -3,6 +3,7 @@ import {
   encolarOperacion,
   obtenerPorVisita,
   procesarCola,
+  EVENTO_COLA_PROCESADA,
 } from '@/lib/offline-queue';
 import type { OperacionPendiente, EntidadSincronizable, PayloadPorEntidad } from '@/lib/offline-queue/types';
 
@@ -21,6 +22,22 @@ export function useSyncQueue(visitaId: string | undefined) {
 
   useEffect(() => {
     void recargar();
+  }, [recargar]);
+
+  // El motor de sincronización sube la cola por su cuenta al recuperar
+  // conexión (y en su intervalo periódico), sin pasar por `encolar()`. Si
+  // no escucháramos su señal de "pasada terminada", el contador "N sin
+  // subir" de la visita se quedaría pegado hasta re-montar la pantalla
+  // aunque los datos ya estuvieran en Supabase. Mismo patrón que la
+  // pantalla "Yo".
+  useEffect(() => {
+    const refrescar = () => void recargar();
+    window.addEventListener(EVENTO_COLA_PROCESADA, refrescar);
+    window.addEventListener('online', refrescar);
+    return () => {
+      window.removeEventListener(EVENTO_COLA_PROCESADA, refrescar);
+      window.removeEventListener('online', refrescar);
+    };
   }, [recargar]);
 
   const encolar = useCallback(
