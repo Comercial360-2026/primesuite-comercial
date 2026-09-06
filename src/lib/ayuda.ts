@@ -186,10 +186,10 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente. Arriba, una línea de contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos chips para interlocutores y equipo. En medio, «Captura lo que veas»: seis botones iguales —foto, nota, audio, hallazgo, oportunidad, próximo paso—. Abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista. Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, todo va a «General».',
+      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: seis botones iguales —foto, nota, audio, hallazgo, oportunidad, próximo paso—. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, todo va a «General».',
     cuando:
-      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En la nota puedes dictar en vez de escribir. Al terminar, «Cerrar visita».',
-    ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada.',
+      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En la nota puedes dictar en vez de escribir. Al terminar, «Cerrar visita», al final del todo.',
+    ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada. Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar.',
   },
   'cierre-visita': {
     grupo: 'visita',
@@ -337,8 +337,8 @@ const _CONCEPTOS = {
     grupo: 'visita',
     titulo: 'Zona de la captura',
     queEs:
-      'La casilla «Zona» opcional encima de «Captura lo que veas». Escribes una etiqueta libre para lo que estás mirando (una puerta, una barrera, un rincón) y todo lo que captures a continuación queda atado a esa etiqueta; al cerrar lo repasas zona por zona. Si la dejas vacía, las capturas van al grupo «General». La etiqueta es de usar y tirar: no se guarda en ninguna lista, pero las que ya has usado en esta misma visita te aparecen como chip para volver a ellas.',
-    cuando: 'Úsala en clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio. Si no vas por zonas, déjala vacía y captura normal.',
+      'Una etiqueta libre para el sitio que estás mirando (una puerta, una barrera, un rincón). Sale al pulsar «Marcar zonas», junto a «Captura lo que veas»; mientras haya una zona escrita, todo lo que captures queda atado a ella y al cerrar la visita lo repasas zona por zona. Si no marcas ninguna, todas las capturas van juntas al grupo «General». La etiqueta es de usar y tirar —no se guarda en ninguna lista—, pero las que ya has usado en esta visita te vuelven a salir como chip para reutilizarlas.',
+    cuando: 'En clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio. Si no vas por zonas, ni toques «Marcar zonas»: captura normal y todo va a «General».',
   },
   'naturaleza-hallazgo': {
     grupo: 'visita',

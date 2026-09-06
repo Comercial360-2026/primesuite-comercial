@@ -23,6 +23,7 @@ import { ParticipantesHoja } from './participantes-hoja';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
@@ -82,37 +83,25 @@ function CapturasPorUbicacion({
   // Fila de un elemento capturado dentro de una zona / "General": icono a la
   // izquierda (foto/audio/nota/hallazgo), texto, y una coletilla gris
   // opcional. Sustituye a la etiqueta "audio ·" / "nota ·" gris de antes.
-  const itemFila = (icono: NombreIcono, texto: string, sub?: string, onClick?: () => void) => (
-    <div
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '5px 0',
-        fontSize: 'var(--text-sm)',
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-    >
-      <span style={{ color: 'var(--ink-400)', flexShrink: 0, display: 'flex' }}>
+  // C6 · Cuando la fila es pulsable, es un <button> de verdad (foco por
+  // teclado, rol) — antes era un <div onClick> sin nada de eso. Misma clase
+  // .va-item que la vista "por tipo", para que se lean igual.
+  const itemFila = (key: string, icono: NombreIcono, texto: string, sub?: string, onClick?: () => void) => {
+    const contenido = (
+      <>
         <Icono nombre={icono} size={16} />
-      </span>
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {texto}
-      </span>
-      {sub && (
-        <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)', flexShrink: 0 }}>{sub}</span>
-      )}
-    </div>
-  );
+        <span className="va-item__texto">{texto}</span>
+        {sub && <span className="va-item__sub">{sub}</span>}
+      </>
+    );
+    return onClick ? (
+      <button key={key} type="button" className="va-item" onClick={onClick}>
+        {contenido}
+      </button>
+    ) : (
+      <div key={key} className="va-item">{contenido}</div>
+    );
+  };
 
   const contenidoDe = (clave: string) => {
     const fotos = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'foto');
@@ -164,25 +153,15 @@ function CapturasPorUbicacion({
         </div>
       )}
       {c.audios.map((a) =>
-        <div key={a.id}>
-          {itemFila('audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))}
-        </div>
+        itemFila(a.id, 'audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))
       )}
       {c.notas.map((n) => {
         const p = n.payload as { titulo?: string; contenidoTexto?: string };
-        return (
-          <div key={n.id}>
-            {itemFila('nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id))}
-          </div>
-        );
+        return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
       })}
       {c.hz.map((h) => {
         const p = h.payload as { terminoId: string; naturaleza: string };
-        return (
-          <div key={h.id}>
-            {itemFila('hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza))}
-          </div>
-        );
+        return itemFila(h.id, 'hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza));
       })}
     </>
   );
@@ -317,6 +296,12 @@ export function VisitaActiva() {
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
   const [tituloPendiente, setTituloPendiente] = useState('');
+  // B6 · La zona se congela en el MOMENTO de capturar (disparo de la foto,
+  // inicio de la grabación), no al pulsar "Guardar" en la hoja de título:
+  // si entre medias cambias de zona, la captura anterior debe quedarse en
+  // la suya. Nota/hallazgo/oportunidad/paso no lo necesitan — su hoja es
+  // modal y tapa el campo de zona.
+  const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
   const guardadoNota = useAccionAsync();
   const [guardadoNotaConExito, setGuardadoNotaConExito] = useState(false);
   // Dictado voz→texto para la nota: va añadiendo lo reconocido al final.
@@ -541,11 +526,15 @@ export function VisitaActiva() {
   const objetivoEditable = !!visitaServidor;
   const [objetivoBorrador, setObjetivoBorrador] = useState<string | null>(null);
   const guardadoObjetivo = useAccionAsync();
+  // B5 · El borrador se re-sincroniza con el valor real SIEMPRE que no
+  // estés editándolo ahora mismo (antes solo se rellenaba una vez, con lo
+  // que si un compañero cambiaba el objetivo no te enterabas nunca). Con
+  // la hoja abierta no se pisa lo que estás escribiendo.
   useEffect(() => {
-    if (objetivoActual != null && objetivoBorrador === null) {
+    if (objetivoActual != null && !objetivoAbierto) {
       setObjetivoBorrador(objetivoActual);
     }
-  }, [objetivoActual, objetivoBorrador]);
+  }, [objetivoActual, objetivoAbierto]);
 
   // NOTA: la guarda `if (!visitaId || !comercial) return null` va AL FINAL de
   // los hooks (justo antes del primer `return` de JSX), no aquí. Si va aquí,
@@ -605,6 +594,7 @@ export function VisitaActiva() {
     flushSync(() => {
       setFotoPendiente(archivoComprimido);
       setTituloPendiente('');
+      setZonaPendiente(zonaParaCaptura); // B6 · zona del momento del disparo
     });
   }
 
@@ -615,6 +605,7 @@ export function VisitaActiva() {
     setFotoPendiente(null);
     setAudioPendiente(null);
     setTituloPendiente('');
+    setZonaPendiente(undefined);
     capturaFoto.limpiarError();
     capturaAudio.limpiarError();
   }
@@ -631,7 +622,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'foto',
               titulo: tituloPendiente.trim() || undefined,
-              zonaTexto: zonaParaCaptura,
+              zonaTexto: zonaPendiente,
               latitud: coordsFotoRef.current?.lat,
               longitud: coordsFotoRef.current?.lng,
             },
@@ -642,6 +633,7 @@ export function VisitaActiva() {
           onExito: () => {
             setFotoPendiente(null);
             setTituloPendiente('');
+            setZonaPendiente(undefined);
             coordsFotoRef.current = null;
           },
         }
@@ -657,7 +649,7 @@ export function VisitaActiva() {
               comercialAutorId: comercial!.id,
               tipo: 'audio',
               titulo: tituloPendiente.trim() || undefined,
-              zonaTexto: zonaParaCaptura,
+              zonaTexto: zonaPendiente,
             },
             { dependeDe: visitaId, archivoLocal: audioPendiente }
           ),
@@ -666,6 +658,7 @@ export function VisitaActiva() {
           onExito: () => {
             setAudioPendiente(null);
             setTituloPendiente('');
+            setZonaPendiente(undefined);
           },
         }
       );
@@ -720,6 +713,7 @@ export function VisitaActiva() {
           recorder.start(1000);
           mediaRecorderRef.current = recorder;
           setGrabando(true);
+          setZonaPendiente(zonaParaCaptura); // B6 · zona del inicio de la grabación
           // Mantiene la pantalla encendida mientras se graba — no evita un
           // bloqueo manual, pero sí el apagado automático por inactividad.
           try {
@@ -963,6 +957,11 @@ export function VisitaActiva() {
   });
   const notasCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'nota') ?? [];
   const audiosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'audio') ?? [];
+  // B4 · Las fotos de compañeros también cuentan y se listan (antes se
+  // pedían pero no se pintaban). Van como fila de texto —igual que sus
+  // notas/audios—, no como miniatura: el binario está en Storage, no en la
+  // cola local, y abrir el detalle ya enseña la foto.
+  const fotosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'foto') ?? [];
   const hallazgosCompaneros = deCompaneros?.hallazgos ?? [];
   const pasosCompaneros = deCompaneros?.pasos ?? [];
   const oportunidadesCompaneros = deCompaneros?.oportunidades ?? [];
@@ -970,6 +969,7 @@ export function VisitaActiva() {
   const hayCompaneros =
     notasCompaneros.length +
       audiosCompaneros.length +
+      fotosCompaneros.length +
       hallazgosCompaneros.length +
       pasosCompaneros.length +
       oportunidadesCompaneros.length >
@@ -1142,14 +1142,15 @@ export function VisitaActiva() {
   // único contador (D2) y un único indicador de sincronización (regla 5),
   // en vez de las cuatro listas de antes (capturas, oportunidades, próximos
   // pasos, de compañeros).
+  const totalFotos = nFotos + fotosCompaneros.length;
   const totalAudios = nAudios + audiosCompaneros.length;
   const totalNotas = nNotas + notasCompaneros.length;
   const totalHallazgos = hallazgos.length + hallazgosCompaneros.length;
   const totalOportunidades = oportunidades.length + oportunidadesCompaneros.length;
   const totalPasos = pasos.length + pasosCompaneros.length;
-  const totalEnVisita = nFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
+  const totalEnVisita = totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
   const desgloseTipos = [
-    nFotos && `${nFotos} foto${nFotos > 1 ? 's' : ''}`,
+    totalFotos && `${totalFotos} foto${totalFotos > 1 ? 's' : ''}`,
     totalAudios && `${totalAudios} audio${totalAudios > 1 ? 's' : ''}`,
     totalNotas && `${totalNotas} nota${totalNotas > 1 ? 's' : ''}`,
     totalHallazgos && `${totalHallazgos} hallazgo${totalHallazgos > 1 ? 's' : ''}`,
@@ -1165,6 +1166,19 @@ export function VisitaActiva() {
     (op) => op.estado !== 'completado'
   ).length;
   const estadoSyncTexto = pendientesSync === 0 ? 'todo subido' : `${pendientesSync} sin subir`;
+  // B2 · Con varias capturas hechas pero sin ninguna oportunidad ni ningún
+  // próximo paso, se recuerda AQUÍ (no solo al cerrar). Umbral 3 para no
+  // saltar a la primera foto.
+  const recordatorioFaltaTexto =
+    totalEnVisita < 3
+      ? null
+      : totalOportunidades === 0 && totalPasos === 0
+        ? 'No has apuntado ninguna oportunidad ni próximo paso. Si viste algo, apúntalo antes de cerrar.'
+        : totalOportunidades === 0
+          ? 'No has apuntado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.'
+          : totalPasos === 0
+            ? 'No has apuntado ningún próximo paso. Si queda algo pendiente, apúntalo antes de cerrar.'
+            : null;
   // El conmutador "por zona" (D1) solo aparece si se han anotado zonas en
   // esta visita.
   const zonaUsada = [...capturas, ...hallazgos, ...oportunidades].some(
@@ -1289,6 +1303,8 @@ export function VisitaActiva() {
             «General». */}
         {mostrarZona && (
           <>
+            {/* B1 · El concepto zona/recorrido no se explica solo. */}
+            <AyudaNota concepto="zona-captura" />
             <input
               className="field"
               value={zonaActual}
@@ -1375,11 +1391,26 @@ export function VisitaActiva() {
             <Icono nombre="oportunidad" size={22} />
             Oportunidad
           </button>
-          <button type="button" className="capture-btn" onClick={() => setPasoAbierto(true)}>
+          <button
+            type="button"
+            className="capture-btn"
+            onClick={() => setPasoAbierto(true)}
+            disabled={!visitaLocal?.clienteId}
+          >
             <Icono nombre="paso" size={22} />
             Próximo paso
           </button>
         </div>
+
+        {/* B7 · Motivo visible cuando Foto/Audio salen deshabilitados por el
+            pozo del equipo lleno — antes solo se veía si conseguías pulsar. */}
+        {espacioBloqueado && (
+          <Aviso tipo="atencion" titulo="Sin espacio para fotos ni audios">
+            El espacio del equipo está lleno. Las notas de texto siguen
+            funcionando; para volver a subir fotos y audios, alguien tiene que
+            liberar espacio en Yo → Mi espacio.
+          </Aviso>
+        )}
 
         {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
         {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
@@ -1481,6 +1512,11 @@ export function VisitaActiva() {
               className="chip-accion"
               onClick={() => setInterlocutoresAbierto(true)}
               title={interlocutoresTexto}
+              // C5 · Mientras se resuelve la visita (cola local o, en su
+              // defecto, Supabase) la hoja de interlocutores no puede abrir
+              // por falta de clienteId — se deshabilita en vez de "no pasar
+              // nada" al tocar.
+              disabled={!visitaLocal?.clienteId}
             >
               <Icono nombre="interlocutor" size={16} />
               {nInterlocutores > 0 ? `Interlocutores · ${nInterlocutores}` : '+ Interlocutores'}
@@ -1532,9 +1568,25 @@ export function VisitaActiva() {
           )}
         </div>
 
+        {/* B2 · Recordatorio EN VIVO (antes solo llegaba en la pantalla de
+            cierre, tarde): cuando ya has capturado unas cuantas cosas pero
+            no hay ninguna oportunidad ni ningún próximo paso apuntado. */}
+        {recordatorioFaltaTexto && (
+          <div
+            style={{
+              display: 'flex', gap: 6, alignItems: 'flex-start', margin: '2px 2px 6px',
+              fontSize: 'var(--text-xs)', color: 'var(--ink-500)',
+            }}
+          >
+            <Icono nombre="info" size={13} />
+            <span>{recordatorioFaltaTexto}</span>
+          </div>
+        )}
+
         {totalEnVisita === 0 ? (
           <div style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', padding: '12px 0' }}>
-            Aún no has capturado nada en esta visita
+            Aún no has capturado nada.<br />
+            Toca Foto, Nota o Audio para empezar.
           </div>
         ) : (
           <div style={{ padding: '0 4px' }}>
@@ -1571,6 +1623,17 @@ export function VisitaActiva() {
                       );
                     })}
                   </div>
+                )}
+                {/* B4 · Fotos de compañeros: fila de texto (el binario está
+                    en Storage, no en la cola local). */}
+                {fotosCompaneros.map((c) =>
+                  filaEnVisita(
+                    c.id,
+                    'foto',
+                    capitalizarFrase(c.titulo || 'foto'),
+                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                    () => navigate(`/capturas/${c.id}`)
+                  )
                 )}
                 {audiosOwn.map((a) =>
                   filaEnVisita(
@@ -1781,12 +1844,24 @@ export function VisitaActiva() {
           {audioPendiente && (
             <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />
           )}
+          {/* B7 · La zona en la que cae esta captura, aquí y ahora — para no
+              descubrir al cerrar que una foto quedó en el sitio que no era. */}
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+            <Icono nombre="recorrido" size={12} />{' '}
+            {zonaPendiente ? `Zona · ${zonaPendiente}` : 'Sin zona · va a «General»'}
+          </div>
+          {/* B7 · El título como algo que rellenar (rótulo visible), no un
+              placeholder que se pasa por alto: con 8 fotos, el rótulo es lo
+              único que las distingue luego. */}
+          <div className="label" style={{ marginTop: 0 }}>
+            {fotoPendiente ? 'Qué es esta foto' : 'Qué es este audio'}
+          </div>
           <input
             className="field"
             autoFocus
             value={tituloPendiente}
             onChange={(e) => setTituloPendiente(e.target.value)}
-            placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+            placeholder={fotoPendiente ? 'p. ej. lector averiado puerta 3 · opcional' : 'p. ej. notas del jefe de planta · opcional'}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button

@@ -2,6 +2,8 @@ import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { NOMBRE_CATEGORIA_SIN_CLASIFICAR } from '@/lib/vocabulario';
+import { Icono } from '@/components/ui/iconos';
+import { sinAcentos } from '@/lib/texto';
 
 interface Termino {
   id: string;
@@ -116,7 +118,9 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
     return padre ? { lead: `${padre.nombre} › `, tail: t.nombre } : { lead: '', tail: t.nombre };
   }
 
-  const q = textoBusqueda.trim().toLowerCase();
+  // C4 · Comparación sin acentos: "desfire" encuentra "DESFire", "mifare"
+  // encuentra "MIFARE".
+  const q = sinAcentos(textoBusqueda.trim());
 
   // El buscador casa por el nombre del término Y por el de su padre: buscar
   // "MIFARE" saca también sus modelos; buscar "DESFire" saca el modelo con
@@ -124,14 +128,14 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
   const resultadosBusqueda = q
     ? terminosLista
         .filter((t) => {
-          if (t.nombre.toLowerCase().includes(q)) return true;
+          if (sinAcentos(t.nombre).includes(q)) return true;
           const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
-          return padre ? padre.nombre.toLowerCase().includes(q) : false;
+          return padre ? sinAcentos(padre.nombre).includes(q) : false;
         })
         .slice(0, 10)
     : [];
 
-  const existeExacto = terminosLista.some((t) => t.nombre.toLowerCase() === q);
+  const existeExacto = terminosLista.some((t) => sinAcentos(t.nombre) === q);
 
   async function proponerYSeleccionar() {
     if (!textoBusqueda.trim()) return;
@@ -180,13 +184,16 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
   return (
     <div className="card">
       {titulo && <div className="label" style={{ marginTop: 0 }}>{titulo}</div>}
-      <input
-        className="field"
-        autoFocus
-        value={textoBusqueda}
-        onChange={(e) => setTextoBusqueda(e.target.value)}
-        placeholder="buscar término o modelo…"
-      />
+      <div className="campo-busca">
+        <Icono nombre="buscar" size={16} />
+        <input
+          className="field"
+          autoFocus
+          value={textoBusqueda}
+          onChange={(e) => setTextoBusqueda(e.target.value)}
+          placeholder="buscar término o modelo…"
+        />
+      </div>
       {/* Sin nota "¿qué es un término / modelo?" aquí: el placeholder ya lo
           nombra y el árbol lo enseña (MIFARE › DESFire EV2). Se apilaba con
           la de "naturaleza" en la hoja de Hallazgo y con las de Etapa /

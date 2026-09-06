@@ -18,6 +18,13 @@ export function plural(n: number, singular: string, formaPlural: string): string
   return `${n} ${n === 1 ? singular : formaPlural}`;
 }
 
+// Minúsculas y sin acentos, para comparar/buscar texto libre sin que un
+// tilde deje fuera una coincidencia ("desfire" encuentra "DESFire",
+// "camion" encuentra "camión"). Solo para comparar — nunca se guarda.
+export function sinAcentos(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
 export function capitalizarFrase(texto: string): string {
   if (!texto) return texto;
   const soloLetras = texto.replace(/[^\p{L}]/gu, '');

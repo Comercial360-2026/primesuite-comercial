@@ -374,6 +374,52 @@ Estado: análisis cerrado y aprobado por Cesar (2026-09-06). Orden de
 trabajo: A0 → A → B → C. Verde (typecheck/lint/build) entre tandas;
 `ayuda.ts` al día en el mismo commit que el cambio que la afecte.
 
+**Progreso (2026-09-06):**
+- **A0.1 ✅** guarda de `estado_captura` (visita consolidada → pantalla de
+  bloqueo + enlace al detalle; sondeo cada 20 s).
+- **A0.2 ✅** aviso "Tienes otra visita abierta" (query `!inner` de
+  `visita_participante` con estado `en_curso`).
+- **A1 ✅** "Cerrar visita" → `btn-secondary` al final del scroll.
+- **A2 ✅** rejilla de captura primero; contexto debajo.
+- **A3 ✅** icono `hallazgo` = `Eye`; nuevo `buscar` = `MagnifyingGlass`
+  para cabeceras/listados (`BotonBuscar`).
+- **A4 ✅** `.chip-accion` (44 px) para Interlocutores / Equipo / Marcar
+  zonas.
+- **B1 ✅** `<AyudaNota concepto="zona-captura">` en el bloque de zona;
+  `ayuda.ts` (`zona-captura` y `visita-activa`) reescrito al layout nuevo.
+- **B2 ✅** recordatorio en vivo: con ≥3 capturas y sin oportunidad / sin
+  próximo paso, línea suave en "En esta visita".
+- **B3 ✅** `SelectorTermino` con lupa dentro del campo (nueva clase
+  genérica `.campo-busca`).
+- **B4 ✅** fotos de compañeros listadas en "En esta visita" (fila de
+  texto; cuentan en el contador).
+- **B5 ✅** `objetivoBorrador` se re-sincroniza siempre que no lo estés
+  editando (antes solo una vez).
+- **B6 ✅** la zona se congela al capturar (`zonaPendiente`), no al pulsar
+  Guardar.
+- **B7 (motivo espacio lleno) ✅** `<Aviso>` fijo bajo la rejilla cuando
+  `espacioBloqueado`.
+- **C1 ✅** estado vacío orienta ("Toca Foto, Nota o Audio para empezar").
+- **C4 ✅** `SelectorTermino` compara sin acentos (`sinAcentos` en
+  `@/lib/texto`).
+- **C5 ✅** "Próximo paso" e "Interlocutores" deshabilitados mientras se
+  resuelve `visitaLocal`.
+- **C6 ✅** filas de `CapturasPorUbicacion` pulsables → `<button>` (foco
+  por teclado), misma clase `.va-item`.
+- **B7-doc ✅** hoja de Foto/Audio: muestra la zona y el título como rótulo
+  visible (no solo placeholder).
+- **C2 (separar 3+3 en la rejilla) — PENDIENTE de decisión de Cesar:** el
+  análisis lo deja como duda; no se toca sin su OK (rompería la premisa
+  "6 iguales" de B3). Pendiente para el repaso.
+- **C3 (comprimir microcopy de zona) — no se hace:** con la `<AyudaNota>`
+  encima, el microcopy de abajo ya es la parte corta; se deja.
+- **B5 conflicto "duro"** (dos comerciales editando el objetivo a la vez):
+  se acepta como riesgo — el objetivo casi no se co-edita; la
+  re-sincronización cubre el caso realista.
+Verde: typecheck + lint + build. Verificado en vivo (Chrome de Cesar,
+visita ARCELOR): reorden, iconos, `chip-accion`, estado vacío, lupa del
+selector de término; consola limpia en carga fresca.
+
 ### `/` — Hoy
 
 - **[A] El botón "+" miente.** `aria-label`/`title` = "Empezar visita sin
