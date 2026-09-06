@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { OportunidadPayload } from '@/lib/offline-queue/types';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Icono } from '@/components/ui/iconos';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
@@ -74,7 +74,7 @@ export function OportunidadRapidaModal({
   }
 
   return (
-    <Modal titulo="Oportunidad rápida" onCerrar={onCerrar}>
+    <HojaInferior titulo="Oportunidad rápida" onCerrar={onCerrar}>
       {guardadoConExito ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
@@ -131,6 +131,6 @@ export function OportunidadRapidaModal({
           {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
         </>
       )}
-    </Modal>
+    </HojaInferior>
   );
 }

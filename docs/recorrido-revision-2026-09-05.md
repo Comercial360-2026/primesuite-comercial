@@ -154,9 +154,16 @@ Clientes, sin banner en el resumen tras consolidar.
   móvil corto la lista sigue quedando en poco espacio, pero ya se entiende
   que el scroll es el de la página.
 - [B] Inconsistencia de patrón de captura: Foto/Nota/Audio **en línea** vs
-  Hallazgo/Oportunidad/Próximo paso **modal a pantalla completa**.
-  PENDIENTE — decisión de producto (¿todo inline? ¿todo modal? ¿se asume
-  la distinción "captura de campo" vs "registro estructurado"?).
+  Hallazgo/Oportunidad/Próximo paso **modal a pantalla completa** — ✅
+  RESUELTO. Cesar eligió unificar. Ahora las SEIS capturas (Foto, Nota,
+  Audio, Hallazgo, Oportunidad, Próximo paso) abren la misma **hoja
+  inferior** (`HojaInferior`, la que ya usaban Interlocutores y Equipo):
+  sube desde abajo, con manija, se centra en escritorio. Mismo gesto, mismo
+  comportamiento. El `Modal` centrado se queda solo para diálogos de
+  decisión ("¿A qué vas?", "ya tienes una visita en curso"). Foto/Audio:
+  cerrar la hoja sin guardar descarta el binario (igual que "Descartar").
+  Verificado en vivo: Nota, Hallazgo, Oportunidad, Próximo paso abren como
+  hoja; ciclo guardar completo OK.
 - [B] "ver por zona / ver por tipo" se recorta por la derecha — ✅ RESUELTO.
   El botón ya no compite en la misma fila que el contador: va junto al
   título "En esta visita", con `white-space: nowrap`.
@@ -165,25 +172,31 @@ Clientes, sin banner en el resumen tras consolidar.
   `.va-item__texto--acento`, que ya no se usa). El icono ✨ y la prioridad
   distinguen la fila; ningún tipo lleva color de texto, que en lista se
   lee como alarma.
-- [C] La caja "A qué vienes" arranca gris con borde discontinuo y "La
-  visita se está guardando" — parece un estado de error unos instantes.
-  PENDIENTE (menor).
+- [C] La caja "A qué vienes" arrancaba con borde discontinuo + "La visita
+  se está guardando" — parecía un error — ✅ RESUELTO. Borde sólido suave
+  como el resto; el texto pasa a "Guardando la visita…".
 - [C] Nota: el foco inicial iba al "título breve (opcional)" — ✅ RESUELTO.
   El foco va al cuerpo; el título pasa debajo del cuerpo.
-- [C] Hallazgo rápido: no hay campo de nota. PENDIENTE (toca el modal y el
-  payload/columna de hallazgo).
+- [C] Hallazgo rápido: no hay campo de nota — ✅ RESUELTO. `hallazgo.nota`
+  ya existía en la BD y en el payload; solo faltaba el `<textarea>`
+  opcional en la hoja. Se serializa sola (aPayloadSnakeCase). Verificado en
+  BD: la nota escrita en caliente llega a `hallazgo.nota`.
 
-### Modal de Hallazgo
-- [B] Subtítulo "lo que el cliente tiene, sea de quién sea" — críptico.
-- [B] Se muestran categorías con **(0)**: 4 de 7 vacías ("Software (0)",
-  "Hardware (0)"…). Tocar una no lleva a nada. Ocultar las vacías o
-  mostrarlas apagadas.
-- [B] Dos enlaces "ⓘ Qué es…" apilados dentro de un modal pequeño
-  (Términos y modelos / Naturaleza). Señal de que el concepto no se
-  explica solo.
+### Modal de Hallazgo (ahora hoja inferior)
+- [B] Subtítulo "lo que el cliente tiene, sea de quién sea" (críptico) — ✅
+  RESUELTO. Ahora "Algo que el cliente ya tiene instalado, sea de la marca
+  que sea."
+- [B] Categorías con **(0)** (4 de 7 vacías: "Software (0)", "Hardware
+  (0)"…) — ✅ RESUELTO. `SelectorTermino` oculta las categorías sin
+  términos (el catálogo lo gestiona Dirección desde Vocabulario, no desde
+  este selector).
+- [B] Dos enlaces "ⓘ Qué es…" apilados (Términos y modelos / Naturaleza).
+  PENDIENTE — reducir ayuda inline es decisión de producto sobre el modelo.
 - [C] Al desplegar una categoría, el árbol de términos se intercala entre
-  los chips de las otras categorías (chip / chip / árbol / chip / chip):
-  layout desordenado.
+  los chips (chip / chip / árbol / chip / chip): layout desordenado.
+  PENDIENTE — reestructurar `SelectorTermino` (chips en fila que envuelve +
+  panel debajo); afecta también a Detalle de Oportunidad, merece su propio
+  pase.
 
 ### Detalle de oportunidad
 - [B] **Tres** enlaces "ⓘ Qué es…" en una pantalla (Etapa, Prioridad,

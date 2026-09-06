@@ -23,6 +23,7 @@ import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
@@ -563,6 +564,17 @@ export function VisitaActiva() {
     });
   }
 
+  // Cerrar la hoja de Foto/Audio sin guardar = descartar el binario que se
+  // acaba de capturar (mismo efecto que el botón "Descartar"). Se usa
+  // también como `onCerrar` de la hoja (×, Esc, tocar fuera).
+  function descartarPendiente() {
+    setFotoPendiente(null);
+    setAudioPendiente(null);
+    setTituloPendiente('');
+    capturaFoto.limpiarError();
+    capturaAudio.limpiarError();
+  }
+
   async function confirmarCapturaPendiente() {
     if (fotoPendiente) {
       await capturaFoto.ejecutar(
@@ -719,6 +731,11 @@ export function VisitaActiva() {
     return () => document.removeEventListener('visibilitychange', alOcultarse);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grabando]);
+
+  function cerrarNota() {
+    guardadoNota.limpiarError();
+    setNotaAbierta(false);
+  }
 
   async function guardarNota() {
     if (!notaTexto.trim()) return;
@@ -1135,8 +1152,10 @@ export function VisitaActiva() {
         )}
 
         {/* Objetivo: SIEMPRE visible con lápiz, nunca desaparece (antes se
-            ocultaba entero mientras `objetivoActual` era null). */}
-        <div style={{ border: '1px dashed var(--ink-200)', borderRadius: 'var(--radius-field)', padding: 10 }}>
+            ocultaba entero mientras `objetivoActual` era null). Borde sólido
+            suave como el resto de tarjetas — el discontinuo se leía como
+            "algo va mal" durante los segundos en que la visita sincroniza. */}
+        <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
           <div
             style={{
               display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
@@ -1156,7 +1175,7 @@ export function VisitaActiva() {
           />
           {!objetivoEditable && (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              La visita se está guardando. Podrás editar el objetivo en un momento.
+              Guardando la visita…
             </div>
           )}
           {objetivoEditable && (objetivoBorrador ?? '') !== (objetivoActual ?? '') && (
@@ -1294,91 +1313,6 @@ export function VisitaActiva() {
           <Aviso tipo="atencion" titulo="Grabando">
             No bloquees la pantalla ni cambies de app o la grabación se cortará.
           </Aviso>
-        )}
-
-        {notaAbierta && (
-          <div className="card">
-            {/* El foco va al cuerpo, no al título: lo normal es querer
-                escribir la nota ya; el título es opcional y casi nadie lo
-                pone en caliente. */}
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
-              rows={2}
-              autoFocus
-              value={notaTexto}
-              onChange={(e) => setNotaTexto(e.target.value)}
-              placeholder="escribe la nota…"
-            />
-            <input
-              className="field"
-              style={{ marginTop: 8 }}
-              value={notaTitulo}
-              onChange={(e) => setNotaTitulo(e.target.value)}
-              placeholder="título breve (opcional)"
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button
-                className="btn btn-secondary"
-                disabled={guardadoNota.cargando}
-                onClick={() => {
-                  guardadoNota.limpiarError();
-                  setNotaAbierta(false);
-                }}
-              >
-                Cancelar
-              </button>
-              <button className="btn btn-primary" disabled={guardadoNota.cargando || guardadoNotaConExito} onClick={guardarNota}>
-                {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-            {guardadoNota.error && (
-              <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
-            )}
-          </div>
-        )}
-
-        {(fotoPendiente || audioPendiente) && (
-          <div className="card">
-            {fotoPendiente && (
-              <img
-                src={URL.createObjectURL(fotoPendiente)}
-                alt="vista previa"
-                style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
-              />
-            )}
-            {audioPendiente && <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />}
-            <input
-              className="field"
-              autoFocus
-              value={tituloPendiente}
-              onChange={(e) => setTituloPendiente(e.target.value)}
-              placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button
-                className="btn btn-secondary"
-                disabled={capturaFoto.cargando || capturaAudio.cargando}
-                onClick={() => {
-                  setFotoPendiente(null);
-                  setAudioPendiente(null);
-                  setTituloPendiente('');
-                }}
-              >
-                Descartar
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={capturaFoto.cargando || capturaAudio.cargando}
-                onClick={confirmarCapturaPendiente}
-              >
-                {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-            {(capturaFoto.error || capturaAudio.error) && (
-              <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
-            )}
-          </div>
         )}
 
         {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
@@ -1588,6 +1522,92 @@ export function VisitaActiva() {
       )}
       {participantesAbierto && visitaId && (
         <ParticipantesModal visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
+      )}
+
+      {/* Nota — misma hoja inferior que el resto de capturas (foto, audio,
+          hallazgo, oportunidad, próximo paso): un solo gesto, un solo
+          comportamiento. */}
+      {notaAbierta && (
+        <HojaInferior titulo="Nota" onCerrar={cerrarNota}>
+          {/* El foco va al cuerpo, no al título: lo normal es querer
+              escribir la nota ya; el título es opcional y casi nadie lo
+              pone en caliente. */}
+          <textarea
+            className="field"
+            style={{ height: 'auto', padding: 8 }}
+            rows={3}
+            autoFocus
+            value={notaTexto}
+            onChange={(e) => setNotaTexto(e.target.value)}
+            placeholder="escribe la nota…"
+          />
+          <input
+            className="field"
+            style={{ marginTop: 8 }}
+            value={notaTitulo}
+            onChange={(e) => setNotaTitulo(e.target.value)}
+            placeholder="título breve (opcional)"
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn btn-secondary" disabled={guardadoNota.cargando} onClick={cerrarNota}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={guardadoNota.cargando || guardadoNotaConExito || !notaTexto.trim()}
+              onClick={guardarNota}
+            >
+              {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+          {guardadoNota.error && (
+            <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
+          )}
+        </HojaInferior>
+      )}
+
+      {/* Foto / Audio — tras capturar el binario, la misma hoja para
+          ponerle título y confirmar. Cerrar sin guardar descarta la
+          captura (igual que el botón "Descartar"). */}
+      {(fotoPendiente || audioPendiente) && (
+        <HojaInferior titulo={fotoPendiente ? 'Foto' : 'Audio'} onCerrar={descartarPendiente}>
+          {fotoPendiente && (
+            <img
+              src={URL.createObjectURL(fotoPendiente)}
+              alt="vista previa"
+              style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
+            />
+          )}
+          {audioPendiente && (
+            <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />
+          )}
+          <input
+            className="field"
+            autoFocus
+            value={tituloPendiente}
+            onChange={(e) => setTituloPendiente(e.target.value)}
+            placeholder={fotoPendiente ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button
+              className="btn btn-secondary"
+              disabled={capturaFoto.cargando || capturaAudio.cargando}
+              onClick={descartarPendiente}
+            >
+              Descartar
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={capturaFoto.cargando || capturaAudio.cargando}
+              onClick={confirmarCapturaPendiente}
+            >
+              {capturaFoto.cargando || capturaAudio.cargando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+          {(capturaFoto.error || capturaAudio.error) && (
+            <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
+          )}
+        </HojaInferior>
       )}
 
       {visorFotos}

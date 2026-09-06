@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
@@ -92,7 +92,7 @@ export function PasoRapidoModal({
       : !!fechaVisita && !!objetivoVisita.trim();
 
   return (
-    <Modal titulo="Qué queda pendiente" onCerrar={onCerrar}>
+    <HojaInferior titulo="Qué queda pendiente" onCerrar={onCerrar}>
         <div style={{ marginTop: 8 }}>
           <Segmentado
             opciones={
@@ -205,6 +205,6 @@ export function PasoRapidoModal({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </Modal>
+    </HojaInferior>
   );
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
-import { Modal } from '@/components/ui/modal';
+import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Icono } from '@/components/ui/iconos';
 import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
@@ -27,12 +27,13 @@ const NATURALEZAS: HallazgoPayload['naturaleza'][] = [
   'proyecto_activo',
 ];
 
-// Captura mínima según lo cerrado: término + naturaleza, nada más — la
-// nota, ubicación y fecha relevante se completan después en Detalle de
-// Hallazgo (ya construido y probado). El selector de término (buscador +
-// categorías desplegables) vive en SelectorTermino, reutilizado también en
-// Detalle de Oportunidad — un único componente, mismo comportamiento en
-// los tres sitios donde se elige un término.
+// Captura en caliente: término + naturaleza + una nota opcional para el
+// contexto ("el lector falla dos veces al día", "lo instaló la competencia
+// hace un año"). Antes la nota solo se podía añadir luego, desde el Detalle
+// de Hallazgo — que en la práctica nadie abría, así que el hallazgo quedaba
+// sin contexto. El resto (ubicación, fecha relevante) sí se completa
+// después. El selector de término vive en SelectorTermino, reutilizado
+// también en Detalle de Oportunidad.
 export function HallazgoRapidoModal({
   visitaId,
   comercialId,
@@ -41,6 +42,7 @@ export function HallazgoRapidoModal({
 }: HallazgoRapidoModalProps) {
   const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoSeleccionado | null>(null);
   const [naturaleza, setNaturaleza] = useState<HallazgoPayload['naturaleza']>('contexto');
+  const [nota, setNota] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +57,11 @@ export function HallazgoRapidoModal({
         comercialAutorId: comercialId,
         terminoId: terminoSeleccionado.id,
         naturaleza,
+        nota: nota.trim() || undefined,
       });
-      // El cierre del modal lo controla el padre (visita-activa.tsx), con
-      // el mismo retraso de 700ms, para que "guardado ✓" sea visible antes
-      // de desaparecer.
+      // El cierre lo controla el padre (visita-activa.tsx), con el mismo
+      // retraso de 700ms, para que "guardado ✓" sea visible antes de
+      // desaparecer.
       setGuardadoConExito(true);
     } catch (err) {
       setError(
@@ -72,9 +75,9 @@ export function HallazgoRapidoModal({
   }
 
   return (
-    <Modal titulo="Hallazgo" onCerrar={onCerrar}>
+    <HojaInferior titulo="Hallazgo" onCerrar={onCerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-          lo que el cliente tiene, sea de quién sea
+          Algo que el cliente ya tiene instalado, sea de la marca que sea.
         </div>
 
         {terminoSeleccionado ? (
@@ -107,6 +110,16 @@ export function HallazgoRapidoModal({
           ))}
         </div>
 
+        <div className="label">Nota (opcional)</div>
+        <textarea
+          className="field"
+          style={{ height: 'auto', padding: 8 }}
+          rows={2}
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder="el contexto en caliente: qué falla, desde cuándo, quién lo puso…"
+        />
+
         <button
           className="btn btn-primary"
           style={{ marginTop: 12 }}
@@ -117,6 +130,6 @@ export function HallazgoRapidoModal({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </Modal>
+    </HojaInferior>
   );
 }

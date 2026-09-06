@@ -212,6 +212,10 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
             const primerNivel = terminosLista.filter(
               (t) => t.categoria_id === c.id && (!t.parent_id || !porId.get(t.parent_id))
             );
+            // Las categorías sin términos no se muestran: aquí no hay nada
+            // que elegir en ellas y solo añaden ruido (el catálogo lo
+            // gestiona Dirección desde Vocabulario, no desde este selector).
+            if (primerNivel.length === 0) return null;
             const abierta = categoriaAbiertaId === c.id;
             return (
               <div key={c.id} style={{ marginBottom: 6 }}>
@@ -222,8 +226,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
                 >
                   {c.nombre} ({primerNivel.length})
                 </button>
-                {abierta &&
-                  (primerNivel.length ? (
+                {abierta && (
                     <div className="selector-pick">
                       {primerNivel.map((t) => {
                         const hijos = hijosPorPadre.get(t.id) ?? [];
@@ -255,11 +258,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
                         );
                       })}
                     </div>
-                  ) : (
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 6, paddingLeft: 8 }}>
-                      Sin términos
-                    </div>
-                  ))}
+                )}
               </div>
             );
           })}
