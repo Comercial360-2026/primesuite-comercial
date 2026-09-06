@@ -534,8 +534,52 @@ falta rehacer con criterio Apple de verdad y presentar.**
 5. "En esta visita" (encabezados de zona con menos peso, chevron con icono).
 6. "Cerrar visita" al final, secundario.
 
+**Zona seleccionada — señal solo por color (Cesar daltónico).** El chip de
+una zona ya usada, al elegirla, solo cambia a tinte azul suave
+(`--brand-050`): no se ve cuál está activa, y no hay forma evidente de
+quitarla o cambiarla. → Solución:
+- **"Se guarda en: [ 📍 Acceso Vehículos ✕ ]"** — pastilla de relleno
+  sólido (contraste real, no tinte), pin **relleno** (forma) y ✕ explícita
+  para quitar. Sin zona: "Se guarda en: General". Esa misma pastilla es la
+  señal en la cabecera de la sección "Captura".
+- Chips de zonas usadas debajo, etiquetados ("Repetir zona:"); tocar uno
+  **reemplaza** la actual. Se elimina el estado `chip--on` → no hay "¿cuál
+  está seleccionada?".
+- Nueva zona: escribir en el campo, o chip **"+ Otra zona"** que limpia y
+  enfoca.
+- Quitar: la ✕ de la pastilla → vuelve a "General" y cierra el editor.
+- **Regla nueva (global, [[primesuite-modelo-ui-reglas]] #11):** estado
+  seleccionado = forma + texto, nunca solo color. **`.chip--on` y
+  `.segmentado__btn--on` lo incumplen hoy** (filtros de listados,
+  naturaleza/etapa/prioridad, "Solo mías/Todas"…). Arreglar en
+  `components.css`; verificar sobre la marcha en el recorrido.
+
+**Pasada final — lo que aún faltaba (2026-09-06):**
+- **"Cerrar visita" vs. rejilla en el pulgar.** Si la rejilla baja a la
+  zona del pulgar, "Cerrar visita" no puede estar ahí también. Decidir la
+  posición relativa: captura (frecuente) = lo más alcanzable; "Cerrar"
+  (fin de flujo) alcanzable pero por debajo / menos prominente.
+- **Rejilla 2 columnas × 3 filas** (mockup original decía 2×3; está en
+  3×2). En móvil pequeño 3 columnas quedan estrechas; 2 columnas = botones
+  más anchos, más táctiles, y las 3 filas caen mejor hacia el pulgar.
+  Decisión a tomar.
+- **Indicador de grabación de audio.** Ahora es un `<Aviso>` de texto.
+  Apple: punto rojo pulsante en el botón "Detener". Mejora.
+- **Objetivo no editable todavía** (`!objetivoEditable`, visita recién
+  arrancada sin sync): muestra "Guardando…" pegado y no deja tocar. Si el
+  objetivo pasa a línea de cabecera, resolver ese estado con gracia.
+- **`← volver`** durante una visita en curso: `navigate(-1)` / `/`.
+  ¿Debería llevar siempre a "Hoy"? Revisar (bloque 5).
+- **`.capture-btn:disabled`** (pozo lleno) tiene que verse claramente
+  deshabilitado también con el nuevo fondo de color, no solo `opacity`.
+- **Coherencia con `/visita/:id/cierre`**: repasa lo capturado "por zona";
+  si cambia la jerarquía de encabezados de zona aquí, mirar que cierre
+  siga coherente (cierre tiene su propio turno en el checklist).
+
 Estado: **`/visita/:id` sigue ABIERTA**. Pendiente: rehacer lo de arriba
-con criterio, verde, y presentar antes de tocar.
+con criterio, verde, y presentar antes de tocar. Cesar dio OK al plan
+(2026-09-06) — falta cerrar 2 decisiones: `.chip--on` global ahora o
+pantalla a pantalla; rejilla 2 o 3 columnas.
 
 ### `/` — Hoy
 
