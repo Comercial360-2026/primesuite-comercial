@@ -305,6 +305,10 @@ export function VisitaActiva() {
   // bueno.
   const [notaDictadoProvisional, setNotaDictadoProvisional] = useState('');
   const [grabando, setGrabando] = useState(false);
+  // Segundos que lleva la grabación — el botón "Detener" enseña mm:ss
+  // corriendo, para que se vea de un vistazo que está grabando (no solo
+  // por el cambio de palabra).
+  const [segsGrabando, setSegsGrabando] = useState(0);
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
   const [tituloPendiente, setTituloPendiente] = useState('');
@@ -795,6 +799,17 @@ export function VisitaActiva() {
     document.addEventListener('visibilitychange', alOcultarse);
     return () => document.removeEventListener('visibilitychange', alOcultarse);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabando]);
+
+  // Cronómetro de la grabación.
+  useEffect(() => {
+    if (!grabando) {
+      setSegsGrabando(0);
+      return;
+    }
+    setSegsGrabando(0);
+    const t = setInterval(() => setSegsGrabando((s) => s + 1), 1000);
+    return () => clearInterval(t);
   }, [grabando]);
 
   function cerrarNota() {
@@ -1610,12 +1625,22 @@ export function VisitaActiva() {
             Nota
           </button>
           <button
-            className="capture-btn"
+            className={`capture-btn${grabando ? ' capture-btn--rec' : ''}`}
             disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
             onClick={iniciarODetenerAudio}
           >
-            <Icono nombre="audio" size={22} />
-            {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
+            {grabando ? (
+              <>
+                <span className="rec-dot" aria-hidden />
+                Detener · {String(Math.floor(segsGrabando / 60)).padStart(2, '0')}:
+                {String(segsGrabando % 60).padStart(2, '0')}
+              </>
+            ) : (
+              <>
+                <Icono nombre="audio" size={22} />
+                {capturaAudio.cargando ? 'Guardando…' : 'Audio'}
+              </>
+            )}
           </button>
           <button type="button" className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
             <Icono nombre="hallazgo" size={22} />
