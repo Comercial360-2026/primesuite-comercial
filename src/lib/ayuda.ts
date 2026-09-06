@@ -360,7 +360,7 @@ const _CONCEPTOS = {
     grupo: 'visita',
     titulo: 'Interlocutores y participantes',
     queEs:
-      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera y quien lo añadió lo ve; a quien ha rechazado solo lo puede volver a invitar Dirección Comercial. Quien puede añadir también puede «quitar» a un participante (a esa persona le llega un aviso), y cualquiera puede «salir» de una visita en la que no es responsable. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
+      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera y quien lo añadió lo ve; se le puede volver a invitar (sale marcado «reinvitar»), lo mismo Dirección que el responsable. Quien puede añadir también puede «quitar» a un participante —a esa persona le llega un aviso y, si hace falta, también se la puede reinvitar—, y cualquiera puede «salir» de una visita en la que no es responsable. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
   },
 
   // — Oportunidades y vocabulario —

@@ -59,7 +59,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
   });
 
   // Quiénes rechazaron esta visita — para marcarlos en la lista de
-  // "añadir" y dejar claro que solo Dirección puede reinvitarles.
+  // "añadir" y dejar claro que es una reinvitación, no un alta nueva.
   const { data: rechazadosVisita } = useQuery({
     queryKey: ['participantes-rechazados', visitaId],
     enabled: !!comercial,
@@ -69,6 +69,22 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
         .select('comercial_id')
         .eq('visita_id', visitaId)
         .eq('estado', 'rechazado');
+      if (err) throw err;
+      return (data ?? []).map((r) => r.comercial_id);
+    },
+  });
+
+  // Ídem para quienes fueron expulsados: al volver a la lista de "añadir"
+  // deben salir marcados ("expulsado · reinvitar"), no como un alta nueva.
+  const { data: expulsadosVisita } = useQuery({
+    queryKey: ['participantes-expulsados', visitaId],
+    enabled: !!comercial,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error: err } = await supabase
+        .from('visita_participante')
+        .select('comercial_id')
+        .eq('visita_id', visitaId)
+        .eq('estado', 'expulsado');
       if (err) throw err;
       return (data ?? []).map((r) => r.comercial_id);
     },
@@ -109,9 +125,10 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
 
   const idsYaParticipantes = new Set(participantes.map((p) => p.comercial_id));
   const rechazadosSet = new Set(rechazadosVisita ?? []);
+  const expulsadosSet = new Set(expulsadosVisita ?? []);
   const candidatos = comercialesActivos
     ?.filter((c) => !idsYaParticipantes.has(c.id) && c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
-    .map((c) => ({ ...c, rechazoPrevio: rechazadosSet.has(c.id) }));
+    .map((c) => ({ ...c, rechazoPrevio: rechazadosSet.has(c.id), expulsadoPrevio: expulsadosSet.has(c.id) }));
 
   // Para no dejar que alguien mande la misma solicitud varias veces sin
   // darse cuenta — si ya tiene una pendiente para esta visita, se avisa en
@@ -181,6 +198,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     for (const clave of [
       ['participantes-visita', visitaId],
       ['participantes-rechazados', visitaId],
+      ['participantes-expulsados', visitaId],
       ['invitaciones-visita'],
       ['expulsiones-participacion'],
       ['participantes-visitas-hoy'],
@@ -217,6 +235,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     for (const clave of [
       ['participantes-visita', visitaId],
       ['participantes-rechazados', visitaId],
+      ['participantes-expulsados', visitaId],
       ['invitaciones-visita'],
       ['rechazos-participacion'],
       ['expulsiones-participacion'],
@@ -305,9 +324,10 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
               {candidatos?.map((c) => {
-                // Quien rechazó esta visita puede reinvitarse, igual por
+                // Quien rechazó o fue expulsado puede reinvitarse, igual por
                 // Dirección que por el responsable (2026-09-05: se quitó la
-                // restricción de que solo Dirección pudiera).
+                // restricción de que solo Dirección pudiera). El `upsert` de
+                // `añadir()` reactiva su fila a 'pendiente'.
                 return (
                   <button
                     key={c.id}
@@ -322,12 +342,14 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                     onClick={() => añadir(c.id)}
                   >
                     <span>{c.nombre}</span>
-                    <span style={{ color: c.rechazoPrevio ? 'var(--ink-400)' : undefined, fontSize: 11 }}>
+                    <span style={{ color: c.rechazoPrevio || c.expulsadoPrevio ? 'var(--ink-400)' : undefined, fontSize: 11 }}>
                       {añadiendoId === c.id
                         ? 'Añadiendo…'
-                        : c.rechazoPrevio
-                          ? 'rechazó · reinvitar'
-                          : '+ Añadir'}
+                        : c.expulsadoPrevio
+                          ? 'expulsado · reinvitar'
+                          : c.rechazoPrevio
+                            ? 'rechazó · reinvitar'
+                            : '+ Añadir'}
                     </span>
                   </button>
                 );
