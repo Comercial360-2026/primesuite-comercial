@@ -299,13 +299,22 @@ Clientes, sin banner en el resumen tras consolidar.
 ### Agenda
 - [C] Bien: el estado vacío sí guía ("Planifica una desde la ficha de un
   cliente"). Pero ese texto ya está desfasado porque existe el "+"
-  (ver 1.4).
+  (ver 1.4). — ✅ RESUELTO en 1.4 (commit `697eef3`): ahora "No hay visitas
+  planificadas. Toca «+» para planificar una." y el "+" lleva
+  `title="Planificar visita"`.
 
 ### Ficha de cliente
 - [B] Estado "borrador" en la cabecera de un cliente que ya tiene visita
-  cerrada y oportunidad. ¿Qué significa "borrador" para el comercial?
+  cerrada y oportunidad. ¿Qué significa "borrador" para el comercial? — ✅
+  RESUELTO en 1.x (commit `c220f65`): `estado_relacion` estaba muerto,
+  quitado de la cabecera.
 - [B] "General (todo lo que no encaja en otro)" — el nombre del proyecto
-  General se muestra literal, con el paréntesis. Verboso.
+  General se muestra literal, con el paréntesis. Verboso. — ✅ RESUELTO.
+  En los dos únicos sitios que nombran el General (lista "Proyectos" de la
+  ficha de cliente y selector de proyecto de `/planificar`) el título es
+  ahora solo "General" y "Todo lo que no encaja en otro proyecto" pasa a
+  subtítulo tenue. En el resto de la app el General ya no se nombraba
+  (`!es_general ? nombre : ''`).
 - Ver 1.1 (datos) y 1.2 (interlocutores).
 
 ### Ficha de proyecto

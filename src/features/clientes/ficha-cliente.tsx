@@ -550,8 +550,14 @@ export function FichaCliente() {
             {proyectos.map((p) => (
               <FilaNavegable
                 key={p.id}
-                titulo={p.es_general ? `${p.nombre} (todo lo que no encaja en otro)` : p.nombre}
-                subtitulo={p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined}
+                titulo={p.nombre}
+                subtitulo={
+                  p.estado !== 'activo'
+                    ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado
+                    : p.es_general
+                      ? 'Todo lo que no encaja en otro proyecto'
+                      : undefined
+                }
                 to={`/clientes/${clienteId}/proyectos/${p.id}`}
               />
             ))}

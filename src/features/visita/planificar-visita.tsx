@@ -202,7 +202,8 @@ export function PlanificarVisita() {
               {proyectos.map((p) => (
                 <FilaNavegable
                   key={p.id}
-                  titulo={p.es_general ? `${p.nombre} (todo lo que no encaja en otro)` : p.nombre}
+                  titulo={p.nombre}
+                  subtitulo={p.es_general ? 'Todo lo que no encaja en otro proyecto' : undefined}
                   onClick={() => setProyectoId(p.id)}
                   chevron
                 />
