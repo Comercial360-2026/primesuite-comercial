@@ -1119,11 +1119,17 @@ export function VisitaActiva() {
   const indiceVisita = visitasProyectoOrdenadas?.findIndex((v) => v.id === visitaId) ?? -1;
   const numeroVisita = indiceVisita >= 0 ? indiceVisita + 1 : null;
   const visitaAnterior = indiceVisita > 0 ? visitasProyectoOrdenadas![indiceVisita - 1] : null;
-  const contextoVisitaTexto = numeroVisita
-    ? [`${numeroVisita}.ª visita`, visitaAnterior ? `última hace ${haceRelativo(visitaAnterior.fecha)}` : null]
-        .filter(Boolean)
-        .join(' · ')
-    : null;
+  // "1.ª visita" a secas es ruido en la primera — solo aporta desde la 2.ª
+  // ("3.ª visita · última hace 2 meses"). Se muestra el ordinal solo si > 1;
+  // "última hace…" siempre que haya visita anterior.
+  const contextoVisitaTexto =
+    numeroVisita && numeroVisita > 1
+      ? [`${numeroVisita}.ª visita`, visitaAnterior ? `última hace ${haceRelativo(visitaAnterior.fecha)}` : null]
+          .filter(Boolean)
+          .join(' · ')
+      : visitaAnterior
+        ? `última visita hace ${haceRelativo(visitaAnterior.fecha)}`
+        : null;
 
   // Zona 1 — interlocutores presentes, de un vistazo.
   const nInterlocutores = interlocutoresPresentes?.length ?? 0;
@@ -1232,6 +1238,34 @@ export function VisitaActiva() {
         subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
         ayuda="visita-activa"
         onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+        derecha={
+          <>
+            {/* Interlocutores y Equipo: acciones secundarias → botón-icono
+                en la cabecera (patrón iOS de toolbar + patrón de la casa),
+                con badge de recuento. No compiten con la captura. */}
+            <button
+              type="button"
+              className="boton-icono"
+              onClick={() => setInterlocutoresAbierto(true)}
+              disabled={!visitaLocal?.clienteId}
+              aria-label={`Interlocutores${nInterlocutores ? ` (${nInterlocutores})` : ''}`}
+              title={interlocutoresTexto}
+            >
+              <Icono nombre="interlocutor" size={18} />
+              {nInterlocutores > 0 && <span className="boton-icono__badge">{nInterlocutores}</span>}
+            </button>
+            <button
+              type="button"
+              className="boton-icono"
+              onClick={() => setParticipantesAbierto(true)}
+              aria-label={`Equipo (${nombresEquipo.length + 1})`}
+              title={equipoTexto}
+            >
+              <Icono nombre="equipo" size={18} />
+              <span className="boton-icono__badge">{nombresEquipo.length + 1}</span>
+            </button>
+          </>
+        }
       />
 
       <div className="screen__scroll">
@@ -1263,10 +1297,88 @@ export function VisitaActiva() {
           </Aviso>
         )}
 
-        {/* Zona 2 · Capturar: la acción, lo primero de la pantalla. El
-            contexto (nº de visita, objetivo, con quién) va DESPUÉS de la
-            rejilla — se consulta al llegar, no compite con la captura
-            (jerarquía: el foco es capturar). */}
+        {/* Objetivo — el encabezado de sentido de la visita: primero de
+            todo, una línea tenue. Tocar para matizarlo (ya lo escribiste al
+            arrancar). Delante, "N.ª visita / última hace…" si aporta.
+            Mientras la visita no ha sincronizado no es editable: se muestra
+            sin lápiz y sin ruido, se vuelve tocable al sincronizar. */}
+        {!objetivoAbierto ? (
+          <button
+            type="button"
+            onClick={() => objetivoEditable && setObjetivoAbierto(true)}
+            title={objetivoEditable ? 'Editar a qué vienes' : undefined}
+            style={{
+              display: 'flex', gap: 6, alignItems: 'baseline', width: '100%', textAlign: 'left',
+              background: 'none', border: 'none', padding: '0 2px 12px', font: 'inherit',
+              borderBottom: '1px solid var(--ink-100)', marginBottom: 14,
+              cursor: objetivoEditable ? 'pointer' : 'default',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+              {contextoVisitaTexto && (
+                <span style={{ color: 'var(--ink-400)' }}>{contextoVisitaTexto} · </span>
+              )}
+              {(objetivoActual ?? '').trim() || (objetivoEditable ? 'A qué vienes' : '…')}
+            </span>
+            {objetivoEditable && (
+              <span style={{ color: 'var(--ink-400)', flexShrink: 0 }}><Icono nombre="editar" size={13} /></span>
+            )}
+          </button>
+        ) : (
+          <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10, marginBottom: 8 }}>
+            <div
+              style={{
+                display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
+                color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
+              }}
+            >
+              <Icono nombre="editar" size={13} /> A qué vienes
+            </div>
+            <textarea
+              className="field"
+              style={{ height: 'auto', padding: 8 }}
+              rows={2}
+              autoFocus
+              value={objetivoBorrador ?? ''}
+              onChange={(e) => setObjetivoBorrador(e.target.value)}
+              placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: 'var(--text-sm)' }}
+                disabled={guardadoObjetivo.cargando}
+                onClick={() => {
+                  guardadoObjetivo.limpiarError();
+                  setObjetivoBorrador(objetivoActual ?? '');
+                  setObjetivoAbierto(false);
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 'var(--text-sm)' }}
+                disabled={
+                  guardadoObjetivo.cargando ||
+                  !(objetivoBorrador ?? '').trim() ||
+                  (objetivoBorrador ?? '') === (objetivoActual ?? '')
+                }
+                onClick={async () => {
+                  await guardarObjetivo();
+                  setObjetivoAbierto(false);
+                }}
+              >
+                {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+            {guardadoObjetivo.error && (
+              <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+            )}
+          </div>
+        )}
+
+        {/* Captura — es lo que se viene a hacer en esta pantalla. */}
         <input
           ref={inputFotoRef}
           type="file"
@@ -1282,88 +1394,35 @@ export function VisitaActiva() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
           <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
-          {/* Un solo chip refleja el estado de zona y abre/cierra el editor.
-              Con zona activa se ve el nombre; si no, "Zona"/"Marcar zonas". */}
-          <button
-            type="button"
-            className={`chip-accion${hayZonaActiva ? ' chip--on' : ''}`}
-            onClick={() => setZonaEditorAbierto((v) => !v)}
-            aria-expanded={zonaEditorAbierto}
-            title="Agrupar las capturas por la zona que estás recorriendo"
-          >
-            <Icono nombre="recorrido" size={16} />
-            {hayZonaActiva ? zonaActual.trim() : zonasUsadas.length > 0 ? 'Zona' : 'Marcar zonas'}
-          </button>
+          {/* Zona activa → pastilla sólida con el nombre (regla #11: se ve
+              que hay zona sin depender del color). Sin zona → enlace
+              discreto. Ambos abren la hoja de zona. */}
+          {hayZonaActiva ? (
+            <button
+              type="button"
+              className="zona-pill"
+              onClick={() => setZonaEditorAbierto(true)}
+              title={`Se guarda en ${zonaActual.trim()} · tocar para cambiar o quitar`}
+            >
+              <Icono nombre="ubicacion" size={14} weight="fill" />
+              <span>{zonaActual.trim()}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-enlace"
+              style={{ padding: 0, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
+              onClick={() => setZonaEditorAbierto(true)}
+            >
+              <Icono nombre="ubicacion" size={14} /> Marcar zonas
+            </button>
+          )}
         </div>
 
-        {/* Editor de zona: sólo cuando lo abres desde el chip. Etiqueta de
-            texto libre que se estampa en lo que captures; vacía → «General». */}
-        {zonaEditorAbierto && (
-          <div
-            style={{
-              border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)',
-              padding: 10, display: 'flex', flexDirection: 'column', gap: 6,
-            }}
-          >
-            {/* B1 · El concepto zona/recorrido no se explica solo. */}
-            <AyudaNota concepto="zona-captura" />
-            <input
-              className="field"
-              value={zonaActual}
-              onChange={(e) => setZonaActual(e.target.value)}
-              placeholder="Zona · p. ej. Puerta muelle de carga"
-              autoFocus
-            />
-            {zonasUsadas.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {zonasUsadas.map((z) => (
-                  <button
-                    key={z}
-                    type="button"
-                    className={`chip${zonaActual.trim() === z ? ' chip--on' : ''}`}
-                    onClick={() => setZonaActual(zonaActual.trim() === z ? '' : z)}
-                  >
-                    {z}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div
-              style={{
-                fontSize: 'var(--text-xs)', color: 'var(--ink-400)',
-                display: 'flex', justifyContent: 'space-between', gap: 8,
-              }}
-            >
-              <span>
-                {hayZonaActiva ? (
-                  <>
-                    Se guarda en{' '}
-                    <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
-                  </>
-                ) : (
-                  'Sin zona, las capturas van a «General».'
-                )}
-              </span>
-              <button
-                type="button"
-                className="btn-enlace"
-                style={{ padding: 0, flexShrink: 0 }}
-                onClick={() => {
-                  if (hayZonaActiva) setZonaActual('');
-                  setZonaEditorAbierto(false);
-                }}
-              >
-                {hayZonaActiva ? 'quitar' : 'cerrar'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Rejilla de 6, todas al mismo peso (B3). Un hueco mayor entre las
-            dos filas separa —sin jerarquizar— la captura en caliente
-            (foto/nota/audio) de la que abre un formulario
-            (hallazgo/oportunidad/próximo paso). */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: 'var(--space-3)', rowGap: 'var(--space-5)' }}>
+        {/* Rejilla de 6, todas al mismo peso (B3), 2 columnas. Hueco mayor
+            entre las dos filas: separa la captura en caliente
+            (foto/nota/audio) de la que abre un formulario, sin jerarquizar. */}
+        <div className="capture-grid" style={{ rowGap: 'var(--space-4)' }}>
           <button
             className="capture-btn"
             disabled={capturaFoto.cargando || espacioBloqueado}
@@ -1420,119 +1479,6 @@ export function VisitaActiva() {
             No bloquees la pantalla ni cambies de app o la grabación se cortará.
           </Aviso>
         )}
-
-        {/* Zona 1 · Contexto: quién y a qué. Debajo de la captura a
-            propósito — cliente y proyecto ya están en la cabecera; esto se
-            consulta al llegar, no manda en la pantalla. */}
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {contextoVisitaTexto && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 2px' }}>
-              {contextoVisitaTexto}
-            </div>
-          )}
-
-          {/* Objetivo plegado a una línea; se abre al tocarlo. Ya lo
-              escribiste al empezar la visita. */}
-          {!objetivoAbierto ? (
-            <button
-              type="button"
-              onClick={() => objetivoEditable && setObjetivoAbierto(true)}
-              title={objetivoEditable ? 'Editar a qué vienes' : undefined}
-              style={{
-                display: 'flex', gap: 6, alignItems: 'flex-start', width: '100%', textAlign: 'left',
-                background: 'none', border: 'none', padding: '4px 2px', font: 'inherit',
-                color: 'var(--ink-700)', fontSize: 'var(--text-sm)',
-                cursor: objetivoEditable ? 'pointer' : 'default',
-              }}
-            >
-              <Icono nombre="editar" size={13} />
-              <span style={{ flex: 1 }}>{(objetivoActual ?? '').trim() || 'A qué vienes'}</span>
-              {!objetivoEditable && (
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', flexShrink: 0 }}>Guardando…</span>
-              )}
-            </button>
-          ) : (
-            <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
-              <div
-                style={{
-                  display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
-                  color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
-                }}
-              >
-                <Icono nombre="editar" size={13} /> A qué vienes
-              </div>
-              <textarea
-                className="field"
-                style={{ height: 'auto', padding: 8 }}
-                rows={2}
-                autoFocus
-                value={objetivoBorrador ?? ''}
-                onChange={(e) => setObjetivoBorrador(e.target.value)}
-                placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
-              />
-              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                <button
-                  className="btn btn-secondary"
-                  style={{ fontSize: 'var(--text-sm)' }}
-                  disabled={guardadoObjetivo.cargando}
-                  onClick={() => {
-                    guardadoObjetivo.limpiarError();
-                    setObjetivoBorrador(objetivoActual ?? '');
-                    setObjetivoAbierto(false);
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ fontSize: 'var(--text-sm)' }}
-                  disabled={
-                    guardadoObjetivo.cargando ||
-                    !(objetivoBorrador ?? '').trim() ||
-                    (objetivoBorrador ?? '') === (objetivoActual ?? '')
-                  }
-                  onClick={async () => {
-                    await guardarObjetivo();
-                    setObjetivoAbierto(false);
-                  }}
-                >
-                  {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-              {guardadoObjetivo.error && (
-                <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
-              )}
-            </div>
-          )}
-
-          {/* Interlocutores y Equipo: controles de acción (abren una hoja),
-              no filtros — de ahí .chip-accion con toque de 44px. */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-            <button
-              type="button"
-              className="chip-accion"
-              onClick={() => setInterlocutoresAbierto(true)}
-              title={interlocutoresTexto}
-              // C5 · Mientras se resuelve la visita (cola local o, en su
-              // defecto, Supabase) la hoja de interlocutores no puede abrir
-              // por falta de clienteId — se deshabilita en vez de "no pasar
-              // nada" al tocar.
-              disabled={!visitaLocal?.clienteId}
-            >
-              <Icono nombre="interlocutor" size={16} />
-              {nInterlocutores > 0 ? `Interlocutores · ${nInterlocutores}` : '+ Interlocutores'}
-            </button>
-            <button
-              type="button"
-              className="chip-accion"
-              onClick={() => setParticipantesAbierto(true)}
-              title={equipoTexto}
-            >
-              <Icono nombre="equipo" size={16} />
-              {nombresEquipo.length > 0 ? `Equipo · ${nombresEquipo.length + 1}` : 'Equipo'}
-            </button>
-          </div>
-        </div>
 
         {/* Zona 3 · En esta visita: lo que hay. Una sola lista fundida (lo
             tuyo + oportunidades + próximos pasos + lo de compañeros, regla
@@ -1775,6 +1721,73 @@ export function VisitaActiva() {
       )}
       {participantesAbierto && visitaId && (
         <ParticipantesHoja visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
+      )}
+
+      {/* Zona — hoja inferior, como el resto de capturas (no una caja
+          inline). Escribes la zona que recorres y todo lo que captures a
+          partir de ahí queda atado a ella; vacía → «General». */}
+      {zonaEditorAbierto && (
+        <HojaInferior titulo="Zona de la captura" onCerrar={() => setZonaEditorAbierto(false)}>
+          <AyudaNota concepto="zona-captura" />
+
+          {/* Dónde se guarda AHORA — una sola cosa, y se ve (regla #11). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 4px' }}>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-500)' }}>Se guarda en:</span>
+            {hayZonaActiva ? (
+              <span className="zona-pill" style={{ cursor: 'default' }}>
+                <Icono nombre="ubicacion" size={14} weight="fill" />
+                <span>{zonaActual.trim()}</span>
+                <button
+                  type="button"
+                  aria-label="Quitar la zona"
+                  onClick={() => setZonaActual('')}
+                  style={{
+                    border: 'none', background: 'none', color: '#fff', cursor: 'pointer',
+                    padding: 0, marginLeft: 2, display: 'flex', fontSize: 14, lineHeight: 1,
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
+            ) : (
+              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>General</span>
+            )}
+          </div>
+
+          <input
+            className="field"
+            value={zonaActual}
+            onChange={(e) => setZonaActual(e.target.value)}
+            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
+            autoFocus
+          />
+
+          {zonasUsadas.length > 0 && (
+            <>
+              <div className="label" style={{ marginTop: 10 }}>Repetir una zona de esta visita</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {zonasUsadas.map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    className="chip"
+                    onClick={() => setZonaActual(z)}
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 14 }}
+            onClick={() => setZonaEditorAbierto(false)}
+          >
+            Hecho
+          </button>
+        </HojaInferior>
       )}
 
       {/* Nota — misma hoja inferior que el resto de capturas (foto, audio,

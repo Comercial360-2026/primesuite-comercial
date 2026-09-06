@@ -80,16 +80,27 @@ body {
   word-break: break-all;
 }
 
+/* Rejilla de captura — es LO que se viene a hacer en esta pantalla, así que
+   destaca: 2 columnas (botones anchos y táctiles), fondo con tinte de marca
+   e icono en color de marca (no cajas blancas planas), y reacción visible
+   al tocar. */
 .capture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .capture-btn {
   height: var(--h-capture-button);
   border-radius: var(--radius-control);
-  border: 1px solid var(--ink-200);
-  background: var(--surface-1);
+  border: 1px solid transparent;
+  background: var(--brand-050);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
-  font-size: var(--text-xs); font-weight: 500; color: var(--ink-900);
+  font-size: var(--text-sm); font-weight: 600; color: var(--ink-900);
+  cursor: pointer;
 }
-.capture-btn:disabled { color: var(--ink-400); }
+.capture-btn > svg { color: var(--brand-600); }
+.capture-btn:active:not(:disabled) { transform: scale(0.97); }
+.capture-btn:disabled {
+  background: var(--surface-1); border-color: var(--ink-100);
+  color: var(--ink-400); opacity: 0.7; cursor: default;
+}
+.capture-btn:disabled > svg { color: var(--ink-400); }
 
 /* Fila de baja intensidad para una opción de captura poco frecuente
    ("Recorrer las instalaciones") — no compite con Foto/Nota/Audio ni con
@@ -120,7 +131,15 @@ body {
   background: var(--surface-1); font-size: var(--text-xs); color: var(--ink-900);
   white-space: nowrap; flex-shrink: 0;
 }
-.chip--on { border-color: var(--brand-600); color: var(--brand-600); background: var(--brand-050); font-weight: 500; }
+/* Regla #11 (Cesar daltónico): el estado activo NO puede comunicarse solo
+   con color. Antes era tinte claro + texto de marca (todo color, y suave).
+   Ahora: relleno sólido (forma: bloque vs. contorno) + un ✓ (símbolo). Se
+   distingue sin depender de la percepción del color. */
+.chip--on {
+  border-color: var(--brand-600); background: var(--brand-600);
+  color: #fff; font-weight: 600;
+}
+.chip--on::before { content: "✓"; font-size: 0.95em; margin-right: 1px; }
 
 /* Chip de ACCIÓN: mismo lenguaje visual que .chip pero es un botón que
    abre una hoja o navega, no un filtro — por eso lleva área de toque de
@@ -137,6 +156,32 @@ body {
 }
 .chip-accion:active { background: var(--surface-0); }
 .chip-accion:disabled { opacity: 0.45; cursor: default; }
+
+/* Pastilla de "zona activa" (Visita activa): relleno sólido + pin relleno,
+   no un tinte suave — así se ve que hay zona puesta sin depender del color
+   (regla #11). Nombre largo → elipsis, no rompe la fila. */
+.zona-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 32px; padding: 0 var(--space-3);
+  border: none; border-radius: var(--radius-chip);
+  background: var(--brand-600); color: #fff;
+  font-family: var(--font-sans); font-size: var(--text-xs); font-weight: 600;
+  white-space: nowrap; flex-shrink: 1; min-width: 0; cursor: pointer;
+}
+.zona-pill > span { overflow: hidden; text-overflow: ellipsis; }
+.zona-pill > svg { flex-shrink: 0; }
+
+/* Badge de recuento sobre un boton-icono de la cabecera (Interlocutores /
+   Equipo en Visita activa) — patrón iOS de "toolbar button con contador". */
+.boton-icono { position: relative; }
+.boton-icono__badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 16px; height: 16px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 8px; background: var(--brand-600); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  border: 1.5px solid var(--surface-0);
+}
+.boton-icono:disabled { opacity: 0.4; }
 /* Los modificadores de color del chip (riesgo/oportunidad para Ecosistema,
    verde/amarillo/rojo para el semáforo) se retiraron: esas etiquetas pasaron
    a .eco-tag / .sem-tag (fondo suave, se leen como estado y no como filtro
@@ -155,7 +200,12 @@ body {
   font-family: var(--font-sans); font-size: var(--text-xs); font-weight: 500;
   color: var(--ink-700); cursor: pointer;
 }
-.segmentado__btn--on { background: var(--surface-1); color: var(--brand-600); font-weight: 600; }
+/* Regla #11: el activo se lee por la PASTILLA elevada + el peso, no por el
+   color. Antes el texto iba en color de marca (única señal fuerte). */
+.segmentado__btn--on {
+  background: var(--surface-1); color: var(--ink-900); font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
 
 /* Botón "+" — icono de marca, caja suave. Cualquier acción de "añadir uno
    más" que sea secundaria/frecuente frente a lo principal de la pantalla:

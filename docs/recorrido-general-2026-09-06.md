@@ -576,10 +576,49 @@ quitarla o cambiarla. → Solución:
   si cambia la jerarquía de encabezados de zona aquí, mirar que cierre
   siga coherente (cierre tiene su propio turno en el checklist).
 
-Estado: **`/visita/:id` sigue ABIERTA**. Pendiente: rehacer lo de arriba
-con criterio, verde, y presentar antes de tocar. Cesar dio OK al plan
-(2026-09-06) — falta cerrar 2 decisiones: `.chip--on` global ahora o
-pantalla a pantalla; rejilla 2 o 3 columnas.
+Cesar dio OK al plan (2026-09-06). Decisiones cerradas: `.chip--on` global
+AHORA; rejilla 2 columnas.
+
+**Hecho (2026-09-06):**
+- **Regla #11 global:** `.chip--on` → relleno sólido navy + ✓ (era tinte
+  claro + texto de marca). `.segmentado__btn--on` → pastilla elevada +
+  peso 700 + texto `--ink-900` (sin depender del azul). En
+  `components.css`; verificado en la hoja de Hallazgo (naturaleza) sin
+  romper nada.
+- **Objetivo primero de todo:** línea tenue bajo la cabecera, con
+  separador; "N.ª visita" solo si > 1; sin "Guardando…" pegado cuando aún
+  no es editable.
+- **Interlocutores y Equipo → `boton-icono` en la cabecera** (`derecha` de
+  `CabeceraDetalle`) con badge de recuento (patrón iOS toolbar). Fuera del
+  cuerpo. `.chip-accion` deja de usarse aquí.
+- **Zona:** `HojaInferior` "Zona de la captura" (coherente con el resto),
+  no una caja inline. Dentro: AyudaNota + **"Se guarda en: [ 📍 X ✕ ]"**
+  (pastilla sólida + pin relleno + ✕, regla #11) + campo + "Repetir una
+  zona de esta visita" (chips sin `--on`) + "Hecho". El disparador en el
+  encabezado de "Captura": pastilla sólida con el nombre si hay zona
+  activa, enlace "📍 Marcar zonas" si no. Icono `ubicacion` (MapPin), no
+  `recorrido` (Path).
+- **Rejilla 2×3 con presencia:** `.capture-grid` (2 col), fondo
+  `--brand-050`, icono en `--brand-600`, texto peso 600, `:active`
+  (scale .97), `:disabled` legible (fondo blanco + borde + opacidad).
+- Verde: typecheck + lint + build. Verificado en vivo (ARCELOR), consola
+  limpia.
+
+**Pendiente (no bloqueante, para pulir / decidir):**
+- **Posición física de la rejilla:** sigue arriba (tras el objetivo), no
+  en la zona del pulgar. Decidir con Cesar: dejarla ahí (con presencia ya
+  destaca) o bajarla / fijarla abajo.
+- **¿Más "pop" en la rejilla?** El tinte navy sobre navy es sobrio (la
+  paleta no tiene acento aparte del navy). Alternativas: fondo blanco +
+  borde+icono navy, o sombra sutil.
+- Indicador de grabación de audio (punto rojo pulsante en "Detener").
+- `← volver` durante una visita en curso: ¿siempre a "Hoy"?
+- Coherencia con `/visita/:id/cierre` (repaso "por zona").
+- `ayuda.ts` (`visita-activa`) — re-actualizar el texto al nuevo layout.
+- Icono de Interlocutores: `ChatCircleText` (bocadillo) vs. una persona.
+
+Estado: **`/visita/:id` — 2.º repaso casi cerrado**; queda pulir lo de
+arriba y la decisión de posición de la rejilla.
 
 ### `/` — Hoy
 
