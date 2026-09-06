@@ -6,6 +6,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Segmentado } from '@/components/ui/segmentado';
+import { desde } from '@/lib/volver-a';
 import { desdeDePeriodo, periodoDeParams, type PeriodoActividad } from './periodo-actividad';
 
 interface ActividadComercial {
@@ -91,6 +92,7 @@ export function ActividadComerciales() {
                 titulo={c.nombre}
                 subtitulo={resumen(c)}
                 to={`/actividad-comerciales/${c.comercial_id}${location.search}`}
+                state={desde(location)}
               />
             ))}
           </SeccionLista>

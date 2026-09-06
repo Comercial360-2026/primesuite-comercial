@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { crearComercial, traspasarCartera, type RolComercial } from '@/lib/gestionar-comercial';
 import { plural } from '@/lib/texto';
+import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { Aviso } from '@/components/ui/aviso';
@@ -17,6 +18,8 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 export function AltaComercial() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Único origen real: el listado de Equipo. El ← y "Hecho" van al mismo sitio.
+  const volver = useVolverA('/comerciales');
 
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -111,7 +114,8 @@ export function AltaComercial() {
     const puedeCompartir = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
     return (
       <div className="screen screen--split">
-        <CabeceraDetalle titulo="Comercial creado" />
+        {/* Ya creado: volver a la lista, no al formulario vacío. */}
+        <CabeceraDetalle titulo="Comercial creado" volverA="/comerciales" />
         <div className="screen__scroll">
          <div className="lista-agrupada">
           <Aviso tipo="exito" titulo={`${nombre.trim()} está dada de alta`}>
@@ -164,7 +168,7 @@ export function AltaComercial() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Nuevo comercial" ayuda="alta-comercial" onVolver={() => navigate(-1)} />
+      <CabeceraDetalle titulo="Nuevo comercial" ayuda="alta-comercial" volverA={volver} />
 
       <div className="screen__scroll">
        <div className="lista-agrupada">

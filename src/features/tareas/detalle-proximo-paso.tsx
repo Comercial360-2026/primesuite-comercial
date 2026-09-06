@@ -6,6 +6,7 @@ import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
@@ -24,6 +25,9 @@ export function DetalleProximoPaso() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
+  // Se llega desde Mis próximos pasos, desde una visita cerrada o desde la
+  // actividad del proyecto. El ← vuelve al origen; si no consta, a la lista.
+  const volver = useVolverA('/tareas');
 
   const [descripcion, setDescripcion] = useState('');
   const [fechaObjetivo, setFechaObjetivo] = useState('');
@@ -80,7 +84,7 @@ export function DetalleProximoPaso() {
     queryClient.invalidateQueries({ queryKey: ['proximo-paso', pasoId] });
     // Misma pausa de 700ms que el resto de pantallas de detalle, para que
     // "guardado ✓" sea visible antes de volver.
-    setTimeout(() => navigate(-1), 700);
+    setTimeout(() => navigate(volver), 700);
   }
 
   async function confirmarBorrado() {
@@ -103,7 +107,7 @@ export function DetalleProximoPaso() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
-    navigate(-1);
+    navigate(volver);
   }
 
   // Si el próximo paso es en realidad "volver a visitar", se planifica la
@@ -155,13 +159,13 @@ export function DetalleProximoPaso() {
     if (!pasoId) return;
     await supabase.from('proximo_paso').update({ estado: 'completado' }).eq('id', pasoId);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
-    navigate(-1);
+    navigate(volver);
   }
 
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" />
+        <CabeceraDetalle titulo="Próximo paso" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -170,7 +174,7 @@ export function DetalleProximoPaso() {
   if (isError || !paso) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" />
+        <CabeceraDetalle titulo="Próximo paso" volverA={volver} />
         <EstadoLista estado="error" mensaje="No se pudo cargar este próximo paso." onReintentar={() => refetch()} />
       </div>
     );
@@ -192,7 +196,7 @@ export function DetalleProximoPaso() {
           titulo="Próximo paso"
           ayuda="proximo-paso"
           subtitulo={contextoCliente || undefined}
-          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
         />
       </div>
 

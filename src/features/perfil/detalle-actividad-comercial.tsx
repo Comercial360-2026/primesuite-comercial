@@ -2,6 +2,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -28,6 +29,10 @@ export function DetalleActividadComercial() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const periodo = periodoDeParams(searchParams);
+  // Se llega desde la lista "Actividad por comercial" o desde la ficha del
+  // comercial. El ← vuelve al origen (conservando su `?dias=`); si no
+  // consta, a la lista.
+  const volver = useVolverA('/actividad-comerciales');
 
   function cambiarPeriodo(v: PeriodoActividad) {
     setSearchParams(v === 'todo' ? { dias: 'todo' } : {}, { replace: true });
@@ -65,11 +70,10 @@ export function DetalleActividadComercial() {
 
   return (
     <div className="screen">
-      {/* `navigate(-1)`: se llega aquí desde la lista de actividad Y desde la
-          ficha del comercial — la vuelta natural del historial acierta en
-          ambos casos (y conserva el `?dias=todo` de la lista, que ya viaja en
-          su propia entrada de historial). */}
-      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" />
+      {/* Regla #14: el origen real lo estampa quien navega aquí (la lista o
+          la ficha del comercial), conservando su `?dias=`; el fallback es la
+          lista. */}
+      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" volverA={volver} />
 
       <Segmentado
         opciones={[

@@ -83,6 +83,11 @@ export function DetalleCaptura() {
     .filter(Boolean)
     .join(' · ');
 
+  // Regla #14: el ← nunca es `navigate(-1)`. Una captura solo se abre desde
+  // su visita en curso, así que se vuelve a ella; si aún no se sabe cuál
+  // (carga o captura no encontrada), a Hoy.
+  const volver = visitaId ? `/visita/${visitaId}` : '/';
+
   async function guardarEdicion() {
     if (!operacion) return;
 
@@ -121,7 +126,7 @@ export function DetalleCaptura() {
           // Breve pausa para que el mensaje "guardado ✓" sea visible de
           // verdad antes de volver — un flash demasiado rápido no sirve
           // como confirmación, sobre todo sin poder fiarse del color.
-          setTimeout(() => navigate(-1), 700);
+          setTimeout(() => navigate(volver), 700);
         },
         mensajeError:
           'No se pudo actualizar. Si la nota ya estaba sincronizada, puede que falte permiso de edición en el servidor.',
@@ -179,7 +184,7 @@ export function DetalleCaptura() {
         await eliminarOperacion(operacion.id);
       },
       {
-        onExito: () => navigate(-1),
+        onExito: () => navigate(volver),
         mensajeError: 'No se pudo borrar la captura. Inténtalo de nuevo.',
       }
     );
@@ -190,7 +195,7 @@ export function DetalleCaptura() {
   if (!operacion) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Captura" onVolver={() => navigate(-1)} />
+        <CabeceraDetalle titulo="Captura" volverA={volver} />
         <p style={{ color: 'var(--ink-400)' }}>No se ha encontrado esta captura.</p>
       </div>
     );
@@ -204,7 +209,7 @@ export function DetalleCaptura() {
         titulo={payload.tipo === 'nota' ? 'Nota' : payload.tipo === 'foto' ? 'Foto' : 'Audio'}
         subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
-        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>

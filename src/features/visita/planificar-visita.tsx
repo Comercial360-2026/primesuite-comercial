@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
@@ -11,6 +11,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 
@@ -31,6 +32,7 @@ interface Proyecto {
 // ya puestos (se salta los dos primeros pasos).
 export function PlanificarVisita() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
@@ -245,7 +247,9 @@ export function PlanificarVisita() {
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`)}
+                      onClick={() =>
+                        navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`, { state: desde(location) })
+                      }
                     >
                       Crear «{termino}» y seguir
                     </button>

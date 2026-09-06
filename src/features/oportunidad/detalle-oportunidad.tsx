@@ -13,6 +13,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { fechaCorta } from '@/lib/fechas';
+import { useVolverA } from '@/lib/volver-a';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -39,6 +40,9 @@ export function DetalleOportunidad() {
   const { oportunidadId } = useParams<{ oportunidadId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Se llega desde Visita activa, desde una visita cerrada o desde la
+  // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
+  const volver = useVolverA('/');
 
   const [titulo, setTitulo] = useState('');
   const [etapa, setEtapa] = useState<string>('latente');
@@ -194,7 +198,7 @@ export function DetalleOportunidad() {
       setConfirmandoSalida(true);
       return;
     }
-    navigate(-1);
+    navigate(volver);
   }
 
   async function guardar() {
@@ -230,7 +234,7 @@ export function DetalleOportunidad() {
       }
       setGuardando(false);
       setGuardadoConExito(true);
-      setTimeout(() => navigate(-1), 700);
+      setTimeout(() => navigate(volver), 700);
       return;
     }
 
@@ -252,7 +256,7 @@ export function DetalleOportunidad() {
       return;
     }
     setGuardadoConExito(true);
-    setTimeout(() => navigate(-1), 700);
+    setTimeout(() => navigate(volver), 700);
   }
 
   // Borrado completo — usa la función RPC eliminar_oportunidad_completa
@@ -270,7 +274,7 @@ export function DetalleOportunidad() {
     if (enCola) {
       await eliminarOperacion(oportunidadId);
       setBorrando(false);
-      navigate(-1);
+      navigate(volver);
       return;
     }
     const { error: err } = await supabase.rpc('eliminar_oportunidad_completa', {
@@ -291,7 +295,7 @@ export function DetalleOportunidad() {
     // en el momento de la visita).
     await eliminarOperacion(oportunidadId);
     setBorrando(false);
-    navigate(-1);
+    navigate(volver);
   }
 
   // Asociar un término existente del catálogo con el papel elegido
@@ -548,7 +552,7 @@ export function DetalleOportunidad() {
             <button type="button" className="btn btn-primary" onClick={() => setConfirmandoSalida(false)}>
               Seguir editando
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate(volver)}>
               Salir sin guardar
             </button>
           </div>

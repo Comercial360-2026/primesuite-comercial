@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, hora } from '@/lib/fechas';
@@ -14,6 +14,7 @@ import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, ordenFranja } from '@/lib/franja-visita';
+import { desde } from '@/lib/volver-a';
 
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
@@ -88,6 +89,7 @@ export function Agenda() {
   // ahora"; el mes, para ver de un vistazo cómo viene la planificación.
   const [vista, setVista] = useState<'lista' | 'mes'>('lista');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data: visitas, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['agenda-planificadas', comercial?.id],
@@ -279,6 +281,7 @@ export function Agenda() {
         }
         valor={atrasada ? undefined : horaTexto}
         to={`/visita/${v.id}/planificada`}
+        state={desde(location)}
         seleccion={
           seleccionando
             ? { activa: true, marcada: marcadas.has(v.id), onToggle: () => alternarMarca(v.id) }

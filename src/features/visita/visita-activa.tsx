@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { desde } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
@@ -259,6 +260,10 @@ function CapturasPorUbicacion({
 export function VisitaActiva() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Origen a estampar al abrir una captura/hallazgo/oportunidad o el
+  // detalle de la visita: su ← vuelve a esta visita en curso (regla #14).
+  const origen = desde(location);
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
@@ -899,7 +904,7 @@ export function VisitaActiva() {
 
   function completarOportunidad(oportunidadId: string) {
     setOportunidadAbierta(false);
-    navigate(`/oportunidades/${oportunidadId}`);
+    navigate(`/oportunidades/${oportunidadId}`, { state: origen });
   }
 
   async function guardarPaso(payload: ProximoPasoPayload) {
@@ -1831,7 +1836,7 @@ export function VisitaActiva() {
                     'hallazgo',
                     (h.termino as unknown as { nombre: string } | null)?.nombre ?? '…',
                     `${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/hallazgos/${h.id}`)
+                    () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )
                 )}
                 {oportunidades.map((o) => {
@@ -1841,7 +1846,7 @@ export function VisitaActiva() {
                     'oportunidad',
                     capitalizarFrase(p.titulo),
                     p.prioridad,
-                    () => navigate(`/oportunidades/${o.id}`)
+                    () => navigate(`/oportunidades/${o.id}`, { state: origen })
                   );
                 })}
                 {oportunidadesCompaneros.map((o) =>
@@ -1850,7 +1855,7 @@ export function VisitaActiva() {
                     'oportunidad',
                     capitalizarFrase(o.titulo),
                     `de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/oportunidades/${o.id}`)
+                    () => navigate(`/oportunidades/${o.id}`, { state: origen })
                   )
                 )}
                 {pasos.map((p) => {

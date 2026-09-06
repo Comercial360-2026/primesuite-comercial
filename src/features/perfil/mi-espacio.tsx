@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { desde } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -151,6 +152,7 @@ export function MiEspacio() {
 // ─────────────────────────────────────────────────────────────────────────
 function MisVisitas() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   // Modo seleccionar → borrar varias visitas de una pasada. El borrado en
@@ -390,7 +392,7 @@ function MisVisitas() {
                 titulo={v.cliente_nombre}
                 subtitulo={fechaCorta(v.creado_en)}
                 valor={<span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>{formatearMB(v.bytes)} MB</span>}
-                onClick={() => navigate(`/visita/${v.visita_id}/detalle`)}
+                onClick={() => navigate(`/visita/${v.visita_id}/detalle`, { state: desde(location) })}
                 chevron
               />
             )

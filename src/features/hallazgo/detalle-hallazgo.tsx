@@ -9,6 +9,7 @@ import {
   TIPO_FECHA_RELEVANTE_LABEL,
   etiqueta,
 } from '@/lib/etiquetas-visita';
+import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -27,6 +28,9 @@ export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Se llega desde Visita activa, desde una visita cerrada o desde la
+  // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
+  const volver = useVolverA('/');
 
   const [naturaleza, setNaturaleza] = useState<string>('contexto');
   const [nota, setNota] = useState('');
@@ -119,7 +123,7 @@ export function DetalleHallazgo() {
     // Breve pausa para que "guardado ✓" sea visible de verdad antes de
     // volver — antes saltaba a la pantalla anterior sin ninguna
     // confirmación, ni siquiera un flash.
-    setTimeout(() => navigate(-1), 700);
+    setTimeout(() => navigate(volver), 700);
   }
 
   // Borrado individual — encargo técnico punto 2/3: comprobación explícita
@@ -145,7 +149,7 @@ export function DetalleHallazgo() {
       setErrorBorrado('No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.');
       return;
     }
-    navigate(-1);
+    navigate(volver);
   }
 
   // Archivar = sacar el hallazgo de la lista "Hallazgos" del proyecto sin
@@ -174,13 +178,13 @@ export function DetalleHallazgo() {
     queryClient.invalidateQueries({ queryKey: ['hallazgo', hallazgoId] });
     queryClient.invalidateQueries({ queryKey: ['hallazgos-proyecto'] });
     queryClient.invalidateQueries({ queryKey: ['hallazgos-archivados-proyecto'] });
-    navigate(-1);
+    navigate(volver);
   }
 
   if (isLoading || !hallazgo) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Hallazgo" />
+        <CabeceraDetalle titulo="Hallazgo" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -192,7 +196,7 @@ export function DetalleHallazgo() {
         titulo="Hallazgo"
         ayuda="detalle-hallazgo"
         subtitulo={contextoCliente || undefined}
-        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
       {(hallazgo.termino as unknown as { nombre: string } | null)?.nombre && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '-6px 2px 0' }}>

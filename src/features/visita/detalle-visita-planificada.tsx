@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, hora } from '@/lib/fechas';
@@ -12,6 +12,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
+import { useVolverA, desde } from '@/lib/volver-a';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
 // verla, reprogramarla, cancelarla o empezarla. Es a donde llevan las
@@ -54,7 +55,11 @@ const CLAVES_LISTAS = [
 export function DetalleVisitaPlanificada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  // Se llega desde Hoy o desde la Agenda. El ← vuelve al origen; si no
+  // consta, a Hoy.
+  const volver = useVolverA('/');
 
   const [reprogramando, setReprogramando] = useState(false);
   const [fechaNueva, setFechaNueva] = useState('');
@@ -134,7 +139,7 @@ export function DetalleVisitaPlanificada() {
       {
         onExito: () => {
           invalidarListas();
-          navigate(-1);
+          navigate(volver);
         },
       }
     );
@@ -142,7 +147,7 @@ export function DetalleVisitaPlanificada() {
 
   function empezar() {
     if (!data) return;
-    navigate(`/clientes/${data.cliente_id}/repaso?visitaId=${data.id}`);
+    navigate(`/clientes/${data.cliente_id}/repaso?visitaId=${data.id}`, { state: desde(location) });
   }
 
   // Si ya no está planificada (alguien la empezó o cerró desde otro sitio),
@@ -161,7 +166,7 @@ export function DetalleVisitaPlanificada() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" />
+      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" volverA={volver} />
 
       {isLoading && <EstadoLista estado="cargando" />}
       {(isError || isPaused) && (

@@ -59,6 +59,10 @@ interface PropsBase {
   /** Deslizar la fila a la izquierda revela esta acción (gesto táctil; se
    *  ignora con ratón y en modo seleccionar). */
   swipe?: AccionSwipe;
+  /** `state` para el `<Link>` cuando se navega con `to` — se usa para
+   *  estampar el origen (`desde(location)`) y que el ← de la pantalla de
+   *  destino vuelva aquí (regla #14). Sin efecto con `onClick`. */
+  state?: object;
 }
 
 type Props = PropsBase &
@@ -77,6 +81,7 @@ export function FilaNavegable({
   disabled,
   seleccion,
   swipe,
+  state,
   to,
   onClick,
 }: Props) {
@@ -153,6 +158,7 @@ export function FilaNavegable({
     to != null ? (
       <Link
         to={to}
+        state={state}
         className={clases}
         style={estiloSwipe}
         onClick={clicSwipe}

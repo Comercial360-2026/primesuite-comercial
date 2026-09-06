@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
+import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import {
   editarComercial,
@@ -28,6 +29,7 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 export function DetalleComercial() {
   const { comercialId } = useParams<{ comercialId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { comercial: yo } = useSesionActual();
 
@@ -375,6 +377,7 @@ export function DetalleComercial() {
             titulo="Ver actividad"
             subtitulo="Visitas, hallazgos y oportunidades, por proyecto"
             to={`/actividad-comerciales/${c.id}`}
+            state={desde(location)}
           />
         </SeccionLista>
 

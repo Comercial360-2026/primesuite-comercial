@@ -13,6 +13,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
+import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
@@ -35,6 +36,9 @@ export function AltaRapidaCliente() {
   const [params] = useSearchParams();
   const [nombre, setNombre] = useState(params.get('nombre') ?? '');
   const creacionCliente = useAccionAsync();
+  // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
+  // vuelve a donde se venía; si no consta, al listado de Clientes.
+  const volver = useVolverA('/clientes');
 
   // Ventana "¿A qué vas?" antes de arrancar la visita — obligatoria. Guarda
   // qué visita se va a arrancar: sobre el cliente nuevo que se está creando,
@@ -249,7 +253,7 @@ export function AltaRapidaCliente() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Nuevo cliente" ayuda="alta-rapida-cliente" onVolver={() => navigate(-1)} />
+      <CabeceraDetalle titulo="Nuevo cliente" ayuda="alta-rapida-cliente" volverA={volver} />
 
       <div className="screen__scroll">
        <div className="lista-agrupada">

@@ -14,6 +14,7 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+import { useVolverA } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -43,6 +44,10 @@ export function RepasoCliente() {
   const [searchParams] = useSearchParams();
   const visitaIdAgendada = searchParams.get('visitaId');
   const navigate = useNavigate();
+  // Se llega desde Hoy, desde la visita planificada o desde el aviso global
+  // de visita próxima (puede saltar desde cualquier pantalla). El ← vuelve
+  // al origen real; si no consta, a Hoy.
+  const volver = useVolverA('/');
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const iniciandoVisita = useAccionAsync();
@@ -307,7 +312,7 @@ export function RepasoCliente() {
         titulo={cliente?.nombre ?? '…'}
         subtitulo="Preparar la visita"
         ayuda="repaso-cliente"
-        onVolver={() => navigate(-1)}
+        volverA={volver}
       />
       <div className="screen__scroll">
       <div className="lista-agrupada">

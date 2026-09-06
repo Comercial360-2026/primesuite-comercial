@@ -13,7 +13,11 @@ import type { PantallaAyudaId } from '@/lib/ayuda';
 //   1. `onVolver`  — la pantalla decide (p. ej. si hay un panel de
 //      confirmación abierto, cerrarlo en vez de salir).
 //   2. `volverA`   — navegar a una ruta fija (ficha de cliente → /clientes).
-//   3. por defecto — `navigate(-1)`, la vuelta natural del historial.
+//                    Regla #14: SIEMPRE una de las dos. Para "volver al
+//                    origen real" se usa `useVolverA(fallback)` (lib/volver-a).
+//   3. por defecto — `/` (Hoy). Nunca `navigate(-1)` (regla #14): la vuelta
+//      del historial es poco fiable aquí. Si se llega a este caso es que la
+//      pantalla no pasó `onVolver` ni `volverA` — se avisa en desarrollo.
 //
 // Aspecto en components.css (.cabecera-detalle*). Ver 08_sistema_diseno.md
 // §"Sistema de filas".
@@ -34,7 +38,20 @@ interface Props {
 
 export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, derecha }: Props) {
   const navigate = useNavigate();
-  const volver = onVolver ?? (() => (volverA ? navigate(volverA) : navigate(-1)));
+  const volver =
+    onVolver ??
+    (() => {
+      if (volverA) {
+        navigate(volverA);
+        return;
+      }
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[CabeceraDetalle] "${titulo}" sin onVolver ni volverA — el ← cae a "/" (regla #14). Pásale un destino.`
+        );
+      }
+      navigate('/');
+    });
 
   return (
     <header className="cabecera-detalle">

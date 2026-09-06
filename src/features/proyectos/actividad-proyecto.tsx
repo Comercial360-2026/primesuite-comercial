@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
@@ -6,6 +7,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
+import { desde } from '@/lib/volver-a';
 
 // Las secciones "vivas" de un proyecto: oportunidades activas, próximos
 // pasos, hallazgos e historial de visitas de ESE proyecto. Se comparte entre
@@ -58,6 +60,10 @@ export function ActividadProyecto({
   proyectoId,
   mensajeVacio = 'Todavía no hay nada registrado en este proyecto. Empieza una visita para llenarlo.',
 }: Props) {
+  // Origen a estampar en cada fila que navega a una pantalla de detalle,
+  // para que su ← vuelva aquí (a la ficha que monta este componente).
+  const origen = desde(useLocation());
+
   const { data: oportunidades } = useQuery({
     queryKey: ['oportunidades-activas-proyecto', proyectoId],
     queryFn: async (): Promise<OportunidadActiva[]> => {
@@ -191,6 +197,7 @@ export function ActividadProyecto({
               }
               valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
               to={`/oportunidades/${o.id}`}
+              state={origen}
             />
           ))}
         </SeccionLista>
@@ -214,6 +221,7 @@ export function ActividadProyecto({
                 }
                 valorTenue={!vencido}
                 to={`/proximos-pasos/${p.id}`}
+                state={origen}
               />
             );
           })}
@@ -230,6 +238,7 @@ export function ActividadProyecto({
               valor={etiqueta(NATURALEZA_LABEL, h.naturaleza)}
               valorTenue
               to={`/hallazgos/${h.id}`}
+              state={origen}
             />
           ))}
           {!!numArchivados && (
@@ -248,6 +257,7 @@ export function ActividadProyecto({
                 valor="archivado"
                 valorTenue
                 to={`/hallazgos/${h.id}`}
+                state={origen}
               />
             ))}
         </SeccionLista>
@@ -282,6 +292,7 @@ export function ActividadProyecto({
                 valor={estadoLegible}
                 valorTenue
                 to={to}
+                state={origen}
               />
             );
           })}

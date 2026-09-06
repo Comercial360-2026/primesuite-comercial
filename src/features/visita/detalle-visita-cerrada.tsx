@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
@@ -18,6 +18,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -68,7 +69,14 @@ function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolea
 export function DetalleVisitaCerrada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  // Se llega desde Hoy, la Agenda, Mi espacio, el historial del proyecto o
+  // el cierre de la propia visita. El ← vuelve al origen; si no consta, a Hoy.
+  const volver = useVolverA('/');
+  // Esta pantalla es a su vez origen de hallazgo/oportunidad/próximo paso:
+  // estampa su URL para que el ← de esas vuelva aquí, no a Hoy.
+  const origen = desde(location);
 
   const { estadoDe, descargar } = useDescargarInforme();
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
@@ -306,6 +314,7 @@ export function DetalleVisitaCerrada() {
       <CabeceraDetalle
         titulo={data?.cliente_nombre ?? 'visita'}
         ayuda="visita-cerrada"
+        volverA={volver}
         subtitulo={
           data
             ? `${fechaCorta(data.fecha)}${
@@ -424,6 +433,7 @@ export function DetalleVisitaCerrada() {
                   subtitulo={`${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`}
                   valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
                   to={`/oportunidades/${o.id}`}
+                  state={origen}
                 />
               ))}
               {totalEuros > 0 && <FilaDato etiqueta="Total estimado" valor={`${totalEuros.toLocaleString('es-ES')} €`} />}
@@ -447,6 +457,7 @@ export function DetalleVisitaCerrada() {
                     subtitulo={h.nota ?? undefined}
                     tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
                     to={`/hallazgos/${h.id}`}
+                    state={origen}
                   />
                 )),
               ])}
@@ -472,6 +483,7 @@ export function DetalleVisitaCerrada() {
                       ) : undefined
                     }
                     to={`/proximos-pasos/${p.id}`}
+                    state={origen}
                   />
                 );
               })}
