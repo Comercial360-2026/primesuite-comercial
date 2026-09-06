@@ -309,6 +309,15 @@ Clientes, sin banner en el resumen tras consolidar.
 - [B] Muy escueto: 3 filas (Mi espacio / Manual / Cerrar sesión). No hay
   "mis datos" (nombre, zona de cartera), ni preferencias, ni versión de
   app, ni "reportar un problema".
+  — ✅ **versión + reportar problema** (`dbde413`). Pie
+  `PrimeNotes · vX.Y.Z · fecha` (de package.json + build, vía Vite
+  `define`). Fila "Reportar un problema" (todos los roles) → hoja con
+  textarea → INSERT en `reporte_problema` (migración **101**) con contexto
+  {version, build, rol, plataforma, url}. Dirección ve los partes sin
+  resolver en la propia pantalla "Yo" (tarjeta "Problemas reportados" +
+  "Entendido"), sin pantalla nueva. Verificado en vivo como Dirección.
+  «mis datos / preferencias» se dejan fuera: el nombre y la zona los
+  gestiona Dirección en "Equipo", y no hay preferencias reales que ofrecer.
 - [C] "Mi espacio" (gestión de disco) es la fila principal — para un
   comercial es una preocupación de borde, no la portada de "Yo".
 
