@@ -15,9 +15,12 @@ corrige antes de avanzar. Prioridad **A** (fricción real) / **B**
 
 **Directriz global — iconos:** todos los iconos que se cambien pasan a ser
 **modernos e intuitivos, estilo Apple / SF Symbols** (formas simples,
-reconocibles al instante, peso óptico consistente). El set actual
-(`src/components/ui/iconos.tsx`, trazo hecho a mano) se revisa entero, no
-icono a icono.
+reconocibles al instante, peso óptico consistente).
+→ **HECHO (`8e80f41`)**: el set pasa a `lucide-react`. `iconos.tsx` mapea
+cada nombre en español a un componente de lucide; la API no cambia, ninguna
+pantalla se toca. Pendiente: repasar sobre la marcha si algún nombre reusa
+icono (p. ej. "Almacenamiento" y "Copia de seguridad" comparten `Database`;
+"Actividad por comercial" y "Equipo" comparten `UsersRound`).
 
 Estado del código al empezar: `feature/proyectos`, local, sin push, 130
 commits sobre `main`, verde y limpio. Migraciones 99–101 en dev.
