@@ -328,7 +328,14 @@ Clientes, sin banner en el resumen tras consolidar.
 
 ### Ficha de proyecto
 - [C] "Hallazgos" solo crece (no hay estado de "resuelto"); en un cliente
-  de años será un muro. Valorar archivar/ocultar hallazgos viejos.
+  de años será un muro. Valorar archivar/ocultar hallazgos viejos. — ✅
+  RESUELTO. Migración 99 (`hallazgo.archivado_en`). En el detalle del
+  hallazgo, "Archivar" / "Desarchivar" (solo autor o Dirección, misma RLS
+  que "Guardar"/"Borrar"). La sección "Hallazgos" de la ficha lista solo los
+  activos; "Ver archivados (N)" los despliega. Archivar NO borra: el
+  hallazgo sigue en su visita y en el informe PDF de esa visita. El borrado
+  en cascada (visita/cliente) ya se llevaba los hallazgos — no hacía falta
+  tocarlo.
 
 ---
 
