@@ -655,11 +655,17 @@ AHORA; rejilla 2 columnas.
   (las casillas por tipo de arriba sí abren detalle) — hacerlas abrir el
   detalle de esa zona.
 
+- **Indicador de grabación de audio:** el botón solo cambiaba "Audio" →
+  "Detener". Ahora, grabando: botón **rojo** (fondo/borde/texto) + **punto
+  que late** + **cronómetro mm:ss**. Señales no-color (regla #11); respeta
+  `prefers-reduced-motion`. Verificado en vivo (el mic falso de Chrome
+  headless dejó probarlo).
+
 Estado: **`/visita/:id` — 4.º repaso hecho y verde**, verificado en vivo.
-Dictado interino sin probar en vivo (hace falta micro). Pendiente de
-pulir/decidir: posición física de la rejilla, "pop" de la rejilla,
-indicador de grabación, `←` a Hoy, `ayuda.ts` al nuevo layout, icono de
-interlocutor, filas de zona tocables en `/cierre`.
+Dictado interino: el hook y el textarea están; probado indirectamente.
+Pendiente de pulir/decidir: posición física de la rejilla, "pop" de la
+rejilla, `←` a Hoy, `ayuda.ts` al nuevo layout, icono de interlocutor,
+filas de zona tocables en `/cierre`.
 
 ### `/` — Hoy
 
