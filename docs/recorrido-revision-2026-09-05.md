@@ -488,10 +488,16 @@ colores Grupo 7 y resumen "Se registró 1 nota" → OK.
    registró 1 nota" / "Se registraron 2 notas". Verificado en vivo con
    Borja.
 
-Queda anotado, prioridad baja: el estilo "(s)" de los paneles de
-confirmación de borrado ("1 nota(s)", "0 oportunidad(es)") — formato
-compacto a propósito. Y al borrar una visita, `navigate(-1)` deja en una
-ruta muerta `/cierre` con datos de caché (cosmético).
+7. **[C] "(s)" en el panel de borrado de visita** ("1 nota(s)", "0
+   oportunidad(es)") — ✅ RESUELTO (`ce554e2`). `plural()` de `lib/texto`
+   en `confirmar-borrado-visita.tsx`: "1 nota", "0 oportunidades", "1
+   próximo paso". Concuerda como el resto de la app.
+8. **[C] Ruta muerta `/cierre` al borrar una visita** — ✅ RESUELTO
+   (`ce554e2`). Desde el detalle de una visita cerrada, `navigate(-1)`
+   podía volver a `/visita/:id/cierre` (pintada con caché de una visita
+   que ya no existe). Ahora va a la ficha del cliente con `{ replace:
+   true }` — destino vivo y el ← del navegador no vuelve a la visita
+   borrada. (Se añadió `cliente_id` al `select` del detalle.)
 
 ---
 
