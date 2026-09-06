@@ -141,6 +141,40 @@ body {
 .va-item__texto { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .va-item__sub { color: var(--ink-400); font-size: var(--text-xs); flex-shrink: 0; }
 
+/* Fila de interlocutor — directorio del cliente (ficha) y hoja de "quién
+   estuvo presente" de una visita. En la visita, TODA la fila es el toggle
+   de presencia: casilla que se rellena (símbolo) + tinte de fila (forma),
+   nunca solo color (regla #11, daltónico). El lápiz de editar va aparte y
+   SIEMPRE visible. El bloque de datos trunca con elipsis: con nombre +
+   cargo + teléfono + email largos, la fila no se desborda ni empuja el
+   lápiz fuera de la hoja. */
+.interlocutor-fila {
+  display: flex; align-items: center; gap: 6px;
+  border-top: 1px solid var(--ink-100);
+}
+.interlocutor-fila:first-child { border-top: 0; }
+.interlocutor-fila__cuerpo {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  padding: 8px 4px; border: 0; background: none; text-align: left;
+  font-family: var(--font-sans); color: var(--ink-900);
+}
+button.interlocutor-fila__cuerpo { cursor: pointer; }
+.interlocutor-fila__cuerpo--presente {
+  background: var(--fila-marcada-bg); border-radius: var(--radius-field);
+}
+.interlocutor-fila__datos {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+}
+.interlocutor-fila__nombre {
+  font-size: var(--text-sm);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.interlocutor-fila__nombre b { font-weight: 600; }
+.interlocutor-fila__sub {
+  font-size: var(--text-xs); color: var(--ink-400);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
   height: 32px; padding: 0 var(--space-3);

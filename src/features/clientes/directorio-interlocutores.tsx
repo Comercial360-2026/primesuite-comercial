@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { Icono } from '@/components/ui/iconos';
+import { FilaToggle } from '@/components/ui/fila-toggle';
 
 interface Interlocutor {
   id: string;
@@ -256,13 +258,13 @@ export function DirectorioInterlocutores({ clienteId, presencia }: Props) {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {directorio?.map((i) => {
           const presente = presencia?.presentesIds.includes(i.id) ?? false;
 
           if (editandoId === i.id) {
             return (
-              <div key={i.id} className="card">
+              <div key={i.id} className="card" style={{ margin: '6px 0' }}>
                 {camposComunes(formEdicion, setFormEdicion)}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                   <button
@@ -295,51 +297,42 @@ export function DirectorioInterlocutores({ clienteId, presencia }: Props) {
           }
 
           const datos = (
-            <>
-              <div>
-                {i.nombre}
+            <span className="interlocutor-fila__datos">
+              <span className="interlocutor-fila__nombre">
+                <b>{i.nombre}</b>
                 {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
-              </div>
+              </span>
               {(i.telefono || i.email) && (
-                <div style={{ fontSize: 11, color: 'var(--ink-400)' }}>
-                  {i.telefono}
-                  {i.telefono && i.email && ' · '}
-                  {i.email}
-                </div>
+                <span className="interlocutor-fila__sub">
+                  {[i.telefono, i.email].filter(Boolean).join(' · ')}
+                </span>
               )}
-            </>
+            </span>
           );
 
           return (
-            <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div key={i.id} className="interlocutor-fila">
               {presencia ? (
                 <button
                   type="button"
-                  className={`chip${presente ? ' chip--on' : ''}`}
-                  style={{ textAlign: 'left', justifyContent: 'flex-start', flex: 1 }}
+                  className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
                   onClick={() => presencia.onTogglePresencia(i.id, presente)}
+                  aria-pressed={presente}
                 >
+                  <FilaToggle marcada={presente} />
                   {datos}
                 </button>
               ) : (
-                <div
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 'var(--text-sm)',
-                    padding: '6px 0',
-                  }}
-                >
-                  {datos}
-                </div>
+                <div className="interlocutor-fila__cuerpo">{datos}</div>
               )}
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
+                className="boton-icono"
                 onClick={() => abrirEdicion(i)}
+                aria-label={`Editar ${i.nombre}`}
+                title="Editar"
               >
-                Editar
+                <Icono nombre="editar" size={18} />
               </button>
             </div>
           );
