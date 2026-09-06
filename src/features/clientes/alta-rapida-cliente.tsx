@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
@@ -29,7 +29,11 @@ export function AltaRapidaCliente() {
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
 
-  const [nombre, setNombre] = useState('');
+  // `?nombre=` lo pasa "Nueva visita" cuando el buscador no encuentra al
+  // cliente: se llega aquí con el nombre ya escrito, se crea y se sigue con
+  // "iniciar / planificar visita" sin volver a teclearlo.
+  const [params] = useSearchParams();
+  const [nombre, setNombre] = useState(params.get('nombre') ?? '');
   const creacionCliente = useAccionAsync();
 
   // Ventana "¿A qué vas?" antes de arrancar la visita — obligatoria. Guarda

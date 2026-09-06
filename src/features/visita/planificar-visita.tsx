@@ -230,8 +230,17 @@ export function PlanificarVisita() {
               <div style={{ marginTop: 8 }}>
                 {buscando && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>}
                 {!buscando && encontrados?.length === 0 && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-                    Sin resultados. Si es un cliente nuevo, créalo primero en Clientes.
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
+                      No hay ningún cliente que se llame así.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`)}
+                    >
+                      Crear «{termino}» y seguir
+                    </button>
                   </div>
                 )}
                 {!!encontrados?.length && (
