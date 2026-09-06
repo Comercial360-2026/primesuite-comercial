@@ -2197,7 +2197,7 @@ export type Database = {
         Returns: undefined
       }
       fn_actividad_comercial_por_proyecto: {
-        Args: { p_comercial_id: string }
+        Args: { p_comercial_id: string; p_desde?: string | null }
         Returns: {
           cliente_id: string
           cliente_nombre: string
@@ -2214,7 +2214,7 @@ export type Database = {
         }[]
       }
       fn_actividad_por_comercial: {
-        Args: never
+        Args: { p_desde?: string | null }
         Returns: {
           comercial_id: string
           nombre: string

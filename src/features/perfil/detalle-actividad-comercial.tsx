@@ -1,10 +1,12 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Segmentado } from '@/components/ui/segmentado';
+import { desdeDePeriodo, periodoDeParams, type PeriodoActividad } from './periodo-actividad';
 
 interface ActividadProyecto {
   proyecto_id: string;
@@ -24,6 +26,12 @@ interface ActividadProyecto {
 export function DetalleActividadComercial() {
   const { comercialId } = useParams<{ comercialId: string }>();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const periodo = periodoDeParams(searchParams);
+
+  function cambiarPeriodo(v: PeriodoActividad) {
+    setSearchParams(v === 'todo' ? { dias: 'todo' } : {}, { replace: true });
+  }
 
   const { data: comercial } = useQuery({
     queryKey: ['comercial-nombre', comercialId],
@@ -35,12 +43,13 @@ export function DetalleActividadComercial() {
     enabled: !!comercialId,
   });
 
-  const queryKey = ['actividad-comercial-proyecto', comercialId];
+  const queryKey = ['actividad-comercial-proyecto', comercialId, periodo];
   const { data: porProyecto, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey,
     queryFn: async (): Promise<ActividadProyecto[]> => {
       const { data, error } = await supabase.rpc('fn_actividad_comercial_por_proyecto', {
         p_comercial_id: comercialId!,
+        p_desde: desdeDePeriodo(periodo),
       });
       if (error) throw error;
       return (data ?? []) as ActividadProyecto[];
@@ -56,7 +65,20 @@ export function DetalleActividadComercial() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" volverA="/actividad-comerciales" />
+      <CabeceraDetalle
+        titulo={comercial?.nombre ?? 'Comercial'}
+        subtitulo="Actividad por proyecto"
+        volverA={`/actividad-comerciales${periodo === 'todo' ? '?dias=todo' : ''}`}
+      />
+
+      <Segmentado
+        opciones={[
+          { valor: '30d', etiqueta: 'Últimos 30 días' },
+          { valor: 'todo', etiqueta: 'Todo' },
+        ]}
+        valor={periodo}
+        onCambio={cambiarPeriodo}
+      />
 
       <div className="lista-agrupada">
         {isLoading ? (
@@ -66,7 +88,10 @@ export function DetalleActividadComercial() {
         ) : isError ? (
           <EstadoLista estado="error" mensaje="No se pudo cargar la actividad de este comercial." onReintentar={reintentar} />
         ) : porProyecto?.length === 0 ? (
-          <EstadoLista estado="vacio" mensaje="Sin actividad registrada todavía." />
+          <EstadoLista
+            estado="vacio"
+            mensaje={periodo === 'todo' ? 'Sin actividad registrada todavía.' : 'Sin actividad en los últimos 30 días.'}
+          />
         ) : (
           <SeccionLista titulo="Por proyecto">
             {porProyecto?.map((p) => {

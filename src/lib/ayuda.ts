@@ -325,8 +325,8 @@ const _PANTALLAS = {
     grupo: 'direccion',
     titulo: 'Actividad por comercial',
     queEs:
-      'Cuántas visitas, hallazgos, capturas y oportunidades lleva cada comercial. Al entrar en uno, ese mismo resumen pero desglosado por proyecto.',
-    cuando: 'Para hacerte una idea rápida de cómo se reparte el trabajo del equipo, o de en qué está centrado alguien en concreto.',
+      'Cuántas visitas, hallazgos, capturas y oportunidades lleva cada comercial. Por defecto, de los últimos 30 días; con «Todo» ves el histórico completo. Al entrar en uno, ese mismo resumen pero desglosado por proyecto.',
+    cuando: 'Para ver quién se está moviendo (la lista se ordena por actividad), cómo se reparte el trabajo del equipo, o en qué está centrado alguien en concreto.',
     soloDireccion: true,
   },
 } satisfies Record<string, EntradaPantalla>;

@@ -1,9 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Segmentado } from '@/components/ui/segmentado';
+import { desdeDePeriodo, periodoDeParams, type PeriodoActividad } from './periodo-actividad';
 
 interface ActividadComercial {
   comercial_id: string;
@@ -30,12 +33,23 @@ function resumen(c: ActividadComercial): string {
 
 export function ActividadComerciales() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const periodo = periodoDeParams(searchParams);
 
-  const queryKey = ['actividad-por-comercial'];
+  function cambiarPeriodo(v: PeriodoActividad) {
+    // "30d" es el valor por defecto → no ensucia la URL; solo "todo" queda
+    // como parámetro, y así se arrastra a la ficha de cada comercial.
+    setSearchParams(v === 'todo' ? { dias: 'todo' } : {}, { replace: true });
+  }
+
+  const queryKey = ['actividad-por-comercial', periodo];
   const { data: actividad, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey,
     queryFn: async (): Promise<ActividadComercial[]> => {
-      const { data, error } = await supabase.rpc('fn_actividad_por_comercial');
+      const { data, error } = await supabase.rpc('fn_actividad_por_comercial', {
+        p_desde: desdeDePeriodo(periodo),
+      });
       if (error) throw error;
       return (data ?? []) as ActividadComercial[];
     },
@@ -50,6 +64,15 @@ export function ActividadComerciales() {
   return (
     <div className="screen">
       <CabeceraDetalle titulo="Actividad por comercial" volverA="/yo" ayuda="actividad-comerciales" />
+
+      <Segmentado
+        opciones={[
+          { valor: '30d', etiqueta: 'Últimos 30 días' },
+          { valor: 'todo', etiqueta: 'Todo' },
+        ]}
+        valor={periodo}
+        onCambio={cambiarPeriodo}
+      />
 
       <div className="lista-agrupada">
         {isLoading ? (
@@ -67,7 +90,7 @@ export function ActividadComerciales() {
                 key={c.comercial_id}
                 titulo={c.nombre}
                 subtitulo={resumen(c)}
-                to={`/actividad-comerciales/${c.comercial_id}`}
+                to={`/actividad-comerciales/${c.comercial_id}${location.search}`}
               />
             ))}
           </SeccionLista>
