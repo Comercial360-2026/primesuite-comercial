@@ -1,352 +1,114 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, SVGProps } from 'react';
+import {
+  Calendar,
+  CalendarDays,
+  Users,
+  UsersRound,
+  ListChecks,
+  User,
+  Download,
+  Trash2,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ArrowLeft,
+  Check,
+  Circle,
+  CircleCheckBig,
+  Plus,
+  Pencil,
+  FolderInput,
+  Merge,
+  Database,
+  BookText,
+  LifeBuoy,
+  ChartColumnBig,
+  Copy,
+  LogOut,
+  Info,
+  TriangleAlert,
+  CircleX,
+  Minus,
+  Play,
+  Inbox,
+  Camera,
+  Mic,
+  FileText,
+  Search,
+  Sparkles,
+  Flag,
+  CircleHelp,
+  Route,
+  Contact,
+  MapPin,
+  EllipsisVertical,
+} from 'lucide-react';
 
-// Set único de iconos de la app — trazo simple, `currentColor` (heredan el
-// color de quien los usa), stroke 1.7, extremos redondeados. Mismo criterio
-// que tokens.css: cualquier cambio de iconografía (otro dibujo, otro grosor,
-// otra forma) se hace SOLO aquí; las pantallas piden el icono por nombre y no
-// saben cómo está trazado. Cambiar de set = editar este archivo.
+// Set único de iconos de la app. Desde 2026-09-06 se apoya en `lucide-react`
+// (trazo limpio y consistente, estilo SF Symbols) en vez de SVG dibujado a
+// mano. La API no cambia: las pantallas piden el icono por nombre en español
+// (`<Icono nombre="hoy" />`) y no saben de dónde sale el dibujo. Cambiar de
+// set = reasignar aquí; ninguna pantalla se toca.
 //
-// Uso: <Icono nombre="chevron" /> — o los wrappers con nombre propio de
-// abajo (IconoHoy…) que existen para el bottom nav y otras pantallas ya
-// escritas. Todos comparten el mismo registro, no hay dos fuentes de verdad.
+// Grosor 1.75 para acercarlo al peso del texto (lucide viene a 2). Todos
+// heredan el color con `currentColor`.
 
-const base = {
-  viewBox: '0 0 24 24',
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.7,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-};
+type IconLucide = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>;
 
-// Solo el contenido interno del <svg>. El <svg> con sus atributos lo pone
-// <Icono>. Nombres en español, en kebab-case si hacen falta dos palabras.
+// Nombre en español (kebab-case si son dos palabras) -> componente de lucide.
+// El comentario dice para qué se usa cada uno.
 const registro = {
-  hoy: (
-    <>
-      <rect x="3" y="4.5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v3M16 3v3" />
-      <path d="M8.5 13.5l2.5 2.5 4.5-5" />
-    </>
-  ),
-  // Calendario "de agenda" — como `hoy` pero con marcas de días en vez
-  // del check. Para el atajo "ver toda la agenda".
-  agenda: (
-    <>
-      <rect x="3" y="4.5" width="18" height="16" rx="2" />
-      <path d="M3 9h18M8 3v3M16 3v3" />
-      <path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2" />
-    </>
-  ),
-  clientes: (
-    <>
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-      <path d="M16 11a3 3 0 0 0 0-6" />
-      <path d="M17 19c0-2.6-1.4-4.3-3-5" />
-    </>
-  ),
-  tareas: (
-    <>
-      <path d="M4 7l2 2 3.5-3.5" />
-      <path d="M4 17l2 2 3.5-3.5" />
-      <path d="M13 7h7M13 17h7" />
-    </>
-  ),
-  yo: (
-    <>
-      <circle cx="12" cy="8" r="3.6" />
-      <path d="M5 20c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5" />
-    </>
-  ),
-  descargar: (
-    <>
-      <path d="M12 3v11" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M5 20h14" />
-    </>
-  ),
-  borrar: (
-    <>
-      <path d="M4 7h16" />
-      <path d="M9 7V4.5h6V7" />
-      <path d="M6.5 7l1 13h9l1-13" />
-      <path d="M10 11v6M14 11v6" />
-    </>
-  ),
+  hoy: Calendar, // Hoy / agenda del día (bottom nav)
+  agenda: CalendarDays, // atajo a la agenda completa
+  clientes: Users, // dos personas — relación comercial
+  tareas: ListChecks, // "Pasos" — lista con checks
+  yo: User, // pantalla "Yo" (bottom nav)
+  descargar: Download,
+  borrar: Trash2,
 
-  // Flecha ">" de las filas navegables. Apunta a la derecha; la rotación
-  // (p. ej. secciones plegables) la hace quien la usa, no este dibujo.
-  chevron: <path d="M9 6l6 6-6 6" />,
+  chevron: ChevronRight, // ">" de las filas navegables
+  subir: ChevronUp, // reordenar: subir una fila
+  bajar: ChevronDown, // reordenar: bajar una fila
+  atras: ArrowLeft, // "volver atrás" (flecha con asta, no chevron)
 
-  // Chevrons arriba / abajo — reordenar una fila (subirla o bajarla en la
-  // lista). Forma distinta y posición distinta: no dependen del color.
-  subir: <path d="M6 15l6-6 6 6" />,
-  bajar: <path d="M6 9l6 6 6-6" />,
+  check: Check, // "hecho" / completado
+  circulo: Circle, // casilla sin marcar (FilaToggle)
+  'check-circulo': CircleCheckBig, // casilla marcada (FilaToggle)
 
-  // Flecha "‹" de volver, para CabeceraDetalle. Flecha completa (con asta),
-  // no un chevron: significa "volver atrás", no "aquí hay más".
-  atras: (
-    <>
-      <path d="M11 5l-7 7 7 7" />
-      <path d="M4 12h16" />
-    </>
-  ),
+  mas: Plus, // crear / añadir
+  editar: Pencil, // renombrar / editar en el sitio
+  mover: FolderInput, // mover a otra categoría
+  fusionar: Merge, // fusionar con un término existente
+  almacenamiento: Database, // cuota / consumo de disco
+  vocabulario: BookText, // catálogo de términos
+  solicitudes: LifeBuoy, // solicitudes de ayuda / sustitución
+  consumo: ChartColumnBig, // consumo por comercial (barras)
+  duplicados: Copy, // clientes duplicados
+  salir: LogOut, // cerrar sesión
 
-  // Marca de verificación — "hecho" / "marcar como completado".
-  check: <path d="M5 12.5l4 4L19 7" />,
+  // Mensajes (componente Aviso) — formas distintas entre sí.
+  info: Info,
+  atencion: TriangleAlert,
+  error: CircleX,
+  guion: Minus, // estado neutro / en pausa
+  reproducir: Play, // "en curso" (visita empezada) — se pinta relleno
+  bandeja: Inbox, // estado vacío por defecto
 
-  // Círculo vacío — casilla sin marcar de FilaToggle (modo seleccionar).
-  circulo: <circle cx="12" cy="12" r="8.5" />,
+  // Captura durante la visita.
+  foto: Camera,
+  audio: Mic,
+  nota: FileText,
+  hallazgo: Search, // algo observado sobre el terreno (lupa)
+  oportunidad: Sparkles, // destello — mismo sentido que el acento --signal-600
+  paso: Flag, // próximo paso — lo que queda pendiente al salir
 
-  // Círculo con check — casilla marcada de FilaToggle. El relleno lo pone
-  // el CSS (.fila-toggle--marcada), aquí solo va el trazo.
-  'check-circulo': (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M8.5 12.3l2.4 2.4 4.6-5" />
-    </>
-  ),
-
-  // "+" — crear / añadir (nueva categoría, nuevo término, nueva ubicación).
-  mas: <path d="M12 5v14M5 12h14" />,
-
-  // Lápiz — renombrar / editar en el sitio.
-  editar: (
-    <>
-      <path d="M4 20l1-4 11-11 3 3-11 11z" />
-      <path d="M14 7l3 3" />
-    </>
-  ),
-
-  // Flecha que entra en una caja — mover a otra categoría.
-  mover: (
-    <>
-      <path d="M4 12h10" />
-      <path d="M10 8l4 4-4 4" />
-      <path d="M16 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2" />
-    </>
-  ),
-
-  // Dos ramas que confluyen en una — fusionar con un término existente.
-  fusionar: (
-    <>
-      <path d="M5 4v3c0 3 2 5 5 5h9" />
-      <path d="M5 20v-3c0-3 2-5 5-5" />
-      <path d="M15 8l4 4-4 4" />
-    </>
-  ),
-
-  // Almacenamiento / cuota — cilindro de disco.
-  almacenamiento: (
-    <>
-      <path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z" />
-      <path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7" />
-      <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
-    </>
-  ),
-
-  // Vocabulario / catálogo de términos — libro con renglones.
-  vocabulario: (
-    <>
-      <path d="M6 4h11a1 1 0 0 1 1 1v15H7a1 1 0 0 1-1-1z" />
-      <path d="M6 4v15" />
-      <path d="M9.5 9h5M9.5 12.5h5" />
-    </>
-  ),
-
-  // Solicitudes de ayuda / sustitución — salvavidas.
-  solicitudes: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3.8v4M12 16.2v4M3.8 12h4M16.2 12h4" />
-    </>
-  ),
-
-  // Consumo por comercial — barras.
-  consumo: (
-    <>
-      <path d="M4 20V11M12 20V5M20 20v-6" />
-      <path d="M3 20h18" />
-    </>
-  ),
-
-  // Clientes duplicados — dos fichas superpuestas.
-  duplicados: (
-    <>
-      <rect x="4" y="4" width="12" height="12" rx="2" />
-      <path d="M8 20h9a1 1 0 0 0 1-1V8" />
-    </>
-  ),
-
-  // Cerrar sesión — puerta con flecha de salida.
-  salir: (
-    <>
-      <path d="M9.5 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3.5" />
-      <path d="M14 8.5l3.5 3.5-3.5 3.5" />
-      <path d="M17.5 12H9" />
-    </>
-  ),
-
-  // --- Mensajes (componente Aviso). Formas distintas entre sí para que se
-  // distingan sin depender del color. ---
-
-  // Info — círculo con "i".
-  info: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5" />
-      <path d="M12 7.5h.01" />
-    </>
-  ),
-
-  // Atención — triángulo con "!".
-  atencion: (
-    <>
-      <path d="M12 4L2.5 20h19z" />
-      <path d="M12 10v5" />
-      <path d="M12 18h.01" />
-    </>
-  ),
-
-  // Error — círculo con aspa.
-  error: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9 9l6 6M15 9l-6 6" />
-    </>
-  ),
-
-  // Guion — estado neutro / en pausa (p. ej. semáforo "seguimiento").
-  guion: <path d="M6 12h12" />,
-
-  // Play — "en curso" (visita ya empezada). Relleno, no trazo.
-  reproducir: <path d="M8 5v14l11-7z" fill="currentColor" stroke="none" />,
-
-  // Bandeja vacía — estado "no hay nada en esta lista" por defecto.
-  bandeja: (
-    <>
-      <path d="M4 13l2.5-7h11L20 13" />
-      <path d="M4 13v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" />
-      <path d="M4 13h4l1.5 2.5h5L16 13h4" />
-    </>
-  ),
-
-  // --- Captura durante la visita (botones grandes de visita-activa /
-  // editor-captura). Trazo simple, mismo criterio que el resto. ---
-
-  // Foto — cámara.
-  foto: (
-    <>
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <path d="M8.5 7L10 4h4l1.5 3" />
-      <circle cx="12" cy="13.5" r="3.3" />
-    </>
-  ),
-
-  // Audio — micrófono.
-  audio: (
-    <>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
-      <path d="M12 18v3" />
-    </>
-  ),
-
-  // Nota — documento con renglones.
-  nota: (
-    <>
-      <path d="M6 3h9l3 3v15H6z" />
-      <path d="M15 3v3h3" />
-      <path d="M9 11h6M9 14.5h6" />
-    </>
-  ),
-
-  // Hallazgo — lupa (algo observado sobre el terreno).
-  hallazgo: (
-    <>
-      <circle cx="11" cy="11" r="6" />
-      <path d="M15.5 15.5L20 20" />
-    </>
-  ),
-
-  // Oportunidad — destello de 4 puntas (mismo sentido que el acento
-  // --signal-600 del sistema).
-  oportunidad: <path d="M12 3.5c.6 4.3 1.6 5.3 6 6-4.4.7-5.4 1.7-6 6-.6-4.3-1.6-5.3-6-6 4.4-.7 5.4-1.7 6-6z" />,
-
-  // Próximo paso — banderín (lo que queda pendiente al salir).
-  paso: (
-    <>
-      <path d="M6 21V4" />
-      <path d="M6 4.5h11l-2.5 4 2.5 4H6" />
-    </>
-  ),
-
-  // Ayuda — "?" en círculo. El punto de abajo es un trazo mínimo
-  // (`h.01`) con extremo redondeado, como el resto del set.
-  ayuda: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.6 9.4a2.4 2.4 0 0 1 4.7.7c0 1.6-2.3 1.9-2.3 3.2" />
-      <path d="M12 17h.01" />
-    </>
-  ),
-
-  // Recorrido — punto de partida, rastro de puntos y chincheta de destino.
-  recorrido: (
-    <>
-      <circle cx="5" cy="19" r="1.6" />
-      <path d="M7 17.5c3.5-1.5 4.5-5 4.5-8" strokeDasharray="0.1 3.4" />
-      <path d="M17 3.5a3.5 3.5 0 0 0-3.5 3.5c0 2.7 3.5 6.5 3.5 6.5s3.5-3.8 3.5-6.5A3.5 3.5 0 0 0 17 3.5z" />
-      <circle cx="17" cy="7" r="1.2" />
-    </>
-  ),
-
-  // Interlocutor — la persona con la que hablas en la visita: cabeza +
-  // globo de conversación. Distinto de "clientes" (dos personas, relación
-  // comercial) y de "equipo" (grupo, compañeros).
-  interlocutor: (
-    <>
-      <circle cx="8" cy="8" r="3" />
-      <path d="M3.5 19.5c0-3 2-5 4.5-5s4.5 2 4.5 5" />
-      <path d="M14.5 6h5.5a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1H19v2.3l-2.3-2.3h-2.2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" />
-    </>
-  ),
-
-  // Ubicación — chincheta de mapa (abrir unas coordenadas en el mapa).
-  ubicacion: (
-    <>
-      <path d="M12 3.5a6 6 0 0 0-6 6c0 4.2 6 11 6 11s6-6.8 6-11a6 6 0 0 0-6-6z" />
-      <circle cx="12" cy="9.3" r="2.1" />
-    </>
-  ),
-
-  // Equipo — tú y tus compañeros: tres cabezas en grupo, distinto de
-  // "clientes" (dos personas, relación comercial) e "interlocutor" (una
-  // persona con globo de conversación).
-  equipo: (
-    <>
-      <circle cx="12" cy="7.2" r="3" />
-      <circle cx="5.5" cy="9.5" r="2.3" />
-      <circle cx="18.5" cy="9.5" r="2.3" />
-      <path d="M7 19.5c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6" />
-      <path d="M1.8 18.5c.2-2.2 1.7-3.6 3.7-3.6" />
-      <path d="M22.2 18.5c-.2-2.2-1.7-3.6-3.7-3.6" />
-    </>
-  ),
-
-  // Opciones — "más acciones sobre esto" (kebab vertical). Único icono con
-  // relleno del set, como "reproducir": un kebab de trazo no se lee bien
-  // a tamaño pequeño.
-  opciones: (
-    <>
-      <circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" />
-    </>
-  ),
-} satisfies Record<string, ReactNode>;
+  ayuda: CircleHelp, // "?" de ayuda
+  recorrido: Route, // ruta / recorrido por zonas
+  interlocutor: Contact, // persona con la que hablas en la visita
+  ubicacion: MapPin, // chincheta de mapa
+  equipo: UsersRound, // tú y tus compañeros (grupo)
+  opciones: EllipsisVertical, // "más acciones sobre esto" (kebab)
+} satisfies Record<string, IconLucide>;
 
 export type NombreIcono = keyof typeof registro;
 
@@ -357,10 +119,16 @@ interface PropsIcono {
 }
 
 export function Icono({ nombre, size = 20 }: PropsIcono) {
+  const Componente = registro[nombre];
+  // "reproducir" es un indicador macizo (como antes): triángulo relleno.
+  const relleno = nombre === 'reproducir';
   return (
-    <svg width={size} height={size} {...base} aria-hidden="true">
-      {registro[nombre]}
-    </svg>
+    <Componente
+      size={size}
+      strokeWidth={relleno ? 0 : 1.75}
+      aria-hidden="true"
+      {...(relleno ? { fill: 'currentColor' } : {})}
+    />
   );
 }
 
