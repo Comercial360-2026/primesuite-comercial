@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { crearComercial, traspasarCartera, type RolComercial } from '@/lib/gestionar-comercial';
+import { plural } from '@/lib/texto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { Aviso } from '@/components/ui/aviso';
@@ -121,9 +122,9 @@ export function AltaComercial() {
 
           {resultado.heredado && (
             <Aviso tipo="info" titulo="Cartera heredada">
-              De {resultado.heredado.nombre}: {resultado.heredado.clientes} cliente(s),{' '}
-              {resultado.heredado.visitas} visita(s) planificada(s) y {resultado.heredado.pasos}{' '}
-              próximo(s) paso(s).
+              De {resultado.heredado.nombre}: {plural(resultado.heredado.clientes, 'cliente', 'clientes')},{' '}
+              {plural(resultado.heredado.visitas, 'visita planificada', 'visitas planificadas')} y{' '}
+              {plural(resultado.heredado.pasos, 'próximo paso', 'próximos pasos')}.
             </Aviso>
           )}
 

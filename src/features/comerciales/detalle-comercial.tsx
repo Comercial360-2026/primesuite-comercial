@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { plural } from '@/lib/texto';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import {
   editarComercial,
@@ -232,7 +233,7 @@ export function DetalleComercial() {
       const r = await traspasarCartera(c.id, traspasoA);
       const nombreDestino = destinos.find((d) => d.id === traspasoA)?.nombre ?? 'el comercial elegido';
       setTraspasoHecho(
-        `${r.clientes} cliente(s), ${r.visitas} visita(s) planificada(s) y ${r.pasos} próximo(s) paso(s) pasan a ${nombreDestino}.`
+        `${plural(r.clientes, 'cliente', 'clientes')}, ${plural(r.visitas, 'visita planificada', 'visitas planificadas')} y ${plural(r.pasos, 'próximo paso', 'próximos pasos')} pasan a ${nombreDestino}.`
       );
       setModo(null);
       setTraspasoA('');

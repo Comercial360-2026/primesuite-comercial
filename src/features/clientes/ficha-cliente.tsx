@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
+import { plural } from '@/lib/texto';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -615,12 +616,14 @@ export function FichaCliente() {
             ) : (
               <div>
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                  Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
-                  {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
-                  {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
-                  {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
-                  {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
-                  {previsualizacionCliente.num_ubicaciones} ubicación(es), en todos sus proyectos. Todo eso se
+                  Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+                  {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+                  {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+                  {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+                  {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+                  {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+                  {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+                  {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
                   borrará también, para siempre. No se puede deshacer.
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
