@@ -22,6 +22,40 @@ nada: ¿el botón/texto hace lo que promete? ¿hay algún punto sin salida?
 ¿se puede en menos pasos? Los casos límite (sin datos, sin red, sin
 permisos, cliente/registro que no existe) se prevén, no se esperan.
 
+## MÉTODO DE ANÁLISIS (obligatorio ANTES de tocar cada pantalla)
+
+No parchear. Antes de editar una pantalla se hace este análisis por
+escrito; sólo después se propone y se cambia. Se pasa la pantalla por tres
+perfiles y por las preguntas transversales, y se emite CUMPLE / NO CUMPLE +
+lista de cambios priorizados.
+
+**Perfil 1 — el comercial en la calle (usuario principal).** Contexto real:
+de pie o sentado frente a un cliente, móvil en una mano, con prisa, a veces
+sin cobertura, a veces sin abrir la app en semanas.
+- ¿A qué vengo a esta pantalla? ¿Lo consigo en 1-2 toques?
+- ¿Qué ven mis ojos primero? ¿Es lo que más necesito?
+- ¿Algo me obliga a parar (rellenar, elegir, leer) antes de lo que quiero hacer?
+- ¿Entiendo cada palabra y cada icono sin pensar?
+- ¿Lo hago con una mano? ¿Los botones llegan al pulgar?
+- Si me interrumpen o me equivoco, ¿pierdo trabajo?
+
+**Perfil 2 — el director comercial (consume el resultado).**
+- ¿Esta pantalla produce lo que necesito luego (informe, seguimiento)?
+- ¿Puede quedarse algo importante sin registrar?
+- ¿Hay fricción que haga que el comercial no lo apunte?
+
+**Perfil 3 — diseñador de producto (criterio Apple / HIG).**
+- ¿Cada elemento gana su sitio, o hay ruido?
+- Jerarquía: lo importante grande y central; lo secundario, pequeño y al margen.
+- ¿Patrones de iOS (navegación, hojas, búsqueda con lupa, listas) o inventados?
+- ¿Iconos estándar y reconocibles? Consistencia con el resto de la app.
+- Estado vacío / error / carga cuidados. Un solo foco por pantalla.
+
+**Preguntas transversales (fijas):** ¿para qué sirve la pantalla (1 frase)? ·
+¿quién la usa y cuándo? · ¿qué debe ver al entrar? · ¿qué funcionalidades
+DEBE cumplir y las cumple? · ¿qué le falta / qué no se ha tenido en cuenta? ·
+¿hace lo que dice, en mínimos pasos, sin puntos muertos?
+
 **Directriz global — iconos:** todos los iconos que se cambien pasan a ser
 **modernos e intuitivos, estilo Apple / SF Symbols** (formas simples,
 reconocibles al instante, peso óptico consistente).
