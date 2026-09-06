@@ -365,6 +365,18 @@ export function DetalleComercial() {
           </div>
         )}
 
+        {/* La ficha muestra la CARGA de cartera (arriba); su ACTIVIDAD
+            (visitas hechas, hallazgos, oportunidades) vive en otra pantalla
+            — antes no había forma de llegar desde aquí. */}
+        <SeccionLista titulo="Actividad">
+          <FilaNavegable
+            icono="equipo"
+            titulo="Ver actividad"
+            subtitulo="Visitas, hallazgos y oportunidades, por proyecto"
+            to={`/actividad-comerciales/${c.id}`}
+          />
+        </SeccionLista>
+
         <SeccionLista titulo="Datos">
           <div style={{ padding: '12px var(--fila-pad-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div>
