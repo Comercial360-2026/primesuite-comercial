@@ -438,6 +438,7 @@ export type Database = {
       }
       hallazgo: {
         Row: {
+          archivado_en: string | null
           cliente_id: string
           comercial_autor_id: string
           comercial_validador_id: string | null
@@ -456,6 +457,7 @@ export type Database = {
           zona_texto: string | null
         }
         Insert: {
+          archivado_en?: string | null
           cliente_id: string
           comercial_autor_id: string
           comercial_validador_id?: string | null
@@ -474,6 +476,7 @@ export type Database = {
           zona_texto?: string | null
         }
         Update: {
+          archivado_en?: string | null
           cliente_id?: string
           comercial_autor_id?: string
           comercial_validador_id?: string | null

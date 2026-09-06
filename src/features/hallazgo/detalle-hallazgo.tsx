@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { haceRelativo } from '@/lib/fechas';
 import {
   NATURALEZA_ORDEN,
   NATURALEZA_LABEL,
@@ -25,6 +26,7 @@ const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [naturaleza, setNaturaleza] = useState<string>('contexto');
   const [nota, setNota] = useState('');
@@ -37,6 +39,8 @@ export function DetalleHallazgo() {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  const [archivando, setArchivando] = useState(false);
+  const [errorArchivado, setErrorArchivado] = useState<string | null>(null);
 
   const { data: hallazgo, isLoading } = useQuery({
     queryKey: ['hallazgo', hallazgoId],
@@ -45,7 +49,7 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
         )
         .eq('id', hallazgoId!)
         .single();
@@ -144,6 +148,35 @@ export function DetalleHallazgo() {
     navigate(-1);
   }
 
+  // Archivar = sacar el hallazgo de la lista "Hallazgos" del proyecto sin
+  // borrarlo (sigue en su visita y en el informe). Es un UPDATE, así que la
+  // misma RLS que "Guardar" lo acota al autor o Dirección; se comprueba
+  // `count` igual que en el borrado (un UPDATE sin permiso no da error, toca
+  // 0 filas).
+  const archivado = !!hallazgo?.archivado_en;
+  async function alternarArchivado() {
+    if (!hallazgoId || archivando) return;
+    setArchivando(true);
+    setErrorArchivado(null);
+    const { error: err, count } = await supabase
+      .from('hallazgo')
+      .update({ archivado_en: archivado ? null : new Date().toISOString() }, { count: 'exact' })
+      .eq('id', hallazgoId);
+    setArchivando(false);
+    if (err) {
+      setErrorArchivado(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorArchivado('No se ha podido (0 filas afectadas). Solo el autor o Dirección Comercial pueden archivar un hallazgo.');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['hallazgo', hallazgoId] });
+    queryClient.invalidateQueries({ queryKey: ['hallazgos-proyecto'] });
+    queryClient.invalidateQueries({ queryKey: ['hallazgos-archivados-proyecto'] });
+    navigate(-1);
+  }
+
   if (isLoading || !hallazgo) {
     return (
       <div className="screen">
@@ -236,6 +269,23 @@ export function DetalleHallazgo() {
       >
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
+
+      {!confirmandoBorrado && (
+        <>
+          {archivado && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 2px 0' }}>
+              Archivado {haceRelativo(hallazgo.archivado_en!)} · no sale en la lista de hallazgos del proyecto
+            </div>
+          )}
+          <FilaNavegable
+            icono={archivado ? 'atras' : 'bandeja'}
+            titulo={archivando ? 'Guardando…' : archivado ? 'Desarchivar' : 'Archivar hallazgo'}
+            chevron={false}
+            onClick={alternarArchivado}
+          />
+          {errorArchivado && <div className="field-error-text">{errorArchivado}</div>}
+        </>
+      )}
 
       {!confirmandoBorrado ? (
         <FilaNavegable

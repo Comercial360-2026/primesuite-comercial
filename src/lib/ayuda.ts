@@ -153,7 +153,7 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente). Un cliente con un solo proyecto (el «General») no tiene esta pantalla aparte: su actividad se ve en la propia ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
   },
 
   // — Una visita, paso a paso —
@@ -224,7 +224,8 @@ const _PANTALLAS = {
     queEs:
       'Algo que has observado en el cliente y quieres dejar registrado: su naturaleza (contexto, oportunidad, riesgo…), una nota, en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita, desde el botón «Hallazgo».',
+      'Para completar o corregir un hallazgo. Se crea durante la visita, desde el botón «Hallazgo». «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+    ojo: 'Archivar y borrar solo los puede hacer el autor del hallazgo o Dirección Comercial.',
   },
   'detalle-oportunidad': {
     grupo: 'registro',

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
@@ -87,11 +88,10 @@ export function ActividadProyecto({
     },
   });
 
-  // Hallazgos del proyecto (P5: se arrastran entre visitas hasta
-  // resolverse). El esquema no tiene un estado de resolución propio —
-  // "resolverlo" hoy es borrarlo desde su detalle (ver detalle-hallazgo.tsx)
-  // — así que aquí se listan sencillamente los más recientes, no un
-  // subconjunto "abierto" como en Oportunidades/Próximos pasos.
+  // Hallazgos del proyecto (P5: se arrastran entre visitas). Un comercial
+  // puede "archivar" uno cuando lo da por no vigente (detalle-hallazgo.tsx):
+  // deja de salir aquí pero sigue en su visita y en el informe. Por defecto
+  // se listan los 5 activos más recientes; "Ver archivados (N)" trae el resto.
   const { data: hallazgos } = useQuery({
     queryKey: ['hallazgos-proyecto', proyectoId],
     queryFn: async (): Promise<HallazgoAbierto[]> => {
@@ -99,8 +99,39 @@ export function ActividadProyecto({
         .from('hallazgo')
         .select('id, naturaleza, fecha_relevante, termino:termino_id(nombre)')
         .eq('proyecto_id', proyectoId)
+        .is('archivado_en', null)
         .order('creado_en', { ascending: false })
         .limit(5);
+      if (error) throw error;
+      return (data ?? []) as unknown as HallazgoAbierto[];
+    },
+  });
+
+  const { data: numArchivados } = useQuery({
+    queryKey: ['hallazgos-archivados-proyecto', proyectoId, 'count'],
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('hallazgo')
+        .select('id', { count: 'exact', head: true })
+        .eq('proyecto_id', proyectoId)
+        .not('archivado_en', 'is', null);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const [verArchivados, setVerArchivados] = useState(false);
+  const { data: hallazgosArchivados } = useQuery({
+    queryKey: ['hallazgos-archivados-proyecto', proyectoId, 'lista'],
+    enabled: verArchivados,
+    queryFn: async (): Promise<HallazgoAbierto[]> => {
+      const { data, error } = await supabase
+        .from('hallazgo')
+        .select('id, naturaleza, fecha_relevante, termino:termino_id(nombre)')
+        .eq('proyecto_id', proyectoId)
+        .not('archivado_en', 'is', null)
+        .order('archivado_en', { ascending: false })
+        .limit(20);
       if (error) throw error;
       return (data ?? []) as unknown as HallazgoAbierto[];
     },
@@ -127,9 +158,14 @@ export function ActividadProyecto({
     oportunidades !== undefined &&
     proximosPasos !== undefined &&
     hallazgos !== undefined &&
+    numArchivados !== undefined &&
     historialVisitas !== undefined;
   const fichaVacia =
-    !oportunidades?.length && !proximosPasos?.length && !hallazgos?.length && !historialVisitas?.length;
+    !oportunidades?.length &&
+    !proximosPasos?.length &&
+    !hallazgos?.length &&
+    !numArchivados &&
+    !historialVisitas?.length;
 
   const hoyMs = new Date().setHours(0, 0, 0, 0);
 
@@ -184,9 +220,9 @@ export function ActividadProyecto({
         </SeccionLista>
       )}
 
-      {!!hallazgos?.length && (
+      {(!!hallazgos?.length || !!numArchivados) && (
         <SeccionLista titulo="Hallazgos">
-          {hallazgos.map((h) => (
+          {hallazgos?.map((h) => (
             <FilaNavegable
               key={h.id}
               titulo={h.termino?.nombre ?? '…'}
@@ -196,6 +232,24 @@ export function ActividadProyecto({
               to={`/hallazgos/${h.id}`}
             />
           ))}
+          {!!numArchivados && (
+            <FilaNavegable
+              titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${numArchivados})`}
+              chevron={false}
+              valorTenue
+              onClick={() => setVerArchivados((v) => !v)}
+            />
+          )}
+          {verArchivados &&
+            hallazgosArchivados?.map((h) => (
+              <FilaNavegable
+                key={h.id}
+                titulo={h.termino?.nombre ?? '…'}
+                valor="archivado"
+                valorTenue
+                to={`/hallazgos/${h.id}`}
+              />
+            ))}
         </SeccionLista>
       )}
 
