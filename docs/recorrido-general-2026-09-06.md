@@ -446,9 +446,9 @@ trabajo: A0 → A → B → C. Verde (typecheck/lint/build) entre tandas;
   línea "No has apuntado ninguna oportunidad ni próximo paso…".
 - Limpieza: borradas las 4 capturas de prueba; la visita ARCELOR vuelve a
   su 1 foto original.
-- **PENDIENTE Cesar:** la visita ARCELOR del 7-sept (`463f6ac1`) quedó
-  `en_curso` (hubo que arrancarla para A0.2); revertir a `agendada`
-  (SQL de dev; las escrituras están bloqueadas para Claude).
+- La visita ARCELOR del 7-sept (`463f6ac1`) quedó `en_curso` al arrancarla
+  para A0.2 → **revertida a `agendada`** (UPDATE en dev, autorizado por
+  Cesar). Estado del entorno restaurado.
 
 **#2 (conflicto "duro" del objetivo) — APUNTADO para el final del
 recorrido** (decisión Cesar): si dos comerciales guardan el objetivo casi a
