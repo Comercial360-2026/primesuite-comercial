@@ -408,17 +408,32 @@ trabajo: A0 → A → B → C. Verde (typecheck/lint/build) entre tandas;
   por teclado), misma clase `.va-item`.
 - **B7-doc ✅** hoja de Foto/Audio: muestra la zona y el título como rótulo
   visible (no solo placeholder).
-- **C2 (separar 3+3 en la rejilla) — PENDIENTE de decisión de Cesar:** el
-  análisis lo deja como duda; no se toca sin su OK (rompería la premisa
-  "6 iguales" de B3). Pendiente para el repaso.
-- **C3 (comprimir microcopy de zona) — no se hace:** con la `<AyudaNota>`
-  encima, el microcopy de abajo ya es la parte corta; se deja.
+- **C3 (comprimir microcopy de zona) — no se hace (OK Cesar):** con la
+  `<AyudaNota>` encima, el microcopy de abajo ya es la parte corta.
 - **B5 conflicto "duro"** (dos comerciales editando el objetivo a la vez):
-  se acepta como riesgo — el objetivo casi no se co-edita; la
+  se acepta como riesgo (OK Cesar) — casi no se co-edita; la
   re-sincronización cubre el caso realista.
-Verde: typecheck + lint + build. Verificado en vivo (Chrome de Cesar,
-visita ARCELOR): reorden, iconos, `chip-accion`, estado vacío, lupa del
-selector de término; consola limpia en carga fresca.
+
+**Repaso 2026-09-06 (Cesar vio la 1.ª captura y estaba "liada"):**
+- **Bloque de zona rehecho.** Una vez usada una zona, `mostrarZona` lo
+  dejaba fijo entre el título y los botones (AyudaNota + campo + chips +
+  microcopy = ~5 líneas empujando la captura hacia abajo — justo lo que
+  A2 evita). Ahora: un solo **chip "Zona / Marcar zonas / <nombre>"** en
+  la fila del título abre/cierra un **editor bajo demanda**; cerrado (por
+  defecto, aunque la visita ya tenga zonas) la rejilla va pegada al
+  título. `marcarZonas`/`mostrarZona` → `zonaEditorAbierto`. Chip alineado
+  al centro con el label (ya no descolgado).
+- **C2 ✅** rejilla con `rowGap` mayor que `columnGap`: separa las dos
+  filas (captura en caliente / con formulario) sin jerarquizarlas.
+- **#5 ✅** el parpadeo del banner "visita en curso" en una visita ya
+  cerrada: `visitaServidor`/`visitaCerrada` movidos ANTES del efecto de
+  `iniciarVisita`, que ahora no enciende el banner si `visitaCerrada`.
+- Verificado en vivo: rejilla pegada al título, editor de zona abre/cierra
+  limpio, consola sin errores.
+
+Pendiente de ejercer en vivo (verde en build, no probado en navegador):
+A0.1 (visita ya consolidada), A0.2 (dos visitas en curso), B6 (cambiar de
+zona a media captura), B2 (recordatorio con ≥3 capturas).
 
 ### `/` — Hoy
 

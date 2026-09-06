@@ -272,9 +272,10 @@ export function VisitaActiva() {
   const [zonaActual, setZonaActual] = useState('');
   // El objetivo ("A qué vienes") va plegado a una línea; se abre al tocarlo.
   const [objetivoAbierto, setObjetivoAbierto] = useState(false);
-  // La zona sólo se usa si estás recorriendo instalaciones — oculta tras
-  // "Marcar zonas" para no parecer un paso obligatorio antes de capturar.
-  const [marcarZonas, setMarcarZonas] = useState(false);
+  // El editor de zona se abre BAJO DEMANDA desde el chip de la fila del
+  // título; no vive fijo entre el título y los botones (eso empujaba la
+  // captura hacia abajo aunque ya no estuvieras marcando zonas).
+  const [zonaEditorAbierto, setZonaEditorAbierto] = useState(false);
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
   // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
   const zonaParaCaptura = zonaActual.trim() || undefined;
@@ -368,14 +369,53 @@ export function VisitaActiva() {
     },
   });
 
+  // Objetivo de la visita: se fija SIEMPRE al arrancarla (formulario de
+  // planificar, o ventana "¿A qué vas?" para la visita sobre la marcha) y
+  // aquí el comercial puede matizarlo si la realidad no coincide con lo
+  // previsto. maybeSingle: una visita recién arrancada sin conexión todavía
+  // no tiene fila en el servidor — en esos primeros segundos el objetivo se
+  // lee de la cola local (visitaLocal.objetivo) y el campo es de solo
+  // lectura hasta que sincroniza. refetchInterval sondea hasta que la fila
+  // aparece y entonces se para. Va ANTES del efecto de `iniciarVisita` para
+  // que ese efecto ya conozca `visitaCerrada` y no encienda el banner
+  // "visita en curso" en una visita consolidada.
+  const objetivoQueryKey = ['visita-objetivo', visitaId];
+  const { data: visitaServidor } = useQuery({
+    queryKey: objetivoQueryKey,
+    enabled: !!visitaId,
+    // Sondea rápido mientras la visita todavía no existe en el servidor
+    // (primeros segundos de una visita local); una vez existe, cada 20 s
+    // para enterarse si un compañero la ha cerrado mientras seguimos
+    // capturando (A0.1). Deja de sondear cuando ya está consolidada.
+    refetchInterval: (query) => {
+      const d = query.state.data as { estado_captura?: string } | null | undefined;
+      if (d == null) return 4000;
+      return d.estado_captura === 'consolidada' ? false : 20000;
+    },
+    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('objetivo, estado_captura')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  // A0.1 · La visita ya está cerrada (por este comercial en otra pestaña, o
+  // por un compañero). Solo lo sabemos cuando la fila del servidor ya
+  // existe: mientras `visitaServidor` es null asumimos "en curso".
+  const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
+
   // Asegura que el banner "visita en curso" aparece aunque se haya llegado
   // aquí directamente (por ejemplo, retomando desde Agenda), no solo tras
-  // pasar por Repaso rápido de cliente.
+  // pasar por Repaso rápido de cliente. En una visita ya cerrada NO se
+  // enciende (la pantalla mostrará el aviso de "cerrada", no captura).
   useEffect(() => {
-    if (visitaId && cliente) {
+    if (visitaId && cliente && !visitaCerrada) {
       iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
     }
-  }, [visitaId, cliente, iniciarVisita]);
+  }, [visitaId, cliente, visitaCerrada, iniciarVisita]);
 
   // Nombres (no solo el número) — Zona 1 los enseña de un vistazo: "Ana
   // López y 1 más". Solo cuentan los que siguen en el directorio del
@@ -460,42 +500,6 @@ export function VisitaActiva() {
       return data ?? [];
     },
   });
-
-  // Objetivo de la visita: se fija SIEMPRE al arrancarla (formulario de
-  // planificar, o ventana "¿A qué vas?" para la visita sobre la marcha) y
-  // aquí el comercial puede matizarlo si la realidad no coincide con lo
-  // previsto. maybeSingle: una visita recién arrancada sin conexión todavía
-  // no tiene fila en el servidor — en esos primeros segundos el objetivo se
-  // lee de la cola local (visitaLocal.objetivo) y el campo es de solo
-  // lectura hasta que sincroniza. refetchInterval sondea hasta que la fila
-  // aparece y entonces se para.
-  const objetivoQueryKey = ['visita-objetivo', visitaId];
-  const { data: visitaServidor } = useQuery({
-    queryKey: objetivoQueryKey,
-    enabled: !!visitaId,
-    // Sondea rápido mientras la visita todavía no existe en el servidor
-    // (primeros segundos de una visita local); una vez existe, cada 20 s
-    // para enterarse si un compañero la ha cerrado mientras seguimos
-    // capturando (A0.1). Deja de sondear cuando ya está consolidada.
-    refetchInterval: (query) => {
-      const d = query.state.data as { estado_captura?: string } | null | undefined;
-      if (d == null) return 4000;
-      return d.estado_captura === 'consolidada' ? false : 20000;
-    },
-    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('objetivo, estado_captura')
-        .eq('id', visitaId!)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
-  // A0.1 · La visita ya está cerrada (por este comercial en otra pestaña, o
-  // por un compañero). Solo lo sabemos cuando la fila del servidor ya
-  // existe: mientras `visitaServidor` es null asumimos "en curso".
-  const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
 
   // A0.2 · Otras visitas del comercial que siguen `en_curso`. El banner
   // "visita en curso" es un único slot: si se arranca otra sin cerrar
@@ -1193,9 +1197,7 @@ export function VisitaActiva() {
         .filter((z): z is string => !!z && z.trim().length > 0)
     ),
   ].sort((a, b) => a.localeCompare(b, 'es'));
-  // El campo de zona se muestra si lo has pedido ("Marcar zonas"), si esta
-  // visita ya tiene zonas anotadas, o si hay una zona escrita ahora mismo.
-  const mostrarZona = marcarZonas || zonasUsadas.length > 0 || !!zonaActual.trim();
+  const hayZonaActiva = !!zonaActual.trim();
 
   // Fila de "En esta visita": icono + texto + coletilla gris opcional
   // (naturaleza, prioridad, o "· de Fulano" en lo ajeno — regla 4). Cada
@@ -1278,31 +1280,31 @@ export function VisitaActiva() {
           }}
         />
 
-        <div
-          style={{
-            display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 0,
-            justifyContent: 'space-between',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
           <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
-          {!mostrarZona && (
-            <button
-              type="button"
-              className="chip-accion"
-              onClick={() => setMarcarZonas(true)}
-              title="Marca la zona que estás recorriendo para agrupar las capturas por sitio"
-            >
-              <Icono nombre="recorrido" size={16} /> Marcar zonas
-            </button>
-          )}
+          {/* Un solo chip refleja el estado de zona y abre/cierra el editor.
+              Con zona activa se ve el nombre; si no, "Zona"/"Marcar zonas". */}
+          <button
+            type="button"
+            className={`chip-accion${hayZonaActiva ? ' chip--on' : ''}`}
+            onClick={() => setZonaEditorAbierto((v) => !v)}
+            aria-expanded={zonaEditorAbierto}
+            title="Agrupar las capturas por la zona que estás recorriendo"
+          >
+            <Icono nombre="recorrido" size={16} />
+            {hayZonaActiva ? zonaActual.trim() : zonasUsadas.length > 0 ? 'Zona' : 'Marcar zonas'}
+          </button>
         </div>
 
-        {/* Zona: sólo visible si estás recorriendo instalaciones (o ya has
-            marcado alguna). Etiqueta de texto libre que se estampa en todo
-            lo que captures a partir de ahora; vacía → las capturas van a
-            «General». */}
-        {mostrarZona && (
-          <>
+        {/* Editor de zona: sólo cuando lo abres desde el chip. Etiqueta de
+            texto libre que se estampa en lo que captures; vacía → «General». */}
+        {zonaEditorAbierto && (
+          <div
+            style={{
+              border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)',
+              padding: 10, display: 'flex', flexDirection: 'column', gap: 6,
+            }}
+          >
             {/* B1 · El concepto zona/recorrido no se explica solo. */}
             <AyudaNota concepto="zona-captura" />
             <input
@@ -1310,10 +1312,10 @@ export function VisitaActiva() {
               value={zonaActual}
               onChange={(e) => setZonaActual(e.target.value)}
               placeholder="Zona · p. ej. Puerta muelle de carga"
-              autoFocus={marcarZonas && !zonaActual}
+              autoFocus
             />
             {zonasUsadas.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: -4 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {zonasUsadas.map((z) => (
                   <button
                     key={z}
@@ -1326,43 +1328,42 @@ export function VisitaActiva() {
                 ))}
               </div>
             )}
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: -4 }}>
-              {zonaActual.trim() ? (
-                <>
-                  Se guarda en{' '}
-                  <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
-                  {' · '}
-                  <button type="button" className="btn-enlace" style={{ padding: 0 }} onClick={() => setZonaActual('')}>
-                    quitar
-                  </button>
-                </>
-              ) : (
-                <>
-                  Sin zona, las capturas van a «General».
-                  {zonasUsadas.length === 0 && (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="btn-enlace"
-                        style={{ padding: 0 }}
-                        onClick={() => setMarcarZonas(false)}
-                      >
-                        dejar de marcar
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
+            <div
+              style={{
+                fontSize: 'var(--text-xs)', color: 'var(--ink-400)',
+                display: 'flex', justifyContent: 'space-between', gap: 8,
+              }}
+            >
+              <span>
+                {hayZonaActiva ? (
+                  <>
+                    Se guarda en{' '}
+                    <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
+                  </>
+                ) : (
+                  'Sin zona, las capturas van a «General».'
+                )}
+              </span>
+              <button
+                type="button"
+                className="btn-enlace"
+                style={{ padding: 0, flexShrink: 0 }}
+                onClick={() => {
+                  if (hayZonaActiva) setZonaActual('');
+                  setZonaEditorAbierto(false);
+                }}
+              >
+                {hayZonaActiva ? 'quitar' : 'cerrar'}
+              </button>
             </div>
-          </>
+          </div>
         )}
 
-        {/* Las 6 al mismo peso, en rejilla 2×3. Foto/Nota/Audio son captura
-            en caliente; Hallazgo/Oportunidad/Próximo paso abren una hoja con
-            campos — pero valen tanto o más para el negocio, así que no van
-            como chips de segunda. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)' }}>
+        {/* Rejilla de 6, todas al mismo peso (B3). Un hueco mayor entre las
+            dos filas separa —sin jerarquizar— la captura en caliente
+            (foto/nota/audio) de la que abre un formulario
+            (hallazgo/oportunidad/próximo paso). */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: 'var(--space-3)', rowGap: 'var(--space-5)' }}>
           <button
             className="capture-btn"
             disabled={capturaFoto.cargando || espacioBloqueado}
