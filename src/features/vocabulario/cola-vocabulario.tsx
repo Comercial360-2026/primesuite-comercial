@@ -1234,6 +1234,38 @@ export function ColaVocabulario() {
                               )}
                             </>
                           )}
+
+                          {/* Acciones por ítem: antes solo se podía aprobar /
+                              descartar entrando en "Seleccionar" (3 toques
+                              para un término). Aquí van directas; "Fusionar"
+                              abre el buscador de destino inline de siempre.
+                              El lote sigue existiendo para varios a la vez. */}
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                            <button
+                              type="button"
+                              className="chip"
+                              disabled={procesandoId === t.id}
+                              onClick={() => resolver(t.id, 'incorporar')}
+                            >
+                              Aprobar en «{capitalizarFrase(t.categoria_nombre)}»
+                            </button>
+                            <button
+                              type="button"
+                              className="chip"
+                              disabled={procesandoId === t.id}
+                              onClick={() => { setContextoAbiertoId(null); setFusionandoId(t.id); }}
+                            >
+                              Fusionar con…
+                            </button>
+                            <button
+                              type="button"
+                              className="chip"
+                              disabled={procesandoId === t.id}
+                              onClick={() => resolver(t.id, 'descartar')}
+                            >
+                              Descartar
+                            </button>
+                          </div>
                         </div>
                       )}
                     </Fragment>
