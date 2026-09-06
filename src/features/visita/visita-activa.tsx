@@ -13,6 +13,7 @@ import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useDictado } from '@/hooks/use-dictado';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { OportunidadRapidaHoja } from './oportunidad-rapida-hoja';
 import { HallazgoRapidoHoja } from './hallazgo-rapido-hoja';
@@ -318,6 +319,10 @@ export function VisitaActiva() {
   const [tituloPendiente, setTituloPendiente] = useState('');
   const guardadoNota = useAccionAsync();
   const [guardadoNotaConExito, setGuardadoNotaConExito] = useState(false);
+  // Dictado voz→texto para la nota: va añadiendo lo reconocido al final.
+  const dictadoNota = useDictado((frag) =>
+    setNotaTexto((t) => (t.trim() ? `${t.trimEnd()} ${frag}` : frag))
+  );
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
 
@@ -736,6 +741,7 @@ export function VisitaActiva() {
   }, [grabando]);
 
   function cerrarNota() {
+    dictadoNota.parar();
     guardadoNota.limpiarError();
     setNotaAbierta(false);
   }
@@ -1619,8 +1625,19 @@ export function VisitaActiva() {
             autoFocus
             value={notaTexto}
             onChange={(e) => setNotaTexto(e.target.value)}
-            placeholder="escribe la nota…"
+            placeholder="escribe o dicta la nota…"
           />
+          {dictadoNota.soportado && (
+            <button
+              type="button"
+              className={`chip${dictadoNota.dictando ? ' chip--on' : ''}`}
+              style={{ marginTop: 6 }}
+              onClick={dictadoNota.alternar}
+            >
+              <Icono nombre="audio" size={14} />
+              {dictadoNota.dictando ? 'Escuchando… tocar para parar' : 'Dictar'}
+            </button>
+          )}
           <input
             className="field"
             style={{ marginTop: 8 }}
