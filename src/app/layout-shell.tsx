@@ -53,22 +53,38 @@ export function LayoutShell() {
 
       <nav className="bottom-nav">
         <NavLink to="/" end>
-          <IconoHoy />
-          Hoy
+          {({ isActive }) => (
+            <>
+              <IconoHoy activo={isActive} />
+              Hoy
+            </>
+          )}
         </NavLink>
         <NavLink to="/clientes">
-          <IconoClientes />
-          Clientes
+          {({ isActive }) => (
+            <>
+              <IconoClientes activo={isActive} />
+              Clientes
+            </>
+          )}
         </NavLink>
         <NavLink to="/tareas">
-          <IconoTareas />
-          Pasos
+          {({ isActive }) => (
+            <>
+              <IconoTareas activo={isActive} />
+              Pasos
+            </>
+          )}
         </NavLink>
         <NavLink to="/yo">
-          <IconoYo />
-          Yo
-          {(avisoLiberar || hayAvisosParticipacion) && (
-            <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
+          {({ isActive }) => (
+            <>
+              <IconoYo activo={isActive} />
+              Yo
+              {(avisoLiberar || hayAvisosParticipacion) && (
+                <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
+              )}
+            </>
           )}
         </NavLink>
       </nav>

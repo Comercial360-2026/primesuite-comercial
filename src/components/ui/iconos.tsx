@@ -1,144 +1,147 @@
-import type { ComponentType, SVGProps } from 'react';
+import type { ComponentType } from 'react';
 import {
-  Calendar,
-  CalendarDays,
+  CalendarCheck,
+  CalendarDots,
   Users,
-  UsersRound,
+  UsersThree,
   ListChecks,
   User,
-  Download,
-  Trash2,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
+  DownloadSimple,
+  Trash,
+  CaretRight,
+  CaretUp,
+  CaretDown,
   ArrowLeft,
   Check,
   Circle,
-  CircleCheckBig,
+  CheckCircle,
   Plus,
-  Pencil,
-  FolderInput,
-  Merge,
+  PencilSimple,
+  ArrowLineRight,
+  ArrowsMerge,
   Database,
-  BookText,
-  LifeBuoy,
-  ChartColumnBig,
-  Copy,
-  LogOut,
+  BookOpenText,
+  Lifebuoy,
+  ChartBar,
+  CopySimple,
+  SignOut,
   Info,
-  TriangleAlert,
-  CircleX,
+  Warning,
+  XCircle,
   Minus,
   Play,
-  Inbox,
+  Tray,
   Camera,
-  Mic,
-  FileText,
-  Search,
-  Sparkles,
+  Microphone,
+  Note,
+  MagnifyingGlass,
+  Sparkle,
   Flag,
-  CircleHelp,
-  Route,
-  Contact,
+  Question,
+  Path,
+  ChatCircleText,
   MapPin,
-  EllipsisVertical,
-} from 'lucide-react';
+  DotsThreeVertical,
+  type IconProps,
+} from '@phosphor-icons/react';
 
-// Set único de iconos de la app. Desde 2026-09-06 se apoya en `lucide-react`
-// (trazo limpio y consistente, estilo SF Symbols) en vez de SVG dibujado a
-// mano. La API no cambia: las pantallas piden el icono por nombre en español
-// (`<Icono nombre="hoy" />`) y no saben de dónde sale el dibujo. Cambiar de
-// set = reasignar aquí; ninguna pantalla se toca.
-//
-// Grosor 1.75 para acercarlo al peso del texto (lucide viene a 2). Todos
-// heredan el color con `currentColor`.
+// Set único de iconos de la app. Desde 2026-09-06 se apoya en Phosphor
+// Icons (`@phosphor-icons/react`) — el set libre más cercano a SF Symbols:
+// varios pesos (regular / fill / duotone), esquinas suaves, geometría
+// óptica consistente. La API no cambia: las pantallas piden el icono por
+// nombre en español (`<Icono nombre="hoy" />`) y no saben de dónde sale el
+// dibujo. El bottom nav pasa `activo` a sus wrappers para que el icono de
+// la sección actual se pinte relleno (patrón iOS).
 
-type IconLucide = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>;
+type IconoPhosphor = ComponentType<IconProps>;
 
-// Nombre en español (kebab-case si son dos palabras) -> componente de lucide.
-// El comentario dice para qué se usa cada uno.
+// Nombre en español (kebab-case si son dos palabras) -> componente Phosphor.
 const registro = {
-  hoy: Calendar, // Hoy / agenda del día (bottom nav)
-  agenda: CalendarDays, // atajo a la agenda completa
+  hoy: CalendarCheck, // Hoy / agenda del día (bottom nav)
+  agenda: CalendarDots, // atajo a la agenda completa
   clientes: Users, // dos personas — relación comercial
-  tareas: ListChecks, // "Pasos" — lista con checks
+  tareas: ListChecks, // "Pasos"
   yo: User, // pantalla "Yo" (bottom nav)
-  descargar: Download,
-  borrar: Trash2,
+  descargar: DownloadSimple,
+  borrar: Trash,
 
-  chevron: ChevronRight, // ">" de las filas navegables
-  subir: ChevronUp, // reordenar: subir una fila
-  bajar: ChevronDown, // reordenar: bajar una fila
-  atras: ArrowLeft, // "volver atrás" (flecha con asta, no chevron)
+  chevron: CaretRight, // ">" de las filas navegables
+  subir: CaretUp, // reordenar: subir una fila
+  bajar: CaretDown, // reordenar: bajar una fila
+  atras: ArrowLeft, // "volver atrás"
 
   check: Check, // "hecho" / completado
   circulo: Circle, // casilla sin marcar (FilaToggle)
-  'check-circulo': CircleCheckBig, // casilla marcada (FilaToggle)
+  'check-circulo': CheckCircle, // casilla marcada (FilaToggle)
 
   mas: Plus, // crear / añadir
-  editar: Pencil, // renombrar / editar en el sitio
-  mover: FolderInput, // mover a otra categoría
-  fusionar: Merge, // fusionar con un término existente
+  editar: PencilSimple, // renombrar / editar en el sitio
+  mover: ArrowLineRight, // mover a otra categoría
+  fusionar: ArrowsMerge, // fusionar con un término existente
   almacenamiento: Database, // cuota / consumo de disco
-  vocabulario: BookText, // catálogo de términos
-  solicitudes: LifeBuoy, // solicitudes de ayuda / sustitución
-  consumo: ChartColumnBig, // consumo por comercial (barras)
-  duplicados: Copy, // clientes duplicados
-  salir: LogOut, // cerrar sesión
+  vocabulario: BookOpenText, // catálogo de términos
+  solicitudes: Lifebuoy, // solicitudes de ayuda / sustitución
+  consumo: ChartBar, // consumo por comercial (barras)
+  duplicados: CopySimple, // clientes duplicados
+  salir: SignOut, // cerrar sesión
 
   // Mensajes (componente Aviso) — formas distintas entre sí.
   info: Info,
-  atencion: TriangleAlert,
-  error: CircleX,
+  atencion: Warning,
+  error: XCircle,
   guion: Minus, // estado neutro / en pausa
   reproducir: Play, // "en curso" (visita empezada) — se pinta relleno
-  bandeja: Inbox, // estado vacío por defecto
+  bandeja: Tray, // estado vacío por defecto
 
   // Captura durante la visita.
   foto: Camera,
-  audio: Mic,
-  nota: FileText,
-  hallazgo: Search, // algo observado sobre el terreno (lupa)
-  oportunidad: Sparkles, // destello — mismo sentido que el acento --signal-600
+  audio: Microphone,
+  nota: Note,
+  hallazgo: MagnifyingGlass, // algo observado sobre el terreno
+  oportunidad: Sparkle, // destello — mismo sentido que el acento --signal-600
   paso: Flag, // próximo paso — lo que queda pendiente al salir
 
-  ayuda: CircleHelp, // "?" de ayuda
-  recorrido: Route, // ruta / recorrido por zonas
-  interlocutor: Contact, // persona con la que hablas en la visita
+  ayuda: Question, // "?" de ayuda
+  recorrido: Path, // ruta / recorrido por zonas
+  interlocutor: ChatCircleText, // persona con la que hablas en la visita
   ubicacion: MapPin, // chincheta de mapa
-  equipo: UsersRound, // tú y tus compañeros (grupo)
-  opciones: EllipsisVertical, // "más acciones sobre esto" (kebab)
-} satisfies Record<string, IconLucide>;
+  equipo: UsersThree, // tú y tus compañeros (grupo)
+  opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)
+} satisfies Record<string, IconoPhosphor>;
 
 export type NombreIcono = keyof typeof registro;
 
 interface PropsIcono {
   nombre: NombreIcono;
-  /** Lado del icono en px. Nav = 22; filas y botones de acción = 20. */
+  /** Lado del icono en px. Nav = 24; filas y botones de acción = 20. */
   size?: number;
+  /** Peso Phosphor. Por defecto 'regular'; el bottom nav usa 'fill' en la sección activa. */
+  weight?: IconProps['weight'];
 }
 
-export function Icono({ nombre, size = 20 }: PropsIcono) {
+export function Icono({ nombre, size = 20, weight }: PropsIcono) {
   const Componente = registro[nombre];
   // "reproducir" es un indicador macizo (como antes): triángulo relleno.
-  const relleno = nombre === 'reproducir';
-  return (
-    <Componente
-      size={size}
-      strokeWidth={relleno ? 0 : 1.75}
-      aria-hidden="true"
-      {...(relleno ? { fill: 'currentColor' } : {})}
-    />
-  );
+  const w = weight ?? (nombre === 'reproducir' ? 'fill' : 'regular');
+  return <Componente size={size} weight={w} aria-hidden />;
 }
 
-// Wrappers con nombre propio — los usa el bottom nav (layout-shell) y
-// mi-espacio; mismo registro, solo fijan el tamaño por defecto de su sitio.
-type PropsWrapper = { size?: number };
+// Wrappers del bottom nav (layout-shell) y mi-espacio. `activo` -> relleno,
+// como iOS: la sección en la que estás se pinta sólida.
+type PropsWrapper = { size?: number; activo?: boolean };
+const pesoNav = (activo?: boolean): IconProps['weight'] => (activo ? 'fill' : 'regular');
 
-export const IconoHoy = ({ size = 22 }: PropsWrapper) => <Icono nombre="hoy" size={size} />;
-export const IconoClientes = ({ size = 22 }: PropsWrapper) => <Icono nombre="clientes" size={size} />;
-export const IconoTareas = ({ size = 22 }: PropsWrapper) => <Icono nombre="tareas" size={size} />;
-export const IconoYo = ({ size = 22 }: PropsWrapper) => <Icono nombre="yo" size={size} />;
+export const IconoHoy = ({ size = 24, activo }: PropsWrapper) => (
+  <Icono nombre="hoy" size={size} weight={pesoNav(activo)} />
+);
+export const IconoClientes = ({ size = 24, activo }: PropsWrapper) => (
+  <Icono nombre="clientes" size={size} weight={pesoNav(activo)} />
+);
+export const IconoTareas = ({ size = 24, activo }: PropsWrapper) => (
+  <Icono nombre="tareas" size={size} weight={pesoNav(activo)} />
+);
+export const IconoYo = ({ size = 24, activo }: PropsWrapper) => (
+  <Icono nombre="yo" size={size} weight={pesoNav(activo)} />
+);
 export const IconoDescargar = ({ size = 20 }: PropsWrapper) => <Icono nombre="descargar" size={size} />;
 export const IconoBorrar = ({ size = 20 }: PropsWrapper) => <Icono nombre="borrar" size={size} />;
