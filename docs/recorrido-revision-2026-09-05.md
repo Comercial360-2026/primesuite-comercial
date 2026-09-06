@@ -572,7 +572,10 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
 ### Vocabulario → Pendientes
 - [B] No hay acciones por ítem. Para aprobar/descartar un término hay que
   entrar en "Seleccionar" → marcar → acción (3 toques para 1 ítem). Tocar
-  el ítem solo despliega metadatos. Poner Aprobar/Descartar directos.
+  el ítem solo despliega metadatos. Poner Aprobar/Descartar directos. —
+  ✅ RESUELTO (`fc00b07`): al desplegar la tarjeta salen 3 chips —
+  "Aprobar en «<cat>»", "Fusionar con…", "Descartar" — que reutilizan
+  `resolver()`. El modo lote se mantiene. ayuda.ts al día.
 - [C] Fecha del subtítulo se corta ("1 sept 20…").
 - [C] "Catálogo completo": 5 de 7 categorías a "0 términos" — parece roto
   (es dato de prueba; baja prioridad).
