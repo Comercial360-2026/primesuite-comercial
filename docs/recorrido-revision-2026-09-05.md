@@ -414,6 +414,22 @@ y verificados en vivo (commit `dab303b`):
    "Informe de la visita" + subtítulo "PDF con las fotos y los audios, en
    un ZIP".
 
+Y abriendo el PDF de verdad (descomprimir el ZIP), commit `9ccc8f4` en la
+edge function `generar-backup-visita`:
+
+4. **[B] Ligaduras fi/fl/ff sin texto copiable.** pdfmake aplica las
+   ligaduras de Roboto pero el ToUnicode del glifo se come la 2ª letra: el
+   PDF se ve bien, pero copiar / Ctrl+F / lector de pantalla dan
+   "unifcado", "Refeja", "fotográfco". `romperLigaduras()` mete un U+200C
+   entre la f y la letra siguiente en todo el árbol de contenido.
+5. **[C] LEEME.txt decía "(visita visita)"** — `(visita
+   ${tipoLabel.toLowerCase()})` con `tipo_visita` null (todas hoy) → "visita
+   visita". Ahora " · <frase>" solo si hay tipo; si no, solo la fecha.
+
+**Pendiente:** re-desplegar `generar-backup-visita` y regenerar un PDF real
+para verificar 4 y 5. El PDF por dentro (colores Grupo 7) se vio: maqueta
+y colores OK.
+
 ---
 
 ## 6. Propuesta de orden para el recorrido conjunto
