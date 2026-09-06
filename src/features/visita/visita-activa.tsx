@@ -1163,7 +1163,7 @@ export function VisitaActiva() {
         <CabeceraDetalle
           titulo={cliente?.nombre ?? '…'}
           subtitulo="Visita cerrada"
-          onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+          onVolver={() => navigate('/')}
         />
         <div className="screen__scroll">
           <Aviso tipo="info" titulo="Esta visita ya está cerrada">
@@ -1319,7 +1319,7 @@ export function VisitaActiva() {
         titulo={cliente?.nombre ?? '…'}
         subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
         ayuda="visita-activa"
-        onVolver={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))}
+        onVolver={() => navigate('/')}
         derecha={
           <>
             {/* Interlocutores y Equipo: acciones secundarias → botón-icono
@@ -1481,7 +1481,7 @@ export function VisitaActiva() {
           {!hayZonaActiva && (
             <button
               type="button"
-              className="chip"
+              className={`chip${zonaEditorAbierto ? ' chip--on' : ''}`}
               style={{ flexShrink: 0 }}
               aria-expanded={zonaEditorAbierto}
               onClick={() => setZonaEditorAbierto((v) => !v)}

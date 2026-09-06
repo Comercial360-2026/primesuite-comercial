@@ -661,11 +661,28 @@ AHORA; rejilla 2 columnas.
   `prefers-reduced-motion`. Verificado en vivo (el mic falso de Chrome
   headless dejó probarlo).
 
-Estado: **`/visita/:id` — 4.º repaso hecho y verde**, verificado en vivo.
-Dictado interino: el hook y el textarea están; probado indirectamente.
-Pendiente de pulir/decidir: posición física de la rejilla, "pop" de la
-rejilla, `←` a Hoy, `ayuda.ts` al nuevo layout, icono de interlocutor,
-filas de zona tocables en `/cierre`.
+**5.º repaso (2026-09-06):**
+- **Editor de zona: "cerrar" en texto → × de icono** (regla #12, otra vez).
+- **El chip "Marcar zonas" no cambiaba de estado** al abrir el editor →
+  ahora pasa a `chip--on` mientras está abierto (**regla #13** nueva:
+  todo control que abre algo muestra estado activo).
+- **`←` de Visita activa** hacía `navigate(-1)` con heurística de
+  historial → podía devolverte a "Cerrar visita" en bucle. Ahora va
+  **siempre a Hoy** (`/`). Cierre → `/visita/:id`. **Regla #14** nueva:
+  el ← va a un destino FIJO, nunca `navigate(-1)`. Pendiente: auditar el
+  resto de pantallas de detalle.
+- **Dictado en Nota: se quedaba en blanco al pausar.** El motor de Chrome
+  corta la escucha en cada pausa (`onend`) y se perdía lo dicho. `useDictado`
+  ahora **reanuda solo** mientras no pulses "parar" (`quiereDictar` ref +
+  restart en `onend`), así dictas seguido con pausas y todo se acumula.
+  No verificable con el micro falso de Chrome; lógica = patrón estándar
+  de Web Speech continuo.
+
+Estado: **`/visita/:id` — 5.º repaso hecho y verde**. Pendiente de
+pulir/decidir: posición física de la rejilla, "pop" de la rejilla,
+`ayuda.ts` al nuevo layout, icono de interlocutor, filas de zona tocables
+en `/cierre`, auditoría global de `←` (regla #14) y de estados activos de
+controles (regla #13).
 
 ### `/` — Hoy
 

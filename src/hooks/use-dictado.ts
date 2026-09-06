@@ -8,10 +8,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 //     motor va reconociendo. El consumidor lo muestra en vivo pero NO lo
 //     consolida (cambia y se corrige según sigues hablando). Se manda
 //     también '' para limpiar lo provisional cuando ya está consolidado o
-//     al parar.
+//     al reanudar.
 //   - con `final: true` cuando el motor da por buena una frase — el
 //     consumidor la añade de verdad al texto.
-// Antes solo se llamaba al terminar de hablar: parecía que no hacía nada.
+//
+// CLAVE (Cesar, 2026-09-06): el motor de Chrome corta la escucha en cada
+// pausa larga y dispara `onend`. Si no se reanuda, el dictado se para al
+// hacer una pausa y lo provisional se pierde ("se queda en blanco"). Aquí
+// se reanuda solo mientras el usuario no haya pulsado "parar", así que
+// dictas seguido con pausas y todo lo dicho se va acumulando.
+//
 // `soportado` es false en navegadores sin la API (Firefox, algunos
 // WebView) — ahí no se enseña el botón.
 
@@ -19,6 +25,7 @@ type ResultadoVoz = {
   resultIndex: number;
   results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
 };
+type ErrorVoz = { error?: string };
 type Reconocedor = {
   lang: string;
   continuous: boolean;
@@ -28,7 +35,7 @@ type Reconocedor = {
   abort: () => void;
   onresult: ((e: ResultadoVoz) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((e: ErrorVoz) => void) | null;
 };
 type CtorReconocedor = new () => Reconocedor;
 
@@ -44,6 +51,9 @@ function obtenerCtor(): CtorReconocedor | null {
 export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }) => void) {
   const [dictando, setDictando] = useState(false);
   const refReconocedor = useRef<Reconocedor | null>(null);
+  // El usuario quiere seguir dictando (no ha pulsado "parar"). Mientras sea
+  // true, cada `onend` del motor reanuda la escucha.
+  const quiereDictar = useRef(false);
   const soportado = obtenerCtor() != null;
 
   // `onTexto` cambia en cada render; se guarda en ref para que el handler
@@ -51,15 +61,11 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
   const refOnTexto = useRef(onTexto);
   refOnTexto.current = onTexto;
 
-  const parar = useCallback(() => {
-    refReconocedor.current?.stop();
-  }, []);
+  // Referencia estable a "arrancar una escucha nueva" — la usa `onend` para
+  // reanudar sin depender de un closure viejo.
+  const arrancarRef = useRef<() => void>(() => {});
 
-  const alternar = useCallback(() => {
-    if (dictando) {
-      parar();
-      return;
-    }
+  const arrancar = useCallback(() => {
     const Ctor = obtenerCtor();
     if (!Ctor) return;
     const r = new Ctor();
@@ -81,18 +87,58 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
     };
     r.onend = () => {
       refOnTexto.current('', { final: false });
-      setDictando(false);
+      if (quiereDictar.current) {
+        // Pausa / corte del motor: reanuda con una instancia nueva, sin
+        // que el usuario note nada. Pequeño respiro para no chocar con el
+        // "recognition already started".
+        setTimeout(() => {
+          if (quiereDictar.current) arrancarRef.current();
+        }, 150);
+      } else {
+        setDictando(false);
+      }
     };
-    r.onerror = () => {
-      refOnTexto.current('', { final: false });
-      setDictando(false);
+    r.onerror = (ev) => {
+      // Permiso denegado / servicio no disponible: parar de verdad. El
+      // resto ('no-speech', 'aborted') son normales entre frases y `onend`
+      // se encarga de reanudar.
+      if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
+        quiereDictar.current = false;
+        setDictando(false);
+      }
     };
     refReconocedor.current = r;
-    r.start();
+    try {
+      r.start();
+    } catch {
+      /* ya estaba iniciando: el onend anterior reanudará */
+    }
     setDictando(true);
-  }, [dictando, parar]);
+  }, []);
+  arrancarRef.current = arrancar;
 
-  useEffect(() => () => refReconocedor.current?.abort(), []);
+  const parar = useCallback(() => {
+    quiereDictar.current = false;
+    refReconocedor.current?.stop();
+  }, []);
+
+  const alternar = useCallback(() => {
+    if (dictando) {
+      parar();
+      return;
+    }
+    if (!obtenerCtor()) return;
+    quiereDictar.current = true;
+    arrancar();
+  }, [dictando, parar, arrancar]);
+
+  useEffect(
+    () => () => {
+      quiereDictar.current = false;
+      refReconocedor.current?.abort();
+    },
+    []
+  );
 
   return { soportado, dictando, alternar, parar };
 }
