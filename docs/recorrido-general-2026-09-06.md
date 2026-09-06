@@ -13,6 +13,15 @@ primero qué encuentra que NO tiene sentido**, luego Cesar comenta, y se
 corrige antes de avanzar. Prioridad **A** (fricción real) / **B**
 (incoherencia) / **C** (pulido).
 
+**Principio rector (Cesar, 2026-09-06):** una app tiene que **hacer lo que
+dice**, de la forma **más simple posible**, y **cumplir lo que el usuario
+espera**. Un control cuyo texto no coincide con lo que hace, un punto muerto
+donde el usuario se queda sin salida, o un flujo que pide más pasos de los
+necesarios = bug, aunque el código "funcione". En cada pantalla, antes de
+nada: ¿el botón/texto hace lo que promete? ¿hay algún punto sin salida?
+¿se puede en menos pasos? Los casos límite (sin datos, sin red, sin
+permisos, cliente/registro que no existe) se prevén, no se esperan.
+
 **Directriz global — iconos:** todos los iconos que se cambien pasan a ser
 **modernos e intuitivos, estilo Apple / SF Symbols** (formas simples,
 reconocibles al instante, peso óptico consistente).
