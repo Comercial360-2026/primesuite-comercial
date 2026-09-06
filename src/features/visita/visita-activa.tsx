@@ -26,6 +26,7 @@ import { Aviso } from '@/components/ui/aviso';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { Segmentado } from '@/components/ui/segmentado';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
@@ -293,6 +294,10 @@ export function VisitaActiva() {
   const [notaAbierta, setNotaAbierta] = useState(false);
   const [notaTitulo, setNotaTitulo] = useState('');
   const [notaTexto, setNotaTexto] = useState('');
+  // Texto que se está dictando AHORA (provisional): se ve en el textarea
+  // según hablas y se consolida en `notaTexto` cuando el motor lo da por
+  // bueno.
+  const [notaDictadoProvisional, setNotaDictadoProvisional] = useState('');
   const [grabando, setGrabando] = useState(false);
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
@@ -305,10 +310,22 @@ export function VisitaActiva() {
   const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
   const guardadoNota = useAccionAsync();
   const [guardadoNotaConExito, setGuardadoNotaConExito] = useState(false);
-  // Dictado voz→texto para la nota: va añadiendo lo reconocido al final.
-  const dictadoNota = useDictado((frag) =>
-    setNotaTexto((t) => (t.trim() ? `${t.trimEnd()} ${frag}` : frag))
-  );
+  // Dictado voz→texto para la nota. Lo final se añade al texto; lo
+  // provisional se pinta en vivo (así se ve que está escuchando).
+  const dictadoNota = useDictado((frag, { final }) => {
+    if (final) {
+      setNotaTexto((t) => (t.trim() ? `${t.trimEnd()} ${frag}` : frag));
+      setNotaDictadoProvisional('');
+    } else {
+      setNotaDictadoProvisional(frag);
+    }
+  });
+  // Lo que se ve en el textarea mientras dictas: el texto consolidado + lo
+  // que estás diciendo ahora.
+  const notaTextoEnVivo =
+    dictadoNota.dictando && notaDictadoProvisional
+      ? `${notaTexto.trimEnd()}${notaTexto.trim() ? ' ' : ''}${notaDictadoProvisional}`
+      : notaTexto;
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
 
@@ -776,12 +793,22 @@ export function VisitaActiva() {
 
   function cerrarNota() {
     dictadoNota.parar();
+    setNotaDictadoProvisional('');
     guardadoNota.limpiarError();
     setNotaAbierta(false);
   }
 
   async function guardarNota() {
-    if (!notaTexto.trim()) return;
+    // Si aún se está dictando, para y da por bueno lo provisional para no
+    // perderlo.
+    let textoFinal = notaTexto;
+    if (notaDictadoProvisional.trim()) {
+      textoFinal = `${notaTexto.trimEnd()}${notaTexto.trim() ? ' ' : ''}${notaDictadoProvisional.trim()}`;
+      dictadoNota.parar();
+      setNotaTexto(textoFinal);
+      setNotaDictadoProvisional('');
+    }
+    if (!textoFinal.trim()) return;
     const capturaId = uuid();
     await guardadoNota.ejecutar(
       () =>
@@ -793,7 +820,7 @@ export function VisitaActiva() {
             comercialAutorId: comercial!.id,
             tipo: 'nota',
             titulo: notaTitulo.trim() || undefined,
-            contenidoTexto: notaTexto.trim(),
+            contenidoTexto: textoFinal.trim(),
             zonaTexto: zonaParaCaptura,
           },
           { dependeDe: visitaId }
@@ -1394,30 +1421,94 @@ export function VisitaActiva() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
           <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
-          {/* Zona activa → pastilla sólida con el nombre (regla #11: se ve
-              que hay zona sin depender del color). Sin zona → enlace
-              discreto. Ambos abren la hoja de zona. */}
-          {hayZonaActiva ? (
-            <button
-              type="button"
-              className="zona-pill"
-              onClick={() => setZonaEditorAbierto(true)}
-              title={`Se guarda en ${zonaActual.trim()} · tocar para cambiar o quitar`}
-            >
-              <Icono nombre="ubicacion" size={14} weight="fill" />
-              <span>{zonaActual.trim()}</span>
-            </button>
-          ) : (
+          {/* Sin zona: enlace discreto para empezar a marcar. Con zona
+              activa, el enlace desaparece y manda la banda de abajo. */}
+          {!hayZonaActiva && (
             <button
               type="button"
               className="btn-enlace"
               style={{ padding: 0, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}
-              onClick={() => setZonaEditorAbierto(true)}
+              onClick={() => setZonaEditorAbierto((v) => !v)}
             >
               <Icono nombre="ubicacion" size={14} /> Marcar zonas
             </button>
           )}
         </div>
+
+        {/* Banda de ZONA ACTIVA — siempre visible mientras hay zona, encima
+            de los botones: deja claro que TODO lo que se capture ahora va a
+            esa zona y no a «General». Relleno sólido (regla #11: se ve sin
+            depender del color). "cambiar" abre el campo; ✕ vuelve a
+            «General». */}
+        {hayZonaActiva && (
+          <div className="zona-banda">
+            <Icono nombre="ubicacion" size={16} weight="fill" />
+            <span>
+              Guardando en <strong>{zonaActual.trim()}</strong>
+            </span>
+            <button
+              type="button"
+              className="zona-banda__cambiar"
+              onClick={() => setZonaEditorAbierto((v) => !v)}
+            >
+              cambiar
+            </button>
+            <button
+              type="button"
+              className="zona-banda__x"
+              aria-label="Dejar de usar esta zona (volver a «General»)"
+              onClick={() => {
+                setZonaActual('');
+                setZonaEditorAbierto(false);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Editor de zona — inline, en la propia pantalla (no una hoja).
+            Escribe una zona o repite una ya usada; se aplica al momento. */}
+        {zonaEditorAbierto && (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <AyudaNota concepto="zona-captura" />
+            <input
+              className="field"
+              value={zonaActual}
+              onChange={(e) => setZonaActual(e.target.value)}
+              placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
+              autoFocus
+            />
+            {zonasUsadas.length > 0 && (
+              <>
+                <div className="label" style={{ marginTop: 4 }}>Zonas de esta visita</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {zonasUsadas.map((z) => (
+                    <button
+                      key={z}
+                      type="button"
+                      className="chip"
+                      onClick={() => {
+                        setZonaActual(z);
+                        setZonaEditorAbierto(false);
+                      }}
+                    >
+                      {z}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              className="btn-enlace"
+              style={{ padding: 0, alignSelf: 'flex-start' }}
+              onClick={() => setZonaEditorAbierto(false)}
+            >
+              cerrar
+            </button>
+          </div>
+        )}
 
         {/* Rejilla de 6, todas al mismo peso (B3), 2 columnas. Hueco mayor
             entre las dos filas: separa la captura en caliente
@@ -1490,14 +1581,16 @@ export function VisitaActiva() {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>En esta visita</span>
             {zonaUsada && (
-              <button
-                type="button"
-                className="btn-enlace"
-                style={{ marginLeft: 'auto', padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}
-                onClick={() => setOrdenPorZona((v) => !v)}
-              >
-                {ordenPorZona ? 'ver por tipo' : 'ver por zona'}
-              </button>
+              <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                <Segmentado
+                  opciones={[
+                    { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
+                    { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
+                  ]}
+                  valor={ordenPorZona ? 'zona' : 'tipo'}
+                  onCambio={(v) => setOrdenPorZona(v === 'zona')}
+                />
+              </div>
             )}
           </div>
           {totalEnVisita > 0 && (
@@ -1723,73 +1816,6 @@ export function VisitaActiva() {
         <ParticipantesHoja visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
       )}
 
-      {/* Zona — hoja inferior, como el resto de capturas (no una caja
-          inline). Escribes la zona que recorres y todo lo que captures a
-          partir de ahí queda atado a ella; vacía → «General». */}
-      {zonaEditorAbierto && (
-        <HojaInferior titulo="Zona de la captura" onCerrar={() => setZonaEditorAbierto(false)}>
-          <AyudaNota concepto="zona-captura" />
-
-          {/* Dónde se guarda AHORA — una sola cosa, y se ve (regla #11). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 4px' }}>
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-500)' }}>Se guarda en:</span>
-            {hayZonaActiva ? (
-              <span className="zona-pill" style={{ cursor: 'default' }}>
-                <Icono nombre="ubicacion" size={14} weight="fill" />
-                <span>{zonaActual.trim()}</span>
-                <button
-                  type="button"
-                  aria-label="Quitar la zona"
-                  onClick={() => setZonaActual('')}
-                  style={{
-                    border: 'none', background: 'none', color: '#fff', cursor: 'pointer',
-                    padding: 0, marginLeft: 2, display: 'flex', fontSize: 14, lineHeight: 1,
-                  }}
-                >
-                  ✕
-                </button>
-              </span>
-            ) : (
-              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>General</span>
-            )}
-          </div>
-
-          <input
-            className="field"
-            value={zonaActual}
-            onChange={(e) => setZonaActual(e.target.value)}
-            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-            autoFocus
-          />
-
-          {zonasUsadas.length > 0 && (
-            <>
-              <div className="label" style={{ marginTop: 10 }}>Repetir una zona de esta visita</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {zonasUsadas.map((z) => (
-                  <button
-                    key={z}
-                    type="button"
-                    className="chip"
-                    onClick={() => setZonaActual(z)}
-                  >
-                    {z}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 14 }}
-            onClick={() => setZonaEditorAbierto(false)}
-          >
-            Hecho
-          </button>
-        </HojaInferior>
-      )}
-
       {/* Nota — misma hoja inferior que el resto de capturas (foto, audio,
           hallazgo, oportunidad, próximo paso): un solo gesto, un solo
           comportamiento. */}
@@ -1803,8 +1829,9 @@ export function VisitaActiva() {
             style={{ height: 'auto', padding: 8 }}
             rows={3}
             autoFocus
-            value={notaTexto}
+            value={notaTextoEnVivo}
             onChange={(e) => setNotaTexto(e.target.value)}
+            readOnly={dictadoNota.dictando && !!notaDictadoProvisional}
             placeholder="escribe o dicta la nota…"
           />
           {dictadoNota.soportado && (
@@ -1831,7 +1858,7 @@ export function VisitaActiva() {
             </button>
             <button
               className="btn btn-primary"
-              disabled={guardadoNota.cargando || guardadoNotaConExito || !notaTexto.trim()}
+              disabled={guardadoNota.cargando || guardadoNotaConExito || !notaTextoEnVivo.trim()}
               onClick={guardarNota}
             >
               {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}

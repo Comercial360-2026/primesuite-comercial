@@ -617,8 +617,33 @@ AHORA; rejilla 2 columnas.
 - `ayuda.ts` (`visita-activa`) — re-actualizar el texto al nuevo layout.
 - Icono de Interlocutores: `ChatCircleText` (bocadillo) vs. una persona.
 
-Estado: **`/visita/:id` — 2.º repaso casi cerrado**; queda pulir lo de
-arriba y la decisión de posición de la rejilla.
+**3.er repaso (2026-09-06) — Cesar tumba la zona en hoja + dos cosas más:**
+- **Dictado en Nota:** el texto solo aparecía al terminar de hablar.
+  Arreglado: `useDictado` con `interimResults` → `onTexto(frag, {final})`.
+  El texto provisional se pinta en vivo en el textarea y se consolida en
+  `notaTexto` cuando el motor lo da por bueno.
+- **Zona en `HojaInferior` — MAL** (ver
+  [[feedback-metodo-no-piloto-automatico]] #3). Cesar solo pedía resaltar
+  la selección; se rediseñó el flujo entero a otra pantalla con 5-6 pasos.
+  **Revertido:** editor de zona **inline en la propia pantalla** (`.card`
+  con AyudaNota + campo + chips "Zonas de esta visita"), colapsable desde
+  el enlace "Marcar zonas". Y la mejora que se pedía: **banda de zona
+  activa** — `.zona-banda` sólida "📍 Guardando en <b>X</b> · cambiar ·
+  ✕", SIEMPRE visible encima de los botones mientras hay zona (deja claro
+  que todo va a esa zona y no a «General»). ✕ vuelve a General al toque;
+  "cambiar" reabre el editor; un chip aplica al momento y cierra. Verificado
+  en vivo.
+- **"ver por zona / ver por tipo"** era un enlace de texto que no parecía
+  pulsable. → **`Segmentado` con iconos** `[▤ Tipo | 📍 Zona]`. El
+  componente `Segmentado` ahora acepta `icono?` por opción (+ `soloIcono`).
+  Icono nuevo `lista` (ListBullets).
+
+Estado: **`/visita/:id` — 3.er repaso hecho y verde**, verificado en vivo
+(zona inline + banda + Segmentado; consola limpia). Dictado interino sin
+probar en vivo (hace falta micro). Sigue pendiente de pulir/decidir:
+posición física de la rejilla, "pop" de la rejilla, indicador de
+grabación, `←` a Hoy, coherencia con `/cierre`, `ayuda.ts` al nuevo
+layout, icono de interlocutor.
 
 ### `/` — Hoy
 

@@ -42,6 +42,7 @@ import {
   Path,
   ChatCircleText,
   MapPin,
+  ListBullets,
   DotsThreeVertical,
   type IconProps,
 } from '@phosphor-icons/react';
@@ -107,6 +108,7 @@ const registro = {
   recorrido: Path, // ruta / recorrido por zonas
   interlocutor: ChatCircleText, // persona con la que hablas en la visita
   ubicacion: MapPin, // chincheta de mapa
+  lista: ListBullets, // vista de lista (frente a agrupada)
   equipo: UsersThree, // tú y tus compañeros (grupo)
   opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)
 } satisfies Record<string, IconoPhosphor>;

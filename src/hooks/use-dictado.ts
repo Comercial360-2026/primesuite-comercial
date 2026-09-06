@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Dictado voz -> texto con la Web Speech API. En una visita, escribir en el
-// móvil delante del cliente queda mal; dictar es lo natural. `onTexto`
-// recibe cada fragmento final reconocido para que quien lo use lo añada
-// donde quiera. `soportado` es false en navegadores sin la API (Firefox,
-// algunos WebView) — ahí no se enseña el botón.
+// móvil delante del cliente queda mal; dictar es lo natural.
+//
+// `onTexto(fragmento, { final })` se llama:
+//   - con `final: false` mientras hablas — el texto PROVISIONAL que el
+//     motor va reconociendo. El consumidor lo muestra en vivo pero NO lo
+//     consolida (cambia y se corrige según sigues hablando). Se manda
+//     también '' para limpiar lo provisional cuando ya está consolidado o
+//     al parar.
+//   - con `final: true` cuando el motor da por buena una frase — el
+//     consumidor la añade de verdad al texto.
+// Antes solo se llamaba al terminar de hablar: parecía que no hacía nada.
+// `soportado` es false en navegadores sin la API (Firefox, algunos
+// WebView) — ahí no se enseña el botón.
 
 type ResultadoVoz = {
   resultIndex: number;
@@ -32,7 +41,7 @@ function obtenerCtor(): CtorReconocedor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function useDictado(onTexto: (fragmento: string) => void) {
+export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }) => void) {
   const [dictando, setDictando] = useState(false);
   const refReconocedor = useRef<Reconocedor | null>(null);
   const soportado = obtenerCtor() != null;
@@ -56,17 +65,28 @@ export function useDictado(onTexto: (fragmento: string) => void) {
     const r = new Ctor();
     r.lang = 'es-ES';
     r.continuous = true;
-    r.interimResults = false;
+    r.interimResults = true;
     r.onresult = (e) => {
-      let fragmento = '';
+      let final = '';
+      let provisional = '';
       for (let i = e.resultIndex; i < e.results.length; i += 1) {
-        if (e.results[i].isFinal) fragmento += e.results[i][0].transcript;
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t;
+        else provisional += t;
       }
-      const limpio = fragmento.trim();
-      if (limpio) refOnTexto.current(limpio);
+      if (final.trim()) refOnTexto.current(final.trim(), { final: true });
+      // Se manda SIEMPRE (aun vacío) para que el consumidor pinte lo que
+      // se está diciendo ahora y lo borre en cuanto se consolida.
+      refOnTexto.current(provisional.trim(), { final: false });
     };
-    r.onend = () => setDictando(false);
-    r.onerror = () => setDictando(false);
+    r.onend = () => {
+      refOnTexto.current('', { final: false });
+      setDictando(false);
+    };
+    r.onerror = () => {
+      refOnTexto.current('', { final: false });
+      setDictando(false);
+    };
     refReconocedor.current = r;
     r.start();
     setDictando(true);
