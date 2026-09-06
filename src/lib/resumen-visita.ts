@@ -80,8 +80,13 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
       d.nFotos && plural(d.nFotos, 'foto', 'fotos'),
       d.nAudios && plural(d.nAudios, 'audio', 'audios'),
       d.nNotas && plural(d.nNotas, 'nota', 'notas'),
-    ].filter(Boolean);
-    if (capturas.length) frases.push(`Se registraron ${capturas.join(', ')}.`);
+    ].filter((c): c is string => !!c);
+    if (capturas.length) {
+      // Concordancia del verbo: "Se registró 1 nota" / "Se registraron 2 notas"
+      // (una sola captura y en singular → verbo en singular).
+      const singular = capturas.length === 1 && capturas[0].startsWith('1 ');
+      frases.push(`Se ${singular ? 'registró' : 'registraron'} ${capturas.join(', ')}.`);
+    }
   }
 
   return frases.join(' ').trim();
