@@ -1076,6 +1076,15 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 
 .ayuda-manual__grupo { padding: 0; }
 
+/* Sub-cabecera de cada bloque del índice (por flujo de uso). Más discreta
+   que el `.lbl-seccion` de "Pantallas" / "Conceptos"; alineada con él. */
+.ayuda-manual__subgrupo {
+  padding: 0 var(--fila-pad-x); margin: var(--space-4) 0 4px;
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-400);
+}
+.ayuda-manual__bloque:first-child .ayuda-manual__subgrupo { margin-top: var(--space-2); }
+
 /* /ayuda como índice plegable: fila de título tocable + cuerpo desplegable. */
 .ayuda-item { border-top: 1px solid var(--ink-100); }
 .ayuda-item:first-child { border-top: none; }

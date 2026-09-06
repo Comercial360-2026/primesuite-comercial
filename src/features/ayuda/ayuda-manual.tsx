@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { PANTALLAS, CONCEPTOS } from '@/lib/ayuda';
+import { PANTALLAS, CONCEPTOS, GRUPOS_PANTALLA, GRUPOS_CONCEPTO } from '@/lib/ayuda';
 
 // Pantalla /ayuda — "Cómo funciona PrimeNotes". No se escribe a mano:
 // recorre los mapas de `ayuda.ts`, así que cada entrada nueva aparece aquí
@@ -10,6 +10,11 @@ import { PANTALLAS, CONCEPTOS } from '@/lib/ayuda';
 // deja buscar. Es un ÍNDICE plegable: de un vistazo se ven todos los
 // títulos; se toca uno y se despliega su explicación. Cabecera y buscador
 // fijos, el índice scrollea aparte y siempre arranca arriba.
+//
+// El índice va agrupado por flujo de uso (GRUPOS_PANTALLA / GRUPOS_CONCEPTO
+// de `ayuda.ts`), no alfabético: primero el día a día, luego un cliente,
+// luego una visita de principio a fin, y al final lo de Dirección. Al
+// buscar, los grupos vacíos no salen.
 
 function normaliza(s: string) {
   // Minúsculas y sin acentos, para que "camion" encuentre "camión".
@@ -112,42 +117,60 @@ export function AyudaManual() {
         {pantallas.length > 0 && (
           <section>
             <h2 className="lbl-seccion">Pantallas</h2>
-            <div className="ayuda-manual__grupo">
-              {pantallas.map((e) => (
-                <ItemAyuda
-                  key={e.titulo}
-                  titulo={e.titulo}
-                  abierto={estaAbierto(e.titulo)}
-                  onToggle={() => alternar(e.titulo)}
-                  cuerpo={[
-                    { texto: e.queEs },
-                    { lb: 'Cuándo', texto: e.cuando },
-                    ...(e.ojo ? [{ lb: 'Ojo', texto: e.ojo }] : []),
-                  ]}
-                />
-              ))}
-            </div>
+            {GRUPOS_PANTALLA.map((g) => {
+              const items = pantallas.filter((e) => e.grupo === g.id);
+              if (items.length === 0) return null;
+              return (
+                <div key={g.id} className="ayuda-manual__bloque">
+                  <h3 className="ayuda-manual__subgrupo">{g.titulo}</h3>
+                  <div className="ayuda-manual__grupo">
+                    {items.map((e) => (
+                      <ItemAyuda
+                        key={e.titulo}
+                        titulo={e.titulo}
+                        abierto={estaAbierto(e.titulo)}
+                        onToggle={() => alternar(e.titulo)}
+                        cuerpo={[
+                          { texto: e.queEs },
+                          { lb: 'Cuándo', texto: e.cuando },
+                          ...(e.ojo ? [{ lb: 'Ojo', texto: e.ojo }] : []),
+                        ]}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         )}
 
         {conceptos.length > 0 && (
           <section>
             <h2 className="lbl-seccion">Conceptos</h2>
-            <div className="ayuda-manual__grupo">
-              {conceptos.map((e) => (
-                <ItemAyuda
-                  key={e.titulo}
-                  titulo={e.titulo}
-                  abierto={estaAbierto(e.titulo)}
-                  onToggle={() => alternar(e.titulo)}
-                  cuerpo={[
-                    { texto: e.queEs },
-                    ...(e.cuando ? [{ lb: 'Cuándo', texto: e.cuando }] : []),
-                    ...(e.ejemplo ? [{ lb: 'Ejemplo', texto: e.ejemplo }] : []),
-                  ]}
-                />
-              ))}
-            </div>
+            {GRUPOS_CONCEPTO.map((g) => {
+              const items = conceptos.filter((e) => e.grupo === g.id);
+              if (items.length === 0) return null;
+              return (
+                <div key={g.id} className="ayuda-manual__bloque">
+                  <h3 className="ayuda-manual__subgrupo">{g.titulo}</h3>
+                  <div className="ayuda-manual__grupo">
+                    {items.map((e) => (
+                      <ItemAyuda
+                        key={e.titulo}
+                        titulo={e.titulo}
+                        abierto={estaAbierto(e.titulo)}
+                        onToggle={() => alternar(e.titulo)}
+                        cuerpo={[
+                          { texto: e.queEs },
+                          ...(e.cuando ? [{ lb: 'Cuándo', texto: e.cuando }] : []),
+                          ...(e.ejemplo ? [{ lb: 'Ejemplo', texto: e.ejemplo }] : []),
+                        ]}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         )}
       </div>
