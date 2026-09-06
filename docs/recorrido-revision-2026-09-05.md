@@ -560,12 +560,16 @@ asignada"). `ayuda.ts` al día. Columna de BD `zona_cartera` sin tocar.
 
 ### Actividad por comercial (`/actividad-comerciales` + detalle)
 - [B] Sin ventana temporal: todo es histórico total. Para "¿quién está
-  activo?" hace falta "este mes" / "últimos 30 días".
+  activo?" hace falta "este mes" / "últimos 30 días". — ✅ RESUELTO
+  (`3b1277f`, migración 100): segmentado "Últimos 30 días / Todo" (30 días
+  por defecto) en lista y ficha; la selección viaja en `?dias=todo` y se
+  arrastra lista↔ficha. Cada fuente se filtra por su marca de tiempo.
+- [C] Lista principal alfabética, sin distinguir a los de 0 actividad. —
+  ✅ de paso en `3b1277f`: ahora ordena por actividad desc.
 - [C] En el detalle, la métrica de la columna de valor envuelve feo ("2
   oportunidades\nactivas"). Revisar en móvil.
 - [C] El detalle se titula "Por proyecto" pero lista nombres de cliente
   (la mayoría solo tienen el General) → de hecho es "por cliente".
-- [C] Lista principal alfabética, sin distinguir a los de 0 actividad.
 - [C] "capturas" como métrica de primer nivel para Dirección — ¿aporta?
   (visitas/hallazgos/oportunidades son resultados; capturas es volumen).
 
