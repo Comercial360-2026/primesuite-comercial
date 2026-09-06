@@ -203,15 +203,27 @@ Clientes, sin banner en el resumen tras consolidar.
 
 ### Detalle de oportunidad
 - [B] **Tres** enlaces "ⓘ Qué es…" en una pantalla (Etapa, Prioridad,
-  Horizonte). El modelo de oportunidad se apoya mucho en ayuda inline.
+  Horizonte). El modelo de oportunidad se apoya mucho en ayuda inline. — ✅
+  RESUELTO. Un solo "ⓘ Qué es «Etapa, prioridad y horizonte»" bajo los tres
+  campos. Los conceptos `prioridad-oportunidad` y `horizonte-decision` se
+  fundieron en `etapa-oportunidad` (una entrada mejor en el manual, no tres).
 - [B] ¿Los chips (Etapa/Prioridad) se autoguardan o necesitan el botón
-  "Guardar" del final? No está claro; si es lo segundo, cambiar Etapa y
-  salir pierde el cambio sin aviso de "cambios sin guardar".
+  "Guardar" del final? ... cambiar Etapa y salir pierde el cambio sin aviso. —
+  ✅ RESUELTO. Se marca "cambios sin guardar" (`sucio`) y al pulsar atrás con
+  cambios sale un aviso "Has cambiado algo y no lo has guardado" con "Seguir
+  editando" / "Salir sin guardar". Los términos asociados sí quedan al momento
+  (eso no cambia). `ayuda.ts` lo dice.
 - [C] Pantalla larga y con mucho formulario para algo que se hace en
-  campo. Contrasta con el modal "rápido" (solo Título + Prioridad).
+  campo. Contrasta con el modal "rápido" (solo Título + Prioridad). —
+  PENDIENTE (rediseño: replegar secciones — términos tras un "…", cierre solo
+  cuando toca). Se dejó para hablarlo aparte.
 - [B] "Descartada" / "Perdida" como chips de Etapa sin confirmación —
-  cerrar una oportunidad por error es fácil.
-- [C] Sin contexto de la visita/fecha en la cabecera (solo el cliente).
+  cerrar una oportunidad por error es fácil. — ✅ RESUELTO. Tocar "Perdida" o
+  "Descartada" ya no aplica al toque: sale "Vas a marcar esta oportunidad
+  como «…»: se da por cerrada y tendrás que indicar un motivo. ¿Seguro?"
+  (Cancelar / Sí, cerrarla). El resto de etapas se aplican directas.
+- [C] Sin contexto de la visita/fecha en la cabecera (solo el cliente). —
+  ✅ RESUELTO. El subtítulo añade "· creada el <fecha>".
 
 ### Detalle de captura (Nota)
 - [B] No muestra ni deja cambiar la **zona** donde se tomó ("Recepción").

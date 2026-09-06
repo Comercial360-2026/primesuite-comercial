@@ -11,6 +11,7 @@ import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+import { fechaCorta } from '@/lib/fechas';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -51,6 +52,10 @@ export function DetalleOportunidad() {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  // Confirmar antes de salir con cambios sin guardar, y antes de cerrar la
+  // oportunidad (marcarla perdida/descartada) desde un chip de Etapa.
+  const [confirmandoSalida, setConfirmandoSalida] = useState(false);
+  const [confirmandoCierre, setConfirmandoCierre] = useState<string | null>(null);
 
   // Se muestra el selector solo para uno de los dos papeles a la vez,
   // según qué botón "+ añadir" se pulsó.
@@ -67,7 +72,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -88,6 +93,7 @@ export function DetalleOportunidad() {
           descripcion: p.descripcion ?? null,
           motivo_cierre: p.motivoCierre ?? null,
           comentario_cierre: p.comentarioCierre ?? null,
+          creado_en: null as string | null,
           cliente: null as { nombre: string } | null,
           proyecto: null as { nombre: string; es_general: boolean } | null,
           enCola: true,
@@ -103,6 +109,7 @@ export function DetalleOportunidad() {
   const contextoCliente = [
     oportunidad?.cliente?.nombre,
     oportunidad?.proyecto && !oportunidad.proyecto.es_general ? oportunidad.proyecto.nombre : null,
+    oportunidad?.creado_en ? `creada el ${fechaCorta(oportunidad.creado_en)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -152,6 +159,35 @@ export function DetalleOportunidad() {
   }, [oportunidad]);
 
   const esCierreNegativo = etapa === 'perdida' || etapa === 'descartada';
+
+  // ¿Hay cambios en el formulario que aún no se han guardado? (los términos
+  // asociados se guardan al momento, no entran aquí). Sirve para avisar
+  // antes de salir: los chips parecían aplicarse solos y no era así.
+  const sucio =
+    !!oportunidad &&
+    (titulo !== oportunidad.titulo ||
+      etapa !== oportunidad.etapa ||
+      prioridad !== oportunidad.prioridad ||
+      horizonte !== (oportunidad.horizonte_decision ?? '') ||
+      descripcion !== (oportunidad.descripcion ?? '') ||
+      motivoCierre !== (oportunidad.motivo_cierre ?? '') ||
+      comentarioCierre !== (oportunidad.comentario_cierre ?? ''));
+
+  function alVolver() {
+    if (confirmandoBorrado) {
+      setConfirmandoBorrado(false);
+      return;
+    }
+    if (confirmandoSalida) {
+      setConfirmandoSalida(false);
+      return;
+    }
+    if (sucio) {
+      setConfirmandoSalida(true);
+      return;
+    }
+    navigate(-1);
+  }
 
   async function guardar() {
     if (!oportunidadId) return;
@@ -302,7 +338,7 @@ export function DetalleOportunidad() {
         titulo="Oportunidad"
         subtitulo={contextoCliente || undefined}
         ayuda="detalle-oportunidad"
-        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+        onVolver={alVolver}
       />
 
       <div className="label" style={{ marginTop: 0 }}>Título</div>
@@ -311,12 +347,49 @@ export function DetalleOportunidad() {
       <div className="label">Etapa</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {ETAPAS.map((e) => (
-          <button key={e} type="button" className={`chip${etapa === e ? ' chip--on' : ''}`} onClick={() => setEtapa(e)}>
+          <button
+            key={e}
+            type="button"
+            className={`chip${etapa === e ? ' chip--on' : ''}`}
+            onClick={() => {
+              // Marcar «Perdida» / «Descartada» cierra la oportunidad — se
+              // confirma antes; el resto de etapas se aplican al toque.
+              if ((e === 'perdida' || e === 'descartada') && etapa !== e) {
+                setConfirmandoCierre(e);
+              } else {
+                setConfirmandoCierre(null);
+                setEtapa(e);
+              }
+            }}
+          >
             {etiqueta(ETAPA_LABEL, e)}
           </button>
         ))}
       </div>
-      <AyudaNota concepto="etapa-oportunidad" />
+
+      {confirmandoCierre && (
+        <div className="card card--riesgo" style={{ marginTop: 6 }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            Vas a marcar esta oportunidad como «{etiqueta(ETAPA_LABEL, confirmandoCierre)}»: se da por cerrada y
+            tendrás que indicar un motivo. ¿Seguro?
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoCierre(null)}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setEtapa(confirmandoCierre);
+                setConfirmandoCierre(null);
+              }}
+            >
+              Sí, cerrarla
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="label">Prioridad</div>
       <div style={{ display: 'flex', gap: 6 }}>
@@ -326,7 +399,6 @@ export function DetalleOportunidad() {
           </button>
         ))}
       </div>
-      <AyudaNota concepto="prioridad-oportunidad" />
 
       <div className="label">Horizonte de decisión</div>
       <select className="field" value={horizonte} onChange={(e) => setHorizonte(e.target.value)}>
@@ -337,7 +409,10 @@ export function DetalleOportunidad() {
           </option>
         ))}
       </select>
-      <AyudaNota concepto="horizonte-decision" />
+
+      {/* Una sola nota para los tres campos de arriba (antes eran tres
+          «ⓘ Qué es…» seguidos — recorrido de revisión). */}
+      <AyudaNota concepto="etapa-oportunidad" />
 
       {/* Dos listas con papel distinto — resuelve el caso "el cliente tiene
           terminales de otra marca (tecnología motivadora) y quiere integrar
@@ -448,11 +523,27 @@ export function DetalleOportunidad() {
 
       {error && <div className="field-error-text">{error}</div>}
 
+      {confirmandoSalida && (
+        <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            Has cambiado algo y no lo has guardado. Si sales ahora se pierde.
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoSalida(false)}>
+              Seguir editando
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate(-1)}>
+              Salir sin guardar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
         className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
-        style={{ marginTop: 'auto' }}
+        style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={guardando || guardadoConExito}
         onClick={guardar}
       >

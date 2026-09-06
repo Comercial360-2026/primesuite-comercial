@@ -233,7 +233,8 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada o perdida (ahí se pide el motivo). Cuando la creas «rápida» en la visita puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas «rápida» en la visita puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
+    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento.',
   },
   'proximo-paso': {
     grupo: 'registro',
@@ -365,23 +366,11 @@ const _CONCEPTOS = {
   // — Oportunidades y vocabulario —
   'etapa-oportunidad': {
     grupo: 'oportunidad',
-    titulo: 'Etapa de una oportunidad',
+    titulo: 'Etapa, prioridad y horizonte de una oportunidad',
     queEs:
-      'Por dónde va la venta: latente (todavía es una idea), cualificada (hay interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada.',
-  },
-  'prioridad-oportunidad': {
-    grupo: 'oportunidad',
-    titulo: 'Prioridad de una oportunidad',
-    queEs:
-      'Cuánto foco merece: baja, media, alta o estratégica. Ordena tu lista de oportunidades y ayuda a Dirección Comercial a ver dónde está lo importante. No la confundas con el horizonte de decisión, que es el «cuándo».',
-  },
-  'horizonte-decision': {
-    grupo: 'oportunidad',
-    titulo: 'Horizonte de decisión',
-    queEs:
-      'Tu estimación de cuándo decidirá el cliente sobre esta oportunidad: 0-3 meses, 3-6, 6-12, más de 12, o sin fecha definida. No es un compromiso; sirve para saber a qué darle prioridad y no dejar enfriar lo que está caliente.',
+      'Las tres cosas que sitúan una oportunidad. Etapa: por dónde va la venta —latente (todavía es una idea), cualificada (hay interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada—. Prioridad: cuánto foco merece (baja, media, alta o estratégica); ordena tu lista y ayuda a Dirección a ver dónde está lo importante. Horizonte de decisión: cuándo crees que decidirá el cliente (0-3 meses, 3-6, 6-12, más de 12, o sin fecha); no es un compromiso, sirve para no dejar enfriar lo que está caliente.',
     ejemplo:
-      'El cliente quiere cerrar antes de fin de trimestre → 0-3 meses. Está «viendo opciones para el año que viene» → 6-12 meses.',
+      'El cliente quiere cerrar antes de fin de trimestre → horizonte 0-3 meses. Le has mandado oferta → etapa «en propuesta».',
   },
   'termino-modelo': {
     grupo: 'oportunidad',
