@@ -455,6 +455,88 @@ recorrido** (decisión Cesar): si dos comerciales guardan el objetivo casi a
 la vez, gana el último sin avisar. Muy raro. Revisar al cerrar todo el
 recorrido, no ahora.
 
+---
+
+#### 2.º repaso (2026-09-06) — NO estaba cerrada. El reorden se hizo en
+piloto automático (ver [[feedback-metodo-no-piloto-automatico]]).
+
+Lo que Cesar señaló + lo que Claude se dejó, por bloque. **Nada tocado aún;
+falta rehacer con criterio Apple de verdad y presentar.**
+
+**Bloque 1 — Comercial en la calle**
+- **La rejilla de captura no destaca.** 6 cajas blancas idénticas, borde
+  gris 1px, icono/texto gris; "Cerrar visita" es otra caja igual y compite.
+  La premisa del rediseño ("esto es lo único que debe mandar") no se
+  cumple. → cuerpo (tinte suave o color de marca en los iconos), peso a
+  Foto/Nota/Audio, "Cerrar visita" claramente por debajo.
+- **La rejilla la subí (A2) → más lejos del pulgar.** Contradice "acción
+  frecuente en el tercio inferior". Reconciliar: objetivo 1 línea arriba
+  (contexto de cabecera) pero la rejilla dominante y BAJA, cerca del
+  pulgar; el contexto/lista no debe empujarla arriba.
+- **`.capture-btn` sin `:active`** — no hay reacción visible a cada toque
+  (los `.btn` sí tienen `scale(0.98)`).
+- **"1.ª visita"** es ruido en la primera visita (solo aporta desde la 2.ª:
+  "3.ª visita · última hace…"). Ocultar cuando es la 1.ª.
+
+**Bloque 3 — Diseñador Apple / HIG**
+- **Objetivo enterrado bajo la rejilla** (Cesar). Es el encabezado de
+  sentido de la visita → primero de todo, una línea tenue bajo "ARCELOR ·
+  Visita en curso", editable al tocar. Con "1.ª visita" (si procede).
+- **Interlocutores y Equipo → `boton-icono` en la cabecera**, junto al "?"
+  (Cesar). Patrón de la casa Y de iOS (toolbar). Los `.chip-accion` en el
+  cuerpo son un invento de esta sesión y sobran. Revisar el icono de
+  interlocutor (bocadillo `ChatCircleText` vs. una persona/tarjeta de
+  contacto — "interlocutores" son personas del cliente).
+- **Icono de Zona (`recorrido` = `Path`, línea serpenteante)** no comunica
+  "zona" y no es de Apple (Cesar). → pin de mapa (`MapPin`) o retícula de
+  secciones.
+- **Chip "Zona" descolgado y anodino** (Cesar): `space-between` lo tira a la
+  esquina sin relación con nada; gris de borde fino, ni se ve ni invita. →
+  en inactivo, enlace de texto claro dentro del encabezado de "Captura"
+  ("Agrupar por zonas"); en activo (zona puesta) que cante (ya lo hace,
+  azul con el nombre).
+- **Editor de zona en una caja con borde inline** — el resto
+  (Interlocutores, Equipo, Foto, Nota…) abre `HojaInferior`. Inconsistente:
+  o es hoja, o al menos el mismo lenguaje.
+- **Texto "Zona" ambiguo** — lo cambié de "Marcar zonas" a "Zona" en el 1.er
+  repaso y perdí claridad. "Marcar zonas" / "Agrupar por zonas" dice qué
+  hace.
+- **Cero color en toda la pantalla.** La acción central de la app es gris.
+- **Jerarquía dentro de "En esta visita"**: los encabezados de zona
+  ("Acceso de bicicletas de montaña") en negrita grande compiten con "En
+  esta visita"; el chevron `›` de plegar es un carácter de texto, no un
+  icono.
+- **Estados de carga**: "…" y saltos mientras cargan las queries (cliente,
+  objetivo, capturas); sin skeleton — revisar.
+
+**Bloque 4 — Principio rector**
+- Nombre de zona muy largo en el chip (`white-space: nowrap` + `flex-shrink:
+  0`) → posible desborde de la fila. No probado.
+- `visitaLocal` en carga: botones disabled (C5) pero sin "cargando" visible
+  — semi-punto-muerto de ~300 ms.
+
+**Bloque 5 — Consistencia**
+- `.chip-accion` (nuevo esta sesión): si Interlocutores/Equipo pasan a la
+  cabecera, ¿se queda la clase solo para "Marcar zonas"? Reconsiderar si
+  merece existir.
+- `ayuda.ts` (`visita-activa`): habrá que re-actualizarla tras este
+  segundo reorden (objetivo arriba, iconos en cabecera).
+
+**Reordenación propuesta (a validar):**
+1. Cabecera: ARCELOR · "Visita en curso" — a la derecha: `?` + botón-icono
+   Interlocutores (nº) + botón-icono Equipo (nº).
+2. Bajo la cabecera: "1.ª visita · Vor a ver las cámaras ✎" — tenue,
+   editable al tocar (oculta "1.ª visita" si es la primera).
+3. "Captura lo que veas" + enlace discreto "Agrupar por zonas" (pin) en el
+   mismo encabezado.
+4. Rejilla de 6 **con presencia** (tinte / color de marca en iconos), 3+3,
+   `:active`, colocada para que caiga en la zona del pulgar.
+5. "En esta visita" (encabezados de zona con menos peso, chevron con icono).
+6. "Cerrar visita" al final, secundario.
+
+Estado: **`/visita/:id` sigue ABIERTA**. Pendiente: rehacer lo de arriba
+con criterio, verde, y presentar antes de tocar.
+
 ### `/` — Hoy
 
 - **[A] El botón "+" miente.** `aria-label`/`title` = "Empezar visita sin
