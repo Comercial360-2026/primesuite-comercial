@@ -1,5 +1,6 @@
 import type { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { plural } from '@/lib/texto';
 
 // Tarjeta de confirmación del borrado de una visita — el "paso 2" de
 // useBorrarVisita: enseña qué arrastra la visita y pide confirmar. Se
@@ -34,10 +35,13 @@ export function ConfirmarBorradoVisita({
       error={borrando.error}
       confirmar="Sí, borrar la visita entera"
     >
-      Esta visita arrastra: {previsualizacion.num_fotos} foto(s), {previsualizacion.num_audios} audio(s),{' '}
-      {previsualizacion.num_notas} nota(s), {previsualizacion.num_hallazgos} hallazgo(s),{' '}
-      {previsualizacion.num_oportunidades} oportunidad(es) y {previsualizacion.num_proximos_pasos} próximo(s) paso(s).
-      Todo eso se borrará también.
+      Esta visita arrastra: {plural(previsualizacion.num_fotos, 'foto', 'fotos')},{' '}
+      {plural(previsualizacion.num_audios, 'audio', 'audios')},{' '}
+      {plural(previsualizacion.num_notas, 'nota', 'notas')},{' '}
+      {plural(previsualizacion.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+      {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}
+      {plural(previsualizacion.num_proximos_pasos, 'próximo paso', 'próximos pasos')}. Todo eso se borrará
+      también.
     </ConfirmacionBorrado>
   );
 }

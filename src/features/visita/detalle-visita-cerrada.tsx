@@ -46,6 +46,7 @@ interface DetalleVisita {
   objetivo: string | null;
   estado_captura: string;
   resumen_texto: string | null;
+  cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
@@ -70,7 +71,6 @@ export function DetalleVisitaCerrada() {
   const queryClient = useQueryClient();
 
   const { estadoDe, descargar } = useDescargarInforme();
-  const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
 
   // Editar a mano el resumen de la visita (pasa a `resumen_origen = 'manual'`).
@@ -117,7 +117,7 @@ export function DetalleVisitaCerrada() {
       ] = await Promise.all([
         supabase
           .from('visita')
-          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
+          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente_id, cliente:cliente_id(nombre)')
           .eq('id', visitaId!)
           .single(),
         supabase
@@ -181,6 +181,7 @@ export function DetalleVisitaCerrada() {
         objetivo: visita!.objetivo,
         estado_captura: visita!.estado_captura,
         resumen_texto: visita!.resumen_texto,
+        cliente_id: (visita! as { cliente_id: string | null }).cliente_id,
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
         audios,
@@ -202,6 +203,15 @@ export function DetalleVisitaCerrada() {
     queryClient.resetQueries({ queryKey });
     refetch();
   }
+
+  // Al borrar, la visita deja de existir: `navigate(-1)` puede devolver a su
+  // propia pantalla de cierre (`/visita/:id/cierre`), una ruta muerta pintada
+  // con caché. Vamos a la ficha del cliente (destino vivo) y con `replace`
+  // para que el ← del navegador tampoco vuelva a la visita borrada.
+  const borrar = useBorrarVisita({
+    onBorrada: () =>
+      navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true }),
+  });
 
   const puedeEditarResumen = puedeBorrarVisita;
 
