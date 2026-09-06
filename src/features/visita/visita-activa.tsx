@@ -24,8 +24,6 @@ import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
-import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
@@ -292,6 +290,11 @@ export function VisitaActiva() {
   // pantalla aparte con su propio "¿en qué modo estoy?"; ahora es un campo
   // más de la zona de captura, siempre visible.
   const [zonaActual, setZonaActual] = useState('');
+  // El objetivo ("A qué vienes") va plegado a una línea; se abre al tocarlo.
+  const [objetivoAbierto, setObjetivoAbierto] = useState(false);
+  // La zona sólo se usa si estás recorriendo instalaciones — oculta tras
+  // "Marcar zonas" para no parecer un paso obligatorio antes de capturar.
+  const [marcarZonas, setMarcarZonas] = useState(false);
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
   // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
   const zonaParaCaptura = zonaActual.trim() || undefined;
@@ -1106,6 +1109,9 @@ export function VisitaActiva() {
         .filter((z): z is string => !!z && z.trim().length > 0)
     ),
   ].sort((a, b) => a.localeCompare(b, 'es'));
+  // El campo de zona se muestra si lo has pedido ("Marcar zonas"), si esta
+  // visita ya tiene zonas anotadas, o si hay una zona escrita ahora mismo.
+  const mostrarZona = marcarZonas || zonasUsadas.length > 0 || !!zonaActual.trim();
 
   // Fila de "En esta visita": icono + texto + coletilla gris opcional
   // (naturaleza, prioridad, o "· de Fulano" en lo ajeno — regla 4). Cada
@@ -1151,34 +1157,45 @@ export function VisitaActiva() {
           </div>
         )}
 
-        {/* Objetivo: SIEMPRE visible con lápiz, nunca desaparece (antes se
-            ocultaba entero mientras `objetivoActual` era null). Borde sólido
-            suave como el resto de tarjetas — el discontinuo se leía como
-            "algo va mal" durante los segundos en que la visita sincroniza. */}
-        <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
-          <div
+        {/* Objetivo plegado a una línea; se abre al tocarlo. Ya lo escribiste
+            al empezar la visita — no tiene que ocupar sitio fijo. */}
+        {!objetivoAbierto ? (
+          <button
+            type="button"
+            onClick={() => objetivoEditable && setObjetivoAbierto(true)}
+            title={objetivoEditable ? 'Editar a qué vienes' : undefined}
             style={{
-              display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
-              color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
+              display: 'flex', gap: 6, alignItems: 'flex-start', width: '100%', textAlign: 'left',
+              background: 'none', border: 'none', padding: '4px 2px', font: 'inherit',
+              color: 'var(--ink-700)', fontSize: 'var(--text-sm)',
+              cursor: objetivoEditable ? 'pointer' : 'default',
             }}
           >
-            <Icono nombre="editar" size={13} /> A qué vienes
-          </div>
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8, opacity: objetivoEditable ? 1 : 0.7 }}
-            rows={2}
-            readOnly={!objetivoEditable}
-            value={objetivoBorrador ?? ''}
-            onChange={(e) => setObjetivoBorrador(e.target.value)}
-            placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
-          />
-          {!objetivoEditable && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              Guardando la visita…
+            <Icono nombre="editar" size={13} />
+            <span style={{ flex: 1 }}>{(objetivoActual ?? '').trim() || 'A qué vienes'}</span>
+            {!objetivoEditable && (
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', flexShrink: 0 }}>Guardando…</span>
+            )}
+          </button>
+        ) : (
+          <div style={{ border: '1px solid var(--ink-100)', borderRadius: 'var(--radius-field)', padding: 10 }}>
+            <div
+              style={{
+                display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6,
+                color: 'var(--ink-400)', fontSize: 'var(--text-xs)',
+              }}
+            >
+              <Icono nombre="editar" size={13} /> A qué vienes
             </div>
-          )}
-          {objetivoEditable && (objetivoBorrador ?? '') !== (objetivoActual ?? '') && (
+            <textarea
+              className="field"
+              style={{ height: 'auto', padding: 8 }}
+              rows={2}
+              autoFocus
+              value={objetivoBorrador ?? ''}
+              onChange={(e) => setObjetivoBorrador(e.target.value)}
+              placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
+            />
             <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
               <button
                 className="btn btn-secondary"
@@ -1187,34 +1204,55 @@ export function VisitaActiva() {
                 onClick={() => {
                   guardadoObjetivo.limpiarError();
                   setObjetivoBorrador(objetivoActual ?? '');
+                  setObjetivoAbierto(false);
                 }}
               >
-                Deshacer
+                Cancelar
               </button>
               <button
                 className="btn btn-primary"
                 style={{ fontSize: 'var(--text-sm)' }}
-                disabled={guardadoObjetivo.cargando || !(objetivoBorrador ?? '').trim()}
-                onClick={guardarObjetivo}
+                disabled={
+                  guardadoObjetivo.cargando ||
+                  !(objetivoBorrador ?? '').trim() ||
+                  (objetivoBorrador ?? '') === (objetivoActual ?? '')
+                }
+                onClick={async () => {
+                  await guardarObjetivo();
+                  setObjetivoAbierto(false);
+                }}
               >
-                {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar objetivo'}
+                {guardadoObjetivo.cargando ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
-          )}
-          {guardadoObjetivo.error && (
-            <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
-          )}
-        </div>
+            {guardadoObjetivo.error && (
+              <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+            )}
+          </div>
+        )}
 
-        <SeccionLista>
-          <FilaNavegable
-            icono="interlocutor"
-            titulo="Interlocutores"
-            subtitulo={interlocutoresTexto}
+        {/* Interlocutores y Equipo: chips con nº, no filas grandes. Se
+            consultan de vez en cuando, no son la portada de la visita. */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '4px 0' }}>
+          <button
+            type="button"
+            className="chip"
             onClick={() => setInterlocutoresAbierto(true)}
-          />
-          <FilaNavegable icono="equipo" titulo="Equipo" subtitulo={equipoTexto} onClick={() => setParticipantesAbierto(true)} />
-        </SeccionLista>
+            title={interlocutoresTexto}
+          >
+            <Icono nombre="interlocutor" size={14} />
+            {nInterlocutores > 0 ? `Interlocutores · ${nInterlocutores}` : '+ Interlocutores'}
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setParticipantesAbierto(true)}
+            title={equipoTexto}
+          >
+            <Icono nombre="equipo" size={14} />
+            {nombresEquipo.length > 0 ? `Equipo · ${nombresEquipo.length + 1}` : 'Equipo'}
+          </button>
+        </div>
 
         {/* Zona 2 · Capturar: la acción. Foto/Nota/Audio grandes (lo de
             campo); Hallazgo/Oportunidad/Próximo paso como chips (lo
@@ -1232,47 +1270,88 @@ export function VisitaActiva() {
           }}
         />
 
-        <div className="label" style={{ marginTop: 0 }}>Captura lo que veas</div>
-
-        {/* Zona (opcional): etiqueta de texto libre que se estampa en todo
-            lo que captures a partir de ahora. Vacía → las capturas van al
-            grupo "General". Sustituye al antiguo Modo Recorrido, que era
-            una pantalla aparte. */}
-        <input
-          className="field"
-          value={zonaActual}
-          onChange={(e) => setZonaActual(e.target.value)}
-          placeholder="Zona (opcional) · p. ej. Puerta muelle de carga"
-        />
-        {zonasUsadas.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: -4 }}>
-            {zonasUsadas.map((z) => (
-              <button
-                key={z}
-                type="button"
-                className={`chip${zonaActual.trim() === z ? ' chip--on' : ''}`}
-                onClick={() => setZonaActual(zonaActual.trim() === z ? '' : z)}
-              >
-                {z}
-              </button>
-            ))}
-          </div>
-        )}
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: -4 }}>
-          {zonaActual.trim() ? (
-            <>
-              Se guarda en{' '}
-              <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
-              {' · '}
-              <button type="button" className="btn-enlace" style={{ padding: 0 }} onClick={() => setZonaActual('')}>
-                quitar
-              </button>
-            </>
-          ) : (
-            'Sin zona, las capturas van a «General».'
+        <div
+          style={{
+            display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 0,
+            justifyContent: 'space-between',
+          }}
+        >
+          <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
+          {!mostrarZona && (
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setMarcarZonas(true)}
+              title="Marca la zona que estás recorriendo para agrupar las capturas por sitio"
+            >
+              <Icono nombre="recorrido" size={14} /> Marcar zonas
+            </button>
           )}
         </div>
 
+        {/* Zona: sólo visible si estás recorriendo instalaciones (o ya has
+            marcado alguna). Etiqueta de texto libre que se estampa en todo
+            lo que captures a partir de ahora; vacía → las capturas van a
+            «General». */}
+        {mostrarZona && (
+          <>
+            <input
+              className="field"
+              value={zonaActual}
+              onChange={(e) => setZonaActual(e.target.value)}
+              placeholder="Zona · p. ej. Puerta muelle de carga"
+              autoFocus={marcarZonas && !zonaActual}
+            />
+            {zonasUsadas.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: -4 }}>
+                {zonasUsadas.map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    className={`chip${zonaActual.trim() === z ? ' chip--on' : ''}`}
+                    onClick={() => setZonaActual(zonaActual.trim() === z ? '' : z)}
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: -4 }}>
+              {zonaActual.trim() ? (
+                <>
+                  Se guarda en{' '}
+                  <span style={{ color: 'var(--success-600)', fontWeight: 500 }}>{zonaActual.trim()}</span>
+                  {' · '}
+                  <button type="button" className="btn-enlace" style={{ padding: 0 }} onClick={() => setZonaActual('')}>
+                    quitar
+                  </button>
+                </>
+              ) : (
+                <>
+                  Sin zona, las capturas van a «General».
+                  {zonasUsadas.length === 0 && (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="btn-enlace"
+                        style={{ padding: 0 }}
+                        onClick={() => setMarcarZonas(false)}
+                      >
+                        dejar de marcar
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Las 6 al mismo peso, en rejilla 2×3. Foto/Nota/Audio son captura
+            en caliente; Hallazgo/Oportunidad/Próximo paso abren una hoja con
+            campos — pero valen tanto o más para el negocio, así que no van
+            como chips de segunda. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)' }}>
           <button
             className="capture-btn"
@@ -1294,16 +1373,17 @@ export function VisitaActiva() {
             <Icono nombre="audio" size={22} />
             {grabando ? 'Detener' : capturaAudio.cargando ? 'Guardando…' : 'Audio'}
           </button>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-          <button type="button" className="chip" onClick={() => setHallazgoAbierto(true)}>
-            <Icono nombre="hallazgo" size={14} /> Hallazgo
+          <button type="button" className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
+            <Icono nombre="hallazgo" size={22} />
+            Hallazgo
           </button>
-          <button type="button" className="chip" onClick={() => setOportunidadAbierta(true)}>
-            <Icono nombre="oportunidad" size={14} /> Oportunidad
+          <button type="button" className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
+            <Icono nombre="oportunidad" size={22} />
+            Oportunidad
           </button>
-          <button type="button" className="chip" onClick={() => setPasoAbierto(true)}>
-            <Icono nombre="paso" size={14} /> Próximo paso
+          <button type="button" className="capture-btn" onClick={() => setPasoAbierto(true)}>
+            <Icono nombre="paso" size={22} />
+            Próximo paso
           </button>
         </div>
 
