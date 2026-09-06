@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
@@ -159,6 +160,13 @@ export function DetalleOportunidad() {
   }, [oportunidad]);
 
   const esCierreNegativo = etapa === 'perdida' || etapa === 'descartada';
+
+  // Los dos bloques de términos ("lo que ya tiene" + "lo que le proponemos")
+  // se estructuran normalmente desde la oficina, no en la visita: van en una
+  // sección plegable que solo abre sola si ya hay algo asociado. Así la
+  // pantalla de campo queda en Título · Etapa · Prioridad · Horizonte ·
+  // Descripción, sin scroll.
+  const nTerminos = (motivadoras?.length ?? 0) + (soluciones?.length ?? 0);
 
   // ¿Hay cambios en el formulario que aún no se han guardado? (los términos
   // asociados se guardan al momento, no entran aquí). Sirve para avisar
@@ -418,8 +426,14 @@ export function DetalleOportunidad() {
           terminales de otra marca (tecnología motivadora) y quiere integrar
           nuestro software (solución propuesta)": son dos términos, cada uno
           con su papel, en la misma Oportunidad, sin forzar una entidad
-          "integración" aparte. */}
-      <div className="label">Lo que el cliente ya tiene (motiva la oportunidad)</div>
+          "integración" aparte. Plegadas: solo se abren solas si ya hay algo. */}
+      <SeccionColapsable
+        titulo="Términos y soluciones"
+        cantidad={nTerminos}
+        defaultAbierta={nTerminos > 0}
+        siempreAbrible
+      >
+      <div className="label" style={{ marginTop: 0 }}>Lo que ya tiene (motiva la oportunidad)</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {motivadoras?.map((t) => (
           <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -445,7 +459,7 @@ export function DetalleOportunidad() {
         </button>
       </div>
 
-      <div className="label">Solución que le proponemos</div>
+      <div className="label">Lo que le proponemos</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {soluciones?.map((t) => (
           <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -476,7 +490,10 @@ export function DetalleOportunidad() {
           Podrás asociar términos cuando la oportunidad termine de guardarse (unos segundos con conexión).
         </div>
       )}
+      {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
+      </SeccionColapsable>
 
+      {/* Hoja de búsqueda: overlay, va fuera de la sección plegable. */}
       {buscandoRol && (
         <SelectorTermino
           titulo={`buscar término ${buscandoRol === 'solucion_propuesta' ? '(solución)' : '(lo que ya tiene)'}`}
@@ -484,7 +501,6 @@ export function DetalleOportunidad() {
           onCerrar={() => setBuscandoRol(null)}
         />
       )}
-      {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
 
       <div className="label">Descripción</div>
       <textarea

@@ -215,8 +215,21 @@ Clientes, sin banner en el resumen tras consolidar.
   (eso no cambia). `ayuda.ts` lo dice.
 - [C] Pantalla larga y con mucho formulario para algo que se hace en
   campo. Contrasta con el modal "rápido" (solo Título + Prioridad). —
-  PENDIENTE (rediseño: replegar secciones — términos tras un "…", cierre solo
-  cuando toca). Se dejó para hablarlo aparte.
+  ✅ RESUELTO (rediseño "dos velocidades"). Siempre visible: Título ·
+  Etapa · Prioridad · Horizonte · Descripción · Guardar (≈ la hoja
+  rápida, sin scroll). Los dos bloques de términos se pliegan en una
+  sección única "Términos y soluciones (N)" que solo se abre sola si ya
+  hay algo asociado (`nTerminos > 0`); si no, se puede abrir a mano para
+  añadir el primero. Reutiliza `SeccionColapsable` con una prop nueva
+  `siempreAbrible` (permite abrir con 0 elementos, sin salirse del
+  comportamiento original de Hoy). El "cierre solo cuando toca" (Motivo
+  de cierre) ya estaba: card condicional a etapa Perdida/Descartada.
+  Etiquetas dentro del plegable acortadas ("Lo que ya tiene" / "Lo que
+  le proponemos"). Verificado en vivo el estado plegado + apertura
+  manual + los dos "+ añadir"; el estado "abierto por defecto con
+  términos" queda comprobado por inspección (mismo mecanismo async ya
+  probado en Hoy) — RLS del `oportunidad_termino` no deja asociar
+  términos desde la sesión de pruebas.
 - [B] "Descartada" / "Perdida" como chips de Etapa sin confirmación —
   cerrar una oportunidad por error es fácil. — ✅ RESUELTO. Tocar "Perdida" o
   "Descartada" ya no aplica al toque: sale "Vas a marcar esta oportunidad
