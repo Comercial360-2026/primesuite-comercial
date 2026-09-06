@@ -422,17 +422,20 @@ Y abriendo el PDF de verdad (descomprimir el ZIP), commit `9ccc8f4` en la
 edge function `generar-backup-visita`:
 
 4. **[B] Ligaduras fi/fl/ff sin texto copiable.** pdfmake aplica las
-   ligaduras de Roboto pero el ToUnicode del glifo se come la 2ª letra: el
-   PDF se ve bien, pero copiar / Ctrl+F / lector de pantalla dan
-   "unifcado", "Refeja", "fotográfco". `romperLigaduras()` mete un U+200C
-   entre la f y la letra siguiente en todo el árbol de contenido.
+   ligaduras de Roboto y el ToUnicode del glifo se come la 2ª letra: el PDF
+   se ve bien, pero copiar / Ctrl+F / lector de pantalla dan "unifcado",
+   "Refeja". Se intentó `romperLigaduras()` (U+200C entre la f y la letra)
+   → **pdfmake lo pinta como un cuadrado .notdef visible** ("verif□ ica").
+   **Revertido** (`e40bb89`). Queda como problema conocido con un comentario
+   NOTA en el código; salidas: cambiar de fuente o de motor de PDF.
 5. **[C] LEEME.txt decía "(visita visita)"** — `(visita
    ${tipoLabel.toLowerCase()})` con `tipo_visita` null (todas hoy) → "visita
    visita". Ahora " · <frase>" solo si hay tipo; si no, solo la fecha.
+   **Verificado en el PDF v13.** ✅
 
-**Pendiente:** re-desplegar `generar-backup-visita` y regenerar un PDF real
-para verificar 4 y 5. El PDF por dentro (colores Grupo 7) se vio: maqueta
-y colores OK.
+**Pendiente:** re-desplegar `generar-backup-visita` con la versión
+revertida (solo el LEEME). El PDF por dentro se vio en v13: maqueta,
+colores Grupo 7 y resumen "Se registró 1 nota" → OK.
 
 **Resumen automático (commit `7e6fffe`):**
 
