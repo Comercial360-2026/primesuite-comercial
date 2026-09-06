@@ -22,39 +22,84 @@ nada: ¿el botón/texto hace lo que promete? ¿hay algún punto sin salida?
 ¿se puede en menos pasos? Los casos límite (sin datos, sin red, sin
 permisos, cliente/registro que no existe) se prevén, no se esperan.
 
-## MÉTODO DE ANÁLISIS (obligatorio ANTES de tocar cada pantalla)
+## PROMPT DE ANÁLISIS DE PANTALLA (obligatorio ANTES de tocar cada pantalla)
 
-No parchear. Antes de editar una pantalla se hace este análisis por
-escrito; sólo después se propone y se cambia. Se pasa la pantalla por tres
-perfiles y por las preguntas transversales, y se emite CUMPLE / NO CUMPLE +
-lista de cambios priorizados.
+No parchear. Se completa este análisis por escrito, se presenta a Cesar y
+se espera su OK; sólo entonces se escribe código. Verde (typecheck + lint +
+build) antes de dar nada por hecho.
 
-**Perfil 1 — el comercial en la calle (usuario principal).** Contexto real:
-de pie o sentado frente a un cliente, móvil en una mano, con prisa, a veces
-sin cobertura, a veces sin abrir la app en semanas.
-- ¿A qué vengo a esta pantalla? ¿Lo consigo en 1-2 toques?
+### 0. Ficha
+- Ruta y nombre.
+- Para qué sirve (1 frase).
+- Quién la usa, en qué rol, en qué momento y **contexto físico**.
+- Qué viene a conseguir el usuario, y en cuántos toques debería.
+
+### 1. Perfil — Comercial en la calle (usuario principal)
+Contexto: de pie o sentado con el cliente delante, móvil en una mano, prisa,
+ruido, a veces sin cobertura, a veces sin abrir la app en semanas, a veces
+daltónico.
 - ¿Qué ven mis ojos primero? ¿Es lo que más necesito?
-- ¿Algo me obliga a parar (rellenar, elegir, leer) antes de lo que quiero hacer?
-- ¿Entiendo cada palabra y cada icono sin pensar?
-- ¿Lo hago con una mano? ¿Los botones llegan al pulgar?
-- Si me interrumpen o me equivoco, ¿pierdo trabajo?
+- ¿Consigo lo que vengo a hacer en 1-2 toques?
+- ¿Algo me obliga a parar (rellenar, elegir, leer) antes de lo que quiero?
+- ¿Entiendo cada palabra y cada icono sin pensar? ¿Hay jerga?
+- ¿Lo hago con una mano? ¿Los controles frecuentes caen en la **zona del
+  pulgar** (tercio inferior)? ¿Los destructivos están lejos de ahí o piden
+  confirmar? Área de toque ≥ 44 px. Reacción visible a cada toque.
+- Si me interrumpen (llamada, cambio de app, pantalla bloqueada) o me
+  equivoco, ¿pierdo trabajo? ¿Recupero el estado al volver?
+- Sin cobertura: ¿funciona? ¿me lo dice claro? ¿se sincroniza solo luego?
+- Permisos del sistema (cámara / micro / GPS): ¿se piden en contexto y con
+  motivo? ¿la pantalla sigue siendo útil si los deniego?
 
-**Perfil 2 — el director comercial (consume el resultado).**
-- ¿Esta pantalla produce lo que necesito luego (informe, seguimiento)?
-- ¿Puede quedarse algo importante sin registrar?
-- ¿Hay fricción que haga que el comercial no lo apunte?
+### 2. Perfil — Director comercial (consume el resultado)
+- ¿Esta pantalla produce lo que necesito después (informe, seguimiento,
+  métricas)?
+- ¿Puede quedarse algo importante sin registrar por descuido?
+- ¿Hay fricción (campos de más, pasos) que haga que el comercial no lo apunte?
+- ¿Lo que se captura es fiel y completo?
 
-**Perfil 3 — diseñador de producto (criterio Apple / HIG).**
-- ¿Cada elemento gana su sitio, o hay ruido?
-- Jerarquía: lo importante grande y central; lo secundario, pequeño y al margen.
-- ¿Patrones de iOS (navegación, hojas, búsqueda con lupa, listas) o inventados?
-- ¿Iconos estándar y reconocibles? Consistencia con el resto de la app.
-- Estado vacío / error / carga cuidados. Un solo foco por pantalla.
+### 3. Perfil — Diseñador de producto (Apple / HIG)
+- **Un solo foco** por pantalla. ¿Cuál es? ¿Algo compite con él?
+- **Jerarquía visual**: lo importante grande y central; lo secundario,
+  pequeño y al margen o plegado. ¿Está invertida?
+- ¿Cada elemento gana su sitio, o hay ruido / datos que no tocan a este
+  momento del flujo?
+- **Patrones**: navegación, hojas, búsqueda con lupa, listas, segmentados…
+  ¿son los de iOS y los del RESTO de esta app, o inventados aquí? Patrones
+  de la casa a reutilizar: Buscador colapsable con lupa · HojaInferior ·
+  Segmentado · FilaNavegable · boton-icono · menú "⋯" · ConfirmacionBorrado
+  + FilaNavegable tono="riesgo" para borrar · plural() · capitalizarFrase.
+- **Iconos**: estándar, reconocibles al instante; un concepto = un icono,
+  sin reutilizar el mismo para dos cosas. Estilo Phosphor.
+- **Color**: nada se comunica SOLO con color (usuario daltónico) — también
+  forma, posición o texto.
+- **Estados** vacío / carga / error: los tres cuidados. El vacío, ¿orienta
+  o sólo informa?
+- **Texto**: español, tono de la casa, frase capitalizada, sin mayúsculas
+  gritadas, concordancia (plural()). Cada botón dice exactamente lo que hace.
+- **Densidad**: ¿se puede quitar algo sin perder función?
 
-**Preguntas transversales (fijas):** ¿para qué sirve la pantalla (1 frase)? ·
-¿quién la usa y cuándo? · ¿qué debe ver al entrar? · ¿qué funcionalidades
-DEBE cumplir y las cumple? · ¿qué le falta / qué no se ha tenido en cuenta? ·
-¿hace lo que dice, en mínimos pasos, sin puntos muertos?
+### 4. Principio rector
+- ¿El texto de cada control coincide con lo que hace?
+- ¿Hay algún **punto muerto** (sin salida, "hazlo en otro sitio" y ahí acaba)?
+- ¿Se puede en menos pasos / menos pantallas?
+- **Casos límite, uno a uno**: sin datos, lista vacía, lista enorme, sin
+  red, sin permisos, registro que no existe, nombre larguísimo, texto con
+  acentos/emoji. ¿Qué pasa en cada uno? ¿Está previsto?
+
+### 5. Consistencia / mantenimiento
+- ¿Reutiliza componentes y patrones existentes, o inventa uno nuevo para
+  algo ya resuelto? (genérico, no una solución por pantalla)
+- Nomenclatura: un solo nombre por concepto, igual que en el resto.
+- El ← / "volver": ¿lleva a donde el usuario espera?
+- Si cambia qué hace la pantalla o su ayuda: entrada de `ayuda.ts` en el
+  mismo commit.
+
+### 6. Salida
+- Por cada punto: CUMPLE / NO CUMPLE / N/A + una línea.
+- Cambios propuestos, priorizados A / B / C.
+- Qué se rehace, qué se conserva, qué se descarta.
+- Presentar a Cesar → esperar OK → código → verde.
 
 **Directriz global — iconos:** todos los iconos que se cambien pasan a ser
 **modernos e intuitivos, estilo Apple / SF Symbols** (formas simples,
