@@ -175,29 +175,14 @@ function etiqueta(mapa: Record<string, string>, valor: string | null | undefined
   return mapa[valor] ?? capitalizar(valor);
 }
 
-// pdfmake aplica las ligaduras OpenType de Roboto (fi, fl, ff…), pero el
-// ToUnicode que genera para el glifo de ligadura se come la 2ª letra: el
-// PDF se VE bien, pero al copiar texto, buscar con Ctrl+F o con un lector
-// de pantalla sale "unifcado", "Refeja", "fotográfco". Un U+200C (juntador
-// de ancho cero) entre la f y la letra siguiente impide que se forme la
-// ligadura, sin cambiar nada visible. Se aplica a todo el árbol de
-// contenido justo antes de maquetar.
-function romperLigaduras<T>(nodo: T): T {
-  if (typeof nodo === 'string') {
-    return nodo.replace(/f(?=[fil])/g, 'f‌') as unknown as T;
-  }
-  if (Array.isArray(nodo)) {
-    return nodo.map((n) => romperLigaduras(n)) as unknown as T;
-  }
-  if (nodo && typeof nodo === 'object') {
-    const copia = { ...(nodo as Record<string, unknown>) };
-    for (const clave of ['text', 'columns', 'stack', 'table', 'body', 'ul', 'ol']) {
-      if (clave in copia) copia[clave] = romperLigaduras(copia[clave]);
-    }
-    return copia as unknown as T;
-  }
-  return nodo;
-}
+// NOTA (conocido, sin resolver): pdfmake aplica las ligaduras OpenType de
+// Roboto (fi, fl, ff…) y el ToUnicode que genera para el glifo de ligadura
+// se come la 2ª letra — el PDF se VE bien, pero al copiar texto / buscar
+// con Ctrl+F / con lector de pantalla sale "unifcado", "Refeja". Se probó
+// meter un U+200C entre la f y la letra siguiente para impedir la ligadura:
+// pdfmake lo renderiza como un cuadrado .notdef visible, así que peor el
+// remedio que la enfermedad. Vive con ello hasta cambiar de fuente o de
+// motor de PDF.
 
 function fechaLarga(iso: string) {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -1065,7 +1050,7 @@ Deno.serve(async (req) => {
     header: (paginaActual: number) =>
       paginaActual === 1
         ? null
-        : romperLigaduras({
+        : {
             margin: [48, 20, 48, 0],
             columns: [
               {
@@ -1078,7 +1063,7 @@ Deno.serve(async (req) => {
               },
               { text: 'Informe de visita', alignment: 'right', fontSize: 8.5, color: COLOR.ink400 },
             ],
-          }),
+          },
     footer: (paginaActual: number, totalPaginas: number) =>
       paginaActual === 1
         ? null
@@ -1089,7 +1074,7 @@ Deno.serve(async (req) => {
               { text: `Pág. ${paginaActual} de ${totalPaginas}`, alignment: 'right', fontSize: 8.5, color: COLOR.ink400 },
             ],
           },
-    content: romperLigaduras(contenido),
+    content: contenido,
     defaultStyle: { font: 'Roboto', fontSize: 10 },
   };
 
