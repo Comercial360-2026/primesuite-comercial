@@ -395,14 +395,18 @@ Clientes, sin banner en el resumen tras consolidar.
 
 ---
 
-## 7. Pasada final del ciclo de comercial (2026-09-06)
+## 7. Pasada final del ciclo (2026-09-06)
 
 Recorrido completo Hoy → alta → visita (Zona + las 6 capturas como hojas +
-"En esta visita") → cierre → "¿Confirmas?" → resumen → informe, con la
-sesión de Dirección (las pantallas del ciclo son idénticas para los dos
-roles; lo específico de comercial ya se validó en 1.3). Todo lo tocado en
-sesiones anteriores se ve bien. Tres hallazgos nuevos, los tres corregidos
-y verificados en vivo (commit `dab303b`):
+"En esta visita") → cierre → "¿Confirmas?" → resumen → informe. Primero con
+la sesión de Dirección, luego repetido con la de **Borja (comercial)** en
+el navegador normal: cartera vacía + buscador global (1.3), "Yo" del
+comercial (identidad + 3 filas), menú "Pasos" → "Mis próximos pasos"
+vacío, ciclo entero y "Borrar esta visita" como responsable. Todo lo
+tocado en sesiones anteriores se ve bien. Hallazgos nuevos, todos
+corregidos y verificados en vivo:
+
+**En pantalla (commit `dab303b`):**
 
 1. **[B] Plurales en las cajas de recuento de "Cerrar visita"** — "1 Notas
    / 1 Hallazgos". El `plural()` cubría los chips de "¿Confirmas?" y del
@@ -429,6 +433,18 @@ edge function `generar-backup-visita`:
 **Pendiente:** re-desplegar `generar-backup-visita` y regenerar un PDF real
 para verificar 4 y 5. El PDF por dentro (colores Grupo 7) se vio: maqueta
 y colores OK.
+
+**Resumen automático (commit `7e6fffe`):**
+
+6. **[C] "Se registraron 1 nota"** — el resumen de fallback (visita con
+   solo capturas) usaba siempre el verbo en plural. Ahora concuerda: "Se
+   registró 1 nota" / "Se registraron 2 notas". Verificado en vivo con
+   Borja.
+
+Queda anotado, prioridad baja: el estilo "(s)" de los paneles de
+confirmación de borrado ("1 nota(s)", "0 oportunidad(es)") — formato
+compacto a propósito. Y al borrar una visita, `navigate(-1)` deja en una
+ruta muerta `/cierre` con datos de caché (cosmético).
 
 ---
 
