@@ -95,11 +95,13 @@ _(formato: pantalla → [A/B/C] qué no tiene sentido → decisión)_
 - **[C] Estado vacío sin acción.** "No tienes visitas para hoy." y nada
   más. Un usuario nuevo aterriza aquí sin una CTA ("planifica tu primera
   visita").
-- **Decisión:** _pendiente de hablar con Cesar._
-  - Propuesta "+": abrir una hoja con las dos vías reales —
-    **"Empezar ahora"** (elegir cliente → visita en curso) y
-    **"Planificar para otro día"** (→ `/planificar`). Hoy están dispersas.
-  - Propuesta agenda: quitar el 2º icono; "Ver toda la agenda ›" en texto,
-    o fundir Hoy + Agenda en una vista con filtro.
-  - Estado vacío: una CTA.
-  - Iconos: ver directriz global (set entero).
+- **[A] El "+" → ✅ HECHO** (`~commit Nueva visita`). El "+" de Hoy abre
+  `/planificar`, renombrada **"Nueva visita"**, con selector **¿Cuándo?
+  Ahora / Otro día**. "Ahora" pide solo objetivo y arranca la visita en
+  curso; "Otro día" = fecha/hora/franja/[para quién] → agendada. Junta las
+  dos vías que estaban dispersas.
+- **[B] dos calendarios / [C] estado vacío → pendientes.** Cesar: si no
+  molestan, se dejan. (Sin decisión aún — no bloquean.)
+- **Iconos → ✅ set entero a Phosphor** (`8e80f41` lucide, sustituido por
+  Phosphor + tab bar iOS: sección activa con icono relleno). El "+" ya es
+  el de Apple, no se toca.
