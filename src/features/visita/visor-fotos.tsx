@@ -92,7 +92,7 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar, onEditar }: Pro
             )}
             {onEditar && (
               <button type="button" className="visor-fotos__accion" onClick={() => onEditar(foto.id)}>
-                Editar
+                <Icono nombre="editar" size={14} /> Editar
               </button>
             )}
           </div>

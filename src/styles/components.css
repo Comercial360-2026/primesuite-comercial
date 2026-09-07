@@ -636,6 +636,7 @@ textarea.field {
 .visor-fotos__accion {
   border: none; background: none; padding: 0; cursor: pointer;
   color: var(--surface-1); font-size: var(--text-sm); text-decoration: underline;
+  display: inline-flex; align-items: center; gap: 4px;
 }
 .visor-fotos__nav { display: flex; align-items: center; gap: var(--space-5); }
 .visor-fotos__nav button {
