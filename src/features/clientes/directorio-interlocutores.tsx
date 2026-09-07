@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { Icono } from '@/components/ui/iconos';
-import { FilaToggle } from '@/components/ui/fila-toggle';
 
 interface Interlocutor {
   id: string;
@@ -68,6 +67,9 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
   const [formNuevo, setFormNuevo] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [nuevoPresente, setNuevoPresente] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  // Menú "⋯" (Editar / Quitar) y confirmación de "quitar" — por fila.
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [confirmandoQuitarId, setConfirmandoQuitarId] = useState<string | null>(null);
   const [formEdicion, setFormEdicion] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +199,8 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
         .eq('interlocutor_id', id);
     }
     setEditandoId(null);
+    setMenuId(null);
+    setConfirmandoQuitarId(null);
     invalidar();
   }
 
@@ -308,7 +312,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                 <b>{i.nombre}</b>
                 {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
                 {presente && (
-                  <span style={{ color: 'var(--success-600)', fontWeight: 600 }}> · presente</span>
+                  <span style={{ color: 'var(--success-600)', fontWeight: 600 }}> · ✓ presente</span>
                 )}
               </span>
               {(i.telefono || i.email) && (
@@ -320,29 +324,85 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           );
 
           return (
-            <div key={i.id} className="interlocutor-fila">
-              {presencia ? (
+            <div key={i.id}>
+              <div className="interlocutor-fila">
+                {presencia ? (
+                  <button
+                    type="button"
+                    className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
+                    onClick={() => presencia.onTogglePresencia(i.id, presente)}
+                    aria-pressed={presente}
+                  >
+                    {datos}
+                  </button>
+                ) : (
+                  <div className="interlocutor-fila__cuerpo">{datos}</div>
+                )}
                 <button
                   type="button"
-                  className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
-                  onClick={() => presencia.onTogglePresencia(i.id, presente)}
-                  aria-pressed={presente}
+                  className={`boton-icono${menuId === i.id ? ' voc-cat__ic--abierto' : ''}`}
+                  onClick={() => {
+                    setConfirmandoQuitarId(null);
+                    setMenuId((id) => (id === i.id ? null : i.id));
+                  }}
+                  aria-label={`Más acciones de ${i.nombre}`}
+                  title="Más acciones"
+                  aria-expanded={menuId === i.id}
                 >
-                  <FilaToggle marcada={presente} />
-                  {datos}
+                  <Icono nombre="opciones" size={18} />
                 </button>
-              ) : (
-                <div className="interlocutor-fila__cuerpo">{datos}</div>
+              </div>
+
+              {menuId === i.id && confirmandoQuitarId !== i.id && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '2px 0 8px' }}>
+                  <button
+                    type="button"
+                    className="chip"
+                    onClick={() => {
+                      setMenuId(null);
+                      abrirEdicion(i);
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="chip"
+                    style={{ color: 'var(--risk-600)' }}
+                    onClick={() => setConfirmandoQuitarId(i.id)}
+                  >
+                    Quitar del directorio
+                  </button>
+                </div>
               )}
-              <button
-                type="button"
-                className="boton-icono"
-                onClick={() => abrirEdicion(i)}
-                aria-label={`Editar ${i.nombre}`}
-                title="Editar"
-              >
-                <Icono nombre="editar" size={18} />
-              </button>
+
+              {confirmandoQuitarId === i.id && (
+                <div className="card card--riesgo" style={{ margin: '2px 0 8px' }}>
+                  <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                    ¿Quitar a <b>{i.nombre}</b> del directorio del cliente?
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setConfirmandoQuitarId(null);
+                        setMenuId(null);
+                      }}
+                    >
+                      No, dejarlo
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-secondary--riesgo"
+                      disabled={guardando}
+                      onClick={() => quitarDelDirectorio(i.id)}
+                    >
+                      Sí, quitar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

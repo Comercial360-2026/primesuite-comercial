@@ -449,24 +449,23 @@ export function VisitaActiva() {
     }
   }, [visitaId, cliente, visitaCerrada, iniciarVisita]);
 
-  // Nombres (no solo el número) — Zona 1 los enseña de un vistazo: "Ana
-  // López y 1 más". Solo cuentan los que siguen en el directorio del
-  // cliente: si a uno se le da de baja ("Quitar del directorio"), su fila de
-  // visita_interlocutor se conserva por el histórico de visitas cerradas,
-  // pero deja de contar aquí.
+  // El badge de "Interlocutores" en la cabecera cuenta los que hay DADOS DE
+  // ALTA para este cliente (su directorio), no solo los marcados presentes
+  // — así aparece el número en cuanto registras uno, igual que el badge de
+  // Equipo. `queryKey` con `visitaId` porque quien lo invalida
+  // (directorio-interlocutores / interlocutores-hoja) pasa `visitaId`.
   const { data: interlocutoresPresentes } = useQuery({
     queryKey: ['interlocutores-count', visitaId],
-    enabled: !!visitaId,
+    enabled: !!visitaLocal?.clienteId,
     queryFn: async (): Promise<string[]> => {
       const { data, error } = await supabase
-        .from('visita_interlocutor')
-        .select('interlocutor:interlocutor_id(nombre, activo)')
-        .eq('visita_id', visitaId!);
+        .from('interlocutor')
+        .select('nombre')
+        .eq('cliente_id', visitaLocal!.clienteId)
+        .eq('activo', true)
+        .order('nombre');
       if (error) throw error;
-      return (data ?? [])
-        .map((r) => r.interlocutor as unknown as { nombre: string; activo: boolean } | null)
-        .filter((i): i is { nombre: string; activo: boolean } => !!i?.activo)
-        .map((i) => i.nombre);
+      return (data ?? []).map((i) => i.nombre);
     },
   });
 

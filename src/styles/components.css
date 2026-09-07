@@ -158,9 +158,11 @@ body {
   padding: 8px 4px; border: 0; background: none; text-align: left;
   font-family: var(--font-sans); color: var(--ink-900);
 }
-button.interlocutor-fila__cuerpo { cursor: pointer; }
-.interlocutor-fila__cuerpo--presente {
-  background: var(--fila-marcada-bg); border-radius: var(--radius-field);
+button.interlocutor-fila__cuerpo { cursor: pointer; border-radius: var(--radius-field); }
+button.interlocutor-fila__cuerpo:hover { background: var(--surface-0); }
+.interlocutor-fila__cuerpo--presente,
+button.interlocutor-fila__cuerpo--presente:hover {
+  background: var(--fila-marcada-bg);
 }
 .interlocutor-fila__datos {
   flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
