@@ -8,6 +8,9 @@ export interface CrearVisitaConResponsableArgs {
   pVisitaId: string;
   pClienteId: string;
   pComercialId: string;
+  // Proyecto (línea de negocio) al que pertenece la visita. Obligatorio: el
+  // modelo ya no tiene proyecto "General" al que caer (migración 103/104).
+  pProyectoId: string;
   pTipoVisita?: string | null;
   // Para planificar una visita a fecha futura (ver migración 69). Sin estos,
   // la visita nace 'en_curso' con fecha = now(), como siempre.

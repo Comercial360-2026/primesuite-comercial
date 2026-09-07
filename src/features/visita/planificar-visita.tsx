@@ -189,13 +189,13 @@ export function PlanificarVisita() {
           pVisitaId: visitaId,
           pClienteId: clienteId,
           pComercialId: responsableId,
+          pProyectoId: proyectoId,
           pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
-        const parche: { objetivo: string; proyecto_id: string; hora_definida?: boolean; franja?: string | null } = {
+        const parche: { objetivo: string; hora_definida?: boolean; franja?: string | null } = {
           objetivo: objetivo.trim(),
-          proyecto_id: proyectoId,
         };
         if (!hora) {
           parche.hora_definida = false;

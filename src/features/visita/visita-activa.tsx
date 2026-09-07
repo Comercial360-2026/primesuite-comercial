@@ -1074,24 +1074,22 @@ export function VisitaActiva() {
     franja: '' | 'manana' | 'tarde';
     objetivo: string;
   }) {
-    if (!visitaLocal?.clienteId || !comercial) return;
+    if (!visitaLocal?.clienteId || !comercial || !visitaLocal.proyectoId) return;
     // Llamada directa, NO por la cola offline: igual que planificar desde la
-    // ficha, para que aparezca en la agenda al momento.
+    // ficha, para que aparezca en la agenda al momento. Sigue en el mismo
+    // proyecto (línea de negocio) que la visita desde la que se planifica —
+    // continuidad.
     const nuevaId = uuid();
     const { error } = await crearVisitaConResponsable({
       pVisitaId: nuevaId,
       pClienteId: visitaLocal.clienteId,
       pComercialId: comercial.id,
+      pProyectoId: visitaLocal.proyectoId,
       pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
       pEstadoCaptura: 'agendada',
     });
     if (error) throw new Error(error);
-    // Sigue en el mismo proyecto (línea de negocio) que la visita desde la
-    // que se planifica — continuidad, no "vuelve al General" por defecto.
-    // Si aún no se conoce (visita muy reciente, todavía en cola local), se
-    // omite: el servidor ya habrá aplicado su propia reserva al crearla.
-    const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null; proyecto_id?: string } = {};
-    if (visitaLocal.proyectoId) parche.proyecto_id = visitaLocal.proyectoId;
+    const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
     if (objetivo.trim()) parche.objetivo = objetivo.trim();
     if (!hora) {
       parche.hora_definida = false;

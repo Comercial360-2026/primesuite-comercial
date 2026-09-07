@@ -2199,6 +2199,7 @@ export type Database = {
           p_comercial_id: string
           p_estado_captura?: string
           p_fecha?: string
+          p_proyecto_id: string
           p_tipo_visita?: string
           p_visita_id: string
         }

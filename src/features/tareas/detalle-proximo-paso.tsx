@@ -118,25 +118,27 @@ export function DetalleProximoPaso() {
     // La descripción del paso es el objetivo de la visita — obligatorio, así
     // que no se planifica si está vacía (el botón de guardar del paso ya lo
     // exige, pero esto cubre el caso de haberla borrado sin guardar).
-    if (!comercial || !paso || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada) return;
+    if (!comercial || !paso || !paso.proyecto_id || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada)
+      return;
     setPlanificando(true);
     setErrorPlan(null);
     try {
       const nuevaId = uuid();
+      // La visita sigue en el mismo proyecto del paso — continuidad.
       const { error: err } = await crearVisitaConResponsable({
         pVisitaId: nuevaId,
         pClienteId: clienteId,
         pComercialId: comercial.id,
+        pProyectoId: paso.proyecto_id,
         pFecha: new Date(`${fechaObjetivo}T09:00:00`).toISOString(),
         pEstadoCaptura: 'agendada',
       });
       if (err) throw new Error(err);
       // La visita hereda la descripción del paso como objetivo — "esto lo
-      // tengo que hacer" se convierte en "voy a esta visita a hacer esto" —
-      // y el mismo proyecto del paso (continuidad, no "vuelve al General").
+      // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
       const { error: errParche } = await supabase
         .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim(), proyecto_id: paso.proyecto_id })
+        .update({ hora_definida: false, objetivo: descripcion.trim() })
         .eq('id', nuevaId);
       if (errParche) throw new Error(errParche.message);
       setVisitaPlanificada(true);

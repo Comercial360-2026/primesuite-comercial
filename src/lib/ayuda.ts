@@ -134,7 +134,7 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Nuevo cliente',
     queEs:
-      'Da de alta un cliente con solo el nombre. Mientras escribes, te avisa si ya hay uno igual o parecido para que no lo dupliques. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
+      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },

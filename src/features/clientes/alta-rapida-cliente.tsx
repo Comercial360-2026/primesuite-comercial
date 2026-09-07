@@ -17,12 +17,11 @@ import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
-// NOTA DE ALCANCE: la creación de `cliente` es un INSERT directo online, NO
-// pasa por la cola offline — `cliente` no está en EntidadSincronizable
-// (lib/offline-queue/types.ts). Esto significa que dar de alta un cliente
-// nuevo sin cobertura fallará hoy. Es una limitación real, no simulada;
-// señalada aquí en vez de ampliar la infraestructura offline sin que se
-// haya pedido explícitamente.
+// El alta crea cliente + primer proyecto: con red, en una transacción vía la
+// RPC `crear_cliente_con_proyecto` (que sustituye al antiguo trigger del
+// proyecto "General"); sin red, se encolan como `cliente` + `proyecto`
+// encadenados (`dependeDe`), y la primera visita depende del proyecto. El
+// `proyecto_id` de una visita ya no lo deriva el servidor: viaja explícito.
 
 export function AltaRapidaCliente() {
   const navigate = useNavigate();
@@ -35,6 +34,9 @@ export function AltaRapidaCliente() {
   // "iniciar / planificar visita" sin volver a teclearlo.
   const [params] = useSearchParams();
   const [nombre, setNombre] = useState(params.get('nombre') ?? '');
+  // Un cliente nace con su primer proyecto (línea de negocio). Sin proyecto no
+  // hay cliente: toda visita cuelga de uno.
+  const [nombreProyecto, setNombreProyecto] = useState('');
   const creacionCliente = useAccionAsync();
   // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
   // vuelve a donde se venía; si no consta, al listado de Clientes.
@@ -57,7 +59,7 @@ export function AltaRapidaCliente() {
           id: string;
           objetivo: string | null;
           en_curso_desde: string | null;
-          proyecto: { nombre: string; es_general: boolean } | null;
+          proyecto: { nombre: string } | null;
         };
         clienteId: string;
         clienteNombre: string;
@@ -91,12 +93,11 @@ export function AltaRapidaCliente() {
   const { data: proyectosExistente } = useQuery({
     queryKey: ['proyectos-cliente-alta', clienteExistenteId],
     enabled: !!clienteExistenteId,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean; estado: string }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado: string }>> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, es_general, estado')
+        .select('id, nombre, estado')
         .eq('cliente_id', clienteExistenteId!)
-        .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -131,30 +132,40 @@ export function AltaRapidaCliente() {
   // Con red: INSERT directo (instantáneo, la ficha ya es navegable).
   // Sin red o corte puntual: se encola y se sincroniza luego. `enCola` dice
   // cuál de los dos pasó, para que cada flujo actúe en consecuencia.
-  async function crearCliente(): Promise<{ id: string; nombre: string; enCola: boolean }> {
+  async function crearCliente(): Promise<{
+    id: string;
+    nombre: string;
+    proyectoId: string;
+    enCola: boolean;
+  }> {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
     }
     const clienteId = uuid();
+    const proyectoId = uuid();
     const nombreLimpio = nombre.trim();
+    const nombreProyectoLimpio = nombreProyecto.trim();
 
     if (navigator.onLine) {
+      // Cliente + primer proyecto en una transacción (la RPC sustituye al
+      // antiguo trigger que creaba un proyecto "General"). Devuelve el
+      // proyecto_id, que se usa ya para la primera visita.
       const { data, error: errorCliente } = await supabase
-        .from('cliente')
-        .insert({
-          id: clienteId,
-          nombre: nombreLimpio,
-          estado_relacion: 'borrador',
-          creado_por: comercial.id,
+        .rpc('crear_cliente_con_proyecto', {
+          p_cliente_id: clienteId,
+          p_nombre_cliente: nombreLimpio,
+          p_nombre_proyecto: nombreProyectoLimpio,
+          p_creado_por: comercial.id,
           // El que da de alta el cliente es su responsable de cartera.
           // Dirección lo reasigna después si hace falta.
-          responsable_id: comercial.id,
+          p_responsable_id: comercial.id,
         })
-        .select('id, nombre')
         .single();
-      if (!errorCliente && data) return { id: data.id, nombre: data.nombre, enCola: false };
-      // Si el fallo no parece de red (RLS, constraint…), se muestra tal
-      // cual — encolarlo solo lo escondería. Si parece de red, se encola.
+      if (!errorCliente && data) {
+        return { id: data.cliente_id, nombre: nombreLimpio, proyectoId: data.proyecto_id, enCola: false };
+      }
+      // Si el fallo no parece de red (RLS, validación de la RPC…), se muestra
+      // tal cual — encolarlo solo lo escondería. Si parece de red, se encola.
       const esFalloDeRed =
         !navigator.onLine || /fetch|network|load failed/i.test(errorCliente?.message ?? '');
       if (!esFalloDeRed) {
@@ -162,12 +173,21 @@ export function AltaRapidaCliente() {
       }
     }
 
+    // Sin red: cliente → primer proyecto (depende del cliente) → la visita
+    // que venga después dependerá de este proyecto. `proyecto_id` ya no lo
+    // deriva el servidor: viaja explícito desde aquí.
     await encolar(clienteId, 'cliente', {
       nombre: nombreLimpio,
       creadoPor: comercial.id,
       responsableId: comercial.id,
     });
-    return { id: clienteId, nombre: nombreLimpio, enCola: true };
+    await encolar(
+      proyectoId,
+      'proyecto',
+      { clienteId, nombre: nombreProyectoLimpio },
+      { dependeDe: clienteId }
+    );
+    return { id: clienteId, nombre: nombreLimpio, proyectoId, enCola: true };
   }
 
   async function encolarVisita(
@@ -198,14 +218,16 @@ export function AltaRapidaCliente() {
     let visitaId: string;
     let clienteNombre: string;
     if (objetivoModal.modo === 'nuevo') {
-      // Cliente recién creado: solo tiene el General, lo asigna el backend.
+      // Cliente recién creado: la visita va a su primer proyecto (el que se
+      // acaba de teclear en el alta). Sin red, depende de ese proyecto en
+      // cola, que a su vez depende del cliente.
       const cliente = await crearCliente();
       const r = await encolarVisita(
         cliente.id,
         cliente.nombre,
         objetivo,
-        undefined,
-        cliente.enCola ? cliente.id : undefined
+        cliente.proyectoId,
+        cliente.enCola ? cliente.proyectoId : undefined
       );
       visitaId = r.visitaId;
       clienteNombre = r.clienteNombre;
@@ -223,49 +245,32 @@ export function AltaRapidaCliente() {
     navigate(`/visita/${visitaId}`);
   }
 
-  // "Lo visito otro día": crea la ficha y abre el flujo de planificar ya
-  // apuntando a su Proyecto General — un cliente recién creado solo puede
-  // tener ese proyecto todavía. Planificar necesita el cliente (y su
-  // proyecto) ya en el servidor, así que este flujo exige conexión.
+  // "Lo visito otro día": crea la ficha (cliente + primer proyecto) y abre el
+  // flujo de planificar apuntando a ese proyecto. Planificar necesita el
+  // cliente y su proyecto ya en el servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
-    if (!nombre.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
     if (!navigator.onLine) {
       creacionCliente.establecerError(
         'Necesitas conexión para planificar una visita. Puedes iniciar la visita ahora o guardar sin visita.'
       );
       return;
     }
-    await creacionCliente.ejecutar(
-      async () => {
-        const cliente = await crearCliente();
-        if (cliente.enCola) return { cliente, proyectoId: null };
-        const { data: proyecto, error: errorProyecto } = await supabase
-          .from('proyecto')
-          .select('id')
-          .eq('cliente_id', cliente.id)
-          .eq('es_general', true)
-          .single();
-        if (errorProyecto || !proyecto) {
-          throw new Error('El cliente se creó pero no se pudo localizar su proyecto. Ábrelo desde la ficha.');
+    await creacionCliente.ejecutar(crearCliente, {
+      onExito: (cliente) => {
+        if (cliente.enCola) {
+          creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
+          return;
         }
-        return { cliente, proyectoId: proyecto.id as string };
+        navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${cliente.proyectoId}`);
       },
-      {
-        onExito: ({ cliente, proyectoId }) => {
-          if (cliente.enCola || !proyectoId) {
-            creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
-            return;
-          }
-          navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${proyectoId}`);
-        },
-      }
-    );
+    });
   }
 
   // "Aún no sé cuándo": solo crea la ficha. Si se encoló (sin red), la
   // ficha aún no existe en el servidor, así que se vuelve al listado.
   async function crearSinVisita() {
-    if (!nombre.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
     await creacionCliente.ejecutar(crearCliente, {
       onExito: (cliente) => navigate(cliente.enCola ? '/clientes' : `/clientes/${cliente.id}`),
     });
@@ -279,7 +284,7 @@ export function AltaRapidaCliente() {
     if (creacionCliente.cargando) return;
     const { data } = await supabase
       .from('visita')
-      .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre, es_general)')
+      .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre)')
       .eq('cliente_id', clienteId)
       .eq('estado_captura', 'en_curso')
       .order('fecha', { ascending: false })
@@ -290,7 +295,7 @@ export function AltaRapidaCliente() {
         id: string;
         objetivo: string | null;
         en_curso_desde: string | null;
-        proyecto: { nombre: string; es_general: boolean } | null;
+        proyecto: { nombre: string } | null;
       };
       setEnCursoModal({ visita: v, clienteId, clienteNombre });
     } else {
@@ -305,7 +310,7 @@ export function AltaRapidaCliente() {
       <div className="screen__scroll">
        <div className="lista-agrupada">
         <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
-          <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+          <div className="label" style={{ marginTop: 0 }}>Nombre del cliente</div>
           <input
             className={`field${creacionCliente.error ? ' field--error' : ''}`}
             autoFocus
@@ -313,6 +318,18 @@ export function AltaRapidaCliente() {
             onChange={(e) => setNombre(e.target.value)}
             placeholder="razón social"
           />
+
+          <div className="label">Primer proyecto</div>
+          <input
+            className="field"
+            value={nombreProyecto}
+            onChange={(e) => setNombreProyecto(e.target.value)}
+            placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"
+          />
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+            Un cliente siempre tiene al menos un proyecto (línea de negocio). Cada visita cuelga de uno.
+          </div>
+
           {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
         </div>
 
@@ -345,7 +362,7 @@ export function AltaRapidaCliente() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button
           className="btn btn-primary"
-          disabled={!nombre.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
           onClick={() => setObjetivoModal({ modo: 'nuevo' })}
         >
           Guardar e iniciar visita ahora
@@ -353,14 +370,14 @@ export function AltaRapidaCliente() {
         </button>
         <button
           className="btn btn-secondary"
-          disabled={!nombre.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
           onClick={crearYPlanificar}
         >
           Guardar y planificar visita
         </button>
         <button
           type="button"
-          disabled={!nombre.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
           onClick={crearSinVisita}
           style={{
             border: 'none',
@@ -380,11 +397,7 @@ export function AltaRapidaCliente() {
         <VisitaEnCursoModal
           clienteNombre={enCursoModal.clienteNombre}
           objetivo={enCursoModal.visita.objetivo}
-          proyectoNombre={
-            enCursoModal.visita.proyecto && !enCursoModal.visita.proyecto.es_general
-              ? enCursoModal.visita.proyecto.nombre
-              : null
-          }
+          proyectoNombre={enCursoModal.visita.proyecto?.nombre ?? null}
           enCursoDesde={enCursoModal.visita.en_curso_desde}
           onContinuar={() => navigate(`/visita/${enCursoModal.visita.id}`)}
           onEmpezarOtra={() => {
