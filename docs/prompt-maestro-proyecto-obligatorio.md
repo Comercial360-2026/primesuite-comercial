@@ -75,6 +75,34 @@ actividad. La migración:
 3. Alta de cliente: RPC/flow que cree cliente + primer proyecto en una
    transacción, con nombre de proyecto obligatorio.
 
+## Impacto revisado (¿qué más toca?)
+
+- **PDF / informe (`generar-backup-visita`)**: **CERO impacto**. La edge
+  function no menciona proyecto ni `es_general` (verificado); el informe es de
+  una visita.
+- **Base de datos**: `es_general` solo en 5 funciones —
+  `fn_crear_proyecto_general` (fuera), `fn_set_proyecto_id_visita` (trigger
+  BEFORE INSERT que auto-asigna al General si no hay `proyecto_id` → fuera,
+  `proyecto_id` pasa a ser de verdad obligatorio), `fn_fusionar_cliente`
+  (se simplifica: los proyectos del absorbido pasan tal cual, sin renombrar
+  un General), `fn_actividad_comercial_por_proyecto` (devuelve `es_general`;
+  su consumidor cambia), `eliminar_proyecto` (guard "no el General" → cambia a
+  "no el último proyecto del cliente"). **Ninguna vista ni RLS** lo usan.
+- **Pantallas**: ~12 ficheros con el patrón
+  `proyecto && !es_general ? nombre : ocultar` (agenda, cabecera de visita
+  activa, contexto de captura, cierre-visita, detalle-hallazgo,
+  detalle-proximo-paso, detalle-actividad-comercial, planificar-visita,
+  ficha-cliente, ficha-proyecto, repaso-cliente, alta-rapida). Al quitar la
+  rama, **el nombre del proyecto pasa a verse SIEMPRE** en todos esos sitios —
+  más consistente, pero es un cambio visible en muchas pantallas. Revisar que
+  no sature (subtítulos de Agenda, etc.).
+- **Alta de cliente**: 2 campos (cliente + primer proyecto) en vez de 1. Su
+  entrada en `ayuda.ts` (`alta-rapida-cliente`) cambia. Alta offline: encolar
+  cliente + primer proyecto (`dependeDe`).
+- **`detalle-actividad-comercial.tsx`** (Dirección, "actividad por proyecto"):
+  quitar la rama `es_general ? cliente_nombre : cliente › proyecto` → siempre
+  `cliente › proyecto`.
+
 ## Pendiente global tras esto
 
 Este replanteo → P7b (puerta Terminar) → P9 (campo «Proyecto» editable en
