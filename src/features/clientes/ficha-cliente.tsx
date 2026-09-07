@@ -15,6 +15,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
+import { Icono } from '@/components/ui/iconos';
 import { DirectorioInterlocutores } from './directorio-interlocutores';
 import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
@@ -354,6 +355,20 @@ export function FichaCliente() {
         ayuda="ficha-cliente"
         subtitulo={cliente?.sector || undefined}
         volverA="/clientes"
+        derecha={
+          (esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+              title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+              aria-expanded={editandoDatos}
+              onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
+            >
+              <Icono nombre="editar" size={16} />
+            </button>
+          )
+        }
       />
 
       <div className="screen__scroll">
@@ -377,16 +392,8 @@ export function FichaCliente() {
          >
            + Nuevo proyecto
          </button>
-         {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
-           <button
-             type="button"
-             className={`chip${editandoDatos ? ' chip--on' : ''}`}
-             aria-expanded={editandoDatos}
-             onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
-           >
-             Editar datos
-           </button>
-         )}
+         {/* "Editar datos" es el lápiz de la cabecera (arriba a la derecha),
+             como en el resto de "editar en el sitio" — no un chip aquí. */}
          {esDireccionComercial && (
            <button
              type="button"
