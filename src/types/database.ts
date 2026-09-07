@@ -1738,6 +1738,7 @@ export type Database = {
           actualizado_en: string
           cliente_id: string
           creado_en: string
+          en_curso_desde: string | null
           estado_captura: string
           fecha: string
           franja: string | null
@@ -1754,6 +1755,7 @@ export type Database = {
           actualizado_en?: string
           cliente_id: string
           creado_en?: string
+          en_curso_desde?: string | null
           estado_captura?: string
           fecha?: string
           franja?: string | null
@@ -1770,6 +1772,7 @@ export type Database = {
           actualizado_en?: string
           cliente_id?: string
           creado_en?: string
+          en_curso_desde?: string | null
           estado_captura?: string
           fecha?: string
           franja?: string | null
