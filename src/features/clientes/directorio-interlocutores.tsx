@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { Icono } from '@/components/ui/iconos';
+import { FilaToggle } from '@/components/ui/fila-toggle';
 
 interface Interlocutor {
   id: string;
@@ -67,9 +67,12 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
   const [formNuevo, setFormNuevo] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [nuevoPresente, setNuevoPresente] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  // Menú "⋯" (Editar / Quitar) y confirmación de "quitar" — por fila.
-  const [menuId, setMenuId] = useState<string | null>(null);
-  const [confirmandoQuitarId, setConfirmandoQuitarId] = useState<string | null>(null);
+  // Modo "Seleccionar" — mismo patrón que el resto de listas de la app:
+  // marcar varias filas y actuar sobre ellas (editar si es 1, quitar si son
+  // varias). Nada de un icono "⋯" por fila.
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [confirmandoQuitar, setConfirmandoQuitar] = useState(false);
   const [formEdicion, setFormEdicion] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,26 +184,46 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     invalidar();
   }
 
-  async function quitarDelDirectorio(id: string) {
+  function cancelarSeleccion() {
+    setSeleccionando(false);
+    setMarcados(new Set());
+    setConfirmandoQuitar(false);
+  }
+
+  function alternarMarcado(id: string) {
+    setMarcados((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  // Baja lógica (`activo=false`), no DELETE — si ya se usó en visitas
+  // anteriores, borrar la fila rompería el histórico. Las visitas cerradas
+  // conservan su fila de `visita_interlocutor`; aquí solo se quita la de la
+  // visita en curso, si la hay.
+  async function quitarMarcados() {
+    if (marcados.size === 0) return;
+    setGuardando(true);
     setError(null);
-    const { error: err } = await supabase.from('interlocutor').update({ activo: false }).eq('id', id);
-    if (err) {
-      setError(err.message);
-      return;
+    for (const id of marcados) {
+      const { error: err } = await supabase.from('interlocutor').update({ activo: false }).eq('id', id);
+      if (err) {
+        setError(err.message);
+        setGuardando(false);
+        return;
+      }
+      if (presencia) {
+        await supabase
+          .from('visita_interlocutor')
+          .delete()
+          .eq('visita_id', presencia.visitaId)
+          .eq('interlocutor_id', id);
+      }
     }
-    // Si se quita en mitad de una visita, tampoco cuenta como presente en
-    // ella. Las visitas ya cerradas conservan su fila — no se reescribe el
-    // histórico.
-    if (presencia) {
-      await supabase
-        .from('visita_interlocutor')
-        .delete()
-        .eq('visita_id', presencia.visitaId)
-        .eq('interlocutor_id', id);
-    }
-    setEditandoId(null);
-    setMenuId(null);
-    setConfirmandoQuitarId(null);
+    setGuardando(false);
+    cancelarSeleccion();
     invalidar();
   }
 
@@ -260,9 +283,36 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     );
   }
 
+  const nMarcados = marcados.size;
+
   return (
     <div>
-      {presencia && (
+      {/* Barra de acción: "Seleccionar" para editar/quitar (mismo patrón que
+          el resto de listas). No un icono por fila. */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          justifyContent: seleccionando ? 'space-between' : 'flex-end',
+          marginBottom: 8, minHeight: 30,
+        }}
+      >
+        {seleccionando ? (
+          <>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+              {nMarcados === 0 ? 'Marca a quién' : `${nMarcados} marcado${nMarcados === 1 ? '' : 's'}`}
+            </span>
+            <button type="button" className="chip" onClick={cancelarSeleccion}>Cancelar</button>
+          </>
+        ) : (
+          !!directorio?.length && (
+            <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
+              Seleccionar
+            </button>
+          )
+        )}
+      </div>
+
+      {presencia && !seleccionando && (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-500)', marginBottom: 10 }}>
           Marca quién estuvo presente en esta visita — toca su nombre.
         </div>
@@ -271,6 +321,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {directorio?.map((i) => {
           const presente = presencia?.presentesIds.includes(i.id) ?? false;
+          const marcado = marcados.has(i.id);
 
           if (editandoId === i.id) {
             return (
@@ -284,14 +335,6 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                     disabled={guardando}
                   >
                     Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-secondary--riesgo"
-                    onClick={() => quitarDelDirectorio(i.id)}
-                    disabled={guardando}
-                  >
-                    Quitar del directorio
                   </button>
                   <button
                     type="button"
@@ -323,85 +366,42 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             </span>
           );
 
+          if (seleccionando) {
+            return (
+              <button
+                key={i.id}
+                type="button"
+                className="interlocutor-fila__cuerpo"
+                style={{ width: '100%' }}
+                aria-pressed={marcado}
+                onClick={() => alternarMarcado(i.id)}
+              >
+                <FilaToggle marcada={marcado} />
+                {datos}
+              </button>
+            );
+          }
+
           return (
-            <div key={i.id}>
-              <div className="interlocutor-fila">
-                {presencia ? (
-                  <button
-                    type="button"
-                    className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
-                    onClick={() => presencia.onTogglePresencia(i.id, presente)}
-                    aria-pressed={presente}
-                  >
-                    {datos}
-                  </button>
-                ) : (
-                  <div className="interlocutor-fila__cuerpo">{datos}</div>
-                )}
+            <div key={i.id} className="interlocutor-fila">
+              {presencia ? (
                 <button
                   type="button"
-                  className={`boton-icono${menuId === i.id ? ' voc-cat__ic--abierto' : ''}`}
-                  onClick={() => {
-                    setConfirmandoQuitarId(null);
-                    setMenuId((id) => (id === i.id ? null : i.id));
-                  }}
-                  aria-label={`Más acciones de ${i.nombre}`}
-                  title="Más acciones"
-                  aria-expanded={menuId === i.id}
+                  className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
+                  onClick={() => presencia.onTogglePresencia(i.id, presente)}
+                  aria-pressed={presente}
                 >
-                  <Icono nombre="opciones" size={18} />
+                  {datos}
                 </button>
-              </div>
-
-              {menuId === i.id && confirmandoQuitarId !== i.id && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '2px 0 8px' }}>
-                  <button
-                    type="button"
-                    className="chip"
-                    onClick={() => {
-                      setMenuId(null);
-                      abrirEdicion(i);
-                    }}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="chip"
-                    style={{ color: 'var(--risk-600)' }}
-                    onClick={() => setConfirmandoQuitarId(i.id)}
-                  >
-                    Quitar del directorio
-                  </button>
-                </div>
-              )}
-
-              {confirmandoQuitarId === i.id && (
-                <div className="card card--riesgo" style={{ margin: '2px 0 8px' }}>
-                  <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-                    ¿Quitar a <b>{i.nombre}</b> del directorio del cliente?
-                  </p>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => {
-                        setConfirmandoQuitarId(null);
-                        setMenuId(null);
-                      }}
-                    >
-                      No, dejarlo
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-secondary--riesgo"
-                      disabled={guardando}
-                      onClick={() => quitarDelDirectorio(i.id)}
-                    >
-                      Sí, quitar
-                    </button>
-                  </div>
-                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="interlocutor-fila__cuerpo"
+                  onClick={() => abrirEdicion(i)}
+                  aria-label={`Editar ${i.nombre}`}
+                >
+                  {datos}
+                </button>
               )}
             </div>
           );
@@ -412,6 +412,57 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           </span>
         )}
       </div>
+
+      {/* Barra de acción del modo seleccionar. */}
+      {seleccionando && nMarcados > 0 && !confirmandoQuitar && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          {nMarcados === 1 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                const soloId = [...marcados][0];
+                const it = directorio?.find((x) => x.id === soloId);
+                if (it) {
+                  cancelarSeleccion();
+                  abrirEdicion(it);
+                }
+              }}
+            >
+              Editar
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-secondary--riesgo"
+            onClick={() => setConfirmandoQuitar(true)}
+          >
+            Quitar {nMarcados} del directorio
+          </button>
+        </div>
+      )}
+
+      {seleccionando && confirmandoQuitar && (
+        <div className="card card--riesgo" style={{ marginTop: 10 }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            ¿Quitar {nMarcados} del directorio del cliente?
+            {presencia && ' También dejan de contar como presentes en esta visita.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoQuitar(false)}>
+              No
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-secondary--riesgo"
+              disabled={guardando}
+              onClick={quitarMarcados}
+            >
+              {guardando ? 'Quitando…' : `Sí, quitar ${nMarcados}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {!creandoNuevo ? (
         // Con `crearNuevo` el disparador vive en la cabecera del contenedor

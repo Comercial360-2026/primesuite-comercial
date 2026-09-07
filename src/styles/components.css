@@ -219,6 +219,8 @@ button.interlocutor-fila__cuerpo--presente:hover {
   padding: 8px 10px; border-radius: var(--radius-field);
   background: var(--brand-600); color: #fff;
   font-family: var(--font-sans); font-size: var(--text-sm);
+  /* Aire respecto a la rejilla de captura de debajo — no pegada. */
+  margin-bottom: var(--space-3);
 }
 .zona-banda > svg { flex-shrink: 0; }
 .zona-banda > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

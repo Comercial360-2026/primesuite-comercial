@@ -1644,14 +1644,15 @@ export function VisitaActiva() {
 
             {zonaABorrar && (
               <ConfirmacionBorrado
-                reversible="Podrás volver a marcarla escribiéndola de nuevo."
+                reversible="Puedes volver a crear la zona cuando quieras."
                 confirmar="Sí, quitar la zona"
                 cargandoTexto="Quitando…"
                 cargando={borrandoZona}
                 onCancelar={() => setZonaABorrar(null)}
                 onConfirmar={() => void borrarZona(zonaABorrar)}
               >
-                Quitar «{zonaABorrar}» de la visita: sus capturas pasan a «General».
+                Quitas «{zonaABorrar}» de esta visita. Lo que capturaste en esa zona no se
+                borra — solo deja de estar agrupado por zona.
               </ConfirmacionBorrado>
             )}
           </div>
