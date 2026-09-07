@@ -17,6 +17,8 @@ import {
   CheckCircle,
   Plus,
   PencilSimple,
+  EyeSlash,
+  ArrowCounterClockwise,
   ArrowLineRight,
   ArrowsMerge,
   Database,
@@ -78,6 +80,8 @@ const registro = {
 
   mas: Plus, // crear / añadir
   editar: PencilSimple, // renombrar / editar en el sitio
+  oculto: EyeSlash, // sacar del desplegable sin borrar (catálogo de sectores)
+  restaurar: ArrowCounterClockwise, // devolver algo oculto al desplegable
   mover: ArrowLineRight, // mover a otra categoría
   fusionar: ArrowsMerge, // fusionar con un término existente
   almacenamiento: Database, // cuota / consumo de disco

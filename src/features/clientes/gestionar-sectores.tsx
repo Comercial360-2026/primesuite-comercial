@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface Sector {
@@ -17,11 +19,17 @@ interface Sector {
 // guarda como texto en `cliente.sector`; esta lista solo alimenta el
 // desplegable de "Editar datos" — renombrar aquí NO reescribe los clientes
 // que ya usaban el nombre anterior.
+//
+// Renombrar / ocultar / restaurar van por modo "Seleccionar" + BarraSeleccion,
+// igual que el catálogo de vocabulario (la pantalla hermana) y que
+// Interlocutores. Nada de acciones-enlace sueltas por fila.
 export function GestionarSectores() {
   const queryClient = useQueryClient();
   const [nuevo, setNuevo] = useState('');
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [borrador, setBorrador] = useState('');
+  const [seleccionando, setSeleccionando] = useState(false);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const alta = useAccionAsync();
   const cambio = useAccionAsync();
 
@@ -40,6 +48,27 @@ export function GestionarSectores() {
   function refrescar() {
     queryClient.invalidateQueries({ queryKey: ['sectores-todos'] });
     queryClient.invalidateQueries({ queryKey: ['sectores-activos'] });
+  }
+
+  function salirSeleccion() {
+    setSeleccionando(false);
+    setMarcados(new Set());
+    cambio.limpiarError();
+  }
+
+  function alternarMarcado(id: string) {
+    setMarcados((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function cerrarRenombrado() {
+    setRenombrando(null);
+    setBorrador('');
+    cambio.limpiarError();
   }
 
   async function anadir() {
@@ -63,19 +92,30 @@ export function GestionarSectores() {
         const { error } = await supabase.from('sector').update({ nombre }).eq('id', id);
         if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ya existe ese sector.' : error.message);
       },
-      { onExito: () => { setRenombrando(null); setBorrador(''); refrescar(); } }
+      { onExito: () => { cerrarRenombrado(); refrescar(); } }
     );
   }
 
-  async function alternarActivo(s: Sector) {
+  async function fijarActivoLote(ids: string[], activar: boolean) {
+    if (!ids.length) return;
     await cambio.ejecutar(
       async () => {
-        const { error } = await supabase.from('sector').update({ activo: !s.activo }).eq('id', s.id);
+        const { error } = await supabase.from('sector').update({ activo: activar }).in('id', ids);
         if (error) throw new Error(error.message);
       },
-      { onExito: refrescar }
+      { onExito: () => { salirSeleccion(); refrescar(); } }
     );
   }
+
+  const marcadosArr = (sectores ?? []).filter((s) => marcados.has(s.id));
+  const todosActivos = marcadosArr.length > 0 && marcadosArr.every((s) => s.activo);
+  const todosOcultos = marcadosArr.length > 0 && marcadosArr.every((s) => !s.activo);
+  const etiquetaVis =
+    marcados.size === 0
+      ? 'Ocultar'
+      : todosOcultos
+        ? `Restaurar (${marcados.size})`
+        : `Ocultar (${marcados.size})`;
 
   return (
     <div className="screen">
@@ -109,61 +149,122 @@ export function GestionarSectores() {
         {isError && <EstadoLista estado="error" mensaje="No se pudo cargar el catálogo." onReintentar={refetch} />}
 
         {!!sectores?.length && (
-          <SeccionLista titulo="Catálogo">
-            {sectores.map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: 'var(--fila-pad-y) var(--fila-pad-x)',
-                  borderBottom: 'var(--fila-separador)',
-                  opacity: s.activo ? 1 : 0.5,
-                }}
-              >
-                {renombrando === s.id ? (
-                  <>
+          <div>
+            {seleccionando ? (
+              <BarraSeleccion
+                n={marcados.size}
+                onCancelar={salirSeleccion}
+                acciones={[
+                  {
+                    etiqueta: 'Renombrar',
+                    icono: 'editar',
+                    disabled: marcados.size !== 1 || cambio.cargando,
+                    onClick: () => {
+                      const s = marcadosArr[0];
+                      if (!s) return;
+                      setRenombrando(s.id);
+                      setBorrador(s.nombre);
+                      cambio.limpiarError();
+                      setSeleccionando(false);
+                      setMarcados(new Set());
+                    },
+                  },
+                  {
+                    etiqueta: etiquetaVis,
+                    icono: todosOcultos ? 'restaurar' : 'oculto',
+                    disabled:
+                      cambio.cargando || marcados.size === 0 || (!todosActivos && !todosOcultos),
+                    onClick: () => fijarActivoLote(marcadosArr.map((s) => s.id), todosOcultos),
+                  },
+                ]}
+              />
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
+                  Seleccionar
+                </button>
+              </div>
+            )}
+
+            <SeccionLista titulo="Catálogo">
+              {sectores.map((s) =>
+                renombrando === s.id ? (
+                  <div
+                    key={s.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 8,
+                      padding: 'var(--space-3) var(--fila-pad-x)',
+                    }}
+                  >
                     <input
                       className="field"
-                      style={{ flex: 1 }}
                       autoFocus
                       value={borrador}
                       onChange={(e) => setBorrador(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') renombrar(s.id); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') renombrar(s.id);
+                        if (e.key === 'Escape') cerrarRenombrado();
+                      }}
                     />
-                    <button type="button" className="btn-enlace" onClick={() => renombrar(s.id)}>guardar</button>
-                    <button type="button" className="btn-enlace" onClick={() => { setRenombrando(null); setBorrador(''); }}>cancelar</button>
-                  </>
+                    {cambio.error && <div className="field-error-text">{cambio.error}</div>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={cambio.cargando}
+                        onClick={cerrarRenombrado}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={cambio.cargando || !borrador.trim()}
+                        onClick={() => renombrar(s.id)}
+                      >
+                        {cambio.cargando ? 'Guardando…' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      {s.nombre}
-                      {!s.activo && <span style={{ color: 'var(--ink-400)', fontSize: 'var(--text-xs)' }}> · oculto</span>}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-enlace"
-                      onClick={() => { setRenombrando(s.id); setBorrador(s.nombre); cambio.limpiarError(); }}
-                    >
-                      renombrar
-                    </button>
-                    <button type="button" className="btn-enlace" onClick={() => alternarActivo(s)}>
-                      {s.activo ? 'quitar' : 'restaurar'}
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </SeccionLista>
-        )}
-        {cambio.error && (
-          <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>{cambio.error}</div>
-        )}
+                  <FilaAccion
+                    key={s.id}
+                    titulo={s.nombre}
+                    subtitulo={!s.activo ? 'oculto — no sale en el desplegable' : undefined}
+                    seleccion={
+                      seleccionando
+                        ? {
+                            activa: true,
+                            marcada: marcados.has(s.id),
+                            onToggle: () => alternarMarcado(s.id),
+                          }
+                        : undefined
+                    }
+                  />
+                )
+              )}
+            </SeccionLista>
 
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
-          "Quitar" solo lo saca del desplegable; no cambia los clientes que ya lo tienen.
-        </div>
+            {cambio.error && !renombrando && (
+              <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                {cambio.error}
+              </div>
+            )}
+
+            <div
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--ink-400)',
+                paddingInline: 'var(--fila-pad-x)',
+                marginTop: 6,
+              }}
+            >
+              «Ocultar» solo lo saca del desplegable; no cambia los clientes que ya lo tienen.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
