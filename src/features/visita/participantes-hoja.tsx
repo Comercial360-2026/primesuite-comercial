@@ -389,7 +389,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
             casilla en cada uno para elegir a quién añadir. */}
         {comercialesActivos != null && (otrosDelEquipo?.length || modoAñadir || buscador.abierto) ? (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--ink-100)', paddingTop: 12 }}>
-            <div className="label" style={{ marginTop: 0 }}>
+            <div className="lbl-seccion" style={{ margin: '0 0 8px', paddingLeft: 0, paddingRight: 0 }}>
               {modoAñadir ? 'Añadir al equipo — marca a quién' : 'Resto del equipo'}
             </div>
             {buscador.abierto && (
