@@ -365,20 +365,38 @@ export function FichaCliente() {
        )}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
            ancho — regla 3 del modelo de 10 reglas. */}
+       {/* Regla #13: un chip que abre su panel debajo se ve activo mientras
+           está abierto (chip--on, como "Marcar zonas" en la visita) — si no,
+           "toco y no pasa nada". */}
        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
-         <button type="button" className="chip" onClick={() => setCreandoProyecto(true)}>
+         <button
+           type="button"
+           className={`chip${creandoProyecto ? ' chip--on' : ''}`}
+           aria-expanded={creandoProyecto}
+           onClick={() => setCreandoProyecto((v) => !v)}
+         >
            + Nuevo proyecto
          </button>
          {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
-           <button type="button" className="chip" onClick={abrirEditarDatos}>
+           <button
+             type="button"
+             className={`chip${editandoDatos ? ' chip--on' : ''}`}
+             aria-expanded={editandoDatos}
+             onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
+           >
              Editar datos
            </button>
          )}
          {esDireccionComercial && (
            <button
              type="button"
-             className="chip"
+             className={`chip${cambiandoResp ? ' chip--on' : ''}`}
+             aria-expanded={cambiandoResp}
              onClick={() => {
+               if (cambiandoResp) {
+                 setCambiandoResp(false);
+                 return;
+               }
                setRespNuevo(cliente?.responsable_id ?? '');
                setCambiandoResp(true);
              }}

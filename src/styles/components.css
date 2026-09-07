@@ -872,6 +872,11 @@ textarea.field {
 .voc-cat__ic:hover:not(:disabled) { background: var(--surface-0); }
 .voc-cat__ic:disabled { opacity: 0.4; cursor: default; }
 .voc-cat__ic--del { color: var(--risk-600); }
+/* Regla #13: el "⋯" se ve PULSADO mientras su menú está abierto — caja
+   sólida de marca (forma + relleno, no un tinte suave: regla #11), como un
+   boton-icono al pulsarlo. Si no, "toco y no cambia nada". */
+.voc-cat__ic--abierto,
+.voc-cat__ic--abierto:hover:not(:disabled) { background: var(--brand-600); color: #fff; }
 
 /* Menú "⋯" de una categoría: los mismos chips que ya usa la pantalla
    (Ordenar/Seleccionar/Desplegar todo), no un estilo propio — se abre bajo

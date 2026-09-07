@@ -1568,9 +1568,10 @@ export function ColaVocabulario() {
                     {!ordenandoCat && !seleccionandoCat && !buscando && (
                       <button
                         type="button"
-                        className="voc-cat__ic"
+                        className={`voc-cat__ic${menuCategoriaId === cat.categoria_id ? ' voc-cat__ic--abierto' : ''}`}
                         aria-label="Más acciones de esta categoría"
                         title="Más acciones"
+                        aria-expanded={menuCategoriaId === cat.categoria_id}
                         onClick={() =>
                           setMenuCategoriaId((id) => (id === cat.categoria_id ? null : cat.categoria_id))
                         }
