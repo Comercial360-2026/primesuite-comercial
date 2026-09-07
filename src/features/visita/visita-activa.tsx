@@ -1393,17 +1393,20 @@ export function VisitaActiva() {
             }
           >
             {otrasVisitasEnCurso.length === 1 ? (
-              <>
-                Sigue sin cerrar la de {otrasVisitasEnCurso[0].clienteNombre}.{' '}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  Sigue sin cerrar la de {otrasVisitasEnCurso[0].clienteNombre}.
+                </span>
                 <button
                   type="button"
-                  className="btn-enlace"
-                  style={{ padding: 0 }}
+                  className="boton-icono"
+                  aria-label={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
+                  title={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
                   onClick={() => navigate(`/visita/${otrasVisitasEnCurso[0].id}`)}
                 >
-                  ir a ella
+                  <Icono nombre="chevron" size={18} />
                 </button>
-              </>
+              </span>
             ) : (
               'Ciérralas cuando puedas para no mezclar capturas entre visitas.'
             )}
@@ -1505,7 +1508,12 @@ export function VisitaActiva() {
           }}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
           <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
           {/* Sin zona: chip (control, no un texto que hay que adivinar que
               se pincha). Con zona activa, desaparece y manda la banda. */}
@@ -1796,7 +1804,12 @@ export function VisitaActiva() {
             ) : (
               <>
                 {fotosOwnV.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 0' }}>
+                  <div
+                    style={{
+                      display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 0',
+                      borderBottom: '1px solid var(--ink-100)',
+                    }}
+                  >
                     {[...fotosOwnV].reverse().map((f) => {
                       const blob = f.archivoLocal as Blob | undefined;
                       const titulo = (f.payload as { titulo?: string }).titulo;
