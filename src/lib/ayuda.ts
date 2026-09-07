@@ -142,18 +142,18 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Ficha de cliente',
     queEs:
-      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Un cliente siempre tiene al menos un proyecto — si nunca has creado ninguno, es el que se llama «General».',
+      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
     cuando:
-      'Si el cliente solo tiene el proyecto «General», aquí mismo ves sus oportunidades, hallazgos, próximos pasos e historial de visitas, y arrancas o planificas una visita desde abajo. Cuando hay más de un proyecto, cada uno tiene su propia ficha: entra en el que toque. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
+      'Aquí ves los proyectos del cliente y, debajo, el historial con TODAS sus visitas (de cualquier proyecto). Para la actividad de un proyecto —oportunidades, hallazgos, próximos pasos— entra en su ficha. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
     ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
   },
   'ficha-proyecto': {
     grupo: 'cliente',
     titulo: 'Ficha de proyecto',
     queEs:
-      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente). Un cliente con un solo proyecto (el «General») no tiene esta pantalla aparte: su actividad se ve en la propia ficha de cliente.',
+      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
   },
 
   // — Una visita, paso a paso —

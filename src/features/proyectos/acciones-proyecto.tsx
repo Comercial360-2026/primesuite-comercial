@@ -21,7 +21,8 @@ import type { ProyectoDelCliente } from '@/hooks/use-proyectos-cliente';
 interface Props {
   clienteId: string;
   /** Proyecto de partida: el que se usa si no hay que elegir (ficha de
-   *  proyecto) y el preseleccionado si sí (ficha de cliente → el General). */
+   *  proyecto) y el preseleccionado si sí (ficha de cliente → su primer
+   *  proyecto vigente). */
   proyectoId: string;
   clienteNombre?: string;
   /** Todos los proyectos del cliente. Solo lo pasa la ficha de cliente: con

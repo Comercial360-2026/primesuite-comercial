@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
@@ -16,11 +16,8 @@ import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerra
 
 // Ficha de proyecto — la actividad de UNA línea de negocio del cliente
 // (oportunidades, próximos pasos, hallazgos, historial de ESE proyecto) y,
-// desde aquí, renombrarlo, pausarlo/terminarlo o borrarlo.
-//
-// El proyecto General ("sin proyecto asignado") NO tiene esta pantalla: su
-// actividad se ve en la propia ficha de cliente. Si se llega aquí con el
-// General (haya 1 o 5 proyectos), se redirige a la ficha de cliente.
+// desde aquí, renombrarlo, pausarlo/terminarlo o borrarlo. Todo proyecto
+// tiene esta pantalla; el cliente siempre tiene al menos uno.
 
 export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
@@ -79,15 +76,18 @@ export function FichaProyecto() {
   // Cambiar estado (pausar / terminar / reactivar / reabrir) — UPDATE directo.
   const cambioEstado = useAccionAsync();
 
-  // Borrar el proyecto: su actividad pasa al General del cliente.
+  // Borrar el proyecto: su actividad (visitas, oportunidades, hallazgos,
+  // pasos) se mueve al proyecto que elija el comercial. No se puede borrar el
+  // único proyecto de un cliente.
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [destinoBorrado, setDestinoBorrado] = useState('');
   const borrado = useAccionAsync();
 
-  // Redirección al fundir: en cuanto la lista de proyectos ha cargado y este
-  // es el General — el General nunca tiene pantalla propia, haya 1 o N.
-  if (proyectos && proyecto?.es_general) {
-    return <Navigate to={`/clientes/${clienteId}`} replace />;
-  }
+  // Proyectos a los que se puede mover la actividad al borrar este (vigentes,
+  // que no sean el propio).
+  const destinosBorrado = (proyectos ?? []).filter(
+    (p) => p.id !== proyectoId && p.estado !== 'terminado'
+  );
 
   function abrirEditarNombre() {
     setFormNombre(proyecto?.nombre ?? '');
@@ -140,13 +140,21 @@ export function FichaProyecto() {
 
   async function confirmarBorrado() {
     if (!proyectoId) return;
+    const destino = destinoBorrado || destinosBorrado[0]?.id;
+    if (!destino) {
+      borrado.establecerError('Es el único proyecto del cliente; no se puede borrar.');
+      return;
+    }
     if (!navigator.onLine) {
       borrado.establecerError('Necesitas conexión para borrar el proyecto.');
       return;
     }
     await borrado.ejecutar(
       async () => {
-        const { error } = await supabase.rpc('eliminar_proyecto', { p_proyecto_id: proyectoId });
+        const { error } = await supabase.rpc('eliminar_proyecto', {
+          p_proyecto_id: proyectoId,
+          p_destino_id: destino,
+        });
         if (error) throw new Error(error.message);
       },
       {
@@ -277,7 +285,7 @@ export function FichaProyecto() {
 
           {confirmandoBorrado ? (
             <ConfirmacionBorrado
-              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: pasa a quedar sin proyecto asignado."
+              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
               confirmar="Sí, borrar el proyecto"
               cargando={borrado.cargando}
               error={borrado.error}
@@ -287,15 +295,31 @@ export function FichaProyecto() {
               }}
               onConfirmar={confirmarBorrado}
             >
-              Se borra el proyecto «{proyecto?.nombre}».
+              Se borra el proyecto «{proyecto?.nombre}» y su actividad se mueve a:
+              <select
+                className="field"
+                style={{ marginTop: 8 }}
+                value={destinoBorrado || destinosBorrado[0]?.id || ''}
+                onChange={(e) => setDestinoBorrado(e.target.value)}
+              >
+                {destinosBorrado.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
             </ConfirmacionBorrado>
           ) : (
             <SeccionLista>
               <FilaNavegable
                 icono="borrar"
                 titulo="Borrar proyecto"
+                subtitulo={
+                  destinosBorrado.length === 0 ? 'Es el único proyecto del cliente' : undefined
+                }
                 tono="riesgo"
                 chevron={false}
+                disabled={destinosBorrado.length === 0}
                 onClick={() => setConfirmandoBorrado(true)}
               />
             </SeccionLista>

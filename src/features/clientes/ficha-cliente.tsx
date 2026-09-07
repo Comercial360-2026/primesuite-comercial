@@ -18,7 +18,7 @@ import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
-import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
+import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 
@@ -306,16 +306,15 @@ export function FichaCliente() {
   const hayBasicos =
     !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
-  // El proyecto General ("sin proyecto asignado") NUNCA es una fila: despista
-  // y encima no navega. Su actividad se muestra SIEMPRE en línea aquí, y la
-  // barra "Iniciar visita / Planificar" abajo. Los proyectos con NOMBRE sí
-  // tienen su fila y su ficha.
-  const general = proyectos?.find((p) => p.es_general) ?? null;
-  const proyectosConNombre = (proyectos ?? []).filter((p) => !p.es_general);
-  // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
-  // del día a día. Activos y pausados se listan siempre.
-  const proyectosVigentes = proyectosConNombre.filter((p) => p.estado !== 'terminado');
-  const proyectosTerminados = proyectosConNombre.filter((p) => p.estado === 'terminado');
+  // Todo cliente tiene ≥1 proyecto y todos son fila navegable (no hay
+  // "General" oculto). Terminados: se pliegan tras "Ver terminados (N)" — no
+  // ensucian la lista del día a día. Activos y pausados se listan siempre.
+  const proyectosVigentes = (proyectos ?? []).filter((p) => p.estado !== 'terminado');
+  const proyectosTerminados = (proyectos ?? []).filter((p) => p.estado === 'terminado');
+  // Proyecto de partida para la barra "Iniciar visita / Planificar": el
+  // primero vigente (con 2+ proyectos, la ventana "¿A qué vas?" pregunta a
+  // cuál va la visita).
+  const proyectoBase = proyectosVigentes[0] ?? proyectos?.[0] ?? null;
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -564,10 +563,8 @@ export function FichaCliente() {
         )}
 
         {/* Proyectos — una sección con su título y un "+" al lado para dar de
-            alta uno. Mismo patrón que "Historial de visitas". Solo se listan
-            los proyectos con NOMBRE (el General no es fila); debajo va la
-            actividad del General en línea, y si hay proyectos con nombre, bajo
-            el rótulo "Sin proyecto asignado". */}
+            alta uno. Todos los proyectos del cliente son fila navegable a su
+            ficha; los terminados se pliegan tras "Ver terminados (N)". */}
         {proyectos && (
           <SeccionLista
             titulo="Proyectos"
@@ -653,14 +650,7 @@ export function FichaCliente() {
           </div>
         )}
 
-        {general && clienteId && (
-          <ActividadProyecto
-            proyectoId={general.id}
-            historialClienteId={clienteId}
-            etiquetaGrupo={proyectosConNombre.length > 0 ? 'Sin proyecto asignado' : undefined}
-            mensajeVacio="Aún no hay oportunidades, hallazgos ni visitas. Empieza una visita para llenarlo."
-          />
-        )}
+        {clienteId && <HistorialVisitasCliente clienteId={clienteId} />}
 
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">
@@ -750,10 +740,10 @@ export function FichaCliente() {
        </div>
       </div>
 
-      {general && clienteId && (
+      {proyectoBase && clienteId && (
         <AccionesProyecto
           clienteId={clienteId}
-          proyectoId={general.id}
+          proyectoId={proyectoBase.id}
           clienteNombre={cliente?.nombre}
           proyectos={proyectos}
         />

@@ -16,11 +16,10 @@ export const ESTADO_PROYECTO_LABEL: Record<string, string> = {
   terminado: 'terminado',
 };
 
-// Los proyectos de un cliente, el General primero. Fuente ÚNICA de esta
-// lista: la usan la Ficha de cliente (para pintar "Proyectos" o, si solo
-// está el General, su actividad en línea) y la Ficha de proyecto (para
-// saber si debe fundirse en la de cliente — 1.5 del recorrido de revisión).
-// Con una sola clave, invalidar tras crear un proyecto basta para las dos.
+// Los proyectos de un cliente, del más antiguo al más nuevo. Fuente ÚNICA de
+// esta lista: la usan la Ficha de cliente (sección "Proyectos" + barra de
+// acciones) y la Ficha de proyecto. Con una sola clave, invalidar tras crear
+// un proyecto basta para las dos.
 export function useProyectosCliente(clienteId: string | undefined) {
   return useQuery({
     queryKey: ['proyectos-cliente', clienteId],

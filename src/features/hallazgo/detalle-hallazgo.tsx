@@ -62,8 +62,7 @@ export function DetalleHallazgo() {
     },
   });
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
-  // cliente era el hallazgo. El proyecto solo se nombra si no es el General
-  // invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
+  // cliente era el hallazgo. El nombre del proyecto se muestra siempre.
   const contextoCliente = [
     hallazgo?.cliente?.nombre,
     hallazgo?.proyecto?.nombre ?? null,

@@ -10,13 +10,9 @@ import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL, NATURALEZA_LABEL } from '@/lib/
 import { desde } from '@/lib/volver-a';
 
 // Las secciones "vivas" de un proyecto: oportunidades activas, próximos
-// pasos, hallazgos e historial de visitas. Se comparte entre:
-//   · la Ficha de proyecto — todo acotado a ESE proyecto;
-//   · la Ficha de cliente — SIEMPRE, con la actividad del proyecto General
-//     (lo "sin proyecto asignado"). Ahí el historial se amplía a TODAS las
-//     visitas del cliente (`historialClienteId`) y, si hay proyectos con
-//     nombre, la actividad propia va bajo el rótulo `etiquetaGrupo`
-//     ("Sin proyecto asignado").
+// pasos, hallazgos e historial de visitas — todo acotado a ESE proyecto. Lo
+// monta la Ficha de proyecto. El historial de TODO el cliente (todas sus
+// visitas, de cualquier proyecto) es otra cosa: `HistorialVisitasCliente`.
 //
 // Devuelve un fragment de <SeccionLista> (o el estado vacío) — sin envoltorio
 // propio: el que monta el componente pone el <div className="lista-agrupada">.
@@ -53,27 +49,13 @@ interface VisitaHistorial {
 
 interface Props {
   proyectoId: string;
-  /** Texto del estado vacío. Por defecto habla "de este proyecto"; la ficha
-      de cliente (cuando solo hay el General) pasa uno sin esa palabra. */
+  /** Texto del estado vacío. */
   mensajeVacio?: string;
-  /** Ficha de cliente: el "Historial de visitas" abarca TODAS las visitas del
-      cliente (de cualquier proyecto), no solo las de este proyecto. Cada fila
-      lleva el nombre del proyecto de subtítulo si no es el General. La ficha
-      de proyecto no lo pasa: allí el historial es solo lo suyo. */
-  historialClienteId?: string;
-  /** Ficha de cliente con 2+ proyectos: rótulo del grupo de actividad que no
-      está en ningún proyecto con nombre ("Sin proyecto asignado"). Sin esto,
-      la actividad es "toda la del cliente" y no lleva rótulo. Solo precede a
-      oportunidades / próximos pasos / hallazgos — el historial va aparte, es
-      de todo el cliente. */
-  etiquetaGrupo?: string;
 }
 
 export function ActividadProyecto({
   proyectoId,
   mensajeVacio = 'Todavía no hay nada registrado en este proyecto. Empieza una visita para llenarlo.',
-  historialClienteId,
-  etiquetaGrupo,
 }: Props) {
   // Origen a estampar en cada fila que navega a una pantalla de detalle,
   // para que su ← vuelva aquí (a la ficha que monta este componente).
@@ -158,22 +140,15 @@ export function ActividadProyecto({
     },
   });
 
-  // Clave propia por alcance para no cruzar cachés — ['…-cliente', id] trae
-  // visitas de varios proyectos y una columna de más (`proyecto`), que la
-  // variante por proyecto no pide (ver [[primesuite-query-key-colision]]).
   const { data: historialVisitas } = useQuery({
-    queryKey: historialClienteId
-      ? ['historial-visitas-cliente', historialClienteId]
-      : ['historial-visitas-proyecto', proyectoId],
+    queryKey: ['historial-visitas-proyecto', proyectoId],
     queryFn: async (): Promise<VisitaHistorial[]> => {
-      const base = supabase
+      const { data, error } = await supabase
         .from('visita')
         .select('id, fecha, tipo_visita, objetivo, estado_captura, proyecto:proyecto_id(nombre)')
+        .eq('proyecto_id', proyectoId)
         .order('fecha', { ascending: false })
         .limit(10);
-      const { data, error } = historialClienteId
-        ? await base.eq('cliente_id', historialClienteId)
-        : await base.eq('proyecto_id', proyectoId);
       if (error) throw error;
       return (data ?? []) as unknown as VisitaHistorial[];
     },
@@ -201,18 +176,8 @@ export function ActividadProyecto({
     return <EstadoLista estado="vacio" mensaje={mensajeVacio} />;
   }
 
-  // Actividad "propia" del proyecto (todo menos el historial, que en la ficha
-  // de cliente es de TODO el cliente). El rótulo "Sin proyecto asignado" solo
-  // se dibuja si hay algo que rotular.
-  const hayActividadPropia =
-    !!oportunidades?.length || !!proximosPasos?.length || !!hallazgos?.length || !!numArchivados;
-
   return (
     <>
-      {etiquetaGrupo && hayActividadPropia && (
-        <div className="lbl-seccion">{etiquetaGrupo}</div>
-      )}
-
       {!!oportunidades?.length && (
         <SeccionLista titulo="Oportunidades activas" prominencia="principal">
           {oportunidades.map((o) => (
@@ -316,14 +281,7 @@ export function ActividadProyecto({
                 : v.estado_captura === 'en_curso'
                   ? `/visita/${v.id}`
                   : `/visita/${v.id}/detalle`;
-            // En la ficha de cliente el historial mezcla proyectos: se nombra
-            // el proyecto de cada visita salvo el General (P9, regla 4). Va
-            // DELANTE del objetivo — el subtítulo trunca a una línea y el
-            // proyecto es lo que dice "de qué es esta visita".
-            const proyectoNombre =
-              historialClienteId && v.proyecto ? v.proyecto.nombre : null;
-            const subtitulo =
-              [proyectoNombre, v.objetivo?.trim() || null].filter(Boolean).join(' · ') || undefined;
+            const subtitulo = v.objetivo?.trim() || undefined;
             return (
               <FilaNavegable
                 key={v.id}
