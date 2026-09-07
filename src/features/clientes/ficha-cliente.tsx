@@ -308,13 +308,12 @@ export function FichaCliente() {
   const hayBasicos =
     !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
-  // 1.5 del recorrido de revisión: si el cliente solo tiene su Proyecto
-  // General, la ficha de proyecto no aporta nada sobre esta — se muestra su
-  // actividad (oportunidades, próximos pasos, hallazgos, historial) aquí
-  // mismo, y la barra de "Iniciar visita / Planificar" abajo. En cuanto haya
-  // un 2º proyecto, vuelve la lista "Proyectos" y cada uno tiene su ficha.
-  const proyectoGeneral =
-    proyectos && proyectos.length === 1 && proyectos[0].es_general ? proyectos[0] : null;
+  // El proyecto General ("sin proyecto asignado") NUNCA es una fila: despista
+  // y encima no navega. Su actividad se muestra SIEMPRE en línea aquí, y la
+  // barra "Iniciar visita / Planificar" abajo. Los proyectos con NOMBRE sí
+  // tienen su fila y su ficha.
+  const general = proyectos?.find((p) => p.es_general) ?? null;
+  const proyectosConNombre = (proyectos ?? []).filter((p) => !p.es_general);
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -562,14 +561,11 @@ export function FichaCliente() {
         )}
 
         {/* Proyectos — una sección con su título y un "+" al lado para dar de
-            alta uno. Mismo patrón que "Historial de visitas".
-            · Si el cliente SOLO tiene el proyecto General: no se lista ninguna
-              fila (el "General" despistaba y encima no navega a ningún sitio,
-              porque su ficha se funde con esta). La sección es solo cabecera +
-              "+", y debajo va la actividad del General en línea.
-            · Si hay más proyectos: se listan todos, el General incluido (ahí sí
-              navega), y no se muestra actividad en línea. */}
-        {proyectos && proyectos.length > 0 && (
+            alta uno. Mismo patrón que "Historial de visitas". Solo se listan
+            los proyectos con NOMBRE (el General no es fila); debajo va la
+            actividad del General en línea, y si hay proyectos con nombre, bajo
+            el rótulo "Sin proyecto asignado". */}
+        {proyectos && (
           <SeccionLista
             titulo="Proyectos"
             prominencia="principal"
@@ -586,21 +582,16 @@ export function FichaCliente() {
               </button>
             }
           >
-            {!proyectoGeneral &&
-              proyectos.map((p) => (
-                <FilaNavegable
-                  key={p.id}
-                  titulo={p.nombre}
-                  subtitulo={
-                    p.estado !== 'activo'
-                      ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado
-                      : p.es_general
-                        ? 'Todo lo que no encaja en otro proyecto'
-                        : undefined
-                  }
-                  to={`/clientes/${clienteId}/proyectos/${p.id}`}
-                />
-              ))}
+            {proyectosConNombre.map((p) => (
+              <FilaNavegable
+                key={p.id}
+                titulo={p.nombre}
+                subtitulo={
+                  p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined
+                }
+                to={`/clientes/${clienteId}/proyectos/${p.id}`}
+              />
+            ))}
           </SeccionLista>
         )}
 
@@ -638,9 +629,11 @@ export function FichaCliente() {
           </div>
         )}
 
-        {proyectos && proyectoGeneral && (
+        {general && clienteId && (
           <ActividadProyecto
-            proyectoId={proyectoGeneral.id}
+            proyectoId={general.id}
+            historialClienteId={clienteId}
+            etiquetaGrupo={proyectosConNombre.length > 0 ? 'Sin proyecto asignado' : undefined}
             mensajeVacio="Aún no hay oportunidades, hallazgos ni visitas. Empieza una visita para llenarlo."
           />
         )}
@@ -733,10 +726,10 @@ export function FichaCliente() {
        </div>
       </div>
 
-      {proyectoGeneral && clienteId && (
+      {general && clienteId && (
         <AccionesProyecto
           clienteId={clienteId}
-          proyectoId={proyectoGeneral.id}
+          proyectoId={general.id}
           clienteNombre={cliente?.nombre}
         />
       )}

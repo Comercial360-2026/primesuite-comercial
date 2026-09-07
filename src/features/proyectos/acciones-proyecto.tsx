@@ -9,11 +9,11 @@ import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { Icono } from '@/components/ui/iconos';
 
-// La barra fija de abajo de un proyecto: "Iniciar visita ahora" (lo diario,
-// regla 3 → botón primario) y "Planificar para otro día" (esporádico → chip,
+// La barra fija de abajo de un proyecto: dos botones en la misma línea —
+// "Iniciar visita" (primario, lo diario) y "Planificar otro día" (secundario,
 // abre el flujo único /planificar ya apuntando a este cliente y proyecto).
-// Se comparte entre la Ficha de proyecto y la Ficha de cliente cuando el
-// cliente solo tiene su Proyecto General (ver actividad-proyecto.tsx). Va
+// Son acciones hermanas, no una principal + una escondida. Se comparte entre
+// la Ficha de proyecto y la Ficha de cliente (ver actividad-proyecto.tsx). Va
 // como hermano de `.screen__scroll` para quedar fija.
 
 interface Props {
@@ -63,18 +63,24 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props
 
   return (
     <>
-      <button className="btn btn-primary" onClick={pedirIniciarVisitaAdHoc}>
-        Iniciar visita ahora
-        <Icono nombre="chevron" size={18} />
-      </button>
-      <button
-        type="button"
-        className="chip"
-        style={{ alignSelf: 'flex-start' }}
-        onClick={() => navigate(`/planificar?clienteId=${clienteId}&proyectoId=${proyectoId}`)}
-      >
-        Planificar para otro día
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          className="btn btn-primary"
+          style={{ flex: 1 }}
+          onClick={pedirIniciarVisitaAdHoc}
+        >
+          Iniciar visita
+          <Icono nombre="chevron" size={18} />
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          style={{ flex: 1 }}
+          onClick={() => navigate(`/planificar?clienteId=${clienteId}&proyectoId=${proyectoId}`)}
+        >
+          Planificar otro día
+        </button>
+      </div>
 
       {enCursoModalAbierto && visitaEnCurso && (
         <VisitaEnCursoModal
