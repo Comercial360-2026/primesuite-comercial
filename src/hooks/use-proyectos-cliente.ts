@@ -8,6 +8,15 @@ export interface ProyectoDelCliente {
   es_general: boolean;
 }
 
+/** Estado de un proyecto en la voz del usuario. Un solo sitio para el texto —
+ *  lo usan la ficha de cliente (subtítulo de la fila) y la ficha de proyecto
+ *  (línea de contexto). */
+export const ESTADO_PROYECTO_LABEL: Record<string, string> = {
+  activo: 'activo',
+  pausado: 'pausado',
+  terminado: 'terminado',
+};
+
 // Los proyectos de un cliente, el General primero. Fuente ÚNICA de esta
 // lista: la usan la Ficha de cliente (para pintar "Proyectos" o, si solo
 // está el General, su actividad en línea) y la Ficha de proyecto (para

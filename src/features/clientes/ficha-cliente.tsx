@@ -19,7 +19,7 @@ import { Icono } from '@/components/ui/iconos';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
-import { useProyectosCliente } from '@/hooks/use-proyectos-cliente';
+import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -40,12 +40,6 @@ interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
   num_visitas: number;
   num_ubicaciones: number;
 }
-
-const ESTADO_PROYECTO_LABEL: Record<string, string> = {
-  activo: 'activo',
-  pausado: 'pausado',
-  terminado: 'terminado',
-};
 
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();

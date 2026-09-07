@@ -99,6 +99,15 @@ export function PlanificarVisita() {
     if (!proyectoId && proyectos && proyectos.length === 1) setProyectoId(proyectos[0].id);
   }, [proyectos, proyectoId]);
 
+  // El `?proyectoId=` de la URL puede venir de un enlace viejo a un proyecto
+  // ya terminado o borrado. Si no está entre los elegibles, se descarta y se
+  // vuelve al paso "¿en qué proyecto?".
+  useEffect(() => {
+    if (proyectoId && proyectos && !proyectos.some((p) => p.id === proyectoId)) {
+      setProyectoId('');
+    }
+  }, [proyectos, proyectoId]);
+
   // --- Paso 3: ¿cuándo? ---
   const [cuando, setCuando] = useState<'ahora' | 'otro'>('ahora');
   const hoyISO = new Date().toISOString().slice(0, 10);

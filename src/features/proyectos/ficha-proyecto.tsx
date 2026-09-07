@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
-import { useProyectosCliente } from '@/hooks/use-proyectos-cliente';
+import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -20,12 +20,6 @@ import { AccionesProyecto } from './acciones-proyecto';
 // El proyecto General ("sin proyecto asignado") NO tiene esta pantalla: su
 // actividad se ve en la propia ficha de cliente. Si se llega aquí con el
 // General (haya 1 o 5 proyectos), se redirige a la ficha de cliente.
-
-const ESTADO_LABEL: Record<string, string> = {
-  activo: 'activo',
-  pausado: 'pausado',
-  terminado: 'terminado',
-};
 
 export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
@@ -164,7 +158,7 @@ export function FichaProyecto() {
   }
 
   const contextoLinea = [
-    proyecto?.estado ? ESTADO_LABEL[proyecto.estado] ?? proyecto.estado : null,
+    proyecto?.estado ? ESTADO_PROYECTO_LABEL[proyecto.estado] ?? proyecto.estado : null,
     resumenVisitas
       ? resumenVisitas.total === 0
         ? 'sin visitas todavía'
