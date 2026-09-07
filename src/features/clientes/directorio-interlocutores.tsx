@@ -46,6 +46,10 @@ interface PresenciaProps {
 interface Props {
   clienteId: string;
   presencia?: PresenciaProps;
+  /** Alta controlada desde fuera: si se pasa, el "+" vive en la cabecera
+   *  del contenedor (hoja de Interlocutores) y aquí se oculta el botón
+   *  "+ Nuevo interlocutor" del final. */
+  crearNuevo?: { abierto: boolean; onCambio: (abierto: boolean) => void };
 }
 
 // Directorio de personas de contacto de un cliente (`interlocutor`, ligado a
@@ -56,9 +60,11 @@ interface Props {
 // "Quitar" es baja lógica (`activo=false`), no DELETE — si ya se usó en
 // visitas anteriores, borrar la fila rompería el histórico. Mismo criterio
 // que "descartar" en el catálogo de vocabulario.
-export function DirectorioInterlocutores({ clienteId, presencia }: Props) {
+export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: Props) {
   const queryClient = useQueryClient();
-  const [creandoNuevo, setCreandoNuevo] = useState(false);
+  const [creandoInterno, setCreandoInterno] = useState(false);
+  const creandoNuevo = crearNuevo ? crearNuevo.abierto : creandoInterno;
+  const setCreandoNuevo = crearNuevo ? crearNuevo.onCambio : setCreandoInterno;
   const [formNuevo, setFormNuevo] = useState<FormularioInterlocutor>(FORMULARIO_VACIO);
   const [nuevoPresente, setNuevoPresente] = useState(true);
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -345,14 +351,18 @@ export function DirectorioInterlocutores({ clienteId, presencia }: Props) {
       </div>
 
       {!creandoNuevo ? (
-        <button
-          type="button"
-          className="btn btn-secondary"
-          style={{ marginTop: 10 }}
-          onClick={() => setCreandoNuevo(true)}
-        >
-          + Nuevo interlocutor
-        </button>
+        // Con `crearNuevo` el disparador vive en la cabecera del contenedor
+        // (un "+", como en el resto de la app) — aquí no se pinta botón.
+        crearNuevo ? null : (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginTop: 10 }}
+            onClick={() => setCreandoNuevo(true)}
+          >
+            + Nuevo interlocutor
+          </button>
+        )
       ) : (
         <div style={{ marginTop: 10 }}>
           {camposComunes(formNuevo, setFormNuevo)}

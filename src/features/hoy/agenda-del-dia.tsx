@@ -394,11 +394,16 @@ export function AgendaDelDia() {
                       chevron
                     />
                   ))}
-                  <FilaNavegable
-                    tono="aviso"
-                    titulo={atrasadas.length > 2 ? `Resolver las ${atrasadas.length}` : 'Ver en la agenda'}
-                    onClick={() => setVista('agenda')}
-                  />
+                  {/* Solo si hay más de las 2 que se muestran: llevar a la
+                      pestaña Agenda a resolver el resto. Sin este caso no se
+                      pone fila — la pestaña "Agenda" de arriba ya está. */}
+                  {atrasadas.length > 2 && (
+                    <FilaNavegable
+                      tono="aviso"
+                      titulo={`Resolver las ${atrasadas.length}`}
+                      onClick={() => setVista('agenda')}
+                    />
+                  )}
                 </SeccionLista>
               </section>
             )}

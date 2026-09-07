@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
+import { Icono } from '@/components/ui/iconos';
 import { DirectorioInterlocutores } from '@/features/clientes/directorio-interlocutores';
 
 interface InterlocutoresHojaProps {
@@ -17,6 +18,7 @@ interface InterlocutoresHojaProps {
 export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: InterlocutoresHojaProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [creando, setCreando] = useState(false);
 
   const { data: presentesIds } = useQuery({
     queryKey: ['interlocutores-presentes', visitaId],
@@ -62,10 +64,27 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
   }
 
   return (
-    <HojaSuperior titulo="Interlocutores" onCerrar={onCerrar}>
+    <HojaSuperior
+      titulo="Interlocutores"
+      onCerrar={onCerrar}
+      derecha={
+        !creando && (
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Nuevo interlocutor"
+            title="Nuevo interlocutor"
+            onClick={() => setCreando(true)}
+          >
+            <Icono nombre="mas" size={18} />
+          </button>
+        )
+      }
+    >
       <DirectorioInterlocutores
         clienteId={clienteId}
         presencia={{ visitaId, presentesIds: presentesIds ?? [], onTogglePresencia: alternarPresencia }}
+        crearNuevo={{ abierto: creando, onCambio: setCreando }}
       />
       {error && (
         <div className="field-error-text" style={{ marginTop: 8 }}>
