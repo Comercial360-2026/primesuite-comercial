@@ -72,6 +72,7 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
             ['visitas-atrasadas'],
             ['visitas-en-curso'],
             ['otras-visitas-en-curso'],
+            ['visitas-sin-cerrar'],
             ['aviso-visita-en-curso'],
             ['agenda-planificadas'],
             ['historial-visitas'],

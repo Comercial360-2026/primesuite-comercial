@@ -10,6 +10,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
@@ -26,6 +27,9 @@ interface VisitaAgenda {
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
+  /** Solo lo trae la consulta de visitas EN CURSO (para el tono y "abierta hace…"). */
+  en_curso_desde?: string | null;
+  proyecto?: { nombre: string } | null;
 }
 
 // Rango del día en curso, hora local del dispositivo — suficiente para v1
@@ -142,7 +146,7 @@ export function AgendaDelDia() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select(
-          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre))'
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, en_curso_desde, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre))'
         )
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
@@ -268,6 +272,7 @@ export function AgendaDelDia() {
     atrasadas.length === 0;
 
   const sinConexion = isPaused && visitas === undefined;
+  const online = typeof navigator === 'undefined' ? true : navigator.onLine;
   function reintentar() {
     queryClient.resetQueries({ queryKey });
     refetch();
@@ -277,15 +282,6 @@ export function AgendaDelDia() {
   // visita común: previsualiza qué arrastra → confirma). El propio hook
   // invalida ['visitas-en-curso'].
   const borrar = useBorrarVisita();
-
-  // Objetivo + "abierta desde" para una fila de visita en curso.
-  function subtituloEnCurso(v: VisitaAgenda): string | undefined {
-    return (
-      [v.objetivo || null, esDeHoy(v.fecha) ? null : `abierta desde el ${fechaDiaMes(v.fecha)}`]
-        .filter(Boolean)
-        .join(' · ') || undefined
-    );
-  }
 
   function abrirVisita(visita: VisitaAgenda) {
     if (visita.estado_captura === 'en_curso') {
@@ -417,34 +413,36 @@ export function AgendaDelDia() {
             />
 
             {/* Resto de visitas en curso (la 1ª va en la tarjeta de arriba).
-                Cada una abre la suya; deslizar revela "Descartar" para las que
-                se abrieron por error. */}
+                Cada fila: abrirla, cerrarla (va al cierre) o descartarla.
+                Color creciente según lleve más tiempo abierta. */}
             {hoyEnCurso.length > 1 && (
-              <SeccionLista titulo="También en curso">
-                {hoyEnCurso.slice(1).map((v) =>
-                  borrar.visitaBorrarId === v.id ? (
-                    <div key={v.id} style={{ padding: 'var(--space-2) var(--fila-pad-x)' }}>
-                      <ConfirmarBorradoVisita ctrl={borrar} />
-                    </div>
-                  ) : (
-                    <FilaNavegable
-                      key={v.id}
-                      icono="reproducir"
-                      tono="aviso"
-                      titulo={v.cliente?.nombre ?? 'Cliente'}
-                      subtitulo={subtituloEnCurso(v)}
-                      onClick={() => abrirVisita(v)}
-                      chevron
-                      swipe={{
-                        etiqueta: 'Descartar',
-                        icono: 'borrar',
-                        tono: 'riesgo',
-                        onAccion: () => void borrar.pedir(v.id),
-                      }}
-                    />
-                  )
-                )}
-              </SeccionLista>
+              <section>
+                <div className="lbl-seccion">También en curso</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {hoyEnCurso.slice(1).map((v) =>
+                    borrar.visitaBorrarId === v.id ? (
+                      <ConfirmarBorradoVisita key={v.id} ctrl={borrar} />
+                    ) : (
+                      <FilaVisitaAbierta
+                        key={v.id}
+                        visita={{
+                          id: v.id,
+                          clienteNombre: v.cliente?.nombre ?? 'Cliente',
+                          proyectoNombre: v.proyecto?.nombre ?? null,
+                          desde: v.en_curso_desde ?? v.fecha,
+                          esMia: true,
+                        }}
+                        puedeAccionar={online}
+                        onAbrir={() => abrirVisita(v)}
+                        onCerrar={() =>
+                          navigate(`/visita/${v.id}/cierre`, { state: desde(location) })
+                        }
+                        onDescartar={() => void borrar.pedir(v.id)}
+                      />
+                    )
+                  )}
+                </div>
+              </section>
             )}
 
             {atrasadas.length > 0 && (

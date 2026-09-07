@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useVolverA } from '@/lib/volver-a';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
@@ -50,6 +51,9 @@ function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
 export function CierreVisita() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  // El ← respeta de dónde se llegó (panel de "visitas abiertas", Hoy…); si no
+  // consta, a la propia visita en curso. Regla #14 del modelo de UI.
+  const volverDeCierre = useVolverA(`/visita/${visitaId}`);
   const { operaciones } = useSyncQueue(visitaId);
   // El objetivo puede no estar aún en el servidor si se cierra la visita en
   // los primeros segundos (viaja en la cola de creación y se aplica con un
@@ -511,7 +515,7 @@ export function CierreVisita() {
       <CabeceraDetalle
         titulo="Cerrar visita"
         subtitulo={contextoTexto || undefined}
-        onVolver={() => navigate(`/visita/${visitaId}`)}
+        onVolver={() => navigate(volverDeCierre)}
         ayuda="cierre-visita"
       />
 

@@ -21,6 +21,7 @@ import { HallazgoRapidoHoja } from './hallazgo-rapido-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
 import { ParticipantesHoja } from './participantes-hoja';
+import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
@@ -282,6 +283,9 @@ export function VisitaActiva() {
   const [zonaActual, setZonaActual] = useState('');
   // El objetivo ("A qué vienes") va plegado a una línea; se abre al tocarlo.
   const [objetivoAbierto, setObjetivoAbierto] = useState(false);
+  // Panel de "otras visitas abiertas sin cerrar" — se abre sin salir de esta
+  // visita en curso (nunca navegar fuera para ver una lista).
+  const [panelAbiertasVisible, setPanelAbiertasVisible] = useState(false);
   // El editor de zona se abre BAJO DEMANDA desde el chip de la fila del
   // título; no vive fijo entre el título y los botones (eso empujaba la
   // captura hacia abajo aunque ya no estuvieras marcando zonas).
@@ -1534,34 +1538,37 @@ export function VisitaActiva() {
                   {' '}sigue sin cerrar.
                 </>
               ) : (
-                <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar (de varios clientes).</>
+                <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar.</>
               )}
             </span>
             <button
               type="button"
-              aria-label={
-                otrasVisitasEnCurso.length === 1
-                  ? `Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`
-                  : 'Ver las visitas abiertas'
-              }
-              title={
-                otrasVisitasEnCurso.length === 1
-                  ? `Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`
-                  : 'Ver las visitas abiertas'
-              }
-              onClick={() =>
-                navigate(otrasVisitasEnCurso.length === 1 ? `/visita/${otrasVisitasEnCurso[0].id}` : '/')
-              }
+              aria-label="Ver las visitas abiertas"
+              title="Ver las visitas abiertas"
+              onClick={() => setPanelAbiertasVisible(true)}
               style={{
                 flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
                 color: 'var(--brand-600)', display: 'inline-flex', alignItems: 'center', gap: 2,
                 padding: 2, font: 'inherit', fontSize: 'var(--text-xs)',
               }}
             >
-              {otrasVisitasEnCurso.length > 1 && 'Ver'}
+              Ver
               <Icono nombre="chevron" size={16} />
             </button>
           </div>
+        )}
+
+        {panelAbiertasVisible && (
+          <PanelVisitasAbiertas
+            visitas={otrasVisitasEnCurso.map((v) => ({
+              id: v.id,
+              clienteNombre: v.clienteNombre,
+              proyectoNombre: v.proyectoNombre,
+              desde: v.desde,
+              esMia: true,
+            }))}
+            onCerrar={() => setPanelAbiertasVisible(false)}
+          />
         )}
 
         {/* Objetivo — el encabezado de sentido de la visita: primero de
