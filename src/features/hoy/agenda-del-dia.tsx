@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useBorrarVisita } from '@/hooks/use-borrar-visita';
+import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -126,6 +128,31 @@ export function AgendaDelDia() {
     },
   });
 
+  // Visitas EN CURSO del comercial — TODAS, sin filtro de día: una visita
+  // abierta no tiene "fecha de agenda", sigue abierta hasta que se cierra.
+  // Antes se sacaban del filtro por rango del día (`visitasFiltradas`), así
+  // que una que quedó a medias otro día era invisible y no había forma de
+  // volver a ella. Fuente: participante = yo, como en `otras-visitas-en-curso`
+  // de la visita activa.
+  const { data: visitasEnCurso = [] } = useQuery({
+    queryKey: ['visitas-en-curso', comercial?.id],
+    enabled: !!comercial,
+    refetchOnMount: 'always',
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select(
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre))'
+        )
+        .eq('comercial_id', comercial!.id)
+        .in('estado', ['pendiente', 'aceptado'])
+        .eq('visita.estado_captura', 'en_curso')
+        .order('visita(fecha)', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
+    },
+  });
+
   // Vista "Agenda" (calendario de mes): TODAS mis visitas planificadas, no
   // solo las de hoy. El filtro "mías" va en la propia consulta (participante
   // = yo). Solo se pide al entrar en esa vista.
@@ -207,7 +234,7 @@ export function AgendaDelDia() {
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
-  const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
+  const hoyEnCurso = visitasEnCurso;
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
   const proximas = proximasFiltradas ?? [];
@@ -244,6 +271,20 @@ export function AgendaDelDia() {
   function reintentar() {
     queryClient.resetQueries({ queryKey });
     refetch();
+  }
+
+  // "Descartar" una visita en curso apilada por error (patrón de borrado de
+  // visita común: previsualiza qué arrastra → confirma). El propio hook
+  // invalida ['visitas-en-curso'].
+  const borrar = useBorrarVisita();
+
+  // Objetivo + "abierta desde" para una fila de visita en curso.
+  function subtituloEnCurso(v: VisitaAgenda): string | undefined {
+    return (
+      [v.objetivo || null, esDeHoy(v.fecha) ? null : `abierta desde el ${fechaDiaMes(v.fecha)}`]
+        .filter(Boolean)
+        .join(' · ') || undefined
+    );
   }
 
   function abrirVisita(visita: VisitaAgenda) {
@@ -374,6 +415,37 @@ export function AgendaDelDia() {
               proximaEsHoy={proximaEsHoy}
               onAbrir={(v) => abrirVisita(v as VisitaAgenda)}
             />
+
+            {/* Resto de visitas en curso (la 1ª va en la tarjeta de arriba).
+                Cada una abre la suya; deslizar revela "Descartar" para las que
+                se abrieron por error. */}
+            {hoyEnCurso.length > 1 && (
+              <SeccionLista titulo="También en curso">
+                {hoyEnCurso.slice(1).map((v) =>
+                  borrar.visitaBorrarId === v.id ? (
+                    <div key={v.id} style={{ padding: 'var(--space-2) var(--fila-pad-x)' }}>
+                      <ConfirmarBorradoVisita ctrl={borrar} />
+                    </div>
+                  ) : (
+                    <FilaNavegable
+                      key={v.id}
+                      icono="reproducir"
+                      tono="aviso"
+                      titulo={v.cliente?.nombre ?? 'Cliente'}
+                      subtitulo={subtituloEnCurso(v)}
+                      onClick={() => abrirVisita(v)}
+                      chevron
+                      swipe={{
+                        etiqueta: 'Descartar',
+                        icono: 'borrar',
+                        tono: 'riesgo',
+                        onAccion: () => void borrar.pedir(v.id),
+                      }}
+                    />
+                  )
+                )}
+              </SeccionLista>
+            )}
 
             {atrasadas.length > 0 && (
               <section>

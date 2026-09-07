@@ -27,21 +27,35 @@ export function ConfirmarBorradoVisita({
     );
   }
 
+  const vacia =
+    previsualizacion.num_fotos === 0 &&
+    previsualizacion.num_audios === 0 &&
+    previsualizacion.num_notas === 0 &&
+    previsualizacion.num_hallazgos === 0 &&
+    previsualizacion.num_oportunidades === 0 &&
+    previsualizacion.num_proximos_pasos === 0;
+
   return (
     <ConfirmacionBorrado
       onCancelar={cancelar}
       onConfirmar={confirmar}
       cargando={borrando.cargando}
       error={borrando.error}
-      confirmar="Sí, borrar la visita entera"
+      confirmar={vacia ? 'Sí, descartar la visita' : 'Sí, borrar la visita entera'}
     >
-      Esta visita arrastra: {plural(previsualizacion.num_fotos, 'foto', 'fotos')},{' '}
-      {plural(previsualizacion.num_audios, 'audio', 'audios')},{' '}
-      {plural(previsualizacion.num_notas, 'nota', 'notas')},{' '}
-      {plural(previsualizacion.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
-      {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}
-      {plural(previsualizacion.num_proximos_pasos, 'próximo paso', 'próximos pasos')}. Todo eso se borrará
-      también.
+      {vacia ? (
+        <>Esta visita no tiene nada anotado. Se elimina y desaparece de la lista.</>
+      ) : (
+        <>
+          Esta visita arrastra: {plural(previsualizacion.num_fotos, 'foto', 'fotos')},{' '}
+          {plural(previsualizacion.num_audios, 'audio', 'audios')},{' '}
+          {plural(previsualizacion.num_notas, 'nota', 'notas')},{' '}
+          {plural(previsualizacion.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+          {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}
+          {plural(previsualizacion.num_proximos_pasos, 'próximo paso', 'próximos pasos')}. Todo eso se
+          borrará también.
+        </>
+      )}
     </ConfirmacionBorrado>
   );
 }

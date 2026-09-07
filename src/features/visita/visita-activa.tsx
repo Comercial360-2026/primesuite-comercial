@@ -1518,20 +1518,30 @@ export function VisitaActiva() {
                 <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar.</>
               )}
             </span>
-            {otrasVisitasEnCurso.length === 1 && (
-              <button
-                type="button"
-                aria-label={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
-                title={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
-                onClick={() => navigate(`/visita/${otrasVisitasEnCurso[0].id}`)}
-                style={{
-                  flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
-                  color: 'var(--brand-600)', display: 'inline-flex', padding: 2,
-                }}
-              >
-                <Icono nombre="chevron" size={16} />
-              </button>
-            )}
+            <button
+              type="button"
+              aria-label={
+                otrasVisitasEnCurso.length === 1
+                  ? `Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`
+                  : 'Ver las visitas abiertas'
+              }
+              title={
+                otrasVisitasEnCurso.length === 1
+                  ? `Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`
+                  : 'Ver las visitas abiertas'
+              }
+              onClick={() =>
+                navigate(otrasVisitasEnCurso.length === 1 ? `/visita/${otrasVisitasEnCurso[0].id}` : '/')
+              }
+              style={{
+                flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
+                color: 'var(--brand-600)', display: 'inline-flex', alignItems: 'center', gap: 2,
+                padding: 2, font: 'inherit', fontSize: 'var(--text-xs)',
+              }}
+            >
+              {otrasVisitasEnCurso.length > 1 && 'Ver'}
+              <Icono nombre="chevron" size={16} />
+            </button>
           </div>
         )}
 

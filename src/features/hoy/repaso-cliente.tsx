@@ -18,7 +18,7 @@ import { useVolverA } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
-import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 
 interface EcosistemaItem {
   termino_id: string;
@@ -58,7 +58,7 @@ export function RepasoCliente() {
   // aviso previo si ya hay una visita en curso con este cliente.
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+  const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
 
   function pedirIniciarVisitaAdHoc() {
     if (visitaEnCurso) setEnCursoModalAbierto(true);
@@ -448,7 +448,7 @@ export function RepasoCliente() {
 
       {enCursoModalAbierto && visitaEnCurso && (
         <VisitaEnCursoModal
-          clienteNombre={cliente?.nombre}
+          clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {

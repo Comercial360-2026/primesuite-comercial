@@ -4,7 +4,7 @@ import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
-import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { Icono } from '@/components/ui/iconos';
@@ -34,7 +34,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props
   // se avisa antes (enCursoModal).
   const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+  const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
 
   function pedirIniciarVisitaAdHoc() {
     if (visitaEnCurso) setEnCursoModalAbierto(true);
@@ -78,7 +78,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props
 
       {enCursoModalAbierto && visitaEnCurso && (
         <VisitaEnCursoModal
-          clienteNombre={clienteNombre}
+          clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
