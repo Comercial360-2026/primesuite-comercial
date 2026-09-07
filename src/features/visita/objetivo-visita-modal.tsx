@@ -5,6 +5,7 @@ interface ProyectoOpcion {
   id: string;
   nombre: string;
   es_general: boolean;
+  estado?: string;
 }
 
 interface ObjetivoVisitaModalProps {
@@ -43,8 +44,11 @@ export function ObjetivoVisitaModal({
   const [arrancando, setArrancando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Un proyecto terminado es de solo consulta: no se le inician visitas, así
+  // que no se ofrece (el General nunca se filtra).
+  const opciones = (proyectos ?? []).filter((p) => p.es_general || p.estado !== 'terminado');
   // El selector solo aparece si de verdad hay que elegir (2+ proyectos).
-  const hayQueElegir = (proyectos?.length ?? 0) > 1;
+  const hayQueElegir = opciones.length > 1;
 
   async function empezar() {
     if (!objetivo.trim() || arrancando) return;
@@ -85,7 +89,7 @@ export function ObjetivoVisitaModal({
             value={proyectoId}
             onChange={(e) => setProyectoId(e.target.value)}
           >
-            {proyectos!.map((p) => (
+            {opciones.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.es_general ? 'Sin proyecto asignado' : p.nombre}
               </option>

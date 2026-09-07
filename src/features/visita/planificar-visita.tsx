@@ -19,6 +19,7 @@ interface Proyecto {
   id: string;
   nombre: string;
   es_general: boolean;
+  estado: string;
 }
 
 // "Nueva visita" — un solo sitio para crear una visita, se abre desde el
@@ -70,13 +71,13 @@ export function PlanificarVisita() {
   });
 
   // --- Paso 2: proyecto (solo si hay más de uno) ---
-  const { data: proyectos } = useQuery({
+  const { data: proyectosTodos } = useQuery({
     queryKey: ['planificar-proyectos', clienteId],
     enabled: !!clienteId,
     queryFn: async (): Promise<Proyecto[]> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, es_general')
+        .select('id, nombre, es_general, estado')
         .eq('cliente_id', clienteId)
         .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });
@@ -85,8 +86,15 @@ export function PlanificarVisita() {
     },
   });
 
-  // Un solo proyecto (el General por defecto, P9): se elige solo, sin
-  // pedirlo — el comercial no debería ni verlo.
+  // Un proyecto terminado es de solo consulta: no se le planifican visitas,
+  // así que no se ofrece aquí (el General nunca se filtra).
+  const proyectos = useMemo(
+    () => proyectosTodos?.filter((p) => p.es_general || p.estado !== 'terminado'),
+    [proyectosTodos]
+  );
+
+  // Un solo proyecto (el General por defecto): se elige solo, sin pedirlo —
+  // el comercial no debería ni verlo.
   useEffect(() => {
     if (!proyectoId && proyectos && proyectos.length === 1) setProyectoId(proyectos[0].id);
   }, [proyectos, proyectoId]);

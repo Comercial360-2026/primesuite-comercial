@@ -177,6 +177,10 @@ export function FichaProyecto() {
 
   // Acciones de estado según en qué está el proyecto ahora.
   const estado = proyecto?.estado ?? 'activo';
+  // Un proyecto terminado es de solo consulta: no se le inician ni planifican
+  // visitas (la barra de abajo desaparece) y no sale en los selectores de
+  // proyecto. Para volver a trabajarlo hay que "Reabrir".
+  const terminado = estado === 'terminado';
   const accionesEstado: Array<{ etiqueta: string; a: 'activo' | 'pausado' | 'terminado' }> =
     estado === 'terminado'
       ? [{ etiqueta: 'Reabrir', a: 'activo' }]
@@ -233,6 +237,11 @@ export function FichaProyecto() {
           ))}
         </div>
         {cambioEstado.error && <div className="field-error-text">{cambioEstado.error}</div>}
+        {terminado && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
+            Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
+          </div>
+        )}
 
         {editandoNombre && (
           <div className="card">
@@ -298,7 +307,7 @@ export function FichaProyecto() {
         </div>
       </div>
 
-      {clienteId && proyectoId && (
+      {clienteId && proyectoId && !terminado && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoId}

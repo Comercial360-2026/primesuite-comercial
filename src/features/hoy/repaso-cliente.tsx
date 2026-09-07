@@ -72,10 +72,10 @@ export function RepasoCliente() {
   const { data: proyectosCliente } = useQuery({
     queryKey: ['proyectos-cliente-repaso', clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean; estado: string }>> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, es_general')
+        .select('id, nombre, es_general, estado')
         .eq('cliente_id', clienteId!)
         .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });

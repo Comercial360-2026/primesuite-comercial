@@ -143,17 +143,29 @@ En `ficha-proyecto.tsx` (nunca para el General — P8 lo saca de esta pantalla):
   `rpc('eliminar_proyecto', { p_proyecto_id })`; al terminar navega a
   `/clientes/${clienteId}`. Botón deshabilitado / oculto si `es_general`.
 
-### P7 — Proyectos terminados / pausados en la lista «Proyectos»
+### P7 — Qué implica cada estado (y no solo la etiqueta)
 
-**Decidido (Cesar, 2026-09-07):**
+**Decidido (Cesar, 2026-09-07).** El estado tenía que *hacer* algo, no solo
+cambiar una palabra:
 
-- `activo` → fila normal, sin subtítulo de estado.
-- `pausado` → fila normal con subtítulo «pausado».
-- `terminado` → **plegado**. Al final de la sección, fila
-  «Ver terminados (N)» / «Ocultar terminados» (mismo patrón que
-  «Ver archivados» de hallazgos, `actividad-proyecto.tsx:244`). Al abrir, filas
-  con subtítulo «terminado».
-- `useProyectosCliente` ya devuelve todos; el filtro/plegado es de componente.
+- **activo** → normal.
+- **pausado** → fila con subtítulo «pausado». Sigue siendo visitable y
+  planificable (queda "en espera", nada más). Reversible con «Reactivar».
+- **terminado** → proyecto de **solo consulta**:
+  - En la lista «Proyectos» de la ficha de cliente va **plegado** tras
+    «Ver terminados (N)» / «Ocultar terminados» (patrón «Ver archivados» de
+    hallazgos), con subtítulo «terminado».
+  - En su ficha: **desaparece la barra «Iniciar visita / Planificar»** y queda
+    una línea tenue («solo consulta, reábrelo para…»). Único chip: «Reabrir».
+  - **Fuera de los selectores de proyecto**: «¿A qué vas?»
+    (`ObjetivoVisitaModal`), «Planificar» paso 2 (`planificar-visita`) y el
+    arranque ad-hoc (repaso / alta-rápida) ya no lo ofrecen. El General nunca
+    se filtra.
+  - Reversible con «Reabrir» (vuelve a `activo`).
+- Las queries que alimentan un selector de proyecto pasan a pedir `estado`
+  (`repaso-cliente`, `alta-rapida-cliente`, `planificar-visita`;
+  `useProyectosCliente` ya lo traía).
+- El PDF no cambia: el informe es de una visita, no del proyecto.
 
 ### P8 — `ficha-proyecto.tsx` redirige siempre que el proyecto sea `es_general`
 

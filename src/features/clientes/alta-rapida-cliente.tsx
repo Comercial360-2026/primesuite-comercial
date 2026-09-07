@@ -81,10 +81,10 @@ export function AltaRapidaCliente() {
   const { data: proyectosExistente } = useQuery({
     queryKey: ['proyectos-cliente-alta', clienteExistenteId],
     enabled: !!clienteExistenteId,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean; estado: string }>> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, es_general')
+        .select('id, nombre, es_general, estado')
         .eq('cliente_id', clienteExistenteId!)
         .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });

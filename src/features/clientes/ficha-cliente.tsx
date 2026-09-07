@@ -73,6 +73,9 @@ export function FichaCliente() {
   const [nombreProyecto, setNombreProyecto] = useState('');
   const creacionProyecto = useAccionAsync();
 
+  // "Ver terminados" — los proyectos terminados van plegados en la lista.
+  const [verTerminados, setVerTerminados] = useState(false);
+
   // Interlocutores del cliente: se gestionan en una hoja superior que se abre
   // con un icono en la cabecera (igual que en la visita en curso).
   const [interlocutoresHojaAbierta, setInterlocutoresHojaAbierta] = useState(false);
@@ -314,6 +317,10 @@ export function FichaCliente() {
   // tienen su fila y su ficha.
   const general = proyectos?.find((p) => p.es_general) ?? null;
   const proyectosConNombre = (proyectos ?? []).filter((p) => !p.es_general);
+  // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
+  // del día a día. Activos y pausados se listan siempre.
+  const proyectosVigentes = proyectosConNombre.filter((p) => p.estado !== 'terminado');
+  const proyectosTerminados = proyectosConNombre.filter((p) => p.estado === 'terminado');
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -582,7 +589,7 @@ export function FichaCliente() {
               </button>
             }
           >
-            {proyectosConNombre.map((p) => (
+            {proyectosVigentes.map((p) => (
               <FilaNavegable
                 key={p.id}
                 titulo={p.nombre}
@@ -592,6 +599,27 @@ export function FichaCliente() {
                 to={`/clientes/${clienteId}/proyectos/${p.id}`}
               />
             ))}
+            {proyectosTerminados.length > 0 && (
+              <FilaNavegable
+                titulo={
+                  verTerminados
+                    ? 'Ocultar terminados'
+                    : `Ver terminados (${proyectosTerminados.length})`
+                }
+                chevron={false}
+                valorTenue
+                onClick={() => setVerTerminados((v) => !v)}
+              />
+            )}
+            {verTerminados &&
+              proyectosTerminados.map((p) => (
+                <FilaNavegable
+                  key={p.id}
+                  titulo={p.nombre}
+                  subtitulo="terminado"
+                  to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                />
+              ))}
           </SeccionLista>
         )}
 
