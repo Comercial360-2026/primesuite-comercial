@@ -2233,6 +2233,10 @@ export type Database = {
         Args: { p_oportunidad_id: string }
         Returns: undefined
       }
+      eliminar_proyecto: {
+        Args: { p_proyecto_id: string }
+        Returns: undefined
+      }
       eliminar_ubicacion: {
         Args: { p_ubicacion_id: string }
         Returns: undefined
@@ -2342,6 +2346,10 @@ export type Database = {
       fn_visita_sin_participantes: {
         Args: { p_visita_id: string }
         Returns: boolean
+      }
+      mover_visita_de_proyecto: {
+        Args: { p_proyecto_id: string; p_visita_id: string }
+        Returns: undefined
       }
       previsualizar_borrado_cliente: {
         Args: { p_cliente_id: string }

@@ -1,32 +1,40 @@
-import { Navigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
 import { useProyectosCliente } from '@/hooks/use-proyectos-cliente';
+import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { Icono } from '@/components/ui/iconos';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
 
-// Ficha de proyecto — Fase 3 del plan Cliente → Proyecto → Visita. Es lo
-// que antes vivía directamente en la ficha de cliente (oportunidades,
-// próximos pasos, historial, planificar/iniciar visita): al meter proyecto
-// en medio, todo eso pasa a colgar de AQUÍ, porque una visita ahora
-// pertenece a un proyecto concreto, no solo a un cliente.
+// Ficha de proyecto — la actividad de UNA línea de negocio del cliente
+// (oportunidades, próximos pasos, hallazgos, historial de ESE proyecto) y,
+// desde aquí, renombrarlo, pausarlo/terminarlo o borrarlo.
 //
-// Excepción (1.5 del recorrido de revisión): si el cliente solo tiene su
-// Proyecto General, esta pantalla y la ficha de cliente son casi lo mismo y
-// obligan a un salto de navegación de más. En ese caso se redirige a la
-// ficha de cliente, que muestra la actividad del General en línea. La
-// pantalla propia del proyecto solo aparece cuando hay 2+ proyectos.
+// El proyecto General ("sin proyecto asignado") NO tiene esta pantalla: su
+// actividad se ve en la propia ficha de cliente. Si se llega aquí con el
+// General (haya 1 o 5 proyectos), se redirige a la ficha de cliente.
+
+const ESTADO_LABEL: Record<string, string> = {
+  activo: 'activo',
+  pausado: 'pausado',
+  terminado: 'terminado',
+};
 
 export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // Clave distinta de ['cliente', clienteId] (la que usa Ficha de cliente,
-  // con más columnas) — mismo cliente_id pero forma de datos distinta; con
-  // la misma clave, TanStack Query serviría aquí la caché de la otra
-  // pantalla (o al revés), mostrando "undefined" en campos que esta consulta
-  // nunca pidió. Bug real, detectado navegando en vivo entre las dos fichas.
+  // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con más
+  // columnas) — mismo cliente_id, forma de datos distinta; con la misma clave
+  // TanStack Query serviría aquí la caché de la otra pantalla. Bug real.
   const { data: cliente } = useQuery({
     queryKey: ['cliente-nombre', clienteId],
     enabled: !!clienteId,
@@ -41,15 +49,9 @@ export function FichaProyecto() {
     },
   });
 
-  // Misma consulta que usa la Ficha de cliente (una sola clave para las dos
-  // pantallas): así "cuántos proyectos hay" es un único dato y basta con
-  // invalidarlo al crear uno. `proyecto` sale de aquí, no de una consulta
-  // aparte.
   const { data: proyectos } = useProyectosCliente(clienteId);
   const proyecto = proyectos?.find((p) => p.id === proyectoId);
 
-  // Recuento total de visitas de ESTE proyecto (P11) y fecha de la última —
-  // para la línea de contexto de la cabecera.
   const { data: resumenVisitas } = useQuery({
     queryKey: ['resumen-visitas-proyecto', proyectoId],
     enabled: !!proyectoId,
@@ -73,18 +75,96 @@ export function FichaProyecto() {
     },
   });
 
-  // Redirección al fundir (1.5): solo cuando la lista de proyectos ya ha
-  // cargado y confirma que el General es el único — mientras carga no se
-  // redirige.
-  if (proyectos && proyectos.length === 1 && proyectos[0].es_general && proyectos[0].id === proyectoId) {
+  // Renombrar (lápiz de la cabecera) — UPDATE directo, requiere conexión,
+  // igual que "Editar datos" del cliente.
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [formNombre, setFormNombre] = useState('');
+  const guardadoNombre = useAccionAsync();
+
+  // Cambiar estado (pausar / terminar / reactivar / reabrir) — UPDATE directo.
+  const cambioEstado = useAccionAsync();
+
+  // Borrar el proyecto: su actividad pasa al General del cliente.
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const borrado = useAccionAsync();
+
+  // Redirección al fundir: en cuanto la lista de proyectos ha cargado y este
+  // es el General — el General nunca tiene pantalla propia, haya 1 o N.
+  if (proyectos && proyecto?.es_general) {
     return <Navigate to={`/clientes/${clienteId}`} replace />;
   }
 
-  // Línea de contexto (regla 6: siempre visible, sin depender de "volver").
-  // "N visitas" es retrospectivo del proyecto (P11), no el ordinal de "la
-  // visita en la que estás" (eso es Visita activa).
+  function abrirEditarNombre() {
+    setFormNombre(proyecto?.nombre ?? '');
+    guardadoNombre.limpiarError();
+    setEditandoNombre(true);
+  }
+
+  async function guardarNombre() {
+    if (!proyectoId || !formNombre.trim()) return;
+    if (!navigator.onLine) {
+      guardadoNombre.establecerError('Necesitas conexión para renombrar el proyecto.');
+      return;
+    }
+    await guardadoNombre.ejecutar(
+      async () => {
+        const { error } = await supabase
+          .from('proyecto')
+          .update({ nombre: formNombre.trim() })
+          .eq('id', proyectoId);
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          setEditandoNombre(false);
+          queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
+        },
+      }
+    );
+  }
+
+  async function cambiarEstado(nuevo: 'activo' | 'pausado' | 'terminado') {
+    if (!proyectoId) return;
+    if (!navigator.onLine) {
+      cambioEstado.establecerError('Necesitas conexión para cambiar el estado del proyecto.');
+      return;
+    }
+    await cambioEstado.ejecutar(
+      async () => {
+        const { error } = await supabase
+          .from('proyecto')
+          .update({ estado: nuevo })
+          .eq('id', proyectoId);
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] }),
+      }
+    );
+  }
+
+  async function confirmarBorrado() {
+    if (!proyectoId) return;
+    if (!navigator.onLine) {
+      borrado.establecerError('Necesitas conexión para borrar el proyecto.');
+      return;
+    }
+    await borrado.ejecutar(
+      async () => {
+        const { error } = await supabase.rpc('eliminar_proyecto', { p_proyecto_id: proyectoId });
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
+          navigate(`/clientes/${clienteId}`);
+        },
+      }
+    );
+  }
+
   const contextoLinea = [
-    proyecto?.estado,
+    proyecto?.estado ? ESTADO_LABEL[proyecto.estado] ?? proyecto.estado : null,
     resumenVisitas
       ? resumenVisitas.total === 0
         ? 'sin visitas todavía'
@@ -95,6 +175,21 @@ export function FichaProyecto() {
     .filter(Boolean)
     .join(' · ');
 
+  // Acciones de estado según en qué está el proyecto ahora.
+  const estado = proyecto?.estado ?? 'activo';
+  const accionesEstado: Array<{ etiqueta: string; a: 'activo' | 'pausado' | 'terminado' }> =
+    estado === 'terminado'
+      ? [{ etiqueta: 'Reabrir', a: 'activo' }]
+      : estado === 'pausado'
+        ? [
+            { etiqueta: 'Reactivar', a: 'activo' },
+            { etiqueta: 'Terminar', a: 'terminado' },
+          ]
+        : [
+            { etiqueta: 'Pausar', a: 'pausado' },
+            { etiqueta: 'Terminar', a: 'terminado' },
+          ];
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -102,6 +197,18 @@ export function FichaProyecto() {
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
         volverA={`/clientes/${clienteId}`}
+        derecha={
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
+            title={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
+            aria-expanded={editandoNombre}
+            onClick={() => (editandoNombre ? setEditandoNombre(false) : abrirEditarNombre())}
+          >
+            <Icono nombre="editar" size={16} />
+          </button>
+        }
       />
 
       <div className="screen__scroll">
@@ -110,8 +217,84 @@ export function FichaProyecto() {
             <span>{contextoLinea}</span>
           </div>
         )}
+
+        {/* Acciones de estado — chips (esporádico), no botones anchos. */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 14px' }}>
+          {accionesEstado.map((ac) => (
+            <button
+              key={ac.a}
+              type="button"
+              className="chip"
+              disabled={cambioEstado.cargando}
+              onClick={() => cambiarEstado(ac.a)}
+            >
+              {ac.etiqueta}
+            </button>
+          ))}
+        </div>
+        {cambioEstado.error && <div className="field-error-text">{cambioEstado.error}</div>}
+
+        {editandoNombre && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Nombre del proyecto</div>
+            <input
+              className={`field${guardadoNombre.error ? ' field--error' : ''}`}
+              autoFocus
+              value={formNombre}
+              onChange={(e) => setFormNombre(e.target.value)}
+              placeholder="mantenimiento, obra nueva, postventa…"
+            />
+            {guardadoNombre.error && <div className="field-error-text">{guardadoNombre.error}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={guardadoNombre.cargando}
+                onClick={() => {
+                  setEditandoNombre(false);
+                  guardadoNombre.limpiarError();
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={guardadoNombre.cargando || !formNombre.trim()}
+                onClick={guardarNombre}
+              >
+                {guardadoNombre.cargando ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="lista-agrupada">
           {proyectoId && <ActividadProyecto proyectoId={proyectoId} />}
+
+          {confirmandoBorrado ? (
+            <ConfirmacionBorrado
+              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: pasa a quedar sin proyecto asignado."
+              confirmar="Sí, borrar el proyecto"
+              cargando={borrado.cargando}
+              error={borrado.error}
+              onCancelar={() => {
+                setConfirmandoBorrado(false);
+                borrado.limpiarError();
+              }}
+              onConfirmar={confirmarBorrado}
+            >
+              Se borra el proyecto «{proyecto?.nombre}».
+            </ConfirmacionBorrado>
+          ) : (
+            <SeccionLista>
+              <FilaNavegable
+                icono="borrar"
+                titulo="Borrar proyecto"
+                tono="riesgo"
+                chevron={false}
+                onClick={() => setConfirmandoBorrado(true)}
+              />
+            </SeccionLista>
+          )}
         </div>
       </div>
 
