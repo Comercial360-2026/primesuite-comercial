@@ -541,18 +541,18 @@ export function VisitaActiva() {
     queryKey: ['otras-visitas-en-curso', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial,
     refetchInterval: 20000,
-    queryFn: async (): Promise<{ id: string; clienteNombre: string }[]> => {
+    queryFn: async (): Promise<{ id: string; clienteNombre: string; fecha: string | null }[]> => {
       const { data, error } = await supabase
         .from('visita_participante')
-        .select('visita_id, visita:visita_id!inner(id, estado_captura, cliente:cliente_id(nombre))')
+        .select('visita_id, visita:visita_id!inner(id, estado_captura, fecha, cliente:cliente_id(nombre))')
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
         .eq('visita.estado_captura', 'en_curso')
         .neq('visita_id', visitaId!);
       if (error) throw error;
       return (data ?? []).map((r) => {
-        const v = r.visita as unknown as { id: string; cliente: { nombre: string } | null };
-        return { id: v.id, clienteNombre: v.cliente?.nombre ?? 'un cliente' };
+        const v = r.visita as unknown as { id: string; fecha: string | null; cliente: { nombre: string } | null };
+        return { id: v.id, clienteNombre: v.cliente?.nombre ?? 'un cliente', fecha: v.fecha };
       });
     },
   });
@@ -1395,7 +1395,11 @@ export function VisitaActiva() {
             {otrasVisitasEnCurso.length === 1 ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  Sigue sin cerrar la de {otrasVisitasEnCurso[0].clienteNombre}.
+                  La de {otrasVisitasEnCurso[0].clienteNombre}
+                  {otrasVisitasEnCurso[0].fecha
+                    ? ` del ${fechaCorta(new Date(otrasVisitasEnCurso[0].fecha))}`
+                    : ''}
+                  {' '}sigue sin cerrar — no es esta.
                 </span>
                 <button
                   type="button"
@@ -1806,7 +1810,8 @@ export function VisitaActiva() {
                 {fotosOwnV.length > 0 && (
                   <div
                     style={{
-                      display: 'flex', gap: 8, overflowX: 'auto', padding: '8px 0',
+                      display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 0',
+                      borderTop: '1px solid var(--ink-100)',
                       borderBottom: '1px solid var(--ink-100)',
                     }}
                   >
