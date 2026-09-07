@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -56,6 +57,7 @@ export function AgendaDelDia() {
   const navigate = useNavigate();
   const location = useLocation();
   const { comercial } = useSesionActual();
+  const { visitaEnCurso, cerrarVisita } = useVisitaActivaContext();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
   const queryClient = useQueryClient();
   // Decisión de producto (29/8/2026): mismo criterio que en Clientes — un
@@ -138,7 +140,7 @@ export function AgendaDelDia() {
   // que una que quedó a medias otro día era invisible y no había forma de
   // volver a ella. Fuente: participante = yo, como en `otras-visitas-en-curso`
   // de la visita activa.
-  const { data: visitasEnCurso = [] } = useQuery({
+  const { data: visitasEnCurso = [], isSuccess: enCursoCargado } = useQuery({
     queryKey: ['visitas-en-curso', comercial?.id],
     enabled: !!comercial,
     refetchOnMount: 'always',
@@ -238,7 +240,29 @@ export function AgendaDelDia() {
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
-  const hoyEnCurso = visitasEnCurso;
+  // "La visita en curso" que destaca la app = la última que abriste (contexto
+  // persistido), no la más reciente por fecha. Así la tarjeta grande de Hoy y
+  // el banner global apuntan a la MISMA. Si la marcada ya no está abierta, o
+  // no hay ninguna marcada, se cae a la más reciente (visitasEnCurso viene
+  // ordenada por fecha desc).
+  const idActual = visitaEnCurso?.id;
+  const hoyEnCurso = useMemo(() => {
+    const marcada = idActual ? visitasEnCurso.find((v) => v.id === idActual) : undefined;
+    return marcada ? [marcada, ...visitasEnCurso.filter((v) => v.id !== idActual)] : visitasEnCurso;
+  }, [visitasEnCurso, idActual]);
+
+  // Si el contexto persistido apunta a una visita que ya no está en curso
+  // (la cerraste en otro sitio / otro dispositivo), se limpia para que el
+  // banner global no muestre una visita fantasma.
+  useEffect(() => {
+    if (
+      enCursoCargado &&
+      visitaEnCurso &&
+      !visitasEnCurso.some((v) => v.id === visitaEnCurso.id)
+    ) {
+      cerrarVisita();
+    }
+  }, [enCursoCargado, visitaEnCurso, visitasEnCurso, cerrarVisita]);
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
   const proximas = proximasFiltradas ?? [];
