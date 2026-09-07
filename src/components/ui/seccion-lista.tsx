@@ -26,6 +26,10 @@ export function SeccionLista({ titulo, prominencia = 'normal', accion, children 
   const clase = ['seccion-lista', prominencia !== 'normal' && `seccion-lista--${prominencia}`]
     .filter(Boolean)
     .join(' ');
+  // Con `accion` (un "+" en la cabecera) la sección puede quedarse sin filas
+  // —"Proyectos" cuando solo está el General, p. ej.—: entonces solo se pinta
+  // la cabecera, no un grupo vacío con bordes.
+  const hayFilas = Array.isArray(children) ? children.some(Boolean) : Boolean(children);
   return (
     <section className={clase}>
       {accion ? (
@@ -36,7 +40,7 @@ export function SeccionLista({ titulo, prominencia = 'normal', accion, children 
       ) : (
         titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>
       )}
-      <div className="seccion-lista__grupo">{children}</div>
+      {hayFilas && <div className="seccion-lista__grupo">{children}</div>}
     </section>
   );
 }

@@ -562,11 +562,13 @@ export function FichaCliente() {
         )}
 
         {/* Proyectos — una sección con su título y un "+" al lado para dar de
-            alta uno, y debajo los que haya. Mismo patrón que "Historial de
-            visitas". El proyecto General se lista igual (es donde cae la
-            actividad suelta del cliente); si además es el único, su actividad
-            se muestra en línea aquí abajo para ahorrar un salto (1.5 del
-            recorrido de revisión). */}
+            alta uno. Mismo patrón que "Historial de visitas".
+            · Si el cliente SOLO tiene el proyecto General: no se lista ninguna
+              fila (el "General" despistaba y encima no navega a ningún sitio,
+              porque su ficha se funde con esta). La sección es solo cabecera +
+              "+", y debajo va la actividad del General en línea.
+            · Si hay más proyectos: se listan todos, el General incluido (ahí sí
+              navega), y no se muestra actividad en línea. */}
         {proyectos && proyectos.length > 0 && (
           <SeccionLista
             titulo="Proyectos"
@@ -584,20 +586,21 @@ export function FichaCliente() {
               </button>
             }
           >
-            {proyectos.map((p) => (
-              <FilaNavegable
-                key={p.id}
-                titulo={p.nombre}
-                subtitulo={
-                  p.estado !== 'activo'
-                    ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado
-                    : p.es_general
-                      ? 'Todo lo que no encaja en otro proyecto'
-                      : undefined
-                }
-                to={`/clientes/${clienteId}/proyectos/${p.id}`}
-              />
-            ))}
+            {!proyectoGeneral &&
+              proyectos.map((p) => (
+                <FilaNavegable
+                  key={p.id}
+                  titulo={p.nombre}
+                  subtitulo={
+                    p.estado !== 'activo'
+                      ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado
+                      : p.es_general
+                        ? 'Todo lo que no encaja en otro proyecto'
+                        : undefined
+                  }
+                  to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                />
+              ))}
           </SeccionLista>
         )}
 
