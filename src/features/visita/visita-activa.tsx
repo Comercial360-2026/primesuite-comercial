@@ -1382,39 +1382,44 @@ export function VisitaActiva() {
       />
 
       <div className="screen__scroll">
-        {/* A0.2 · Otra visita abierta sin cerrar. */}
+        {/* A0.2 · Otra visita abierta sin cerrar. Aviso SUTIL — una línea, no
+            una tarjeta grande: es un recordatorio, no una alarma. */}
         {otrasVisitasEnCurso.length > 0 && (
-          <Aviso
-            tipo="atencion"
-            titulo={
-              otrasVisitasEnCurso.length === 1
-                ? 'Tienes otra visita abierta'
-                : `Tienes ${otrasVisitasEnCurso.length} visitas abiertas`
-            }
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              margin: '2px 2px 8px', fontSize: 'var(--text-xs)', color: 'var(--ink-500)',
+            }}
           >
-            {otrasVisitasEnCurso.length === 1 ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1, minWidth: 0 }}>
+            <Icono nombre="atencion" size={13} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {otrasVisitasEnCurso.length === 1 ? (
+                <>
                   La de {otrasVisitasEnCurso[0].clienteNombre}
                   {otrasVisitasEnCurso[0].fecha && (
                     <> del <strong>{fechaCorta(new Date(otrasVisitasEnCurso[0].fecha))}</strong></>
                   )}
-                  {' '}sigue sin cerrar.
-                </span>
-                <button
-                  type="button"
-                  className="boton-icono"
-                  aria-label={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
-                  title={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
-                  onClick={() => navigate(`/visita/${otrasVisitasEnCurso[0].id}`)}
-                >
-                  <Icono nombre="chevron" size={18} />
-                </button>
-              </span>
-            ) : (
-              'Ciérralas cuando puedas para no mezclar capturas entre visitas.'
+                  {' '}sigue abierta.
+                </>
+              ) : (
+                <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar.</>
+              )}
+            </span>
+            {otrasVisitasEnCurso.length === 1 && (
+              <button
+                type="button"
+                aria-label={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
+                title={`Ir a la visita de ${otrasVisitasEnCurso[0].clienteNombre}`}
+                onClick={() => navigate(`/visita/${otrasVisitasEnCurso[0].id}`)}
+                style={{
+                  flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
+                  color: 'var(--brand-600)', display: 'inline-flex', padding: 2,
+                }}
+              >
+                <Icono nombre="chevron" size={16} />
+              </button>
             )}
-          </Aviso>
+          </div>
         )}
 
         {/* Objetivo — el encabezado de sentido de la visita: primero de
@@ -1730,30 +1735,35 @@ export function VisitaActiva() {
             tarjeta con fondo: la lista fluye en el scroll de la pantalla —
             con una caja propia parecía tener su propio scroll y solo se
             veían 3 filas. */}
-        <div style={{ margin: '10px 2px 4px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>
-              En esta visita{zonaParaCaptura ? ` · ${zonaParaCaptura}` : ''}
-            </span>
-            {/* Con una zona activa la lista ya es de una sola zona: agrupar
-                "por Tipo/Zona" no aporta y el conmutador se oculta. */}
-            {zonaUsada && !zonaParaCaptura && (
-              <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                <Segmentado
-                  opciones={[
-                    { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
-                    { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
-                  ]}
-                  valor={ordenPorZona ? 'zona' : 'tipo'}
-                  onCambio={(v) => setOrdenPorZona(v === 'zona')}
-                />
-              </div>
-            )}
+        <div style={{ margin: '16px 2px 4px' }}>
+          {/* Primero el conmutador Tipo/Zona (arriba, a la derecha); debajo,
+              el título "En esta visita" y el contador — no todo en la misma
+              línea. El conmutador se oculta si hay una zona activa (la lista
+              ya es de una sola zona). */}
+          {zonaUsada && !zonaParaCaptura && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+              <Segmentado
+                opciones={[
+                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
+                  { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
+                ]}
+                valor={ordenPorZona ? 'zona' : 'tipo'}
+                onCambio={(v) => setOrdenPorZona(v === 'zona')}
+              />
+            </div>
+          )}
+          <div
+            style={{
+              fontWeight: 700, fontSize: 'var(--text-sm)',
+              paddingBottom: 6, borderBottom: '1px solid var(--ink-100)',
+            }}
+          >
+            En esta visita{zonaParaCaptura ? ` · ${zonaParaCaptura}` : ''}
           </div>
           {totalEnVisita > 0 && (
             <div
               style={{
-                display: 'flex', flexWrap: 'wrap', gap: '2px 8px', marginTop: 2,
+                display: 'flex', flexWrap: 'wrap', gap: '2px 8px', marginTop: 6,
                 fontSize: 'var(--text-xs)', color: 'var(--ink-400)',
               }}
             >

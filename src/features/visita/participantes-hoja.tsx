@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
+import { Icono } from '@/components/ui/iconos';
+import { FilaToggle } from '@/components/ui/fila-toggle';
+import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 
 interface ParticipantesHojaProps {
   visitaId: string;
@@ -34,8 +37,14 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
   const { comercial } = useSesionActual();
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const queryClient = useQueryClient();
+  const buscador = useBuscador(false);
   const [busqueda, setBusqueda] = useState('');
-  const [añadiendoId, setAñadiendoId] = useState<string | null>(null);
+  // Modo "añadir": aparece la lista de candidatos con casilla; marcas a
+  // uno o varios y confirmas "Añadir N" — mismo patrón que "Seleccionar"
+  // del resto de listas.
+  const [modoAñadir, setModoAñadir] = useState(false);
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  const [añadiendoLote, setAñadiendoLote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pidiendoAyuda, setPidiendoAyuda] = useState(false);
   const [notaAyuda, setNotaAyuda] = useState('');
@@ -170,7 +179,6 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
   }
 
   async function añadir(comercialId: string) {
-    setAñadiendoId(comercialId);
     setError(null);
     // Si te añade otro, la fila nace 'pendiente' y a ese comercial le sale
     // un aviso en "Yo" para aceptar o rechazar. Si te añades a ti mismo,
@@ -189,12 +197,10 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
       },
       { onConflict: 'visita_id,comercial_id' }
     );
-    setAñadiendoId(null);
     if (err) {
       setError(err.message);
       return;
     }
-    setBusqueda('');
     for (const clave of [
       ['participantes-visita', visitaId],
       ['participantes-rechazados', visitaId],
@@ -206,6 +212,33 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     ]) {
       queryClient.invalidateQueries({ queryKey: clave });
     }
+  }
+
+  function alternarSeleccion(id: string) {
+    setSeleccionados((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+
+  function salirModoAñadir() {
+    setModoAñadir(false);
+    setSeleccionados(new Set());
+    buscador.cerrar();
+    setBusqueda('');
+  }
+
+  async function añadirSeleccionados() {
+    if (seleccionados.size === 0 || añadiendoLote) return;
+    setAñadiendoLote(true);
+    setError(null);
+    for (const id of seleccionados) {
+      await añadir(id);
+    }
+    setAñadiendoLote(false);
+    salirModoAñadir();
   }
 
   // Quitar a alguien de la visita:
@@ -247,8 +280,28 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
   }
 
   return (
-    <HojaInferior titulo="Equipo" onCerrar={onCerrar}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+    <HojaSuperior
+      titulo="Equipo"
+      onCerrar={onCerrar}
+      derecha={
+        puedeAñadir ? (
+          modoAñadir ? (
+            !buscador.abierto && <BotonBuscar etiqueta="buscar comercial…" onClick={buscador.abrir} />
+          ) : (
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Añadir al equipo"
+              title="Añadir al equipo"
+              onClick={() => setModoAñadir(true)}
+            >
+              <Icono nombre="mas" size={18} />
+            </button>
+          )
+        ) : undefined
+      }
+    >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
           {participantes.map((p) => {
             const esYo = p.comercial_id === comercial?.id;
             const puedeQuitar = p.rol !== 'responsable' && (puedeAñadir || esYo);
@@ -314,42 +367,39 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
           )}
         </div>
 
-        {puedeAñadir ? (
-          <div style={{ marginTop: 12 }}>
-            <input
-              className="field"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="buscar comercial para añadir…"
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+        {puedeAñadir && modoAñadir ? (
+          <div style={{ marginTop: 12, borderTop: '1px solid var(--ink-100)', paddingTop: 12 }}>
+            <div className="label" style={{ marginTop: 0 }}>Añadir al equipo — marca a quién</div>
+            {buscador.abierto && (
+              <div style={{ marginBottom: 6 }}>
+                <CampoBuscar
+                  value={busqueda}
+                  onChange={setBusqueda}
+                  placeholder="buscar comercial…"
+                  onCerrar={() => {
+                    buscador.cerrar();
+                    setBusqueda('');
+                  }}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {candidatos?.map((c) => {
-                // Quien rechazó o fue expulsado puede reinvitarse, igual por
-                // Dirección que por el responsable (2026-09-05: se quitó la
-                // restricción de que solo Dirección pudiera). El `upsert` de
-                // `añadir()` reactiva su fila a 'pendiente'.
+                const marcado = seleccionados.has(c.id);
+                const nota = c.expulsadoPrevio ? 'expulsado · se reinvita' : c.rechazoPrevio ? 'rechazó · se reinvita' : null;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    className="chip"
-                    style={{
-                      textAlign: 'left',
-                      justifyContent: 'space-between',
-                      display: 'flex',
-                    }}
-                    disabled={añadiendoId === c.id}
-                    onClick={() => añadir(c.id)}
+                    className="interlocutor-fila__cuerpo"
+                    style={{ width: '100%' }}
+                    aria-pressed={marcado}
+                    onClick={() => alternarSeleccion(c.id)}
                   >
-                    <span>{c.nombre}</span>
-                    <span style={{ color: c.rechazoPrevio || c.expulsadoPrevio ? 'var(--ink-400)' : undefined, fontSize: 11 }}>
-                      {añadiendoId === c.id
-                        ? 'Añadiendo…'
-                        : c.expulsadoPrevio
-                          ? 'expulsado · reinvitar'
-                          : c.rechazoPrevio
-                            ? 'rechazó · reinvitar'
-                            : '+ Añadir'}
+                    <FilaToggle marcada={marcado} />
+                    <span className="interlocutor-fila__datos">
+                      <span className="interlocutor-fila__nombre">{c.nombre}</span>
+                      {nota && <span className="interlocutor-fila__sub">{nota}</span>}
                     </span>
                   </button>
                 );
@@ -358,8 +408,25 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Sin coincidencias.</span>
               )}
             </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button type="button" className="btn btn-secondary" onClick={salirModoAñadir} disabled={añadiendoLote}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={seleccionados.size === 0 || añadiendoLote}
+                onClick={añadirSeleccionados}
+              >
+                {añadiendoLote
+                  ? 'Añadiendo…'
+                  : seleccionados.size > 0
+                    ? `Añadir ${seleccionados.size}`
+                    : 'Añadir'}
+              </button>
+            </div>
           </div>
-        ) : solicitudPropia || solicitudEnviada ? (
+        ) : puedeAñadir ? null : solicitudPropia || solicitudEnviada ? (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 12 }}>
             Ya has pedido ayuda con esta visita — Dirección Comercial lo verá en su lista de pendientes.
           </div>
@@ -388,6 +455,6 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
         )}
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </HojaInferior>
+    </HojaSuperior>
   );
 }

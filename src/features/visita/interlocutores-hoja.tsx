@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { DirectorioInterlocutores } from '@/features/clientes/directorio-interlocutores';
 
 interface InterlocutoresHojaProps {
@@ -62,7 +62,7 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
   }
 
   return (
-    <HojaInferior titulo="Interlocutores" onCerrar={onCerrar}>
+    <HojaSuperior titulo="Interlocutores" onCerrar={onCerrar}>
       <DirectorioInterlocutores
         clienteId={clienteId}
         presencia={{ visitaId, presentesIds: presentesIds ?? [], onTogglePresencia: alternarPresencia }}
@@ -72,6 +72,6 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
           {error}
         </div>
       )}
-    </HojaInferior>
+    </HojaSuperior>
   );
 }

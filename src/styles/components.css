@@ -508,6 +508,31 @@ textarea.field {
   font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
+/* Hoja SUPERIOR — cubre la pantalla desde el borde de arriba, con cabecera
+   propia (Interlocutores / Equipo). Se presenta como una pantalla ("Nuevo
+   cliente") pero sin cambiar la URL. Ver hoja-superior.tsx. */
+.hoja-sup-fondo {
+  position: fixed; inset: 0; z-index: 20;
+  background: var(--surface-0);
+  display: flex; align-items: stretch; justify-content: center;
+  box-sizing: border-box;
+}
+.hoja-sup-caja {
+  width: 100%;
+  max-width: var(--app-max-w);
+  min-height: 100%;
+  overflow-y: auto; box-sizing: border-box;
+  background: var(--surface-1);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.hoja-sup-caja .hoja-cabecera {
+  position: sticky; top: calc(-1 * var(--space-3)); z-index: 1;
+  background: var(--surface-1);
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4)) var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--ink-100);
+}
+
 /* Casillas de "Cerrar visita": ahora son botones que abren su detalle. */
 .cierre-casilla {
   width: 100%; text-align: center; cursor: pointer;
