@@ -28,8 +28,7 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaInferior } from '@/components/ui/hoja-inferior';
 import { Segmentado } from '@/components/ui/segmentado';
-import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
-import { actualizarOperacion } from '@/lib/offline-queue';
+import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
@@ -286,7 +285,12 @@ export function VisitaActiva() {
   const [zonaEditorAbierto, setZonaEditorAbierto] = useState(false);
   // Zona (de la lista de "zonas de esta visita") pendiente de confirmar su
   // borrado. Borrarla = sus capturas pasan a «General».
-  const [zonaABorrar, setZonaABorrar] = useState<string | null>(null);
+  // Panel de gestión de una zona (al pulsar la ✕ de un chip de "Zonas de
+  // esta visita"): renombrar · pasar a «General» · borrar lo tuyo.
+  const [zonaGestion, setZonaGestion] = useState<string | null>(null);
+  const [zonaGestionModo, setZonaGestionModo] = useState<'menu' | 'renombrar' | 'borrar'>('menu');
+  const [nombreZonaNuevo, setNombreZonaNuevo] = useState('');
+  const [zonaGestionError, setZonaGestionError] = useState<string | null>(null);
   const [borrandoZona, setBorrandoZona] = useState(false);
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
   // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
@@ -914,21 +918,27 @@ export function VisitaActiva() {
     setTimeout(() => setPasoAbierto(false), 700);
   }
 
-  // Borrar una zona de la visita (te equivocaste al escribirla, sobra…):
-  // todo lo que la lleva —esté aún en la cola local o ya sincronizado—
-  // pasa a «General». No borra ninguna captura.
-  async function borrarZona(zona: string) {
+  function cerrarGestionZona() {
+    setZonaGestion(null);
+    setZonaGestionModo('menu');
+    setNombreZonaNuevo('');
+    setZonaGestionError(null);
+  }
+
+  // Operaciones de la cola local que llevan esta zona (pendientes o ya
+  // sincronizadas — hay que alinear la copia local con el cambio del
+  // servidor o el chip seguiría saliendo hasta recargar).
+  function localesConZona(zona: string) {
+    return operaciones.filter((op) => (op.payload as { zonaTexto?: string }).zonaTexto === zona);
+  }
+
+  // "Pasar todo a «General»" — quita la etiqueta de zona, no borra nada.
+  async function pasarZonaAGeneral(zona: string) {
     if (!visitaId) return;
     setBorrandoZona(true);
+    setZonaGestionError(null);
     try {
-      // Todas las operaciones locales con esa zona — pendientes y ya
-      // sincronizadas. Para las pendientes es lo que viaja al servidor; para
-      // las sincronizadas, alinea la copia local con el UPDATE de abajo (si
-      // no, el chip seguiría saliendo hasta recargar la pantalla).
-      const locales = operaciones.filter(
-        (op) => (op.payload as { zonaTexto?: string }).zonaTexto === zona
-      );
-      for (const op of locales) {
+      for (const op of localesConZona(zona)) {
         await actualizarOperacion(op.id, {
           payload: { ...(op.payload as object), zonaTexto: undefined } as OperacionPendiente['payload'],
         });
@@ -942,7 +952,97 @@ export function VisitaActiva() {
       if (zonaActual.trim() === zona) setZonaActual('');
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
-      setZonaABorrar(null);
+      cerrarGestionZona();
+    } finally {
+      setBorrandoZona(false);
+    }
+  }
+
+  // "Renombrar la zona" — cambia el nombre en todo lo que la lleva (cola
+  // local + servidor). Cubre el caso más frecuente: una errata.
+  async function renombrarZona(zonaVieja: string, zonaNueva: string) {
+    if (!visitaId || !zonaNueva.trim() || zonaNueva.trim() === zonaVieja) return;
+    const nueva = zonaNueva.trim();
+    setBorrandoZona(true);
+    setZonaGestionError(null);
+    try {
+      for (const op of localesConZona(zonaVieja)) {
+        await actualizarOperacion(op.id, {
+          payload: { ...(op.payload as object), zonaTexto: nueva } as OperacionPendiente['payload'],
+        });
+      }
+      await Promise.all([
+        supabase.from('captura_libre').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
+        supabase.from('hallazgo').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
+        supabase.from('oportunidad').update({ zona_texto: nueva }).eq('visita_origen_id', visitaId).eq('zona_texto', zonaVieja),
+        supabase.from('proximo_paso').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
+      ]);
+      if (zonaActual.trim() === zonaVieja) setZonaActual(nueva);
+      await recargarCola();
+      queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
+      cerrarGestionZona();
+    } finally {
+      setBorrandoZona(false);
+    }
+  }
+
+  // "Borrar lo mío de la zona" — borra de verdad las capturas/hallazgos/
+  // oportunidades/pasos que YO capturé con esa zona (+ su archivo en
+  // Storage, + su copia en la cola local). Lo de los compañeros no se toca.
+  async function borrarLoMioDeZona(zona: string) {
+    if (!visitaId || !comercial) return;
+    setBorrandoZona(true);
+    setZonaGestionError(null);
+    try {
+      // Cola local: fuera.
+      for (const op of localesConZona(zona)) {
+        await eliminarOperacion(op.id);
+      }
+      // Capturas mías sincronizadas + su archivo de Storage.
+      const { data: caps } = await supabase
+        .from('captura_libre')
+        .select('id, tipo, storage_path')
+        .eq('visita_id', visitaId)
+        .eq('zona_texto', zona)
+        .eq('comercial_autor_id', comercial.id);
+      for (const c of caps ?? []) {
+        if (c.storage_path) {
+          const bucket = c.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+          await supabase.storage.from(bucket).remove([c.storage_path]);
+        }
+      }
+      await supabase
+        .from('captura_libre')
+        .delete()
+        .eq('visita_id', visitaId)
+        .eq('zona_texto', zona)
+        .eq('comercial_autor_id', comercial.id);
+      await supabase
+        .from('hallazgo')
+        .delete()
+        .eq('visita_id', visitaId)
+        .eq('zona_texto', zona)
+        .eq('comercial_autor_id', comercial.id);
+      await supabase
+        .from('proximo_paso')
+        .delete()
+        .eq('visita_id', visitaId)
+        .eq('zona_texto', zona)
+        .eq('comercial_responsable_id', comercial.id);
+      // Oportunidades: cascada por RPC (una a una).
+      const { data: ops } = await supabase
+        .from('oportunidad')
+        .select('id')
+        .eq('visita_origen_id', visitaId)
+        .eq('zona_texto', zona)
+        .eq('comercial_autor_id', comercial.id);
+      for (const o of ops ?? []) {
+        await supabase.rpc('eliminar_oportunidad_completa', { p_oportunidad_id: o.id });
+      }
+      if (zonaActual.trim() === zona) setZonaActual('');
+      await recargarCola();
+      queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
+      cerrarGestionZona();
     } finally {
       setBorrandoZona(false);
     }
@@ -1317,6 +1417,20 @@ export function VisitaActiva() {
   ].sort((a, b) => a.localeCompare(b, 'es'));
   const hayZonaActiva = !!zonaActual.trim();
 
+  // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.
+  function cuentaZona(z: string) {
+    const mio = [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
+      (op) => (op.payload as { zonaTexto?: string }).zonaTexto === z
+    ).length;
+    const comp = [
+      ...(deCompaneros?.capturas ?? []),
+      ...(deCompaneros?.hallazgos ?? []),
+      ...(deCompaneros?.oportunidades ?? []),
+      ...(deCompaneros?.pasos ?? []),
+    ].filter((c) => (c as { zona_texto?: string | null }).zona_texto === z).length;
+    return { mio, comp, total: mio + comp };
+  }
+
   // Fila de "En esta visita": icono + texto + coletilla gris opcional
   // (naturaleza, prioridad, o "· de Fulano" en lo ajeno — regla 4). Cada
   // tipo se distingue por su icono; sin colores de texto, que en una lista
@@ -1547,7 +1661,7 @@ export function VisitaActiva() {
           <div className="zona-banda">
             <Icono nombre="ubicacion" size={16} weight="fill" />
             <span>
-              <strong>{zonaActual.trim()}</strong> · guardas y ves solo esto
+              <strong>{zonaActual.trim()}</strong>
             </span>
             <button
               type="button"
@@ -1626,13 +1740,18 @@ export function VisitaActiva() {
                       <button
                         type="button"
                         className="chip"
-                        aria-label={`Quitar la zona «${z}» de la visita`}
-                        title={`Quitar «${z}» — sus capturas pasan a «General»`}
+                        aria-label={`Gestionar la zona «${z}»`}
+                        title={`Gestionar «${z}» (renombrar / quitar / borrar)`}
                         style={{
                           borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0,
                           padding: '0 8px', color: 'var(--ink-400)',
                         }}
-                        onClick={() => setZonaABorrar(z)}
+                        onClick={() => {
+                          setZonaGestion(z);
+                          setZonaGestionModo('menu');
+                          setNombreZonaNuevo(z);
+                          setZonaGestionError(null);
+                        }}
                       >
                         ✕
                       </button>
@@ -1642,19 +1761,128 @@ export function VisitaActiva() {
               </>
             )}
 
-            {zonaABorrar && (
-              <ConfirmacionBorrado
-                reversible="Puedes volver a crear la zona cuando quieras."
-                confirmar="Sí, quitar la zona"
-                cargandoTexto="Quitando…"
-                cargando={borrandoZona}
-                onCancelar={() => setZonaABorrar(null)}
-                onConfirmar={() => void borrarZona(zonaABorrar)}
-              >
-                Quitas «{zonaABorrar}» de esta visita. Lo que capturaste en esa zona no se
-                borra — solo deja de estar agrupado por zona.
-              </ConfirmacionBorrado>
-            )}
+            {zonaGestion &&
+              (() => {
+                const c = cuentaZona(zonaGestion);
+                return (
+                  <div className="card" style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>
+                      «{zonaGestion}»{' '}
+                      <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>
+                        · {c.total} cosa{c.total === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {zonaGestionModo === 'menu' && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setZonaGestionModo('renombrar')}
+                          >
+                            Renombrar la zona
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={borrandoZona}
+                            onClick={() => void pasarZonaAGeneral(zonaGestion)}
+                          >
+                            {borrandoZona ? 'Cambiando…' : 'Pasar todo a «General»'}
+                          </button>
+                          {c.mio > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-secondary--riesgo"
+                              onClick={() => setZonaGestionModo('borrar')}
+                            >
+                              Borrar {c.mio} cosa{c.mio === 1 ? '' : 's'} mía{c.mio === 1 ? '' : 's'} de esta zona
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-enlace"
+                          style={{ marginTop: 8 }}
+                          onClick={cerrarGestionZona}
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    )}
+
+                    {zonaGestionModo === 'renombrar' && (
+                      <>
+                        <input
+                          className="field"
+                          style={{ marginTop: 8 }}
+                          autoFocus
+                          value={nombreZonaNuevo}
+                          onChange={(e) => setNombreZonaNuevo(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setZonaGestionModo('menu')}
+                            disabled={borrandoZona}
+                          >
+                            Volver
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={
+                              !nombreZonaNuevo.trim() ||
+                              nombreZonaNuevo.trim() === zonaGestion ||
+                              borrandoZona
+                            }
+                            onClick={() => void renombrarZona(zonaGestion, nombreZonaNuevo)}
+                          >
+                            {borrandoZona ? 'Guardando…' : 'Guardar nombre'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {zonaGestionModo === 'borrar' && (
+                      <div className="card card--riesgo" style={{ marginTop: 8 }}>
+                        <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                          ¿Borrar {c.mio} cosa{c.mio === 1 ? '' : 's'} tuya{c.mio === 1 ? '' : 's'} de «
+                          {zonaGestion}»?
+                          {c.comp > 0 && ` Lo de tus compañeros (${c.comp}) se queda.`} No se puede
+                          deshacer.
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => setZonaGestionModo('menu')}
+                            disabled={borrandoZona}
+                          >
+                            No
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-peligro"
+                            disabled={borrandoZona}
+                            onClick={() => void borrarLoMioDeZona(zonaGestion)}
+                          >
+                            {borrandoZona ? 'Borrando…' : `Sí, borrar ${c.mio}`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {zonaGestionError && (
+                      <div className="field-error-text" style={{ marginTop: 8 }}>
+                        {zonaGestionError}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
           </div>
         )}
 
