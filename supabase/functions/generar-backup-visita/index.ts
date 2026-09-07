@@ -293,6 +293,7 @@ interface VisitaRow {
   franja: string | null;
   hora_definida: boolean;
   cliente: { id: string; nombre: string; sector: string | null; ubicacion_general: string | null; tamano_aprox: string | null } | null;
+  proyecto: { nombre: string } | null;
 }
 interface CapturaRow {
   id: string;
@@ -410,7 +411,7 @@ Deno.serve(async (req) => {
     .from('visita')
     .select(
       'id, fecha, tipo_visita, objetivo, resumen_texto, estado_captura, franja, hora_definida, ' +
-        'cliente:cliente_id(id, nombre, sector, ubicacion_general, tamano_aprox)'
+        'cliente:cliente_id(id, nombre, sector, ubicacion_general, tamano_aprox), proyecto:proyecto_id(nombre)'
     )
     .eq('id', visitaId)
     .single();
@@ -419,6 +420,7 @@ Deno.serve(async (req) => {
   }
   const visita = visitaData as unknown as VisitaRow;
   const clienteInfo = visita.cliente;
+  const proyectoInfo = visita.proyecto;
 
   const [
     { data: capturasData },
@@ -713,7 +715,8 @@ Deno.serve(async (req) => {
       margin: [0, 40, 0, 0],
       stack: [
         { text: 'INFORME DE VISITA', fontSize: 10, bold: true, color: COLOR.ink400, characterSpacing: 1 },
-        { text: clienteInfo?.nombre ?? 'Cliente', fontSize: 27, bold: true, color: COLOR.brand700, margin: [0, 4, 0, 8] },
+        { text: clienteInfo?.nombre ?? 'Cliente', fontSize: 27, bold: true, color: COLOR.brand700, margin: [0, 4, 0, 4] },
+        { text: 'Proyecto · ' + (proyectoInfo?.nombre ?? '—'), fontSize: 10.5, bold: true, color: COLOR.brand600, margin: [0, 0, 0, 8] },
         metaCliente ? { text: metaCliente, fontSize: 10.5, color: COLOR.ink700 } : null,
         { text: `${frasesVisita} · ${fechaLarga(visita.fecha)}${lineaHora}`, fontSize: 12, bold: true, margin: [0, 18, 0, 0] },
         lineaHistorico ? { text: lineaHistorico, fontSize: 10, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
