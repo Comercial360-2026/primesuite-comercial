@@ -7,6 +7,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Icono } from '@/components/ui/iconos';
 
 interface Sector {
   id: string;
@@ -26,6 +27,7 @@ interface Sector {
 export function GestionarSectores() {
   const queryClient = useQueryClient();
   const [nuevo, setNuevo] = useState('');
+  const [creando, setCreando] = useState(false);
   const [renombrando, setRenombrando] = useState<string | null>(null);
   const [borrador, setBorrador] = useState('');
   const [seleccionando, setSeleccionando] = useState(false);
@@ -80,8 +82,14 @@ export function GestionarSectores() {
         const { error } = await supabase.from('sector').insert({ nombre, orden: ordenMax + 10 });
         if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ya existe ese sector.' : error.message);
       },
-      { onExito: () => { setNuevo(''); refrescar(); } }
+      { onExito: () => { setNuevo(''); setCreando(false); refrescar(); } }
     );
+  }
+
+  function cerrarCrear() {
+    setCreando(false);
+    setNuevo('');
+    alta.limpiarError();
   }
 
   async function renombrar(id: string) {
@@ -119,34 +127,67 @@ export function GestionarSectores() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Sectores" volverA="/yo" ayuda="gestionar-sectores" />
-
-      <div className="lista-agrupada">
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Añadir sector</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="field"
-              value={nuevo}
-              onChange={(e) => setNuevo(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') anadir(); }}
-              placeholder="p. ej. Automoción"
-            />
+      <CabeceraDetalle
+        titulo="Sectores"
+        volverA="/yo"
+        ayuda="gestionar-sectores"
+        derecha={
+          !creando && !seleccionando ? (
             <button
               type="button"
-              className="btn btn-primary"
-              style={{ width: 'auto', padding: '0 16px', flexShrink: 0 }}
-              disabled={alta.cargando || !nuevo.trim()}
-              onClick={anadir}
+              className="boton-icono"
+              aria-label="Añadir sector"
+              title="Añadir sector"
+              onClick={() => { setCreando(true); alta.limpiarError(); }}
             >
-              Añadir
+              <Icono nombre="mas" size={18} />
             </button>
+          ) : undefined
+        }
+      />
+
+      <div className="lista-agrupada">
+        {creando && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Nuevo sector</div>
+            <input
+              className="field"
+              autoFocus
+              value={nuevo}
+              onChange={(e) => setNuevo(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') anadir();
+                if (e.key === 'Escape') cerrarCrear();
+              }}
+              placeholder="p. ej. Automoción"
+            />
+            {alta.error && <div className="field-error-text" style={{ marginTop: 8 }}>{alta.error}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={alta.cargando}
+                onClick={cerrarCrear}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={alta.cargando || !nuevo.trim()}
+                onClick={anadir}
+              >
+                {alta.cargando ? 'Añadiendo…' : 'Añadir'}
+              </button>
+            </div>
           </div>
-          {alta.error && <div className="field-error-text" style={{ marginTop: 8 }}>{alta.error}</div>}
-        </div>
+        )}
 
         {isLoading && <EstadoLista estado="cargando" />}
         {isError && <EstadoLista estado="error" mensaje="No se pudo cargar el catálogo." onReintentar={refetch} />}
+        {!isLoading && !isError && !creando && !sectores?.length && (
+          <EstadoLista estado="vacio" mensaje="Aún no hay sectores. Añade el primero con «+»." />
+        )}
 
         {!!sectores?.length && (
           <div>

@@ -291,7 +291,7 @@ const _PANTALLAS = {
     queEs:
       'La lista de sectores que aparece en el desplegable de «Editar datos» de la ficha de cliente. Solo la ve y la toca Dirección Comercial.',
     cuando:
-      'Cuando falta un sector o sobra uno. Pulsa «Seleccionar», marca uno o varios y elige: «Renombrar» (solo uno) cambia cómo se llama en el desplegable; «Ocultar» lo saca del desplegable sin borrarlo y «Restaurar» lo devuelve. Nada de esto cambia los clientes que ya tenían ese sector escrito.',
+      'Cuando falta un sector o sobra uno. Con «+» (arriba a la derecha) añades uno nuevo. Para cambiar los que hay, pulsa «Seleccionar», marca uno o varios y elige: «Renombrar» (solo uno) cambia cómo se llama en el desplegable; «Ocultar» lo saca del desplegable sin borrarlo y «Restaurar» lo devuelve. Nada de esto cambia los clientes que ya tenían ese sector escrito.',
     soloDireccion: true,
   },
   'solicitudes-reasignacion': {
