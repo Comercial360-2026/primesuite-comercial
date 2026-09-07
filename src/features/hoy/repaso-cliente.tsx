@@ -17,6 +17,7 @@ import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 
@@ -439,6 +440,9 @@ export function RepasoCliente() {
           clienteNombre={cliente?.nombre}
           proyectos={proyectosCliente}
           proyectoInicial={proyectosCliente?.[0]?.id}
+          onCrearProyecto={
+            clienteId ? (nombreProy) => crearProyectoRapido(clienteId, nombreProy, encolar) : undefined
+          }
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
         />

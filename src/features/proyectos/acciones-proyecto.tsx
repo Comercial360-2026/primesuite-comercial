@@ -6,6 +6,7 @@ import { haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -147,6 +148,12 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
           clienteNombre={clienteNombre}
           proyectos={proyectos}
           proyectoInicial={proyectoId}
+          // Solo desde la ficha de cliente (que pasa `proyectos`) se ofrece
+          // crear una línea de negocio nueva; desde la ficha de UN proyecto,
+          // la visita va a ese proyecto.
+          onCrearProyecto={
+            proyectos ? (nombre) => crearProyectoRapido(clienteId, nombre, encolar) : undefined
+          }
           onConfirmar={iniciarVisitaAdHoc}
           onCerrar={() => setObjetivoAdHocAbierto(false)}
         />

@@ -15,6 +15,7 @@ import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
 import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
 // El alta crea cliente + primer proyecto: con red, en una transacción vía la
@@ -416,6 +417,11 @@ export function AltaRapidaCliente() {
           }
           proyectos={objetivoModal.modo === 'existente' ? proyectosExistente : undefined}
           proyectoInicial={proyectosExistente?.[0]?.id}
+          onCrearProyecto={
+            objetivoModal.modo === 'existente'
+              ? (nombreProy) => crearProyectoRapido(objetivoModal.clienteId, nombreProy, encolar)
+              : undefined
+          }
           onConfirmar={arrancarConObjetivo}
           onCerrar={() => setObjetivoModal(null)}
         />
