@@ -607,7 +607,7 @@ export function FichaCliente() {
                   <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
                 ))}
               {ecosistema.length > ECO_VISIBLE && (
-                <button type="button" className="btn-enlace" onClick={() => setEcoTodos((v) => !v)}>
+                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
                   {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
                 </button>
               )}

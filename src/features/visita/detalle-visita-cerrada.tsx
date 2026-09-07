@@ -352,17 +352,18 @@ export function DetalleVisitaCerrada() {
           {!sinNada && (
             <div className="dvc-bloque dvc-bloque--resumen">
               <div
-                style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
               >
                 <div className="dvc-bloque__lb">Resumen</div>
                 {puedeEditarResumen && !editandoResumen && (
                   <button
                     type="button"
-                    className="btn-enlace"
-                    style={{ padding: 0, fontSize: 'var(--text-xs)' }}
+                    className="boton-icono"
+                    aria-label={data.resumen_texto ? 'Editar resumen' : 'Escribir resumen'}
+                    title={data.resumen_texto ? 'Editar resumen' : 'Escribir resumen'}
                     onClick={abrirEditarResumen}
                   >
-                    {data.resumen_texto ? 'Editar' : 'Escribir resumen'}
+                    <Icono nombre="editar" size={16} />
                   </button>
                 )}
               </div>
