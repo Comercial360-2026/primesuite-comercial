@@ -185,6 +185,7 @@ export function DetalleVisitaPlanificada() {
                 icono="clientes"
                 titulo={data.cliente_nombre}
                 to={`/clientes/${data.cliente_id}`}
+                state={desde(location)}
               />
               <FilaDato
                 etiqueta="Fecha"

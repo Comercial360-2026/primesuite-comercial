@@ -44,6 +44,26 @@ export function PlanificarVisita() {
 
   const [clienteId, setClienteId] = useState(params.get('clienteId') ?? '');
   const [proyectoId, setProyectoId] = useState(params.get('proyectoId') ?? '');
+  // Lo que vino fijado por la URL (deep link desde una ficha) no es un "paso"
+  // que se eligiera aquí: el ← no debe des-hacerlo, sale directo.
+  const clienteFijado = !!params.get('clienteId');
+  const proyectoFijado = !!params.get('proyectoId');
+
+  // El ← de una pantalla-asistente retrocede DE PASO, no sale de golpe:
+  //   paso 3 (¿cuándo?) → paso 2 (¿qué proyecto?) → paso 1 (¿qué cliente?) → salir.
+  // Solo sale del todo desde el primer paso visible (o si todo vino fijado).
+  function alVolver() {
+    if (clienteId && proyectoId && !proyectoFijado) {
+      setProyectoId('');
+      return;
+    }
+    if (clienteId && !clienteFijado) {
+      setClienteId('');
+      setProyectoId('');
+      return;
+    }
+    navigate(volver);
+  }
 
   // --- Paso 1: buscar cliente ---
   const [busqueda, setBusqueda] = useState('');
@@ -281,7 +301,7 @@ export function PlanificarVisita() {
             : undefined
         }
         ayuda="planificar-visita"
-        volverA={volver}
+        onVolver={alVolver}
       />
 
       <div className="lista-agrupada">
