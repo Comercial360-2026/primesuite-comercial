@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { EstadoLista } from '@/components/ui/estado-lista';
 
@@ -15,7 +15,6 @@ interface RequireSessionProps {
 // la comprobación pantalla por pantalla.
 export function RequireSession({ children }: RequireSessionProps) {
   const { comercial, cargando } = useSesionActual();
-  const location = useLocation();
 
   // Antes devolvía `null` — la app se quedaba en blanco, sin ninguna
   // señal, mientras resolvía la sesión (auth + fila de comercial).
@@ -27,7 +26,9 @@ export function RequireSession({ children }: RequireSessionProps) {
     );
   }
   if (!comercial) {
-    return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
+    // Sin recordar de dónde venía: al volver a entrar se aterriza siempre
+    // en Hoy (ver login.tsx).
+    return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
 }
