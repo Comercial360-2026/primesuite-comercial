@@ -1765,8 +1765,17 @@ export function VisitaActiva() {
               (() => {
                 const c = cuentaZona(zonaGestion);
                 return (
-                  <div className="card" style={{ marginTop: 4 }}>
-                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>
+                  <div className="card" style={{ marginTop: 4, position: 'relative' }}>
+                    <button
+                      type="button"
+                      className="hoja-cerrar"
+                      aria-label="Cerrar"
+                      style={{ position: 'absolute', top: 4, right: 6 }}
+                      onClick={cerrarGestionZona}
+                    >
+                      ×
+                    </button>
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, paddingRight: 24 }}>
                       «{zonaGestion}»{' '}
                       <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>
                         · {c.total} cosa{c.total === 1 ? '' : 's'}
@@ -1774,42 +1783,32 @@ export function VisitaActiva() {
                     </div>
 
                     {zonaGestionModo === 'menu' && (
-                      <>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => setZonaGestionModo('renombrar')}
-                          >
-                            Renombrar la zona
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            disabled={borrandoZona}
-                            onClick={() => void pasarZonaAGeneral(zonaGestion)}
-                          >
-                            {borrandoZona ? 'Cambiando…' : 'Pasar todo a «General»'}
-                          </button>
-                          {c.mio > 0 && (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-secondary--riesgo"
-                              onClick={() => setZonaGestionModo('borrar')}
-                            >
-                              Borrar {c.mio} cosa{c.mio === 1 ? '' : 's'} mía{c.mio === 1 ? '' : 's'} de esta zona
-                            </button>
-                          )}
-                        </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                         <button
                           type="button"
-                          className="btn-enlace"
-                          style={{ marginTop: 8 }}
-                          onClick={cerrarGestionZona}
+                          className="btn btn-secondary"
+                          onClick={() => setZonaGestionModo('renombrar')}
                         >
-                          Cancelar
+                          Renombrar la zona
                         </button>
-                      </>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={borrandoZona}
+                          onClick={() => void pasarZonaAGeneral(zonaGestion)}
+                        >
+                          {borrandoZona ? 'Cambiando…' : 'Pasar todo a «General»'}
+                        </button>
+                        {c.mio > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-secondary--riesgo"
+                            onClick={() => setZonaGestionModo('borrar')}
+                          >
+                            Borrar {c.mio} cosa{c.mio === 1 ? '' : 's'} mía{c.mio === 1 ? '' : 's'} de esta zona
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {zonaGestionModo === 'renombrar' && (
