@@ -135,8 +135,15 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
   const idsYaParticipantes = new Set(participantes.map((p) => p.comercial_id));
   const rechazadosSet = new Set(rechazadosVisita ?? []);
   const expulsadosSet = new Set(expulsadosVisita ?? []);
-  const candidatos = comercialesActivos
-    ?.filter((c) => !idsYaParticipantes.has(c.id) && c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+  // El resto del equipo (no participantes de esta visita). Se ven SIEMPRE
+  // al entrar (lista); al pulsar "+" salen con casilla para elegir a quién
+  // añadir. El buscador solo filtra en modo añadir.
+  const otrosDelEquipo = comercialesActivos
+    ?.filter(
+      (c) =>
+        !idsYaParticipantes.has(c.id) &&
+        (!modoAñadir || c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+    )
     .map((c) => ({ ...c, rechazoPrevio: rechazadosSet.has(c.id), expulsadoPrevio: expulsadosSet.has(c.id) }));
 
   // Para no dejar que alguien mande la misma solicitud varias veces sin
@@ -367,10 +374,14 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
           )}
         </div>
 
-        {puedeAñadir && modoAñadir ? (
+        {/* Resto del equipo. Al entrar: lista (para ver quién hay). Con "+":
+            casilla en cada uno para elegir a quién añadir. */}
+        {comercialesActivos != null && (otrosDelEquipo?.length || modoAñadir) ? (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--ink-100)', paddingTop: 12 }}>
-            <div className="label" style={{ marginTop: 0 }}>Añadir al equipo — marca a quién</div>
-            {buscador.abierto && (
+            <div className="label" style={{ marginTop: 0 }}>
+              {modoAñadir ? 'Añadir al equipo — marca a quién' : 'Resto del equipo'}
+            </div>
+            {modoAñadir && buscador.abierto && (
               <div style={{ marginBottom: 6 }}>
                 <CampoBuscar
                   value={busqueda}
@@ -383,10 +394,21 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                 />
               </div>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {candidatos?.map((c) => {
-                const marcado = seleccionados.has(c.id);
+            <div style={{ display: 'flex', flexDirection: 'column', gap: modoAñadir ? 2 : 4 }}>
+              {otrosDelEquipo?.map((c) => {
                 const nota = c.expulsadoPrevio ? 'expulsado · se reinvita' : c.rechazoPrevio ? 'rechazó · se reinvita' : null;
+                if (!modoAñadir) {
+                  return (
+                    <div
+                      key={c.id}
+                      style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', padding: '4px 0' }}
+                    >
+                      {c.nombre}
+                      {nota && <span style={{ fontSize: 'var(--text-xs)' }}> · {nota}</span>}
+                    </div>
+                  );
+                }
+                const marcado = seleccionados.has(c.id);
                 return (
                   <button
                     key={c.id}
@@ -404,29 +426,33 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                   </button>
                 );
               })}
-              {busqueda.trim() && candidatos?.length === 0 && (
+              {modoAñadir && busqueda.trim() && otrosDelEquipo?.length === 0 && (
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Sin coincidencias.</span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button type="button" className="btn btn-secondary" onClick={salirModoAñadir} disabled={añadiendoLote}>
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={seleccionados.size === 0 || añadiendoLote}
-                onClick={añadirSeleccionados}
-              >
-                {añadiendoLote
-                  ? 'Añadiendo…'
-                  : seleccionados.size > 0
-                    ? `Añadir ${seleccionados.size}`
-                    : 'Añadir'}
-              </button>
-            </div>
+            {modoAñadir && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button type="button" className="btn btn-secondary" onClick={salirModoAñadir} disabled={añadiendoLote}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={seleccionados.size === 0 || añadiendoLote}
+                  onClick={añadirSeleccionados}
+                >
+                  {añadiendoLote
+                    ? 'Añadiendo…'
+                    : seleccionados.size > 0
+                      ? `Añadir ${seleccionados.size}`
+                      : 'Añadir'}
+                </button>
+              </div>
+            )}
           </div>
-        ) : puedeAñadir ? null : solicitudPropia || solicitudEnviada ? (
+        ) : null}
+
+        {puedeAñadir ? null : solicitudPropia || solicitudEnviada ? (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 12 }}>
             Ya has pedido ayuda con esta visita — Dirección Comercial lo verá en su lista de pendientes.
           </div>
