@@ -153,7 +153,7 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre. Las oportunidades abiertas solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
   },
 
   // — Una visita, paso a paso —

@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { haceRelativo } from '@/lib/fechas';
+import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -24,6 +25,7 @@ export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { comercial } = useSesionActual();
   // ← vuelve a donde se vino (ficha de cliente, actividad de Dirección…) o,
   // si no consta, a la ficha del cliente.
   const volver = useVolverA(`/clientes/${clienteId}`);
@@ -70,6 +72,96 @@ export function FichaProyecto() {
       return { total: count ?? 0, ultima: ultima?.fecha ?? null };
     },
   });
+
+  // Puerta al "Terminar": no se deja terminar un proyecto que aún tiene
+  // trabajo vivo. Visitas planificadas o en curso del proyecto — hay que
+  // moverlas a otro proyecto o cancelarlas antes.
+  const estadoActualProyecto = proyecto?.estado ?? 'activo';
+  const { data: visitasVivas } = useQuery({
+    queryKey: ['visitas-vivas-proyecto', proyectoId],
+    enabled: !!proyectoId && estadoActualProyecto !== 'terminado',
+    queryFn: async (): Promise<
+      Array<{ id: string; objetivo: string | null; fecha: string; estado_captura: string }>
+    > => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, objetivo, fecha, estado_captura')
+        .eq('proyecto_id', proyectoId!)
+        .in('estado_captura', ['agendada', 'en_curso'])
+        .order('fecha', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // El responsable vive en visita_participante (rol 'responsable'), no en la
+  // tabla `visita` — mismo patrón que la Agenda.
+  const idsVivas = (visitasVivas ?? []).map((v) => v.id);
+  const { data: responsablesVivas } = useQuery({
+    queryKey: ['responsables-visitas-vivas', idsVivas.join(',')],
+    enabled: idsVivas.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('visita_id, comercial_id')
+        .eq('rol', 'responsable')
+        .in('visita_id', idsVivas);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((p) => [p.visita_id, p.comercial_id]));
+    },
+  });
+  const { data: nombresComerciales } = useQuery({
+    queryKey: ['nombres-comerciales'],
+    enabled: idsVivas.length > 0,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.from('comercial').select('id, nombre');
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+
+  // Oportunidades abiertas del proyecto — solo AVISAN al terminar, no bloquean.
+  const { data: oportunidadesAbiertas } = useQuery({
+    queryKey: ['oportunidades-abiertas-proyecto', proyectoId],
+    enabled: !!proyectoId && estadoActualProyecto !== 'terminado',
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('oportunidad')
+        .select('id', { count: 'exact', head: true })
+        .eq('proyecto_id', proyectoId!)
+        .not('etapa', 'in', '(ganada,perdida,descartada)');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Mientras cualquiera de estas consultas no ha resuelto no se sabe si hay
+  // trabajo vivo — nunca terminar "directo" en esa ventana (se abriría la
+  // puerta con el botón bloqueado hasta saberlo).
+  const comprobandoTrabajoVivo =
+    visitasVivas === undefined ||
+    oportunidadesAbiertas === undefined ||
+    (idsVivas.length > 0 && (responsablesVivas === undefined || nombresComerciales === undefined));
+
+  const [puerta, setPuerta] = useState(false);
+
+  // Refresca todo lo que un mover/cancelar de visita toca (proyecto origen y
+  // destino, ficha de cliente).
+  function refrescarTrasMoverVisita() {
+    for (const clave of [
+      ['visitas-vivas-proyecto'],
+      ['resumen-visitas-proyecto'],
+      ['historial-visitas-proyecto'],
+      ['historial-visitas-cliente', clienteId],
+      ['oportunidades-activas-proyecto'],
+      ['oportunidades-abiertas-proyecto'],
+      ['proximos-pasos-proyecto'],
+      ['hallazgos-proyecto'],
+      ['proyectos-cliente', clienteId],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: clave });
+    }
+  }
 
   // Renombrar (lápiz de la cabecera) — UPDATE directo, requiere conexión,
   // igual que "Editar datos" del cliente.
@@ -140,6 +232,35 @@ export function FichaProyecto() {
         onExito: () => queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] }),
       }
     );
+  }
+
+  // Una visita EN CURSO de otro comercial no se puede cancelar desde aquí:
+  // bloquea el "Terminar" hasta que esa visita se cierre.
+  const visitaBloqueante = (visitasVivas ?? []).find(
+    (v) =>
+      v.estado_captura === 'en_curso' &&
+      !!responsablesVivas?.[v.id] &&
+      responsablesVivas[v.id] !== comercial?.id
+  );
+
+  function pulsarTerminar() {
+    if (cambioEstado.cargando || puerta) return;
+    cambioEstado.limpiarError();
+    // Sin trabajo vivo ni oportunidades abiertas Y con las comprobaciones ya
+    // resueltas → terminar directo, como antes.
+    if (
+      !comprobandoTrabajoVivo &&
+      (visitasVivas?.length ?? 0) === 0 &&
+      (oportunidadesAbiertas ?? 0) === 0
+    ) {
+      cambiarEstado('terminado');
+      return;
+    }
+    if (!navigator.onLine) {
+      cambioEstado.establecerError('Necesitas conexión para terminar el proyecto.');
+      return;
+    }
+    setPuerta(true);
   }
 
   async function confirmarBorrado() {
@@ -237,8 +358,8 @@ export function FichaProyecto() {
               key={ac.a}
               type="button"
               className="chip"
-              disabled={cambioEstado.cargando}
-              onClick={() => cambiarEstado(ac.a)}
+              disabled={cambioEstado.cargando || (ac.a === 'terminado' && puerta)}
+              onClick={() => (ac.a === 'terminado' ? pulsarTerminar() : cambiarEstado(ac.a))}
             >
               {ac.etiqueta}
             </button>
@@ -249,6 +370,28 @@ export function FichaProyecto() {
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
           </div>
+        )}
+
+        {puerta && (
+          <PuertaTerminarProyecto
+            visitas={visitasVivas ?? []}
+            responsables={responsablesVivas ?? {}}
+            nombresComerciales={nombresComerciales ?? {}}
+            visitaBloqueante={visitaBloqueante}
+            oportunidadesAbiertas={oportunidadesAbiertas ?? 0}
+            destinos={destinosBorrado}
+            comprobando={comprobandoTrabajoVivo}
+            cerrando={cambioEstado.cargando}
+            onMovida={refrescarTrasMoverVisita}
+            onCancelar={() => {
+              setPuerta(false);
+              cambioEstado.limpiarError();
+            }}
+            onTerminar={async () => {
+              await cambiarEstado('terminado');
+              setPuerta(false);
+            }}
+          />
         )}
 
         {editandoNombre && (
@@ -337,6 +480,257 @@ export function FichaProyecto() {
           proyectoId={proyectoId}
           clienteNombre={cliente?.nombre}
         />
+      )}
+    </div>
+  );
+}
+
+interface VisitaViva {
+  id: string;
+  objetivo: string | null;
+  fecha: string;
+  estado_captura: string;
+}
+
+// Card inline al pulsar "Terminar" cuando el proyecto aún tiene visitas vivas
+// u oportunidades abiertas. No navega fuera. El botón "Terminar proyecto" solo
+// se habilita cuando la lista de visitas está vacía (todas movidas o
+// canceladas). Las oportunidades abiertas solo avisan.
+function PuertaTerminarProyecto({
+  visitas,
+  responsables,
+  nombresComerciales,
+  visitaBloqueante,
+  oportunidadesAbiertas,
+  destinos,
+  comprobando,
+  cerrando,
+  onMovida,
+  onCancelar,
+  onTerminar,
+}: {
+  visitas: VisitaViva[];
+  responsables: Record<string, string>;
+  nombresComerciales: Record<string, string>;
+  visitaBloqueante?: VisitaViva;
+  oportunidadesAbiertas: number;
+  destinos: Array<{ id: string; nombre: string }>;
+  comprobando: boolean;
+  cerrando: boolean;
+  onMovida: () => void;
+  onCancelar: () => void;
+  onTerminar: () => void;
+}) {
+  const pendientes = visitas.length;
+
+  return (
+    <div className="card">
+      <div className="label" style={{ marginTop: 0 }}>Terminar el proyecto</div>
+
+      {visitaBloqueante ? (
+        <>
+          <p style={{ margin: '0 0 10px', fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+            Hay una visita en curso de{' '}
+            <strong>
+              {nombresComerciales[responsables[visitaBloqueante.id]] ?? 'otro comercial'}
+            </strong>
+            . Espera a que se cierre para terminar el proyecto.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-secondary" onClick={onCancelar}>
+              Entendido
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {pendientes > 0 && (
+            <>
+              <p style={{ margin: '0 0 8px', fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+                Este proyecto tiene {pendientes} visita{pendientes === 1 ? '' : 's'} sin resolver.
+                Muévelas a otro proyecto o cancélalas para poder terminarlo.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                {visitas.map((v) => (
+                  <FilaVisitaViva
+                    key={v.id}
+                    visita={v}
+                    destinos={destinos}
+                    onResuelta={onMovida}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {oportunidadesAbiertas > 0 && (
+            <div
+              style={{
+                display: 'flex', gap: 6, alignItems: 'flex-start',
+                fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 10,
+              }}
+            >
+              <Icono nombre="atencion" size={13} />
+              <span>
+                {oportunidadesAbiertas} oportunidad{oportunidadesAbiertas === 1 ? '' : 'es'} abierta
+                {oportunidadesAbiertas === 1 ? '' : 's'}: seguirán en la lista de oportunidades y en
+                el pipeline. Terminar el proyecto no las cierra.
+              </span>
+            </div>
+          )}
+
+          {comprobando && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
+              Comprobando visitas y oportunidades pendientes…
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-secondary" disabled={cerrando} onClick={onCancelar}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={cerrando || comprobando || pendientes > 0}
+              onClick={onTerminar}
+            >
+              {cerrando ? 'Terminando…' : 'Terminar proyecto'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Una visita viva dentro de la puerta: moverla a otro proyecto del cliente o
+// cancelarla (borrarla). Al resolverse, el padre refresca y la fila desaparece.
+function FilaVisitaViva({
+  visita,
+  destinos,
+  onResuelta,
+}: {
+  visita: VisitaViva;
+  destinos: Array<{ id: string; nombre: string }>;
+  onResuelta: () => void;
+}) {
+  const [destino, setDestino] = useState(destinos[0]?.id ?? '');
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  const mover = useAccionAsync();
+  const cancelar = useAccionAsync();
+  const enCurso = visita.estado_captura === 'en_curso';
+  const ocupado = mover.cargando || cancelar.cargando;
+
+  async function hacerMover() {
+    if (!destino) return;
+    await mover.ejecutar(
+      async () => {
+        const { error } = await supabase.rpc('mover_visita_de_proyecto', {
+          p_visita_id: visita.id,
+          p_proyecto_id: destino,
+        });
+        if (error) throw new Error(error.message);
+      },
+      { onExito: onResuelta }
+    );
+  }
+
+  async function hacerCancelar() {
+    await cancelar.ejecutar(
+      async () => {
+        const { error } = await supabase.rpc('eliminar_visita_completa', {
+          p_visita_id: visita.id,
+        });
+        if (error) throw new Error(error.message);
+      },
+      { onExito: onResuelta }
+    );
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--ink-200)',
+        borderRadius: 'var(--radius-field)',
+        padding: 10,
+      }}
+    >
+      <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-900)' }}>
+        {visita.objetivo?.trim() || 'Visita sin objetivo'}
+      </div>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
+        {enCurso ? 'en curso' : 'planificada'} · {fechaCorta(visita.fecha)}
+      </div>
+
+      {confirmandoCancelar ? (
+        <div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-700)', marginBottom: 6 }}>
+            {enCurso
+              ? 'Se borra la visita en curso y todo lo capturado en ella. No se puede deshacer.'
+              : 'Se borra la visita planificada. No se puede deshacer.'}
+          </div>
+          {cancelar.error && <div className="field-error-text">{cancelar.error}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={ocupado}
+              onClick={() => setConfirmandoCancelar(false)}
+            >
+              No
+            </button>
+            <button
+              type="button"
+              className="btn btn-peligro"
+              disabled={ocupado}
+              onClick={hacerCancelar}
+            >
+              {cancelar.cargando ? 'Cancelando…' : 'Sí, cancelar la visita'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <select
+            className="field"
+            style={{ marginBottom: 6 }}
+            value={destino}
+            disabled={ocupado || destinos.length === 0}
+            onChange={(e) => setDestino(e.target.value)}
+          >
+            {destinos.length === 0 ? (
+              <option value="">No hay otro proyecto</option>
+            ) : (
+              destinos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))
+            )}
+          </select>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              disabled={ocupado || !destino}
+              onClick={hacerMover}
+            >
+              {mover.cargando ? 'Moviendo…' : 'Mover'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              disabled={ocupado}
+              onClick={() => setConfirmandoCancelar(true)}
+            >
+              Cancelar visita
+            </button>
+          </div>
+          {mover.error && <div className="field-error-text">{mover.error}</div>}
+        </>
       )}
     </div>
   );
