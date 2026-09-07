@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { desde } from '@/lib/volver-a';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
@@ -18,7 +19,8 @@ export function LayoutShell() {
   // El banner es un atajo de vuelta a la visita: sobra cuando ya estás
   // dentro de ella (la cabecera de esa pantalla ya dice "Visita en curso")
   // y en su pantalla de cierre/resumen (1.6 del recorrido de revisión).
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const dentroDeLaVisita =
     !!visitaEnCurso &&
     (pathname === `/visita/${visitaEnCurso.id}` ||
@@ -42,7 +44,11 @@ export function LayoutShell() {
         // Link (no <a href>): navegación SPA. Con <a href> se recargaba la
         // PWA entera en mitad de una visita — lento y se perdía el estado
         // en memoria.
-        <Link to={`/visita/${visitaEnCurso.id}`} className="visita-en-curso-banner">
+        <Link
+          to={`/visita/${visitaEnCurso.id}`}
+          state={desde(location)}
+          className="visita-en-curso-banner"
+        >
           Visita en curso con {visitaEnCurso.clienteNombre}
         </Link>
       ) : !visitaEnCurso ? (

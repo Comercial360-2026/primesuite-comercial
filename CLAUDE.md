@@ -53,6 +53,34 @@ Estas reglas son de cumplimiento estricto y prevalecen sobre cualquier otra paut
    Sin ese texto literal no hay autorización. Un "ya está bien", "adelante", "mergea",
    "súbelo" o similar **no** cuenta.
 
+## Método al corregir un bug (obligatorio, sin que se pida)
+
+Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
+
+1. **Identificar la CLASE del bug**, no la instancia. «El ← de la visita en
+   curso va a Hoy en vez de a donde vengo» → clase: *navegación atrás que
+   ignora el origen*.
+2. **Barrer toda la app** buscando esa clase (grep de los antipatrones,
+   revisar componentes hermanos). Dejar la lista de sitios afectados por
+   escrito en el prompt maestro / doc de la tarea.
+3. **Arreglar TODOS los sitios en la misma tanda.** No «uno por PR», no
+   «esto en otro pase». Si un sitio se deja a propósito, se anota por qué.
+4. **Añadir la regla a este fichero o a `docs/` si es recurrente**, para que
+   se aplique siempre en el futuro sin recordárnoslo. La memoria de Claude no
+   cuenta como sitio donde apuntarlo: tiene que estar en el repo.
+
+### Reglas de este tipo ya fijadas
+
+- **Navegación atrás (Regla #14 del modelo UI).** El ← de una pantalla
+  **nunca** es `navigate(-1)`. Quien navega a un detalle estampa el origen
+  (`state={desde(location)}` en `<Link>`, o `navigate(destino, { state:
+  desde(location) })`), y el destino hace `const volver = useVolverA('/ruta-
+  fallback-viva')` + `onVolver={() => navigate(volver)}` / `volverA={volver}`.
+  Un `volverA="/ruta-fija"` solo vale si esa pantalla **solo** se alcanza
+  desde un sitio. Al tocar cualquier pantalla de detalle o cualquier fila que
+  navega a una, comprobar que estampa origen y que el destino usa
+  `useVolverA`. Detalle en `src/lib/volver-a.ts`.
+
 ## Despliegue (Netlify)
 
 | Concepto                  | Valor                                                     |

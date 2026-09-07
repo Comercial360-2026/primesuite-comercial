@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { haceRelativo } from '@/lib/fechas';
+import { desde } from '@/lib/volver-a';
 import { Icono } from '@/components/ui/iconos';
 import { useVisitasSinCerrar } from '@/hooks/use-visitas-sin-cerrar';
 
@@ -15,6 +16,7 @@ export function AvisoVisitasSinCerrar({
   proyectoId?: string;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data } = useVisitasSinCerrar({ clienteId, proyectoId });
   if (!data || data.total === 0) return null;
 
@@ -40,7 +42,11 @@ export function AvisoVisitasSinCerrar({
       </span>
       <button
         type="button"
-        onClick={() => navigate(una && data.primeraId ? `/visita/${data.primeraId}` : '/')}
+        onClick={() =>
+          navigate(una && data.primeraId ? `/visita/${data.primeraId}` : '/', {
+            state: desde(location),
+          })
+        }
         style={{
           flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
           color: 'var(--brand-600)', font: 'inherit', fontSize: 'var(--text-xs)',

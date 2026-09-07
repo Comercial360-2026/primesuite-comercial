@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -63,11 +64,30 @@ export function PlanificarVisita() {
     queryKey: ['planificar-cliente-nombre', clienteId],
     enabled: !!clienteId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('cliente').select('id, nombre').eq('id', clienteId).single();
+      const { data, error } = await supabase
+        .from('cliente')
+        .select('id, nombre, responsable_id, responsable:responsable_id(nombre)')
+        .eq('id', clienteId)
+        .single();
       if (error) throw error;
-      return data;
+      return data as unknown as {
+        id: string;
+        nombre: string;
+        responsable_id: string | null;
+        responsable: { nombre: string } | null;
+      };
     },
   });
+
+  // Cliente de otro comercial: se puede visitar igualmente, pero se avisa y
+  // se pide confirmar antes de arrancar (la visita queda a nombre de quien
+  // la abre). Dirección con el selector «Para» de «Otro día» ya elige.
+  const clienteDeOtro =
+    !!cliente?.responsable_id && !!comercial && cliente.responsable_id !== comercial.id
+      ? cliente.responsable?.nombre ?? 'otro comercial'
+      : null;
+  const [confirmadoDeOtro, setConfirmadoDeOtro] = useState(false);
+  useEffect(() => setConfirmadoDeOtro(false), [clienteId]);
 
   // --- Paso 2: proyecto (solo si hay más de uno) ---
   const { data: proyectosTodos } = useQuery({
@@ -85,17 +105,11 @@ export function PlanificarVisita() {
   });
 
   // Un proyecto terminado es de solo consulta: no se le planifican visitas,
-  // así que no se ofrece aquí (el General nunca se filtra).
+  // así que no se ofrece aquí.
   const proyectos = useMemo(
     () => proyectosTodos?.filter((p) => p.estado !== 'terminado'),
     [proyectosTodos]
   );
-
-  // Un solo proyecto (el General por defecto): se elige solo, sin pedirlo —
-  // el comercial no debería ni verlo.
-  useEffect(() => {
-    if (!proyectoId && proyectos && proyectos.length === 1) setProyectoId(proyectos[0].id);
-  }, [proyectos, proyectoId]);
 
   // El `?proyectoId=` de la URL puede venir de un enlace viejo a un proyecto
   // ya terminado o borrado. Si no está entre los elegibles, se descarta y se
@@ -115,6 +129,12 @@ export function PlanificarVisita() {
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');
   const [comercialPlan, setComercialPlan] = useState('');
   const guardado = useAccionAsync();
+
+  // Paso 2 — «+ Nuevo proyecto»: crea una línea de negocio nueva sin salir
+  // del flujo y dirige la visita a ella.
+  const [creandoProyecto, setCreandoProyecto] = useState(false);
+  const [nombreProyectoNuevo, setNombreProyectoNuevo] = useState('');
+  const creacionProyecto = useAccionAsync();
 
   // Vía "Ahora" — misma que "Iniciar visita ahora" de la ficha de proyecto.
   const { iniciarVisita } = useVisitaActivaContext();
@@ -221,6 +241,32 @@ export function PlanificarVisita() {
     [proyectos, proyectoId]
   );
   const pasoProyecto = !!clienteId && !proyectoId;
+  // El cliente es de otro y aún no se ha confirmado seguir. Si Dirección
+  // asigna la visita a alguien con «Para» (vía «Otro día»), no aplica.
+  const bloqueadoPorOtro =
+    !!clienteDeOtro && !confirmadoDeOtro && !(cuando === 'otro' && !!comercialPlan);
+
+  async function crearProyectoYElegir() {
+    const nombre = nombreProyectoNuevo.trim();
+    if (!clienteId || !nombre) return;
+    await creacionProyecto.ejecutar(
+      () => crearProyectoRapido(clienteId, nombre, encolar),
+      {
+        onExito: (id) => {
+          // Se añade a la caché de la lista ANTES de elegirlo: si no, el
+          // efecto que descarta un `proyectoId` no listado lo borraría hasta
+          // que el refetch trajera la fila nueva (carrera).
+          queryClient.setQueryData<Proyecto[]>(['planificar-proyectos', clienteId], (old) => [
+            ...(old ?? []),
+            { id, nombre, estado: 'activo' },
+          ]);
+          setProyectoId(id);
+          setCreandoProyecto(false);
+          setNombreProyectoNuevo('');
+        },
+      }
+    );
+  }
 
   return (
     <div className="screen">
@@ -282,8 +328,10 @@ export function PlanificarVisita() {
           </div>
         )}
 
-        {/* Paso 2 — proyecto (solo si hay más de uno) */}
-        {pasoProyecto && proyectos && proyectos.length > 1 && (
+        {/* Paso 2 — proyecto. Siempre que haya cliente y no haya proyecto
+            elegido: se listan los proyectos vigentes y se puede crear uno
+            nuevo en el momento. */}
+        {pasoProyecto && proyectos && (
           <div className="card">
             <div className="label" style={{ marginTop: 0 }}>¿En qué proyecto?</div>
             <SeccionLista>
@@ -295,7 +343,51 @@ export function PlanificarVisita() {
                   chevron
                 />
               ))}
+              {!creandoProyecto && (
+                <FilaNavegable
+                  icono="mas"
+                  titulo="Nuevo proyecto"
+                  chevron={false}
+                  onClick={() => setCreandoProyecto(true)}
+                />
+              )}
             </SeccionLista>
+            {creandoProyecto && (
+              <div style={{ marginTop: 8 }}>
+                <input
+                  className={`field${creacionProyecto.error ? ' field--error' : ''}`}
+                  autoFocus
+                  value={nombreProyectoNuevo}
+                  onChange={(e) => setNombreProyectoNuevo(e.target.value)}
+                  placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"
+                />
+                {creacionProyecto.error && (
+                  <div className="field-error-text">{creacionProyecto.error}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={creacionProyecto.cargando}
+                    onClick={() => {
+                      setCreandoProyecto(false);
+                      setNombreProyectoNuevo('');
+                      creacionProyecto.limpiarError();
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={creacionProyecto.cargando || !nombreProyectoNuevo.trim()}
+                    onClick={crearProyectoYElegir}
+                  >
+                    {creacionProyecto.cargando ? 'Creando…' : 'Crear y seguir'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -320,6 +412,30 @@ export function PlanificarVisita() {
                 </button>
               ))}
             </div>
+
+            {clienteDeOtro && (
+              <div
+                className="card--riesgo"
+                style={{ padding: 10, borderRadius: 8, marginTop: 10, fontSize: 'var(--text-sm)' }}
+              >
+                <div style={{ color: 'var(--risk-600)', fontWeight: 500 }}>
+                  Este cliente es de {clienteDeOtro}.
+                </div>
+                <div style={{ color: 'var(--ink-500)', marginTop: 2 }}>
+                  Puedes visitarlo igualmente; la visita quedará a tu nombre.
+                </div>
+                {bloqueadoPorOtro && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setConfirmadoDeOtro(true)}
+                  >
+                    Sí, visitar de todas formas
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="label">Objetivo</div>
             <textarea
@@ -387,11 +503,18 @@ export function PlanificarVisita() {
                 <button
                   className="btn btn-primary"
                   style={{ marginTop: 12 }}
-                  disabled={guardado.cargando || !fecha || !objetivo.trim()}
+                  disabled={guardado.cargando || !fecha || !objetivo.trim() || bloqueadoPorOtro}
                   onClick={planificar}
                 >
                   {guardado.cargando ? 'Planificando…' : 'Planificar'}
                 </button>
+                {(!fecha || !objetivo.trim()) && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                    {!fecha
+                      ? 'Elige una fecha para continuar.'
+                      : 'Escribe a qué vas para continuar.'}
+                  </div>
+                )}
               </>
             )}
 
@@ -403,11 +526,16 @@ export function PlanificarVisita() {
                 <button
                   className="btn btn-primary"
                   style={{ marginTop: 12 }}
-                  disabled={arrancando || !objetivo.trim()}
+                  disabled={arrancando || !objetivo.trim() || bloqueadoPorOtro}
                   onClick={empezarAhora}
                 >
                   {arrancando ? 'Empezando…' : 'Empezar'}
                 </button>
+                {!objetivo.trim() && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                    Escribe a qué vas para continuar.
+                  </div>
+                )}
               </>
             )}
           </div>

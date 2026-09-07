@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
@@ -23,6 +24,9 @@ export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // ← vuelve a donde se vino (ficha de cliente, actividad de Dirección…) o,
+  // si no consta, a la ficha del cliente.
+  const volver = useVolverA(`/clientes/${clienteId}`);
 
   // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con más
   // columnas) — mismo cliente_id, forma de datos distinta; con la misma clave
@@ -203,7 +207,7 @@ export function FichaProyecto() {
         titulo={proyecto?.nombre ?? '…'}
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
-        volverA={`/clientes/${clienteId}`}
+        volverA={volver}
         derecha={
           <button
             type="button"

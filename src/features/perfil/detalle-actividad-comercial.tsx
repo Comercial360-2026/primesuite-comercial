@@ -1,8 +1,8 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { useVolverA } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -32,6 +32,7 @@ export function DetalleActividadComercial() {
   // comercial. El ← vuelve al origen (conservando su `?dias=`); si no
   // consta, a la lista.
   const volver = useVolverA('/actividad-comerciales');
+  const location = useLocation();
 
   function cambiarPeriodo(v: PeriodoActividad) {
     setSearchParams(v === 'todo' ? { dias: 'todo' } : {}, { replace: true });
@@ -115,6 +116,7 @@ export function DetalleActividadComercial() {
                   titulo={etiqueta}
                   subtitulo={metrica}
                   to={`/clientes/${p.cliente_id}/proyectos/${p.proyecto_id}`}
+                  state={desde(location)}
                 />
               );
             })}

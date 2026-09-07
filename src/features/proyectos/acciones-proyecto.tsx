@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { desde } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
 import { haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -33,6 +34,7 @@ interface Props {
 
 export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyectos }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
@@ -76,7 +78,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
       objetivo,
     });
     iniciarVisita({ id: visitaId, clienteNombre: clienteNombre ?? '' });
-    navigate(`/visita/${visitaId}`);
+    navigate(`/visita/${visitaId}`, { state: desde(location) });
   }
 
   return (

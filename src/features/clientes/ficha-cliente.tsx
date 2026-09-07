@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
@@ -45,6 +46,9 @@ interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // ← vuelve a donde se vino (listado, buscador, una visita…) o al listado.
+  const volver = useVolverA('/clientes');
   const { comercial } = useSesionActual();
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
@@ -288,7 +292,7 @@ export function FichaCliente() {
           setNombreProyecto('');
           queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
           if (enCola) return;
-          navigate(`/clientes/${clienteId}/proyectos/${id}`);
+          navigate(`/clientes/${clienteId}/proyectos/${id}`, { state: desde(location) });
         },
       }
     );
@@ -375,7 +379,7 @@ export function FichaCliente() {
         titulo={cliente?.nombre ?? '…'}
         ayuda="ficha-cliente"
         subtitulo={cliente?.sector || undefined}
-        volverA="/clientes"
+        volverA={volver}
         derecha={
           <>
             {clienteId && (
@@ -590,6 +594,7 @@ export function FichaCliente() {
                   p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined
                 }
                 to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                state={desde(location)}
               />
             ))}
             {proyectosTerminados.length > 0 && (
@@ -608,9 +613,13 @@ export function FichaCliente() {
               proyectosTerminados.map((p) => (
                 <FilaNavegable
                   key={p.id}
+                  icono="check-circulo"
                   titulo={p.nombre}
-                  subtitulo="terminado"
+                  valor="terminado"
+                  valorTenue
+                  densidad="compacta"
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                  state={desde(location)}
                 />
               ))}
           </SeccionLista>

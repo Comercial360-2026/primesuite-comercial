@@ -7,7 +7,7 @@ import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
-import { desde } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
@@ -263,6 +263,9 @@ export function VisitaActiva() {
   // Origen a estampar al abrir una captura/hallazgo/oportunidad o el
   // detalle de la visita: su ← vuelve a esta visita en curso (regla #14).
   const origen = desde(location);
+  // A dónde vuelve el ← de esta pantalla: de donde se vino (ficha de
+  // proyecto, de cliente, Agenda…) o, si no consta, Hoy.
+  const volver = useVolverA('/');
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
@@ -1280,7 +1283,7 @@ export function VisitaActiva() {
         <CabeceraDetalle
           titulo={cliente?.nombre ?? '…'}
           subtitulo="Visita cerrada"
-          onVolver={() => navigate('/')}
+          onVolver={() => navigate(volver)}
         />
         <div className="screen__scroll">
           <Aviso tipo="info" titulo="Esta visita ya está cerrada">
@@ -1476,7 +1479,7 @@ export function VisitaActiva() {
         titulo={cliente?.nombre ?? '…'}
         subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
         ayuda="visita-activa"
-        onVolver={() => navigate('/')}
+        onVolver={() => navigate(volver)}
         derecha={
           <>
             {/* Interlocutores y Equipo: acciones secundarias → botón-icono

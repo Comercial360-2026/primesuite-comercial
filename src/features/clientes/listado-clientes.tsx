@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes } from '@/lib/fechas';
@@ -25,6 +26,7 @@ interface ClienteConSemaforo {
 // para "verde/amarillo/rojo", coherente con el resto del proyecto.
 export function ListadoClientes() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
   const buscador = useBuscador(!!busqueda);
@@ -225,6 +227,7 @@ export function ListadoClientes() {
                   tono={sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
                   valor={<EtiquetaSemaforo valor={c.semaforo} />}
                   to={`/clientes/${c.cliente_id}`}
+                  state={desde(location)}
                 />
               );
             })}
