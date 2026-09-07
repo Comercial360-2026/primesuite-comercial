@@ -544,18 +544,33 @@ export function VisitaActiva() {
     queryKey: ['otras-visitas-en-curso', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial,
     refetchInterval: 20000,
-    queryFn: async (): Promise<{ id: string; clienteNombre: string; fecha: string | null }[]> => {
+    queryFn: async (): Promise<
+      { id: string; clienteNombre: string; proyectoNombre: string | null; desde: string | null }[]
+    > => {
       const { data, error } = await supabase
         .from('visita_participante')
-        .select('visita_id, visita:visita_id!inner(id, estado_captura, fecha, cliente:cliente_id(nombre))')
+        .select(
+          'visita_id, visita:visita_id!inner(id, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre, es_general), cliente:cliente_id(nombre))'
+        )
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
         .eq('visita.estado_captura', 'en_curso')
         .neq('visita_id', visitaId!);
       if (error) throw error;
       return (data ?? []).map((r) => {
-        const v = r.visita as unknown as { id: string; fecha: string | null; cliente: { nombre: string } | null };
-        return { id: v.id, clienteNombre: v.cliente?.nombre ?? 'un cliente', fecha: v.fecha };
+        const v = r.visita as unknown as {
+          id: string;
+          fecha: string | null;
+          en_curso_desde: string | null;
+          proyecto: { nombre: string; es_general: boolean } | null;
+          cliente: { nombre: string } | null;
+        };
+        return {
+          id: v.id,
+          clienteNombre: v.cliente?.nombre ?? 'un cliente',
+          proyectoNombre: v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : null,
+          desde: v.en_curso_desde ?? v.fecha,
+        };
       });
     },
   });
@@ -1509,13 +1524,16 @@ export function VisitaActiva() {
               {otrasVisitasEnCurso.length === 1 ? (
                 <>
                   La de {otrasVisitasEnCurso[0].clienteNombre}
-                  {otrasVisitasEnCurso[0].fecha && (
-                    <> del <strong>{fechaCorta(new Date(otrasVisitasEnCurso[0].fecha))}</strong></>
+                  {otrasVisitasEnCurso[0].proyectoNombre && (
+                    <> · {otrasVisitasEnCurso[0].proyectoNombre}</>
                   )}
-                  {' '}sigue abierta.
+                  {otrasVisitasEnCurso[0].desde && (
+                    <> · abierta <strong>{haceRelativo(otrasVisitasEnCurso[0].desde)}</strong></>
+                  )}
+                  {' '}sigue sin cerrar.
                 </>
               ) : (
-                <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar.</>
+                <>Tienes {otrasVisitasEnCurso.length} visitas abiertas sin cerrar (de varios clientes).</>
               )}
             </span>
             <button

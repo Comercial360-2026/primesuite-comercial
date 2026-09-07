@@ -424,6 +424,8 @@ export function RepasoCliente() {
         <VisitaEnCursoModal
           clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
+          proyectoNombre={visitaEnCurso.proyectoNombre}
+          enCursoDesde={visitaEnCurso.enCursoDesde}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoModalAbierto(false);

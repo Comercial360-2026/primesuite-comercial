@@ -51,7 +51,17 @@ export function AltaRapidaCliente() {
   // en curso (solo aplica a la vía "visitar un cliente que ya existe"; uno
   // nuevo no puede tener visitas previas).
   const [enCursoModal, setEnCursoModal] = useState<
-    null | { visita: { id: string; objetivo: string | null }; clienteId: string; clienteNombre: string }
+    | null
+    | {
+        visita: {
+          id: string;
+          objetivo: string | null;
+          en_curso_desde: string | null;
+          proyecto: { nombre: string; es_general: boolean } | null;
+        };
+        clienteId: string;
+        clienteNombre: string;
+      }
   >(null);
 
   // Nombres de los clientes activos. Un comercial ve TODOS los clientes al
@@ -269,14 +279,23 @@ export function AltaRapidaCliente() {
     if (creacionCliente.cargando) return;
     const { data } = await supabase
       .from('visita')
-      .select('id, objetivo')
+      .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre, es_general)')
       .eq('cliente_id', clienteId)
       .eq('estado_captura', 'en_curso')
       .order('fecha', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (data) setEnCursoModal({ visita: data, clienteId, clienteNombre });
-    else setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
+    if (data) {
+      const v = data as unknown as {
+        id: string;
+        objetivo: string | null;
+        en_curso_desde: string | null;
+        proyecto: { nombre: string; es_general: boolean } | null;
+      };
+      setEnCursoModal({ visita: v, clienteId, clienteNombre });
+    } else {
+      setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
+    }
   }
 
   return (
@@ -361,6 +380,12 @@ export function AltaRapidaCliente() {
         <VisitaEnCursoModal
           clienteNombre={enCursoModal.clienteNombre}
           objetivo={enCursoModal.visita.objetivo}
+          proyectoNombre={
+            enCursoModal.visita.proyecto && !enCursoModal.visita.proyecto.es_general
+              ? enCursoModal.visita.proyecto.nombre
+              : null
+          }
+          enCursoDesde={enCursoModal.visita.en_curso_desde}
           onContinuar={() => navigate(`/visita/${enCursoModal.visita.id}`)}
           onEmpezarOtra={() => {
             const { clienteId, clienteNombre } = enCursoModal;

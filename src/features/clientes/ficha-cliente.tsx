@@ -17,6 +17,7 @@ import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
+import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
@@ -415,6 +416,7 @@ export function FichaCliente() {
            {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
          </div>
        )}
+       {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
            ancho — regla 3 del modelo de 10 reglas. */}
        {/* Regla #13: un chip que abre su panel debajo se ve activo mientras

@@ -12,6 +12,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
+import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 
 // Ficha de proyecto — la actividad de UNA línea de negocio del cliente
 // (oportunidades, próximos pasos, hallazgos, historial de ESE proyecto) y,
@@ -215,6 +216,7 @@ export function FichaProyecto() {
             <span>{contextoLinea}</span>
           </div>
         )}
+        {proyectoId && <AvisoVisitasSinCerrar proyectoId={proyectoId} />}
 
         {/* Acciones de estado — chips (esporádico), no botones anchos. */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 14px' }}>

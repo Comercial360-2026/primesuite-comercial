@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uuid } from '@/lib/uuid';
+import { haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -41,10 +42,19 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
   // se avisa antes (enCursoModal).
   const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
+  const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id, proyectoId);
+
+  // Misma cliente + MISMO proyecto abierto (o una visita tuya en otro cliente):
+  // se para y se pregunta (Continuar / Empezar otra). Misma cliente pero OTRO
+  // proyecto: es plausible que sea a propósito → se avisa suave (línea encima
+  // del botón) y se arranca sin fricción.
+  const avisoOtroProyecto =
+    !!visitaEnCurso && visitaEnCurso.mismoCliente && !visitaEnCurso.mismoProyecto
+      ? visitaEnCurso
+      : null;
 
   function pedirIniciarVisitaAdHoc() {
-    if (visitaEnCurso) setEnCursoModalAbierto(true);
+    if (visitaEnCurso && !avisoOtroProyecto) setEnCursoModalAbierto(true);
     else setObjetivoAdHocAbierto(true);
   }
 
@@ -70,6 +80,31 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
 
   return (
     <>
+      {avisoOtroProyecto && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 'var(--text-xs)', color: 'var(--ink-500)', margin: '0 2px 6px',
+          }}
+        >
+          <Icono nombre="atencion" size={13} />
+          <span style={{ flex: 1, minWidth: 0 }}>
+            Tienes otra visita abierta en {avisoOtroProyecto.proyectoNombre ?? 'este cliente'}
+            {avisoOtroProyecto.enCursoDesde && <> · abierta {haceRelativo(avisoOtroProyecto.enCursoDesde)}</>}.
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate(`/visita/${avisoOtroProyecto.id}`)}
+            style={{
+              flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
+              color: 'var(--brand-600)', font: 'inherit', fontSize: 'var(--text-xs)',
+              display: 'inline-flex', alignItems: 'center', gap: 2, padding: 2,
+            }}
+          >
+            Abrir<Icono nombre="chevron" size={16} />
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           className="btn btn-primary"
@@ -93,6 +128,8 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
         <VisitaEnCursoModal
           clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
+          proyectoNombre={visitaEnCurso.proyectoNombre}
+          enCursoDesde={visitaEnCurso.enCursoDesde}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoModalAbierto(false);
