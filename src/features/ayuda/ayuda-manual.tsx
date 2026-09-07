@@ -96,6 +96,7 @@ export function AyudaManual() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo="Cómo funciona PrimeNotes"
+        volverA="/yo"
         derecha={!buscador.abierto && <BotonBuscar etiqueta="Buscar…" onClick={buscador.abrir} />}
       />
 

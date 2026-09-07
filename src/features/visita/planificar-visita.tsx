@@ -12,7 +12,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { desde } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 
@@ -34,6 +34,9 @@ interface Proyecto {
 export function PlanificarVisita() {
   const navigate = useNavigate();
   const location = useLocation();
+  // El ← vuelve a donde se abrió «Nueva visita» (ficha de cliente, ficha de
+  // proyecto…) o, si no consta, a Hoy. Regla #14.
+  const volver = useVolverA('/');
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
@@ -278,6 +281,7 @@ export function PlanificarVisita() {
             : undefined
         }
         ayuda="planificar-visita"
+        volverA={volver}
       />
 
       <div className="lista-agrupada">

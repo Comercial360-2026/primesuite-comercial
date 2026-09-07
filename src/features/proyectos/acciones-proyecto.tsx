@@ -122,7 +122,11 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
           type="button"
           className="btn btn-secondary"
           style={{ flex: 1 }}
-          onClick={() => navigate(`/planificar?clienteId=${clienteId}&proyectoId=${proyectoId}`)}
+          onClick={() =>
+            navigate(`/planificar?clienteId=${clienteId}&proyectoId=${proyectoId}`, {
+              state: desde(location),
+            })
+          }
         >
           Planificar otro día
         </button>

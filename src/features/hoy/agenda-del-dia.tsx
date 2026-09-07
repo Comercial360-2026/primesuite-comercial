@@ -341,7 +341,7 @@ export function AgendaDelDia() {
             className="boton-icono"
             aria-label="Nueva visita"
             title="Nueva visita"
-            onClick={() => navigate('/planificar')}
+            onClick={() => navigate('/planificar', { state: desde(location) })}
           >
             <Icono nombre="mas" size={18} />
           </button>

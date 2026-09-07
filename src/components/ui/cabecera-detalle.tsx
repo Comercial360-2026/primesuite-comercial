@@ -13,45 +13,31 @@ import type { PantallaAyudaId } from '@/lib/ayuda';
 //   1. `onVolver`  — la pantalla decide (p. ej. si hay un panel de
 //      confirmación abierto, cerrarlo en vez de salir).
 //   2. `volverA`   — navegar a una ruta fija (ficha de cliente → /clientes).
-//                    Regla #14: SIEMPRE una de las dos. Para "volver al
-//                    origen real" se usa `useVolverA(fallback)` (lib/volver-a).
-//   3. por defecto — `/` (Hoy). Nunca `navigate(-1)` (regla #14): la vuelta
-//      del historial es poco fiable aquí. Si se llega a este caso es que la
-//      pantalla no pasó `onVolver` ni `volverA` — se avisa en desarrollo.
+//      Para "volver al origen real" se usa `useVolverA(fallback)` (lib/volver-a).
+//
+// Regla #14: SIEMPRE una de las dos, obligado por el tipo — no hay salida
+// por defecto a "/" (era la causa de "el ← me lleva a Hoy"). Nunca
+// `navigate(-1)`: la vuelta del historial es poco fiable aquí.
 //
 // Aspecto en components.css (.cabecera-detalle*). Ver 08_sistema_diseno.md
 // §"Sistema de filas".
 
-interface Props {
+type Props = {
   titulo: string;
   /** Segunda línea gris bajo el título (p. ej. "Cliente activo · Hostelería"). */
   subtitulo?: string;
-  /** Acción de volver a medida. Tiene prioridad sobre `volverA`. */
-  onVolver?: () => void;
-  /** Ruta fija a la que volver en vez de `navigate(-1)`. */
-  volverA?: string;
   /** Si se pasa, añade el "?" de ayuda junto al título. Id de `ayuda.ts`. */
   ayuda?: PantallaAyudaId;
   /** Ranura a la derecha: chip de estado, botón de acción… */
   derecha?: ReactNode;
-}
+} & (
+  | { onVolver: () => void; volverA?: string }
+  | { volverA: string; onVolver?: () => void }
+);
 
 export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, derecha }: Props) {
   const navigate = useNavigate();
-  const volver =
-    onVolver ??
-    (() => {
-      if (volverA) {
-        navigate(volverA);
-        return;
-      }
-      if (import.meta.env.DEV) {
-        console.warn(
-          `[CabeceraDetalle] "${titulo}" sin onVolver ni volverA — el ← cae a "/" (regla #14). Pásale un destino.`
-        );
-      }
-      navigate('/');
-    });
+  const volver = onVolver ?? (() => navigate(volverA!));
 
   return (
     <header className="cabecera-detalle">

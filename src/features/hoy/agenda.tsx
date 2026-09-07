@@ -258,9 +258,9 @@ export function Agenda() {
     const deOtro = resp && resp !== comercial?.id;
     const deQuien = deOtro ? `de ${nombresComerciales?.[resp] ?? '…'}` : '';
     const horaTexto = v.hora_definida ? hora(v.fecha) : 'sin hora';
-    // El proyecto "General" es el invisible por defecto (P9) — solo se
-    // nombra cuando es un proyecto real, para no repetir "· General" en
-    // cada fila de cada cliente (regla 4: metadatos solo si aportan).
+    // Toda visita cuelga de un proyecto con nombre (modelo estricto tras el
+    // fin de `es_general`), así que se muestra siempre. El `?? ''` es solo
+    // defensivo por si el join no trae la fila.
     const proyectoTexto = v.proyecto?.nombre ?? '';
     return (
       <FilaNavegable
@@ -304,6 +304,7 @@ export function Agenda() {
       <CabeceraDetalle
         titulo="Agenda"
         ayuda="agenda"
+        volverA="/"
         derecha={
           !seleccionando ? (
             <button
