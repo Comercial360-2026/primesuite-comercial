@@ -77,7 +77,7 @@ export function FichaProyecto() {
   // trabajo vivo. Visitas planificadas o en curso del proyecto — hay que
   // moverlas a otro proyecto o cancelarlas antes.
   const estadoActualProyecto = proyecto?.estado ?? 'activo';
-  const { data: visitasVivas } = useQuery({
+  const { data: visitasVivas, refetch: refetchVisitasVivas } = useQuery({
     queryKey: ['visitas-vivas-proyecto', proyectoId],
     enabled: !!proyectoId && estadoActualProyecto !== 'terminado',
     queryFn: async (): Promise<
@@ -121,7 +121,7 @@ export function FichaProyecto() {
   });
 
   // Oportunidades abiertas del proyecto — solo AVISAN al terminar, no bloquean.
-  const { data: oportunidadesAbiertas } = useQuery({
+  const { data: oportunidadesAbiertas, refetch: refetchOportunidadesAbiertas } = useQuery({
     queryKey: ['oportunidades-abiertas-proyecto', proyectoId],
     enabled: !!proyectoId && estadoActualProyecto !== 'terminado',
     queryFn: async (): Promise<number> => {
@@ -144,6 +144,8 @@ export function FichaProyecto() {
     (idsVivas.length > 0 && (responsablesVivas === undefined || nombresComerciales === undefined));
 
   const [puerta, setPuerta] = useState(false);
+  // Refetch en curso al pulsar "Terminar" (evita decidir con conteos cacheados).
+  const [verificandoTerminar, setVerificandoTerminar] = useState(false);
 
   // Refresca todo lo que un mover/cancelar de visita toca (proyecto origen y
   // destino, ficha de cliente).
@@ -243,16 +245,29 @@ export function FichaProyecto() {
       responsablesVivas[v.id] !== comercial?.id
   );
 
-  function pulsarTerminar() {
-    if (cambioEstado.cargando || puerta) return;
+  async function pulsarTerminar() {
+    if (cambioEstado.cargando || puerta || verificandoTerminar) return;
     cambioEstado.limpiarError();
-    // Sin trabajo vivo ni oportunidades abiertas Y con las comprobaciones ya
-    // resueltas → terminar directo, como antes.
-    if (
-      !comprobandoTrabajoVivo &&
-      (visitasVivas?.length ?? 0) === 0 &&
-      (oportunidadesAbiertas ?? 0) === 0
-    ) {
+    // Se refresca SIEMPRE antes de decidir: si la ficha traía conteos
+    // cacheados de una visita anterior, un clic rápido no debe terminar
+    // "directo" con datos viejos y saltarse la puerta.
+    setVerificandoTerminar(true);
+    let vivas = visitasVivas ?? [];
+    let opps = oportunidadesAbiertas ?? 0;
+    try {
+      const [rv, ro] = await Promise.all([
+        refetchVisitasVivas(),
+        refetchOportunidadesAbiertas(),
+      ]);
+      vivas = rv.data ?? vivas;
+      opps = ro.data ?? opps;
+    } catch {
+      // Si el refetch falla (sin red), se abre la puerta igualmente:
+      // muestra su propio estado y no se termina a ciegas.
+    } finally {
+      setVerificandoTerminar(false);
+    }
+    if (vivas.length === 0 && opps === 0) {
       cambiarEstado('terminado');
       return;
     }
@@ -358,10 +373,14 @@ export function FichaProyecto() {
               key={ac.a}
               type="button"
               className="chip"
-              disabled={cambioEstado.cargando || (ac.a === 'terminado' && puerta)}
+              disabled={
+                cambioEstado.cargando ||
+                verificandoTerminar ||
+                (ac.a === 'terminado' && puerta)
+              }
               onClick={() => (ac.a === 'terminado' ? pulsarTerminar() : cambiarEstado(ac.a))}
             >
-              {ac.etiqueta}
+              {ac.a === 'terminado' && verificandoTerminar ? 'Comprobando…' : ac.etiqueta}
             </button>
           ))}
         </div>
