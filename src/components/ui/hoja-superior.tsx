@@ -9,12 +9,14 @@ interface HojaSuperiorProps {
   children: ReactNode;
 }
 
-// Hoja SUPERIOR — baja desde arriba y cubre la pantalla desde el borde de
-// arriba, con cabecera propia (título + acciones + ×), como si fuera una
-// pantalla ("Nuevo cliente") pero sin cambiar la URL. Sustituye a
-// `HojaInferior` para Interlocutores y Equipo (Cesar, 2026-09-07: "lo
-// quiero arriba, no debajo, no pantalla propia"). Cierre: × / Esc / tocar
-// fuera. En escritorio se centra en --app-max-w igual que el resto.
+// Hoja SUPERIOR — panel que baja desde el borde de arriba, con cabecera
+// propia (título + acciones + ×), sin cambiar la URL. Detrás queda el
+// fondo gris de la app, como en cualquier pantalla (p. ej. "Nueva
+// visita"): el panel blanco solo ocupa su contenido, no llega al fondo.
+// Sustituye a `HojaInferior` para Interlocutores y Equipo (Cesar,
+// 2026-09-07: "lo quiero arriba, no debajo, no pantalla propia", y
+// "coherente con Nueva visita, no blanco hasta abajo"). Cierre: × / Esc /
+// tocar fuera. En escritorio se centra en --app-max-w igual que el resto.
 export function HojaSuperior({ titulo, onCerrar, derecha, children }: HojaSuperiorProps) {
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {

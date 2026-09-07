@@ -508,21 +508,25 @@ textarea.field {
   font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
-/* Hoja SUPERIOR — cubre la pantalla desde el borde de arriba, con cabecera
-   propia (Interlocutores / Equipo). Se presenta como una pantalla ("Nuevo
-   cliente") pero sin cambiar la URL. Ver hoja-superior.tsx. */
+/* Hoja SUPERIOR — panel que baja desde el borde de arriba, con cabecera
+   propia (Interlocutores / Equipo). Fondo gris de la app detrás (como
+   cualquier pantalla, p. ej. "Nueva visita"): el panel blanco solo ocupa
+   lo que ocupa su contenido, no llega al fondo. Ver hoja-superior.tsx. */
 .hoja-sup-fondo {
   position: fixed; inset: 0; z-index: 20;
   background: var(--surface-0);
-  display: flex; align-items: stretch; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
   box-sizing: border-box;
 }
 .hoja-sup-caja {
   width: 100%;
   max-width: var(--app-max-w);
-  min-height: 100%;
+  max-height: min(92dvh, 760px);
   overflow-y: auto; box-sizing: border-box;
   background: var(--surface-1);
+  border: 1px solid var(--ink-100);
+  border-top: none;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
 .hoja-sup-caja .hoja-cabecera {
