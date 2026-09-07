@@ -16,7 +16,7 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
-import { DirectorioInterlocutores } from './directorio-interlocutores';
+import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { ActividadProyecto } from '@/features/proyectos/actividad-proyecto';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente } from '@/hooks/use-proyectos-cliente';
@@ -72,6 +72,10 @@ export function FichaCliente() {
   const [creandoProyecto, setCreandoProyecto] = useState(false);
   const [nombreProyecto, setNombreProyecto] = useState('');
   const creacionProyecto = useAccionAsync();
+
+  // Interlocutores del cliente: se gestionan en una hoja superior que se abre
+  // con un icono en la cabecera (igual que en la visita en curso).
+  const [interlocutoresHojaAbierta, setInterlocutoresHojaAbierta] = useState(false);
 
   // Editar datos del cliente (nombre, sector, tamaño, ubicación general) —
   // el comercial responsable o Dirección. Sin cola offline: es un UPDATE
@@ -202,6 +206,23 @@ export function FichaCliente() {
   });
 
   const { data: proyectos } = useProyectosCliente(clienteId);
+
+  // Solo el recuento, para el badge del icono de Interlocutores en la
+  // cabecera. Clave propia (no la del directorio, que trae más columnas) para
+  // no cruzar cachés — ver [[primesuite-query-key-colision]].
+  const { data: nInterlocutores = 0 } = useQuery({
+    queryKey: ['interlocutores-cliente-count', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('interlocutor')
+        .select('id', { count: 'exact', head: true })
+        .eq('cliente_id', clienteId!)
+        .eq('activo', true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   const { data: ecosistema } = useQuery({
     queryKey: ['ecosistema-completo', clienteId],
@@ -356,18 +377,34 @@ export function FichaCliente() {
         subtitulo={cliente?.sector || undefined}
         volverA="/clientes"
         derecha={
-          (esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
-            <button
-              type="button"
-              className="boton-icono"
-              aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-              title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-              aria-expanded={editandoDatos}
-              onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
-            >
-              <Icono nombre="editar" size={16} />
-            </button>
-          )
+          <>
+            {clienteId && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label={`Interlocutores${nInterlocutores ? ` (${nInterlocutores})` : ''}`}
+                title={`Interlocutores${nInterlocutores ? ` (${nInterlocutores})` : ''}`}
+                onClick={() => setInterlocutoresHojaAbierta(true)}
+              >
+                <Icono nombre="interlocutor" size={18} />
+                {nInterlocutores > 0 && (
+                  <span className="boton-icono__badge">{nInterlocutores}</span>
+                )}
+              </button>
+            )}
+            {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+                title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+                aria-expanded={editandoDatos}
+                onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
+              >
+                <Icono nombre="editar" size={16} />
+              </button>
+            )}
+          </>
         }
       />
 
@@ -383,18 +420,10 @@ export function FichaCliente() {
        {/* Regla #13: un chip que abre su panel debajo se ve activo mientras
            está abierto (chip--on, como "Marcar zonas" en la visita) — si no,
            "toco y no pasa nada". */}
-       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
-         <button
-           type="button"
-           className={`chip${creandoProyecto ? ' chip--on' : ''}`}
-           aria-expanded={creandoProyecto}
-           onClick={() => setCreandoProyecto((v) => !v)}
-         >
-           + Nuevo proyecto
-         </button>
-         {/* "Editar datos" es el lápiz de la cabecera (arriba a la derecha),
-             como en el resto de "editar en el sitio" — no un chip aquí. */}
-         {esDireccionComercial && (
+       {/* "Editar datos" = lápiz de la cabecera. "Nuevo proyecto" = el "+" de
+           la sección Proyectos. Aquí solo queda "Responsable" (dirección). */}
+       {esDireccionComercial && (
+         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
            <button
              type="button"
              className={`chip${cambiandoResp ? ' chip--on' : ''}`}
@@ -410,40 +439,6 @@ export function FichaCliente() {
            >
              Responsable: {responsableNombre ?? 'sin asignar'}
            </button>
-         )}
-       </div>
-
-       {creandoProyecto && (
-         <div className="card">
-           <div className="label" style={{ marginTop: 0 }}>Nuevo proyecto</div>
-           <input
-             className={`field${creacionProyecto.error ? ' field--error' : ''}`}
-             autoFocus
-             value={nombreProyecto}
-             onChange={(e) => setNombreProyecto(e.target.value)}
-             placeholder="mantenimiento, obra nueva, postventa…"
-           />
-           {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
-           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-             <button
-               className="btn btn-secondary"
-               disabled={creacionProyecto.cargando}
-               onClick={() => {
-                 setCreandoProyecto(false);
-                 setNombreProyecto('');
-                 creacionProyecto.limpiarError();
-               }}
-             >
-               Cancelar
-             </button>
-             <button
-               className="btn btn-primary"
-               disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
-               onClick={crearProyecto}
-             >
-               {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
-             </button>
-           </div>
          </div>
        )}
 
@@ -566,13 +561,29 @@ export function FichaCliente() {
           </SeccionLista>
         )}
 
-        {proyectos && proyectoGeneral ? (
-          <ActividadProyecto
-            proyectoId={proyectoGeneral.id}
-            mensajeVacio="Aún no hay oportunidades, hallazgos ni visitas. Empieza una visita para llenarlo."
-          />
-        ) : proyectos && proyectos.length > 0 ? (
-          <SeccionLista titulo="Proyectos" prominencia="principal">
+        {/* Proyectos — una sección con su título y un "+" al lado para dar de
+            alta uno, y debajo los que haya. Mismo patrón que "Historial de
+            visitas". El proyecto General se lista igual (es donde cae la
+            actividad suelta del cliente); si además es el único, su actividad
+            se muestra en línea aquí abajo para ahorrar un salto (1.5 del
+            recorrido de revisión). */}
+        {proyectos && proyectos.length > 0 && (
+          <SeccionLista
+            titulo="Proyectos"
+            prominencia="principal"
+            accion={
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Nuevo proyecto"
+                title="Nuevo proyecto"
+                aria-expanded={creandoProyecto}
+                onClick={() => setCreandoProyecto((v) => !v)}
+              >
+                <Icono nombre="mas" size={18} />
+              </button>
+            }
+          >
             {proyectos.map((p) => (
               <FilaNavegable
                 key={p.id}
@@ -588,14 +599,47 @@ export function FichaCliente() {
               />
             ))}
           </SeccionLista>
-        ) : null}
+        )}
 
-        {clienteId && (
-          <SeccionLista titulo="Interlocutores">
-            <div style={{ padding: '8px var(--fila-pad-x) 4px' }}>
-              <DirectorioInterlocutores clienteId={clienteId} />
+        {creandoProyecto && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Nuevo proyecto</div>
+            <input
+              className={`field${creacionProyecto.error ? ' field--error' : ''}`}
+              autoFocus
+              value={nombreProyecto}
+              onChange={(e) => setNombreProyecto(e.target.value)}
+              placeholder="mantenimiento, obra nueva, postventa…"
+            />
+            {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                className="btn btn-secondary"
+                disabled={creacionProyecto.cargando}
+                onClick={() => {
+                  setCreandoProyecto(false);
+                  setNombreProyecto('');
+                  creacionProyecto.limpiarError();
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+                onClick={crearProyecto}
+              >
+                {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
+              </button>
             </div>
-          </SeccionLista>
+          </div>
+        )}
+
+        {proyectos && proyectoGeneral && (
+          <ActividadProyecto
+            proyectoId={proyectoGeneral.id}
+            mensajeVacio="Aún no hay oportunidades, hallazgos ni visitas. Empieza una visita para llenarlo."
+          />
         )}
 
         {!!ecosistema?.length && (
@@ -691,6 +735,13 @@ export function FichaCliente() {
           clienteId={clienteId}
           proyectoId={proyectoGeneral.id}
           clienteNombre={cliente?.nombre}
+        />
+      )}
+
+      {interlocutoresHojaAbierta && clienteId && (
+        <InterlocutoresClienteHoja
+          clienteId={clienteId}
+          onCerrar={() => setInterlocutoresHojaAbierta(false)}
         />
       )}
     </div>

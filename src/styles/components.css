@@ -772,6 +772,17 @@ textarea.field {
   color: var(--ink-400);
 }
 
+/* Cabecera de sección con acción a la derecha (un "+" para "añadir uno").
+   El h2 conserva su tipografía; la fila solo lo alinea con el botón. */
+.seccion-lista__cabecera-fila {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding-right: var(--fila-pad-x); min-height: 34px;
+}
+.seccion-lista__cabecera-fila > .seccion-lista__cabecera {
+  padding-right: 0; flex: 1; min-width: 0;
+}
+.seccion-lista__cabecera-accion { flex-shrink: 0; display: flex; }
+
 /* Etiqueta de sección para bloques que NO son una SeccionLista (p. ej. el
    "Ahora" que precede al bloque grande de Hoy). Mismo peso que la cabecera
    de sección para que el ojo agrupe igual. `--tenue` para lo secundario. */

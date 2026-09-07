@@ -93,6 +93,8 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ['interlocutores-cliente', clienteId] });
+    // Badge del icono de Interlocutores en la ficha de cliente.
+    queryClient.invalidateQueries({ queryKey: ['interlocutores-cliente-count', clienteId] });
     if (presencia) {
       queryClient.invalidateQueries({ queryKey: ['interlocutores-presentes', presencia.visitaId] });
       queryClient.invalidateQueries({ queryKey: ['interlocutores-count', presencia.visitaId] });
