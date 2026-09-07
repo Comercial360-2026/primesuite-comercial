@@ -60,8 +60,8 @@ export function DetalleCaptura() {
   }, [operacion]);
 
   // Regla 6 (contexto siempre visible): antes la cabecera solo decía
-  // "Nota"/"Foto"/"Audio", sin decir de qué cliente ni visita. El proyecto
-  // solo se nombra si no es el General invisible por defecto (P9, regla 4).
+  // "Nota"/"Foto"/"Audio", sin decir de qué cliente ni visita. Toda visita
+  // tiene proyecto con nombre y se muestra siempre.
   const visitaId = (operacion?.payload as CapturaLibrePayload | undefined)?.visitaId;
   const { data: contextoVisita } = useQuery({
     queryKey: ['captura-contexto-visita', visitaId],

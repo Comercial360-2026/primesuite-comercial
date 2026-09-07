@@ -47,12 +47,11 @@ export interface ProyectoPayload {
 
 export interface VisitaPayload {
   clienteId: string;
-  // Proyecto (línea de negocio) al que pertenece la visita. Opcional: si
-  // quien encola no lo conoce (p. ej. alta rápida de un cliente que solo
-  // puede tener un proyecto en ese instante, su "General"), el servidor lo
-  // deriva solo del cliente_id (fn_set_proyecto_id_visita). Cuando SÍ se
-  // conoce (ficha de proyecto, repaso de cliente, seguir un próximo paso…)
-  // se manda siempre explícito para no depender de esa reserva.
+  // Proyecto (línea de negocio) al que pertenece la visita. Tras el fin de
+  // `es_general` (migración 103/104) el servidor ya NO lo deriva del
+  // cliente: `crear_visita_con_responsable` lo exige. Toda vía que encola
+  // una visita manda un `proyectoId` real — en el alta rápida offline se
+  // encola primero el proyecto y su id se encadena a la visita.
   proyectoId?: string;
   comercialResponsableId: string;
   tipoVisita: 'comercial' | 'demo' | 'tecnica' | 'seguimiento' | 'relacion' | null;

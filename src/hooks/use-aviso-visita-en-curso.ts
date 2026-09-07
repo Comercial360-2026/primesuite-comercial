@@ -5,8 +5,8 @@ export interface AvisoVisitaEnCurso {
   id: string;
   objetivo: string | null;
   clienteNombre: string;
-  /** Nombre del proyecto de esa visita, o null si es el General (P9, regla 4:
-   *  el General no se nombra). */
+  /** Nombre del proyecto de esa visita (siempre lo tiene; `null` solo si el
+   *  join no lo trajo). */
   proyectoNombre: string | null;
   /** Cuándo se abrió esa visita (`visita.en_curso_desde`). Para el "lleva
    *  abierta desde…". */

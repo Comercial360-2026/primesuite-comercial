@@ -93,7 +93,7 @@ export function CierreVisita() {
   // pantalla decía de qué cliente era la visita que se está cerrando, solo
   // el objetivo cuando existía. maybeSingle: una visita ad-hoc offline puede
   // no tener fila en el servidor todavía (mismo motivo que `visitaObjetivo`
-  // arriba). El proyecto solo se nombra si no es el General (P9, regla 4).
+  // arriba). El proyecto (siempre con nombre) se añade al contexto.
   const { data: contextoVisita } = useQuery({
     queryKey: ['visita-contexto-cierre', visitaId],
     enabled: !!visitaId,

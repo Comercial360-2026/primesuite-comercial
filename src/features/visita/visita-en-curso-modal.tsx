@@ -7,7 +7,7 @@ interface VisitaEnCursoModalProps {
   // Objetivo de la visita que ya está abierta, para que el comercial
   // reconozca cuál es antes de decidir.
   objetivo: string | null;
-  /** Proyecto de esa visita (null = el General, no se nombra). */
+  /** Proyecto de esa visita. `null` solo si el join no lo trajo. */
   proyectoNombre?: string | null;
   /** `visita.en_curso_desde` — para "abierta hace…". */
   enCursoDesde?: string | null;

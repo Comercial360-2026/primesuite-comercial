@@ -508,9 +508,9 @@ export function VisitaActiva() {
     },
   });
 
-  // Nombre del proyecto (línea de negocio) de esta visita, para la Zona 1 —
-  // el "General" es invisible por defecto (P9, regla 4), igual que en
-  // Agenda: solo se nombra un proyecto real.
+  // Nombre del proyecto (línea de negocio) de esta visita, para la Zona 1.
+  // Toda visita tiene proyecto con nombre (modelo estricto tras el fin de
+  // `es_general`), así que siempre se muestra.
   const { data: proyectoVisita } = useQuery({
     queryKey: ['proyecto-nombre', visitaLocal?.proyectoId],
     enabled: !!visitaLocal?.proyectoId,
@@ -1312,9 +1312,8 @@ export function VisitaActiva() {
   const audiosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio');
   const notasOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota');
 
-  // Con proyecto real (no el "General" invisible por defecto, P9): mismo
-  // criterio que Agenda — el nombre se añade tal cual, sin la palabra
-  // "Proyecto" delante.
+  // El nombre del proyecto se añade tal cual (sin la palabra "Proyecto"
+  // delante), mismo criterio que Agenda. El `?? ''` es defensivo.
   const proyectoTexto = proyectoVisita?.nombre ?? '';
 
   // Zona 1 — "3.ª visita · última hace 2 meses" (P11): ordinal de ESTA

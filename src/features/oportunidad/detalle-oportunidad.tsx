@@ -109,8 +109,8 @@ export function DetalleOportunidad() {
   });
   const enCola = oportunidad?.enCola === true;
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
-  // cliente era la oportunidad. El proyecto solo se nombra si no es el
-  // General invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
+  // cliente era la oportunidad. El proyecto (siempre con nombre) se añade
+  // detrás — mismo criterio que Agenda.
   const contextoCliente = [
     oportunidad?.cliente?.nombre,
     oportunidad?.proyecto?.nombre ?? null,

@@ -66,10 +66,10 @@ export function RepasoCliente() {
     else setObjetivoModalAbierto(true);
   }
 
-  // Proyecto (línea de negocio) al que va la visita. Casi siempre solo hay
-  // uno (el General): invisible. Si el cliente tiene 2+, la ventana "¿A qué
-  // vas?" pide a cuál va — mismo selector que "Iniciar visita ahora" desde
-  // la ficha; aquí no se dibuja nada suelto.
+  // Proyecto (línea de negocio) al que va la visita. Si el cliente solo
+  // tiene uno, la visita va a ese sin preguntar; si tiene 2+, la ventana
+  // "¿A qué vas?" pide a cuál — mismo selector que "Iniciar visita ahora"
+  // desde la ficha; aquí no se dibuja nada suelto.
   const { data: proyectosCliente } = useQuery({
     queryKey: ['proyectos-cliente-repaso', clienteId],
     enabled: !!clienteId,

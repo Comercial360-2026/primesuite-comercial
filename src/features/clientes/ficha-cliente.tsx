@@ -310,9 +310,9 @@ export function FichaCliente() {
   const hayBasicos =
     !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
-  // Todo cliente tiene ≥1 proyecto y todos son fila navegable (no hay
-  // "General" oculto). Terminados: se pliegan tras "Ver terminados (N)" — no
-  // ensucian la lista del día a día. Activos y pausados se listan siempre.
+  // Todo cliente tiene ≥1 proyecto y todos son fila navegable, con nombre.
+  // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
+  // del día a día. Activos y pausados se listan siempre.
   const proyectosVigentes = (proyectos ?? []).filter((p) => p.estado !== 'terminado');
   const proyectosTerminados = (proyectos ?? []).filter((p) => p.estado === 'terminado');
   // Proyecto de partida para la barra "Iniciar visita / Planificar": el

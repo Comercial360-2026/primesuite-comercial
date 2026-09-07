@@ -88,7 +88,8 @@ export function AltaRapidaCliente() {
 
   // Proyectos del cliente existente que se va a visitar: si tiene 2+, la
   // ventana "¿A qué vas?" pide a cuál va la visita (mismo selector que desde
-  // la ficha). Un cliente nuevo solo tiene el General, así que no aplica.
+  // la ficha). Un cliente recién creado aquí solo tiene su primer proyecto,
+  // así que no aplica.
   const clienteExistenteId =
     objetivoModal?.modo === 'existente' ? objetivoModal.clienteId : undefined;
   const { data: proyectosExistente } = useQuery({

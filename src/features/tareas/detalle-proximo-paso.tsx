@@ -184,9 +184,9 @@ export function DetalleProximoPaso() {
 
   const cliente = (paso.visita as unknown as { cliente: { id: string; nombre: string } | null })?.cliente;
   const clienteNombre = cliente?.nombre;
-  // Regla 6 (contexto siempre visible): el proyecto solo se nombra si no es
-  // el General invisible por defecto (P9, regla 4) — mismo criterio que
-  // Agenda y las otras dos pantallas de detalle.
+  // Regla 6 (contexto siempre visible): el proyecto (siempre con nombre) se
+  // añade detrás del cliente — mismo criterio que Agenda y las otras dos
+  // pantallas de detalle.
   const contextoCliente = [clienteNombre, paso.proyecto?.nombre ?? null]
     .filter(Boolean)
     .join(' · ');
