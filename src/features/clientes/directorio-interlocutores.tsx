@@ -259,8 +259,8 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
   return (
     <div>
       {presencia && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-          Toca a quien haya estado presente en esta visita
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-500)', marginBottom: 10 }}>
+          Marca quién estuvo presente en esta visita — toca su nombre.
         </div>
       )}
 
@@ -307,6 +307,9 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
               <span className="interlocutor-fila__nombre">
                 <b>{i.nombre}</b>
                 {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
+                {presente && (
+                  <span style={{ color: 'var(--success-600)', fontWeight: 600 }}> · presente</span>
+                )}
               </span>
               {(i.telefono || i.email) && (
                 <span className="interlocutor-fila__sub">

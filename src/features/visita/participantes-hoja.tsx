@@ -294,7 +294,15 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
         puedeAñadir ? (
           <>
             {!buscador.abierto && (
-              <BotonBuscar etiqueta="buscar comercial…" onClick={buscador.abrir} />
+              <BotonBuscar
+                etiqueta="buscar comercial…"
+                onClick={() => {
+                  // Buscar = querer añadir a alguien: se entra en modo
+                  // seleccionar y además se abre el campo de búsqueda.
+                  setModoAñadir(true);
+                  buscador.abrir();
+                }}
+              />
             )}
             {!modoAñadir && (
               <button
