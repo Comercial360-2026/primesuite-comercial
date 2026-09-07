@@ -1396,10 +1396,10 @@ export function VisitaActiva() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   La de {otrasVisitasEnCurso[0].clienteNombre}
-                  {otrasVisitasEnCurso[0].fecha
-                    ? ` del ${fechaCorta(new Date(otrasVisitasEnCurso[0].fecha))}`
-                    : ''}
-                  {' '}sigue sin cerrar — no es esta.
+                  {otrasVisitasEnCurso[0].fecha && (
+                    <> del <strong>{fechaCorta(new Date(otrasVisitasEnCurso[0].fecha))}</strong></>
+                  )}
+                  {' '}sigue sin cerrar.
                 </span>
                 <button
                   type="button"

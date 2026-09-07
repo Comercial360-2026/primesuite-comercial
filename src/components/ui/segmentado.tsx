@@ -1,11 +1,13 @@
 import { Icono, type NombreIcono } from './iconos';
 
-// Control segmentado — un filtro BINARIO y EXCLUYENTE ("solo lo mío" /
-// "todos", "pendiente" / "completado"...) se lee como un interruptor de dos
-// posiciones, no como dos `chip` sueltos compitiendo por atención. El chip
+// Control segmentado — un filtro EXCLUYENTE de 2-3 posiciones ("solo lo
+// mío" / "todos", "Agenda" / "Solo mías" / "Todas") se lee como un
+// interruptor, no como chips sueltos compitiendo por atención. El chip
 // normal (`.chip`/`.chip--on`) se queda para filtros que sí se pueden
 // combinar (p. ej. las categorías de Vocabulario) — este componente es
-// solo para el caso exclusivo. Aspecto en components.css (.segmentado*).
+// solo para el caso exclusivo. Mantenerlo en 3 opciones como máximo: con
+// más, vuelve a ser una lista de chips. Aspecto en components.css
+// (.segmentado*).
 //
 // Cada opción puede llevar `icono` (además o en vez de la etiqueta): un
 // conmutador de vista ("por tipo" / "por zona") se lee mejor con un icono
@@ -20,7 +22,8 @@ interface Opcion<T extends string> {
 }
 
 interface Props<T extends string> {
-  opciones: readonly [Opcion<T>, Opcion<T>];
+  /** 2 o 3 posiciones. Con más, usa `.chip` en fila. */
+  opciones: readonly [Opcion<T>, Opcion<T>] | readonly [Opcion<T>, Opcion<T>, Opcion<T>];
   valor: T;
   onCambio: (valor: T) => void;
   /** Pinta solo el icono de cada opción (la etiqueta queda como aria-label). */

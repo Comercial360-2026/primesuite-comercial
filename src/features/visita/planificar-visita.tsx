@@ -195,7 +195,7 @@ export function PlanificarVisita() {
             queryClient.invalidateQueries({ queryKey: k });
           }
           if (clienteId) queryClient.invalidateQueries({ queryKey: ['historial-visitas-proyecto', proyectoId] });
-          navigate('/agenda');
+          navigate('/');
         },
       }
     );

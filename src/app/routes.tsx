@@ -14,7 +14,6 @@ import { EstablecerContrasena } from '@/features/auth/establecer-contrasena';
 // después el resto — coherente con el plan de implementación cerrado.
 
 import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
-import { Agenda } from '@/features/hoy/agenda';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
 import { PlanificarVisita } from '@/features/visita/planificar-visita';
@@ -76,7 +75,9 @@ export function AppRoutes() {
         >
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
-          <Route path="/agenda" element={<Agenda />} />
+          {/* La agenda dejó de ser pantalla aparte: es la pestaña "Agenda"
+              de Hoy. Se mantiene la ruta como redirección por enlaces viejos. */}
+          <Route path="/agenda" element={<Navigate to="/" replace />} />
           <Route path="/planificar" element={<PlanificarVisita />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />

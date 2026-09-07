@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
@@ -11,7 +11,9 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
+import { desde } from '@/lib/volver-a';
 import { BloqueAhora } from './bloque-ahora';
+import { CalendarioMes } from './calendario-mes';
 
 interface VisitaAgenda {
   id: string;
@@ -46,6 +48,7 @@ function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
 
 export function AgendaDelDia() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
   const queryClient = useQueryClient();
@@ -53,8 +56,12 @@ export function AgendaDelDia() {
   // comercial normal ve siempre solo sus propias visitas de hoy, sin poder
   // cambiarlo; el interruptor "Todos" es exclusivo de Dirección Comercial.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [vistaDireccion, setVistaDireccion] = useState<'mias' | 'todas'>('mias');
-  const soloMias = esDireccionComercial ? vistaDireccion === 'mias' : true;
+  // Segmentado: "Agenda" (calendario de mes de las planificadas) + el filtro
+  // de hoy. Dirección: [Agenda · Solo mías · Todas]. Comercial normal:
+  // [Agenda · Hoy] (mías/todas no le aplican).
+  const [vista, setVista] = useState<'agenda' | 'mias' | 'todas'>('mias');
+  const modoAgenda = vista === 'agenda';
+  const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
@@ -116,6 +123,28 @@ export function AgendaDelDia() {
         .limit(50);
       if (error) throw error;
       return (data ?? []) as unknown as VisitaAgenda[];
+    },
+  });
+
+  // Vista "Agenda" (calendario de mes): TODAS mis visitas planificadas, no
+  // solo las de hoy. El filtro "mías" va en la propia consulta (participante
+  // = yo). Solo se pide al entrar en esa vista.
+  const { data: visitasPlanificadas = [], isLoading: cargandoAgenda } = useQuery({
+    queryKey: ['agenda-mes-planificadas', comercial?.id],
+    enabled: modoAgenda && !!comercial,
+    refetchOnMount: 'always',
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select(
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre))'
+        )
+        .eq('comercial_id', comercial!.id)
+        .in('estado', ['pendiente', 'aceptado'])
+        .eq('visita.estado_captura', 'agendada')
+        .order('visita(fecha)', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
     },
   });
 
@@ -282,32 +311,54 @@ export function AgendaDelDia() {
         }
       />
 
+      {/* Filtro único: "Agenda" (calendario de mes) + el foco del día. La
+          agenda ya no es una pantalla aparte ni un icono suelto — es una
+          pestaña más, y la vista Lista de la vieja /agenda era redundante
+          con "Solo mías / Todas". */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        {esDireccionComercial && (
-          <Segmentado
-            opciones={
-              [
-                { valor: 'mias', etiqueta: 'Solo mías' },
-                { valor: 'todas', etiqueta: 'Todas' },
-              ] as const
-            }
-            valor={vistaDireccion}
-            onCambio={setVistaDireccion}
-          />
-        )}
-        {/* Atajo a la agenda completa: un icono junto a los filtros, no una
-            fila de texto al fondo del scroll. */}
-        <Link
-          to="/agenda"
-          aria-label="Ver toda la agenda"
-          title="Ver toda la agenda"
-          style={{ marginLeft: 'auto', display: 'inline-flex', padding: 6, color: 'var(--ink-500)' }}
-        >
-          <Icono nombre="agenda" size={20} />
-        </Link>
+        <Segmentado
+          opciones={
+            esDireccionComercial
+              ? ([
+                  { valor: 'agenda', etiqueta: 'Agenda' },
+                  { valor: 'mias', etiqueta: 'Solo mías' },
+                  { valor: 'todas', etiqueta: 'Todas' },
+                ] as const)
+              : ([
+                  { valor: 'agenda', etiqueta: 'Agenda' },
+                  { valor: 'mias', etiqueta: 'Hoy' },
+                ] as const)
+          }
+          valor={vista}
+          onCambio={setVista}
+        />
       </div>
 
       <div className="screen__scroll">
+        {modoAgenda ? (
+          cargandoAgenda ? (
+            <EstadoLista estado="cargando" mensaje="Cargando agenda…" />
+          ) : visitasPlanificadas.length === 0 ? (
+            <EstadoLista estado="vacio" mensaje="No tienes ninguna visita planificada." />
+          ) : (
+            <CalendarioMes
+              visitas={visitasPlanificadas}
+              renderVisita={(v) => (
+                <FilaNavegable
+                  key={v.id}
+                  icono="hoy"
+                  titulo={v.cliente?.nombre ?? 'Cliente'}
+                  subtitulo={v.objetivo || undefined}
+                  valor={cuandoTexto(v, false) || undefined}
+                  valorTenue
+                  to={`/visita/${v.id}/planificada`}
+                  state={desde(location)}
+                />
+              )}
+            />
+          )
+        ) : (
+        <>
         {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
         {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
         {isError && (
@@ -346,7 +397,7 @@ export function AgendaDelDia() {
                   <FilaNavegable
                     tono="aviso"
                     titulo={atrasadas.length > 2 ? `Resolver las ${atrasadas.length}` : 'Ver en la agenda'}
-                    to="/agenda"
+                    onClick={() => setVista('agenda')}
                   />
                 </SeccionLista>
               </section>
@@ -405,6 +456,8 @@ export function AgendaDelDia() {
               />
             )}
           </div>
+        )}
+        </>
         )}
       </div>
 
