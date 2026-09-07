@@ -69,7 +69,7 @@ export function DetalleCaptura() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('visita')
-        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)')
+        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
         .eq('id', visitaId!)
         .single();
       if (error) throw error;
@@ -78,7 +78,7 @@ export function DetalleCaptura() {
   });
   const contextoTexto = [
     contextoVisita?.cliente?.nombre,
-    contextoVisita?.proyecto && !contextoVisita.proyecto.es_general ? contextoVisita.proyecto.nombre : null,
+    contextoVisita?.proyecto?.nombre ?? null,
   ]
     .filter(Boolean)
     .join(' · ');

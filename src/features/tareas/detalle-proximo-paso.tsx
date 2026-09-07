@@ -48,7 +48,7 @@ export function DetalleProximoPaso() {
       const { data, error: err } = await supabase
         .from('proximo_paso')
         .select(
-          'id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre, es_general)'
+          'id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
         )
         .eq('id', pasoId!)
         .single();
@@ -185,7 +185,7 @@ export function DetalleProximoPaso() {
   // Regla 6 (contexto siempre visible): el proyecto solo se nombra si no es
   // el General invisible por defecto (P9, regla 4) — mismo criterio que
   // Agenda y las otras dos pantallas de detalle.
-  const contextoCliente = [clienteNombre, paso.proyecto && !paso.proyecto.es_general ? paso.proyecto.nombre : null]
+  const contextoCliente = [clienteNombre, paso.proyecto?.nombre ?? null]
     .filter(Boolean)
     .join(' · ');
 

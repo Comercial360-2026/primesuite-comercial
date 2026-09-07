@@ -34,7 +34,7 @@ interface VisitaAgenda {
   objetivo: string | null;
   tipo_visita: string | null;
   cliente: { id: string; nombre: string } | null;
-  proyecto: { nombre: string; es_general: boolean } | null;
+  proyecto: { nombre: string } | null;
 }
 
 function inicioDeHoy() {
@@ -99,7 +99,7 @@ export function Agenda() {
       const { data, error } = await supabase
         .from('visita')
         .select(
-          'id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre, es_general)'
+          'id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true });
@@ -261,7 +261,7 @@ export function Agenda() {
     // El proyecto "General" es el invisible por defecto (P9) — solo se
     // nombra cuando es un proyecto real, para no repetir "· General" en
     // cada fila de cada cliente (regla 4: metadatos solo si aportan).
-    const proyectoTexto = v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : '';
+    const proyectoTexto = v.proyecto?.nombre ?? '';
     return (
       <FilaNavegable
         key={v.id}

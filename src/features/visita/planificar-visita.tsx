@@ -18,7 +18,6 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 interface Proyecto {
   id: string;
   nombre: string;
-  es_general: boolean;
   estado: string;
 }
 
@@ -77,9 +76,8 @@ export function PlanificarVisita() {
     queryFn: async (): Promise<Proyecto[]> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, es_general, estado')
+        .select('id, nombre, estado')
         .eq('cliente_id', clienteId)
-        .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return data ?? [];
@@ -89,7 +87,7 @@ export function PlanificarVisita() {
   // Un proyecto terminado es de solo consulta: no se le planifican visitas,
   // así que no se ofrece aquí (el General nunca se filtra).
   const proyectos = useMemo(
-    () => proyectosTodos?.filter((p) => p.es_general || p.estado !== 'terminado'),
+    () => proyectosTodos?.filter((p) => p.estado !== 'terminado'),
     [proyectosTodos]
   );
 
@@ -230,7 +228,7 @@ export function PlanificarVisita() {
         titulo="Nueva visita"
         subtitulo={
           cliente
-            ? `${cliente.nombre}${proyectoElegido && !proyectoElegido.es_general ? ` · ${proyectoElegido.nombre}` : ''}`
+            ? `${cliente.nombre}${proyectoElegido ? ` · ${proyectoElegido.nombre}` : ''}`
             : undefined
         }
         ayuda="planificar-visita"
@@ -293,7 +291,6 @@ export function PlanificarVisita() {
                 <FilaNavegable
                   key={p.id}
                   titulo={p.nombre}
-                  subtitulo={p.es_general ? 'Todo lo que no encaja en otro proyecto' : undefined}
                   onClick={() => setProyectoId(p.id)}
                   chevron
                 />

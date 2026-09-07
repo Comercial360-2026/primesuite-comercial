@@ -53,7 +53,7 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', hallazgoId!)
         .single();
@@ -66,7 +66,7 @@ export function DetalleHallazgo() {
   // invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
   const contextoCliente = [
     hallazgo?.cliente?.nombre,
-    hallazgo?.proyecto && !hallazgo.proyecto.es_general ? hallazgo.proyecto.nombre : null,
+    hallazgo?.proyecto?.nombre ?? null,
   ]
     .filter(Boolean)
     .join(' · ');

@@ -77,7 +77,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre, es_general)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -100,7 +100,7 @@ export function DetalleOportunidad() {
           comentario_cierre: p.comentarioCierre ?? null,
           creado_en: null as string | null,
           cliente: null as { nombre: string } | null,
-          proyecto: null as { nombre: string; es_general: boolean } | null,
+          proyecto: null as { nombre: string } | null,
           enCola: true,
         };
       }
@@ -113,7 +113,7 @@ export function DetalleOportunidad() {
   // General invisible por defecto (P9, regla 4) — mismo criterio que Agenda.
   const contextoCliente = [
     oportunidad?.cliente?.nombre,
-    oportunidad?.proyecto && !oportunidad.proyecto.es_general ? oportunidad.proyecto.nombre : null,
+    oportunidad?.proyecto?.nombre ?? null,
     oportunidad?.creado_en ? `creada el ${fechaCorta(oportunidad.creado_en)}` : null,
   ]
     .filter(Boolean)

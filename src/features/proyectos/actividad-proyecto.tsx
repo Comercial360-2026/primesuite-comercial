@@ -48,7 +48,7 @@ interface VisitaHistorial {
   tipo_visita: string | null;
   objetivo: string | null;
   estado_captura: string;
-  proyecto: { nombre: string; es_general: boolean } | null;
+  proyecto: { nombre: string } | null;
 }
 
 interface Props {
@@ -168,7 +168,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<VisitaHistorial[]> => {
       const base = supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, objetivo, estado_captura, proyecto:proyecto_id(nombre, es_general)')
+        .select('id, fecha, tipo_visita, objetivo, estado_captura, proyecto:proyecto_id(nombre)')
         .order('fecha', { ascending: false })
         .limit(10);
       const { data, error } = historialClienteId
@@ -321,7 +321,7 @@ export function ActividadProyecto({
             // DELANTE del objetivo — el subtítulo trunca a una línea y el
             // proyecto es lo que dice "de qué es esta visita".
             const proyectoNombre =
-              historialClienteId && v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : null;
+              historialClienteId && v.proyecto ? v.proyecto.nombre : null;
             const subtitulo =
               [proyectoNombre, v.objetivo?.trim() || null].filter(Boolean).join(' · ') || undefined;
             return (

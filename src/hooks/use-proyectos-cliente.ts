@@ -5,7 +5,6 @@ export interface ProyectoDelCliente {
   id: string;
   nombre: string;
   estado: string;
-  es_general: boolean;
 }
 
 /** Estado de un proyecto en la voz del usuario. Un solo sitio para el texto —
@@ -29,9 +28,8 @@ export function useProyectosCliente(clienteId: string | undefined) {
     queryFn: async (): Promise<ProyectoDelCliente[]> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('id, nombre, estado, es_general')
+        .select('id, nombre, estado')
         .eq('cliente_id', clienteId!)
-        .order('es_general', { ascending: false })
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return data ?? [];

@@ -4,7 +4,6 @@ import { Modal } from '@/components/ui/modal';
 interface ProyectoOpcion {
   id: string;
   nombre: string;
-  es_general: boolean;
   estado?: string;
 }
 
@@ -46,7 +45,7 @@ export function ObjetivoVisitaModal({
 
   // Un proyecto terminado es de solo consulta: no se le inician visitas, así
   // que no se ofrece (el General nunca se filtra).
-  const opciones = (proyectos ?? []).filter((p) => p.es_general || p.estado !== 'terminado');
+  const opciones = (proyectos ?? []).filter((p) => p.estado !== 'terminado');
   // El selector solo aparece si de verdad hay que elegir (2+ proyectos).
   const hayQueElegir = opciones.length > 1;
 
@@ -91,7 +90,7 @@ export function ObjetivoVisitaModal({
           >
             {opciones.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.es_general ? 'Sin proyecto asignado' : p.nombre}
+                {p.nombre}
               </option>
             ))}
           </select>

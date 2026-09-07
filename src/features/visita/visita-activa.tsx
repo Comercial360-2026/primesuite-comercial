@@ -507,10 +507,10 @@ export function VisitaActiva() {
   const { data: proyectoVisita } = useQuery({
     queryKey: ['proyecto-nombre', visitaLocal?.proyectoId],
     enabled: !!visitaLocal?.proyectoId,
-    queryFn: async (): Promise<{ nombre: string; es_general: boolean } | null> => {
+    queryFn: async (): Promise<{ nombre: string } | null> => {
       const { data, error } = await supabase
         .from('proyecto')
-        .select('nombre, es_general')
+        .select('nombre')
         .eq('id', visitaLocal!.proyectoId!)
         .single();
       if (error) throw error;
@@ -550,7 +550,7 @@ export function VisitaActiva() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select(
-          'visita_id, visita:visita_id!inner(id, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre, es_general), cliente:cliente_id(nombre))'
+          'visita_id, visita:visita_id!inner(id, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre), cliente:cliente_id(nombre))'
         )
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
@@ -562,13 +562,13 @@ export function VisitaActiva() {
           id: string;
           fecha: string | null;
           en_curso_desde: string | null;
-          proyecto: { nombre: string; es_general: boolean } | null;
+          proyecto: { nombre: string } | null;
           cliente: { nombre: string } | null;
         };
         return {
           id: v.id,
           clienteNombre: v.cliente?.nombre ?? 'un cliente',
-          proyectoNombre: v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : null,
+          proyectoNombre: v.proyecto?.nombre ?? null,
           desde: v.en_curso_desde ?? v.fecha,
         };
       });
@@ -1310,7 +1310,7 @@ export function VisitaActiva() {
   // Con proyecto real (no el "General" invisible por defecto, P9): mismo
   // criterio que Agenda — el nombre se añade tal cual, sin la palabra
   // "Proyecto" delante.
-  const proyectoTexto = proyectoVisita && !proyectoVisita.es_general ? proyectoVisita.nombre : '';
+  const proyectoTexto = proyectoVisita?.nombre ?? '';
 
   // Zona 1 — "3.ª visita · última hace 2 meses" (P11): ordinal de ESTA
   // visita dentro de su proyecto, y cuándo fue la anterior.

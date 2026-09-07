@@ -36,7 +36,7 @@ export function useAvisoVisitaEnCurso(
       // 1) Visitas en curso de este cliente (varias si hay varios proyectos).
       const { data: mismas, error: e1 } = await supabase
         .from('visita')
-        .select('id, objetivo, en_curso_desde, proyecto_id, proyecto:proyecto_id(nombre, es_general), cliente:cliente_id(nombre)')
+        .select('id, objetivo, en_curso_desde, proyecto_id, proyecto:proyecto_id(nombre), cliente:cliente_id(nombre)')
         .eq('cliente_id', clienteId!)
         .eq('estado_captura', 'en_curso')
         .order('fecha', { ascending: false })
@@ -48,13 +48,13 @@ export function useAvisoVisitaEnCurso(
         // reciente.
         const elegida =
           (proyectoIdActual && mismas.find((m) => m.proyecto_id === proyectoIdActual)) || mismas[0];
-        const proy = elegida.proyecto as unknown as { nombre: string; es_general: boolean } | null;
+        const proy = elegida.proyecto as unknown as { nombre: string } | null;
         const cli = elegida.cliente as unknown as { nombre: string } | null;
         return {
           id: elegida.id,
           objetivo: elegida.objetivo,
           clienteNombre: cli?.nombre ?? 'este cliente',
-          proyectoNombre: proy && !proy.es_general ? proy.nombre : null,
+          proyectoNombre: proy?.nombre ?? null,
           enCursoDesde: elegida.en_curso_desde,
           mismoCliente: true,
           mismoProyecto: !!proyectoIdActual && elegida.proyecto_id === proyectoIdActual,
@@ -65,7 +65,7 @@ export function useAvisoVisitaEnCurso(
       const { data: propia, error: e2 } = await supabase
         .from('visita_participante')
         .select(
-          'visita:visita_id!inner(id, objetivo, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre, es_general), cliente:cliente_id(nombre))'
+          'visita:visita_id!inner(id, objetivo, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre), cliente:cliente_id(nombre))'
         )
         .eq('comercial_id', comercialId!)
         .in('estado', ['pendiente', 'aceptado'])
@@ -78,7 +78,7 @@ export function useAvisoVisitaEnCurso(
             id: string;
             objetivo: string | null;
             en_curso_desde: string | null;
-            proyecto: { nombre: string; es_general: boolean } | null;
+            proyecto: { nombre: string } | null;
             cliente: { nombre: string } | null;
           }
         | undefined;
@@ -87,7 +87,7 @@ export function useAvisoVisitaEnCurso(
         id: v.id,
         objetivo: v.objetivo,
         clienteNombre: v.cliente?.nombre ?? 'otro cliente',
-        proyectoNombre: v.proyecto && !v.proyecto.es_general ? v.proyecto.nombre : null,
+        proyectoNombre: v.proyecto?.nombre ?? null,
         enCursoDesde: v.en_curso_desde,
         mismoCliente: false,
         mismoProyecto: false,

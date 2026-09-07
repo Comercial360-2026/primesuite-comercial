@@ -1252,67 +1252,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "reporte_problema_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
-            referencedRelation: "vw_actividad_comercial"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
-            referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
-            referencedRelation: "vw_pipeline_oportunidades"
-            referencedColumns: ["comercial_id"]
-          },
-          {
             foreignKeyName: "reporte_problema_resuelto_por_fkey"
             columns: ["resuelto_por"]
             isOneToOne: false
             referencedRelation: "comercial"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_resuelto_por_fkey"
-            columns: ["resuelto_por"]
-            isOneToOne: false
-            referencedRelation: "vw_actividad_comercial"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_resuelto_por_fkey"
-            columns: ["resuelto_por"]
-            isOneToOne: false
-            referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_resuelto_por_fkey"
-            columns: ["resuelto_por"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "reporte_problema_resuelto_por_fkey"
-            columns: ["resuelto_por"]
-            isOneToOne: false
-            referencedRelation: "vw_pipeline_oportunidades"
-            referencedColumns: ["comercial_id"]
           },
         ]
       }
@@ -2249,19 +2193,6 @@ export type Database = {
       }
     }
     Functions: {
-      crear_cliente_con_proyecto: {
-        Args: {
-          p_cliente_id: string
-          p_creado_por: string
-          p_nombre_cliente: string
-          p_nombre_proyecto: string
-          p_responsable_id: string
-        }
-        Returns: {
-          cliente_id: string
-          proyecto_id: string
-        }[]
-      }
       crear_visita_con_responsable: {
         Args: {
           p_cliente_id: string
@@ -2275,7 +2206,6 @@ export type Database = {
           actualizado_en: string
           cliente_id: string
           creado_en: string
-          en_curso_desde: string | null
           estado_captura: string
           fecha: string
           franja: string | null
@@ -2303,8 +2233,18 @@ export type Database = {
         Args: { p_oportunidad_id: string }
         Returns: undefined
       }
+      crear_cliente_con_proyecto: {
+        Args: {
+          p_cliente_id: string
+          p_nombre_cliente: string
+          p_nombre_proyecto: string
+          p_creado_por: string
+          p_responsable_id: string
+        }
+        Returns: { cliente_id: string; proyecto_id: string }[]
+      }
       eliminar_proyecto: {
-        Args: { p_destino_id: string; p_proyecto_id: string }
+        Args: { p_proyecto_id: string; p_destino_id: string }
         Returns: undefined
       }
       eliminar_ubicacion: {
@@ -2316,7 +2256,7 @@ export type Database = {
         Returns: undefined
       }
       fn_actividad_comercial_por_proyecto: {
-        Args: { p_comercial_id: string; p_desde?: string }
+        Args: { p_comercial_id: string; p_desde?: string | null }
         Returns: {
           cliente_id: string
           cliente_nombre: string
@@ -2332,7 +2272,7 @@ export type Database = {
         }[]
       }
       fn_actividad_por_comercial: {
-        Args: { p_desde?: string }
+        Args: { p_desde?: string | null }
         Returns: {
           comercial_id: string
           nombre: string

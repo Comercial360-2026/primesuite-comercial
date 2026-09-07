@@ -12,7 +12,6 @@ import { desdeDePeriodo, periodoDeParams, type PeriodoActividad } from './period
 interface ActividadProyecto {
   proyecto_id: string;
   proyecto_nombre: string;
-  es_general: boolean;
   cliente_id: string;
   cliente_nombre: string;
   num_visitas: number;
@@ -100,7 +99,7 @@ export function DetalleActividadComercial() {
           <SeccionLista titulo="Por proyecto">
             {porProyecto?.map((p) => {
               const capturas = p.num_fotos + p.num_audios + p.num_notas;
-              const etiqueta = p.es_general ? p.cliente_nombre : `${p.cliente_nombre} › ${p.proyecto_nombre}`;
+              const etiqueta = `${p.cliente_nombre} › ${p.proyecto_nombre}`;
               // Toda la métrica en el subtítulo (ancho completo, como en la
               // lista) — antes iba en `valor`, apretada a la derecha, y
               // "oportunidades activas" caía a su propia línea.
