@@ -8,6 +8,7 @@ import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { Icono } from '@/components/ui/iconos';
+import type { ProyectoDelCliente } from '@/hooks/use-proyectos-cliente';
 
 // La barra fija de abajo de un proyecto: dos botones en la misma línea —
 // "Iniciar visita" (primario, lo diario) y "Planificar otro día" (secundario,
@@ -18,11 +19,17 @@ import { Icono } from '@/components/ui/iconos';
 
 interface Props {
   clienteId: string;
+  /** Proyecto de partida: el que se usa si no hay que elegir (ficha de
+   *  proyecto) y el preseleccionado si sí (ficha de cliente → el General). */
   proyectoId: string;
   clienteNombre?: string;
+  /** Todos los proyectos del cliente. Solo lo pasa la ficha de cliente: con
+   *  2+, la ventana "¿A qué vas?" pide a cuál va la visita. La ficha de un
+   *  proyecto concreto no lo pasa — allí la visita va a ese proyecto. */
+  proyectos?: ProyectoDelCliente[];
 }
 
-export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props) {
+export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyectos }: Props) {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
@@ -45,14 +52,14 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props
   // `objetivo`, ya validado como no vacío. Lanza en caso de fallo para que la
   // propia ventana muestre el error; si va bien, navega y la ventana se
   // desmonta con la pantalla.
-  async function iniciarVisitaAdHoc(objetivo: string) {
+  async function iniciarVisitaAdHoc(objetivo: string, proyectoElegido: string) {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión. Recarga la página.');
     }
     const visitaId = uuid();
     await encolar(visitaId, 'visita', {
       clienteId,
-      proyectoId,
+      proyectoId: proyectoElegido || proyectoId,
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
@@ -98,6 +105,8 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre }: Props
       {objetivoAdHocAbierto && (
         <ObjetivoVisitaModal
           clienteNombre={clienteNombre}
+          proyectos={proyectos}
+          proyectoInicial={proyectoId}
           onConfirmar={iniciarVisitaAdHoc}
           onCerrar={() => setObjetivoAdHocAbierto(false)}
         />

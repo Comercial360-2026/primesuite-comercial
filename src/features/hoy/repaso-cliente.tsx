@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -65,11 +65,10 @@ export function RepasoCliente() {
     else setObjetivoModalAbierto(true);
   }
 
-  // Proyecto (línea de negocio) al que va la visita — casi siempre solo hay
-  // uno (el "General" automático), así que esto es invisible en la
-  // práctica: se auto-elige y no se dibuja ningún selector. Si el cliente
-  // tiene más de uno, aparece un selector sencillo antes de arrancar.
-  const [proyectoElegido, setProyectoElegido] = useState('');
+  // Proyecto (línea de negocio) al que va la visita. Casi siempre solo hay
+  // uno (el General): invisible. Si el cliente tiene 2+, la ventana "¿A qué
+  // vas?" pide a cuál va — mismo selector que "Iniciar visita ahora" desde
+  // la ficha; aquí no se dibuja nada suelto.
   const { data: proyectosCliente } = useQuery({
     queryKey: ['proyectos-cliente-repaso', clienteId],
     enabled: !!clienteId,
@@ -84,11 +83,6 @@ export function RepasoCliente() {
       return data ?? [];
     },
   });
-  useEffect(() => {
-    if (proyectosCliente?.length && !proyectoElegido) {
-      setProyectoElegido(proyectosCliente[0].id);
-    }
-  }, [proyectosCliente, proyectoElegido]);
 
   // Si venimos de una visita ya planificada, traemos su objetivo para
   // recordar "a qué vengo" antes de entrar.
@@ -290,7 +284,7 @@ export function RepasoCliente() {
   // Visita SIN planificar: la lanza la ventana "¿A qué vas?" con el objetivo
   // ya escrito. Se encola (funciona con o sin red, ver lib/offline-queue).
   // Lanza en caso de fallo para que la ventana muestre el error.
-  async function iniciarVisitaConObjetivo(objetivo: string) {
+  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string) {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
@@ -406,26 +400,6 @@ export function RepasoCliente() {
         </SeccionLista>
       )}
 
-      {/* Casi siempre hay un solo proyecto (el "General" automático) y esto
-          no se dibuja — solo aparece si el cliente tiene más de una línea
-          de negocio, para elegir a cuál va esta visita. */}
-      {!visitaIdAgendada && proyectosCliente && proyectosCliente.length > 1 && (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Proyecto</div>
-          <select
-            className="field"
-            value={proyectoElegido}
-            onChange={(e) => setProyectoElegido(e.target.value)}
-          >
-            {proyectosCliente.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       </div>
       </div>
 
@@ -462,6 +436,8 @@ export function RepasoCliente() {
       {objetivoModalAbierto && (
         <ObjetivoVisitaModal
           clienteNombre={cliente?.nombre}
+          proyectos={proyectosCliente}
+          proyectoInicial={proyectosCliente?.[0]?.id}
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
         />

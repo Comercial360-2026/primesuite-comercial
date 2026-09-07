@@ -731,6 +731,7 @@ export function FichaCliente() {
           clienteId={clienteId}
           proyectoId={general.id}
           clienteNombre={cliente?.nombre}
+          proyectos={proyectos}
         />
       )}
 

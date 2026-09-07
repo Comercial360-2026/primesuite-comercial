@@ -75,6 +75,11 @@ acción hermana, no secundaria escondida.
   selector, arranca en ese proyecto. Si se le pasa la lista sin fijo (ficha de
   cliente) → el modal muestra el selector, por defecto el General.
 - Sin cambios cuando el cliente tiene un solo proyecto: no se ve selector.
+- **También en `alta-rapida-cliente.tsx`** (vía "visitar un cliente existente
+  que ha salido como coincidencia"): mismo caso ad-hoc, mismo selector. Se
+  añade una query de proyectos del cliente elegido y se hilvana `proyectoId`
+  por `encolarVisita`. La vía "cliente nuevo" no lleva selector (solo tiene el
+  General). Cierra el fleco de no dejar una entrada sin el selector.
 
 ### P2 — Mismo selector en el arranque ad-hoc de «Repaso de cliente»
 

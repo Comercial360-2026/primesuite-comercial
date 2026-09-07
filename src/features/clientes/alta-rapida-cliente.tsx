@@ -73,6 +73,26 @@ export function AltaRapidaCliente() {
     },
   });
 
+  // Proyectos del cliente existente que se va a visitar: si tiene 2+, la
+  // ventana "¿A qué vas?" pide a cuál va la visita (mismo selector que desde
+  // la ficha). Un cliente nuevo solo tiene el General, así que no aplica.
+  const clienteExistenteId =
+    objetivoModal?.modo === 'existente' ? objetivoModal.clienteId : undefined;
+  const { data: proyectosExistente } = useQuery({
+    queryKey: ['proyectos-cliente-alta', clienteExistenteId],
+    enabled: !!clienteExistenteId,
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; es_general: boolean }>> => {
+      const { data, error } = await supabase
+        .from('proyecto')
+        .select('id, nombre, es_general')
+        .eq('cliente_id', clienteExistenteId!)
+        .order('es_general', { ascending: false })
+        .order('creado_en', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const nombreNorm = normalizarNombre(nombre);
   const nombreClave = claveDuplicado(nombre);
   const coincidencias = useMemo(() => {
@@ -144,6 +164,7 @@ export function AltaRapidaCliente() {
     clienteId: string,
     clienteNombre: string,
     objetivo: string,
+    proyectoId?: string,
     dependeDe?: string
   ) {
     if (!comercial) {
@@ -153,7 +174,7 @@ export function AltaRapidaCliente() {
     await encolar(
       visitaId,
       'visita',
-      { clienteId, comercialResponsableId: comercial.id, tipoVisita: null, objetivo },
+      { clienteId, proyectoId, comercialResponsableId: comercial.id, tipoVisita: null, objetivo },
       dependeDe ? { dependeDe } : undefined
     );
     return { visitaId, clienteNombre };
@@ -162,22 +183,29 @@ export function AltaRapidaCliente() {
   // "Estoy delante del cliente": la ventana "¿A qué vas?" recoge el objetivo
   // (obligatorio) y, al confirmar, se crea la ficha y se entra directo en
   // captura. Si el cliente se encoló (sin red), la visita depende de él.
-  async function arrancarConObjetivo(objetivo: string) {
+  async function arrancarConObjetivo(objetivo: string, proyectoId: string) {
     if (!objetivoModal || !comercial) return;
     let visitaId: string;
     let clienteNombre: string;
     if (objetivoModal.modo === 'nuevo') {
+      // Cliente recién creado: solo tiene el General, lo asigna el backend.
       const cliente = await crearCliente();
       const r = await encolarVisita(
         cliente.id,
         cliente.nombre,
         objetivo,
+        undefined,
         cliente.enCola ? cliente.id : undefined
       );
       visitaId = r.visitaId;
       clienteNombre = r.clienteNombre;
     } else {
-      const r = await encolarVisita(objetivoModal.clienteId, objetivoModal.clienteNombre, objetivo);
+      const r = await encolarVisita(
+        objetivoModal.clienteId,
+        objetivoModal.clienteNombre,
+        objetivo,
+        proyectoId || undefined
+      );
       visitaId = r.visitaId;
       clienteNombre = r.clienteNombre;
     }
@@ -348,6 +376,8 @@ export function AltaRapidaCliente() {
           clienteNombre={
             objetivoModal.modo === 'existente' ? objetivoModal.clienteNombre : nombre.trim() || undefined
           }
+          proyectos={objetivoModal.modo === 'existente' ? proyectosExistente : undefined}
+          proyectoInicial={proyectosExistente?.[0]?.id}
           onConfirmar={arrancarConObjetivo}
           onCerrar={() => setObjetivoModal(null)}
         />
