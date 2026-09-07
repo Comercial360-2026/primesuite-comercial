@@ -167,6 +167,28 @@ cambiar una palabra:
   `useProyectosCliente` ya lo traía).
 - El PDF no cambia: el informe es de una visita, no del proyecto.
 
+### P7b — Puerta al «Terminar» (visitas y oportunidades pendientes)
+
+**Decidido (Cesar, 2026-09-07).** PENDIENTE de implementar (se apoya en el
+mover-visita de P9). No dejar terminar un proyecto que aún tiene trabajo vivo:
+
+- Al pulsar «Terminar», si el proyecto tiene visitas **planificadas** o **en
+  curso**, se listan con dos acciones por fila:
+  - **Mover a…** — otro proyecto del cliente (excluyendo terminados); si no hay
+    otro con nombre, va a «Sin proyecto asignado» (el General). Usa
+    `mover_visita_de_proyecto`.
+  - **Cancelar** — solo para planificadas, y para una **en curso de la que soy
+    responsable**. Una visita **en curso de OTRO comercial** NO se puede
+    cancelar desde aquí: bloquea el «Terminar» con «espera a que se cierre».
+  El botón «Terminar proyecto» queda deshabilitado hasta que la lista está
+  vacía (todo movido o cancelado). Mover cuenta; no tocar, no.
+- **Oportunidades abiertas** (`etapa` no en ganada/perdida/descartada): **aviso
+  sin bloquear**. «Este proyecto tiene N oportunidades abiertas; seguirán en la
+  lista de oportunidades y en el pipeline». No se mueven ni se cierran; quedan
+  visibles en la ficha del proyecto (ya solo consulta) y en las vistas
+  globales. Terminar sigue adelante.
+- Próximos pasos pendientes: no bloquean ni avisan (viven en su propia lista).
+
 ### P8 — `ficha-proyecto.tsx` redirige siempre que el proyecto sea `es_general`
 
 - Condición actual (línea 79): `proyectos.length === 1 && proyectos[0].es_general
