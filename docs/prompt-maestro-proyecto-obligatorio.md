@@ -18,7 +18,10 @@ ocultos, sin actividad «suelta».
 - Cuando el cliente tiene **un solo proyecto**: no se pide elegir nada al
   crear visitas (se usa ese). El proyecto **se muestra como fila** en la ficha
   de cliente (coherencia: "diferenciados desde el minuto uno"), navegable a su
-  ficha.
+  ficha. **Decidido (Cesar, 2026-09-07):** fila navegable, **sin fusión**
+  ficha-cliente↔ficha-proyecto ni caso especial 1-vs-N. La actividad del
+  proyecto se ve entrando en él; la ficha de cliente conserva su historial
+  completo (todas las visitas, etiquetadas), así que no queda vacía.
 - Con **2+ proyectos**: lista «Proyectos», y al iniciar/planificar una visita
   se pregunta a cuál (selector ya hecho en `ObjetivoVisitaModal` /
   `planificar-visita`).
@@ -66,10 +69,12 @@ ocultos, sin actividad «suelta».
 
 Cada cliente tiene hoy exactamente 1 proyecto `es_general` con toda su
 actividad. La migración:
-1. `update proyecto set nombre = <?>, es_general = false where es_general` —
-   nombre: **decidir** (nombre del cliente / «Actividad general» / pedir a
-   Dirección que los renombre). Las ~11k filas de actividad NO se mueven,
-   siguen apuntando a ese `proyecto_id`.
+1. `update proyecto set nombre = 'Proyecto principal', es_general = false
+   where es_general` — **decidido (Cesar, 2026-09-07):** placeholder neutro
+   «Proyecto principal» para todos (no dice «general»); se avisa a Dirección
+   para que renombre cliente a cliente con la RPC de renombrar ya existente.
+   Las ~11k filas de actividad NO se mueven, siguen apuntando a ese
+   `proyecto_id`.
 2. Quitar `es_general` (columna, default, CHECK si lo hay) y
    `fn_crear_proyecto_general` + trigger.
 3. Alta de cliente: RPC/flow que cree cliente + primer proyecto en una
