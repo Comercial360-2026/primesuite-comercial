@@ -142,7 +142,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     ?.filter(
       (c) =>
         !idsYaParticipantes.has(c.id) &&
-        (!modoAñadir || c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+        c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase())
     )
     .map((c) => ({ ...c, rechazoPrevio: rechazadosSet.has(c.id), expulsadoPrevio: expulsadosSet.has(c.id) }));
 
@@ -292,19 +292,22 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
       onCerrar={onCerrar}
       derecha={
         puedeAñadir ? (
-          modoAñadir ? (
-            !buscador.abierto && <BotonBuscar etiqueta="buscar comercial…" onClick={buscador.abrir} />
-          ) : (
-            <button
-              type="button"
-              className="boton-icono"
-              aria-label="Añadir al equipo"
-              title="Añadir al equipo"
-              onClick={() => setModoAñadir(true)}
-            >
-              <Icono nombre="mas" size={18} />
-            </button>
-          )
+          <>
+            {!buscador.abierto && (
+              <BotonBuscar etiqueta="buscar comercial…" onClick={buscador.abrir} />
+            )}
+            {!modoAñadir && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Añadir al equipo"
+                title="Añadir al equipo"
+                onClick={() => setModoAñadir(true)}
+              >
+                <Icono nombre="mas" size={18} />
+              </button>
+            )}
+          </>
         ) : undefined
       }
     >
@@ -376,12 +379,12 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
 
         {/* Resto del equipo. Al entrar: lista (para ver quién hay). Con "+":
             casilla en cada uno para elegir a quién añadir. */}
-        {comercialesActivos != null && (otrosDelEquipo?.length || modoAñadir) ? (
+        {comercialesActivos != null && (otrosDelEquipo?.length || modoAñadir || buscador.abierto) ? (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--ink-100)', paddingTop: 12 }}>
             <div className="label" style={{ marginTop: 0 }}>
               {modoAñadir ? 'Añadir al equipo — marca a quién' : 'Resto del equipo'}
             </div>
-            {modoAñadir && buscador.abierto && (
+            {buscador.abierto && (
               <div style={{ marginBottom: 6 }}>
                 <CampoBuscar
                   value={busqueda}
@@ -426,8 +429,13 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                   </button>
                 );
               })}
-              {modoAñadir && busqueda.trim() && otrosDelEquipo?.length === 0 && (
+              {busqueda.trim() && otrosDelEquipo?.length === 0 && (
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Sin coincidencias.</span>
+              )}
+              {!busqueda.trim() && otrosDelEquipo?.length === 0 && (
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                  Todo el equipo activo ya está en esta visita.
+                </span>
               )}
             </div>
             {modoAñadir && (
