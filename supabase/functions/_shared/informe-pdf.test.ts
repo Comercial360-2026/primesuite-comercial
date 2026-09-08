@@ -24,6 +24,7 @@ import {
   tablaOportunidades,
   bloquesHallazgos,
   tablaPasos,
+  filaKPIs,
   type OportunidadRow,
   type PasoRow,
   type HallazgoRow,
@@ -234,6 +235,26 @@ function bloquesHallazgosESPERADO(hallazgos: HallazgoRow[]): any[] {
 }
 
 // deno-lint-ignore no-explicit-any
+function filaKPIsESPERADO(items: { valor: string; etiqueta: string; alerta?: boolean }[]): any {
+  return {
+    margin: [0, 6, 0, 12],
+    table: {
+      widths: items.map(() => '*'),
+      body: [
+        items.map((it) => ({
+          stack: [
+            { text: it.valor, bold: true, fontSize: 17, color: it.alerta ? COLOR.danger600 : COLOR.brand700 },
+            { text: it.etiqueta, fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
+          ],
+          margin: [10, 8, 10, 8],
+        })),
+      ],
+    },
+    layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
+  };
+}
+
+// deno-lint-ignore no-explicit-any
 function tablaPasosESPERADO(pasosOrdenados: PasoRow[]): any {
   return {
     table: {
@@ -302,4 +323,13 @@ Deno.test('bloquesHallazgos — igual que el inline anterior', () => {
 Deno.test('tablaPasos — igual que el inline anterior', () => {
   assertEquals(j(tablaPasos(PASOS)), j(tablaPasosESPERADO(PASOS)));
   assertEquals(j(tablaPasos([])), j(tablaPasosESPERADO([])));
+});
+
+Deno.test('filaKPIs — igual que el inline anterior', () => {
+  const kpis = [
+    { valor: '3', etiqueta: 'Visitas cerradas' },
+    { valor: '0', etiqueta: 'Riesgos' },
+    { valor: '2', etiqueta: 'Pasos vencidos', alerta: true },
+  ];
+  assertEquals(j(filaKPIs(kpis)), j(filaKPIsESPERADO(kpis)));
 });

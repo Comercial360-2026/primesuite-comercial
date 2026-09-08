@@ -31,10 +31,11 @@ más reciente. El «qué ha pasado en este proyecto» de un vistazo.
 
 ### `supabase/functions/_shared/informe-pdf.ts` (prompt maestro 07 lo creó)
 
-Se le añade `crearNumeradorSecciones()` — el «01 / 02 …» con su regla, que
-antes vivía inline en generar-backup-visita. Ahora los dos informes lo
-comparten. generar-backup-visita pasa a usarlo (PDF de visita verificado
-idéntico: `_shared/informe-pdf.test.ts` + backup real de SAPA).
+Se le añaden `crearNumeradorSecciones()` (el «01 / 02 …» con su regla) y
+`filaKPIs()` (la fila de recuadros del resumen ejecutivo), que antes vivían
+inline en generar-backup-visita. Ahora los dos informes los comparten.
+generar-backup-visita pasa a usarlos (PDF de visita verificado idéntico:
+`_shared/informe-pdf.test.ts` — 6 tests — + backup real de SAPA).
 
 ### `supabase/functions/generar-informe-proyecto/` (nueva)
 
@@ -79,7 +80,9 @@ Sin migración. Dos edge functions desplegadas.
 
 ## Clase / barrido
 
-Feature nueva. Al extraer `crearNumeradorSecciones` se re-verificó que el PDF
-de visita (prompt maestro 07) no cambia. Pendiente menor anotado: unificar
-también `filaKPIs` (hoy duplicado ~18 líneas en cada función; layouts algo
-distintos, no es divergencia de negocio).
+Feature nueva. Al extraer `crearNumeradorSecciones` y `filaKPIs` se
+re-verificó que el PDF de visita (prompt maestro 07) no cambia. Sin flecos:
+`_shared/informe-pdf.ts` tiene ya todo lo que no puede divergir entre los dos
+informes (marca, diccionarios, numerador, KPIs, tabla de oportunidades, lista
+de hallazgos, tabla de pasos, estado vacío); cada informe compone solo su
+portada y su orden de secciones.

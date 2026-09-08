@@ -24,6 +24,7 @@ import {
   TIPO_VISITA_FRASE,
   FRANJA_LABEL,
   crearNumeradorSecciones,
+  filaKPIs,
   fechaLarga,
   fechaCorta,
   horaDe,
@@ -360,26 +361,6 @@ Deno.serve(async (req) => {
     const texto = (ESTADO_PROYECTO_LABEL[estado] ?? estado).toUpperCase();
     const color = ESTADO_PROYECTO_COLOR[estado] ?? COLOR.ink400;
     return { table: { body: [[{ text: texto, color: '#FFFFFF', fillColor: color, bold: true, fontSize: 7.5, margin: [5, 2, 5, 2] }]] }, layout: 'noBorders' };
-  }
-
-  // deno-lint-ignore no-explicit-any
-  function filaKPIs(items: { valor: string; etiqueta: string; alerta?: boolean }[]): any {
-    return {
-      margin: [0, 6, 0, 12],
-      table: {
-        widths: items.map(() => '*'),
-        body: [
-          items.map((it) => ({
-            stack: [
-              { text: it.valor, bold: true, fontSize: 17, color: it.alerta ? COLOR.danger600 : COLOR.brand700 },
-              { text: it.etiqueta, fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
-            ],
-            margin: [10, 8, 10, 8],
-          })),
-        ],
-      },
-      layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
-    };
   }
 
   // --- Cronología: un bloque por visita ---

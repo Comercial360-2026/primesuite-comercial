@@ -53,6 +53,7 @@ import {
   FRANJA_LABEL,
   etiqueta,
   crearNumeradorSecciones,
+  filaKPIs,
   fechaLarga,
   fechaCorta,
   horaDe,
@@ -512,27 +513,6 @@ Deno.serve(async (req) => {
         'Refleja el estado de la visita en el momento de generarlo; los cambios posteriores no se recogen aquí.',
     },
   ];
-
-  // --- KPIs del resumen ejecutivo ---
-  // deno-lint-ignore no-explicit-any
-  function filaKPIs(items: { valor: string; etiqueta: string; alerta?: boolean }[]): any {
-    return {
-      margin: [0, 6, 0, 12],
-      table: {
-        widths: items.map(() => '*'),
-        body: [
-          items.map((it) => ({
-            stack: [
-              { text: it.valor, bold: true, fontSize: 17, color: it.alerta ? COLOR.danger600 : COLOR.brand700 },
-              { text: it.etiqueta, fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
-            ],
-            margin: [10, 8, 10, 8],
-          })),
-        ],
-      },
-      layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
-    };
-  }
 
   // Bloques compartidos con generar-informe-proyecto (_shared/informe-pdf.ts):
   // la tabla de oportunidades, la lista de hallazgos agrupada por naturaleza y

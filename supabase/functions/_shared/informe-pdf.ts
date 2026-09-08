@@ -259,6 +259,29 @@ export function estadoVacio(texto: string): any {
   return { text: texto, italics: true, color: COLOR.ink400, fontSize: 9.5, margin: [0, 2, 0, 4] };
 }
 
+// Fila de KPIs con recuadro: N celdas de igual ancho, cifra grande arriba y
+// etiqueta pequeña debajo. `alerta` pinta la cifra en rojo. Misma maqueta en
+// el resumen ejecutivo del informe de visita y en el del proyecto.
+// deno-lint-ignore no-explicit-any
+export function filaKPIs(items: { valor: string; etiqueta: string; alerta?: boolean }[]): any {
+  return {
+    margin: [0, 6, 0, 12],
+    table: {
+      widths: items.map(() => '*'),
+      body: [
+        items.map((it) => ({
+          stack: [
+            { text: it.valor, bold: true, fontSize: 17, color: it.alerta ? COLOR.danger600 : COLOR.brand700 },
+            { text: it.etiqueta, fontSize: 8, color: COLOR.ink400, margin: [0, 3, 0, 0] },
+          ],
+          margin: [10, 8, 10, 8],
+        })),
+      ],
+    },
+    layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
+  };
+}
+
 // Numerador de secciones "01 / 02 / …" con su regla inferior. Devuelve una
 // función con estado propio (el contador), así que hay que crear una por
 // documento. Misma maqueta en el informe de visita y en el de proyecto.
