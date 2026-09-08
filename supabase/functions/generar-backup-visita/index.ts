@@ -52,6 +52,7 @@ import {
   TIPO_VISITA_FRASE,
   FRANJA_LABEL,
   etiqueta,
+  crearNumeradorSecciones,
   fechaLarga,
   fechaCorta,
   horaDe,
@@ -410,33 +411,7 @@ Deno.serve(async (req) => {
   // y el ensamblado propios del informe de visita.
   // ---------------------------------------------------------------------
 
-  let contadorSeccion = 0;
-  // deno-lint-ignore no-explicit-any
-  function tituloSeccion(texto: string, extra?: string): any {
-    contadorSeccion += 1;
-    const numero = String(contadorSeccion).padStart(2, '0');
-    return {
-      unbreakable: true,
-      margin: [0, contadorSeccion === 1 ? 0 : 20, 0, 10],
-      stack: [
-        {
-          columns: [
-            // margen superior en el número para bajarlo a la línea base del
-            // título (fontSize 10 vs 13.5).
-            { width: 22, text: numero, color: COLOR.brand600, bold: true, fontSize: 10, margin: [0, 3, 0, 0] },
-            {
-              width: '*',
-              text: [
-                { text: texto, bold: true, fontSize: 13.5, color: COLOR.ink900 },
-                extra ? { text: `  ${extra}`, fontSize: 10, color: COLOR.ink400 } : null,
-              ].filter(Boolean),
-            },
-          ],
-        },
-        { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 499, y2: 4, lineWidth: 1, lineColor: COLOR.ink200 }] },
-      ],
-    };
-  }
+  const tituloSeccion = crearNumeradorSecciones();
 
   // --- Portada ---
 

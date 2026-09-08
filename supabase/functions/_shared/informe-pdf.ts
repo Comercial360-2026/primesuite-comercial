@@ -259,6 +259,39 @@ export function estadoVacio(texto: string): any {
   return { text: texto, italics: true, color: COLOR.ink400, fontSize: 9.5, margin: [0, 2, 0, 4] };
 }
 
+// Numerador de secciones "01 / 02 / …" con su regla inferior. Devuelve una
+// función con estado propio (el contador), así que hay que crear una por
+// documento. Misma maqueta en el informe de visita y en el de proyecto.
+export function crearNumeradorSecciones() {
+  let contadorSeccion = 0;
+  // deno-lint-ignore no-explicit-any
+  return function tituloSeccion(texto: string, extra?: string): any {
+    contadorSeccion += 1;
+    const numero = String(contadorSeccion).padStart(2, '0');
+    return {
+      unbreakable: true,
+      margin: [0, contadorSeccion === 1 ? 0 : 20, 0, 10],
+      stack: [
+        {
+          columns: [
+            // margen superior en el número para bajarlo a la línea base del
+            // título (fontSize 10 vs 13.5).
+            { width: 22, text: numero, color: COLOR.brand600, bold: true, fontSize: 10, margin: [0, 3, 0, 0] },
+            {
+              width: '*',
+              text: [
+                { text: texto, bold: true, fontSize: 13.5, color: COLOR.ink900 },
+                extra ? { text: `  ${extra}`, fontSize: 10, color: COLOR.ink400 } : null,
+              ].filter(Boolean),
+            },
+          ],
+        },
+        { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 499, y2: 4, lineWidth: 1, lineColor: COLOR.ink200 }] },
+      ],
+    };
+  };
+}
+
 // Tabla de oportunidades. `ordenadas` ya viene con el orden que quiera quien
 // llama (por prioridad en el informe de visita); aquí solo se maqueta y se
 // suma el total.

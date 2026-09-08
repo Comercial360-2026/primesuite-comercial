@@ -599,7 +599,7 @@ export function DetalleVisitaCerrada() {
                   {
                     icono: 'descargar',
                     etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
-                    onClick: descargaLista ? undefined : () => descargar(visitaId),
+                    onClick: descargaLista ? undefined : () => descargar('visita', visitaId),
                     href: descargaLista ? descargaLista.url : undefined,
                     disabled: estadoDescarga === 'generando',
                     tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',

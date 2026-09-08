@@ -7,9 +7,11 @@ import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
 import { ActividadProyecto } from './actividad-proyecto';
@@ -49,6 +51,12 @@ export function FichaProyecto() {
 
   const { data: proyectos } = useProyectosCliente(clienteId);
   const proyecto = proyectos?.find((p) => p.id === proyectoId);
+
+  // Informe PDF del proyecto (cronología de sus visitas cerradas). Mismo
+  // hook que el informe de visita, con tipo 'proyecto'.
+  const { estadoDe: estadoInformeDe, descargar: descargarInforme } = useDescargarInforme();
+  const estadoInforme = proyectoId ? estadoInformeDe(proyectoId) : 'inactivo';
+  const informeListo = typeof estadoInforme === 'object' ? estadoInforme : null;
 
   const { data: resumenVisitas } = useQuery({
     queryKey: ['resumen-visitas-proyecto', proyectoId],
@@ -448,6 +456,36 @@ export function FichaProyecto() {
 
         <div className="lista-agrupada">
           {proyectoId && <ActividadProyecto proyectoId={proyectoId} />}
+
+          {proyectoId && (
+            <SeccionLista>
+              <FilaAccion
+                densidad="compacta"
+                titulo="Informe del proyecto"
+                subtitulo={
+                  informeListo
+                    ? `Descargado (${formatearMB(informeListo.tamanoBytes)} MB)`
+                    : estadoInforme === 'generando'
+                      ? 'Generando el informe…'
+                      : estadoInforme === 'sin-red'
+                        ? 'Sin conexión. Inténtalo cuando tengas red'
+                        : estadoInforme === 'error'
+                          ? 'No se pudo generar, toca de nuevo'
+                          : 'PDF con la cronología de sus visitas cerradas'
+                }
+                acciones={[
+                  {
+                    icono: 'descargar',
+                    etiqueta: informeListo ? 'Descargar el informe otra vez' : 'Descargar informe',
+                    onClick: informeListo ? undefined : () => descargarInforme('proyecto', proyectoId),
+                    href: informeListo ? informeListo.url : undefined,
+                    disabled: estadoInforme === 'generando',
+                    tono: estadoInforme === 'error' ? 'riesgo' : informeListo ? 'brand' : 'neutral',
+                  },
+                ]}
+              />
+            </SeccionLista>
+          )}
 
           {confirmandoBorrado ? (
             <ConfirmacionBorrado
