@@ -1,4 +1,4 @@
-import { haceRelativo } from '@/lib/fechas';
+import { desdeHace } from '@/lib/fechas';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
 
@@ -44,7 +44,7 @@ export function FilaVisitaAbierta({
   const esMia = visita.esMia ?? true;
   const meta = [
     visita.proyectoNombre || null,
-    visita.desde ? `abierta ${haceRelativo(visita.desde)}` : null,
+    visita.desde ? `abierta ${desdeHace(visita.desde)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');

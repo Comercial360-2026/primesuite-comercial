@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
-import { haceRelativo } from '@/lib/fechas';
+import { desdeHace } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -94,7 +94,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
           <Icono nombre="atencion" size={13} />
           <span style={{ flex: 1, minWidth: 0 }}>
             Tienes otra visita abierta en {avisoOtroProyecto.proyectoNombre ?? 'este cliente'}
-            {avisoOtroProyecto.enCursoDesde && <> · abierta {haceRelativo(avisoOtroProyecto.enCursoDesde)}</>}.
+            {avisoOtroProyecto.enCursoDesde && <> · abierta {desdeHace(avisoOtroProyecto.enCursoDesde)}</>}.
           </span>
           <button
             type="button"

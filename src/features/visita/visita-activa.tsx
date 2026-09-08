@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { fechaCorta, haceRelativo, desdeHace } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
@@ -1326,11 +1326,11 @@ export function VisitaActiva() {
   // "última hace…" siempre que haya visita anterior.
   const contextoVisitaTexto =
     numeroVisita && numeroVisita > 1
-      ? [`${numeroVisita}.ª visita`, visitaAnterior ? `última hace ${haceRelativo(visitaAnterior.fecha)}` : null]
+      ? [`${numeroVisita}.ª visita`, visitaAnterior ? `última ${haceRelativo(visitaAnterior.fecha)}` : null]
           .filter(Boolean)
           .join(' · ')
       : visitaAnterior
-        ? `última visita hace ${haceRelativo(visitaAnterior.fecha)}`
+        ? `última visita ${haceRelativo(visitaAnterior.fecha)}`
         : null;
 
   // Zona 1 — interlocutores presentes, de un vistazo.
@@ -1532,7 +1532,7 @@ export function VisitaActiva() {
                     <> · {otrasVisitasEnCurso[0].proyectoNombre}</>
                   )}
                   {otrasVisitasEnCurso[0].desde && (
-                    <> · abierta <strong>{haceRelativo(otrasVisitasEnCurso[0].desde)}</strong></>
+                    <> · abierta <strong>{desdeHace(otrasVisitasEnCurso[0].desde)}</strong></>
                   )}
                   {' '}sigue sin cerrar.
                 </>

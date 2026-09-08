@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { haceRelativo } from '@/lib/fechas';
+import { desdeHace } from '@/lib/fechas';
 import { desde } from '@/lib/volver-a';
 import { Icono } from '@/components/ui/iconos';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -43,7 +43,7 @@ export function AvisoVisitasSinCerrar({
           {una ? (
             <>
               1 visita sin cerrar
-              {data.primeraDesde && <> · abierta {haceRelativo(data.primeraDesde)}</>}.
+              {data.primeraDesde && <> · abierta {desdeHace(data.primeraDesde)}</>}.
             </>
           ) : (
             <>{data.total} visitas sin cerrar.</>

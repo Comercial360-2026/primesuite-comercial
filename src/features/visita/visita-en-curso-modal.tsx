@@ -1,6 +1,6 @@
 import { Modal } from '@/components/ui/modal';
 import { Icono } from '@/components/ui/iconos';
-import { haceRelativo } from '@/lib/fechas';
+import { desdeHace } from '@/lib/fechas';
 
 interface VisitaEnCursoModalProps {
   clienteNombre?: string;
@@ -30,7 +30,7 @@ export function VisitaEnCursoModal({
 }: VisitaEnCursoModalProps) {
   const contexto = [
     proyectoNombre || null,
-    enCursoDesde ? `abierta ${haceRelativo(enCursoDesde)}` : null,
+    enCursoDesde ? `abierta ${desdeHace(enCursoDesde)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');

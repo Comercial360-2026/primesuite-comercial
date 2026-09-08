@@ -12,6 +12,7 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
+import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
@@ -46,6 +47,9 @@ function rangoDeHoy() {
 // Texto de "cuándo" de una visita. Con hora → "09:00"; sin hora pero con
 // franja → "mañana" / "tarde". `conDia` antepone el día (para la lista de
 // Próximas, que mezcla fechas).
+// Orden de urgencia de "También en curso": la que lleva más abierta, arriba.
+const SEV = { riesgo: 0, aviso: 1, neutral: 2 } as const;
+
 function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
   const t = v.hora_definida
     ? hora(v.fecha)
@@ -71,6 +75,7 @@ export function AgendaDelDia() {
   const modoAgenda = vista === 'agenda';
   const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
+  const [enCursoTodas, setEnCursoTodas] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -263,6 +268,22 @@ export function AgendaDelDia() {
       cerrarVisita();
     }
   }, [enCursoCargado, visitaEnCurso, visitasEnCurso, cerrarVisita]);
+  // "También en curso" (todas menos la que va en la tarjeta de arriba),
+  // ordenadas por urgencia: primero las que llevan más tiempo abiertas
+  // (riesgo → aviso → neutral), y dentro de cada tono, la más vieja antes.
+  // Se enseñan 3 y el resto se pliega — una lista sin fin en Hoy rompe el
+  // "de un vistazo".
+  const restoEnCurso = useMemo(() => {
+    return hoyEnCurso.slice(1).slice().sort((a, b) => {
+      const da = a.en_curso_desde ?? a.fecha;
+      const db = b.en_curso_desde ?? b.fecha;
+      const s = SEV[tonoPorAntiguedad(da)] - SEV[tonoPorAntiguedad(db)];
+      return s !== 0 ? s : da < db ? -1 : 1;
+    });
+  }, [hoyEnCurso]);
+  const TOPE_EN_CURSO = 3;
+  const enCursoVisibles = enCursoTodas ? restoEnCurso : restoEnCurso.slice(0, TOPE_EN_CURSO);
+
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
   const proximas = proximasFiltradas ?? [];
@@ -443,7 +464,7 @@ export function AgendaDelDia() {
               <section>
                 <div className="lbl-seccion">También en curso</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {hoyEnCurso.slice(1).map((v) =>
+                  {enCursoVisibles.map((v) =>
                     borrar.visitaBorrarId === v.id ? (
                       <ConfirmarBorradoVisita key={v.id} ctrl={borrar} />
                     ) : (
@@ -464,6 +485,18 @@ export function AgendaDelDia() {
                         onDescartar={() => void borrar.pedir(v.id)}
                       />
                     )
+                  )}
+                  {restoEnCurso.length > TOPE_EN_CURSO && (
+                    <button
+                      type="button"
+                      className="btn-enlace"
+                      style={{ alignSelf: 'flex-start' }}
+                      onClick={() => setEnCursoTodas((x) => !x)}
+                    >
+                      {enCursoTodas
+                        ? 'Ver menos'
+                        : `Ver las otras ${restoEnCurso.length - TOPE_EN_CURSO}`}
+                    </button>
                   )}
                 </div>
               </section>
