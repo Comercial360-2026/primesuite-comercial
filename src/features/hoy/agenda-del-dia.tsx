@@ -12,6 +12,7 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
+import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
@@ -76,6 +77,7 @@ export function AgendaDelDia() {
   const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
   const [enCursoTodas, setEnCursoTodas] = useState(false);
+  const [empezarAbierto, setEmpezarAbierto] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -383,15 +385,16 @@ export function AgendaDelDia() {
         derecha={
           <button
             type="button"
-            className="boton-icono"
-            aria-label="Nueva visita"
-            title="Nueva visita"
-            onClick={() => navigate('/planificar', { state: desde(location) })}
+            className="btn btn-primary btn--compacto"
+            onClick={() => setEmpezarAbierto(true)}
           >
-            <Icono nombre="mas" size={18} />
+            <Icono nombre="mas" size={16} />
+            Visita
           </button>
         }
       />
+
+      {empezarAbierto && <EmpezarVisitaHoja onCerrar={() => setEmpezarAbierto(false)} />}
 
       {/* Filtro único: "Agenda" (calendario de mes) + el foco del día. La
           agenda ya no es una pantalla aparte ni un icono suelto — es una

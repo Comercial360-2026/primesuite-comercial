@@ -44,6 +44,17 @@ body {
 .btn-primary { background: var(--brand-600); color: #fff; }
 .btn-primary:active:not(:disabled) { background: var(--brand-700); }
 
+/* Botón de acción compacto para una cabecera (no una barra a toda anchura):
+   ancho al contenido, algo más bajo. Lo usa el "+ Visita" de Hoy — empezar
+   una visita es la acción principal de la app y va con texto, no icono solo. */
+.btn--compacto {
+  width: auto;
+  height: auto;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+  gap: var(--space-1);
+}
+
 .btn-secondary { background: var(--surface-1); color: var(--ink-900); border: 1px solid var(--ink-200); }
 .btn-secondary:active:not(:disabled) { background: var(--surface-0); }
 

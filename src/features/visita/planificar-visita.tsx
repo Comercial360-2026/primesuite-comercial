@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
+import { arrancarVisitaAhora } from '@/lib/arrancar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -189,15 +190,15 @@ export function PlanificarVisita() {
     setArrancando(true);
     setErrorAhora(null);
     try {
-      const visitaId = uuid();
-      await encolar(visitaId, 'visita', {
+      const visitaId = await arrancarVisitaAhora({
+        encolar,
+        iniciarVisita,
+        comercialId: comercial.id,
         clienteId,
         proyectoId,
-        comercialResponsableId: comercial.id,
-        tipoVisita: null,
-        objetivo: objetivo.trim(),
+        clienteNombre: cliente?.nombre ?? '',
+        objetivo,
       });
-      iniciarVisita({ id: visitaId, clienteNombre: cliente?.nombre ?? '' });
       navigate(`/visita/${visitaId}`);
     } catch (e) {
       setArrancando(false);
