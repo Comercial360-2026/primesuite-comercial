@@ -129,6 +129,23 @@ pone `staleTime`) reejecutaba `setAreas`/`setNota` en cada refetch y **borraba l
 sin guardar**. Ahora el formulario se siembra del servidor **una sola vez por hallazgo**
 (refs `camposSembradosRef` / `areasSembradasRef`).
 
+**Fuera de Fase 3 (a propósito — no tocado):**
+- **Foto y audio no se pueden marcar como hallazgo/oportunidad**: el selector "Esto es"
+  solo sale en `tipo === 'nota'`. Si un comercial fotografía "rack viejo" y quiere que sea
+  hallazgo, hoy no puede. PM11 no lo contempla.
+- **Editar el título de una foto/audio con la visita cerrada**: `detalle-captura` ya lee de
+  Supabase, así que técnicamente se podría — pero `detalle-visita-cerrada` no enlaza fotos
+  ni audios a su ficha (abren visor / `<audio>` inline). Hueco paralelo, no de PM11.
+- Columnas `captura_libre.hallazgo_id` / `oportunidad_id`: siguen dormidas (con "mover" no
+  se usan). Quitar en Fase 5.
+- **Permiso "no eres autor ni Dirección"**: el `motivoBloqueo` y el selector inerte están
+  implementados y revisados en código (mismo patrón que `detalle-visita-cerrada` con
+  "Borrar"), pero NO probado con dos usuarios distintos en vivo.
+- Verificación PM11: typecheck + lint + build + `ayuda:cobertura` OK; `deno test --no-check
+  supabase/functions/_shared/informe-pdf.test.ts` = 6/6 (módulo PDF sin cambios en Fase 3).
+  La RPC 107 se validó en vivo (las 4 direcciones + guard + hibernación ida y vuelta +
+  permisos del autor), sin test SQL automatizado.
+
 ### Fase 4 — informe y vista de proyecto
 - PDF (visita y proyecto): secciones **Notas · Hallazgos · Oportunidades ·
   Próximos pasos**, con las mismas palabras que la app. Redesplegar
