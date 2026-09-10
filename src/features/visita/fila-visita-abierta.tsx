@@ -1,6 +1,6 @@
 import { desdeHace } from '@/lib/fechas';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
-import { Icono } from '@/components/ui/iconos';
+import { FilaToggle, type EstadoSeleccion } from '@/components/ui/fila-toggle';
 
 export interface VisitaAbierta {
   id: string;
@@ -21,24 +21,23 @@ const COLOR_TONO: Record<string, string> = {
   riesgo: 'var(--risk-600)',
 };
 
-// Una visita EN CURSO en la lista de "visitas abiertas sin cerrar": el cuerpo
-// abre la visita; a la derecha, Cerrar (va al cierre) y Descartar (la borra).
-// Barra de color a la izquierda según lleve más o menos abierta. Si la visita
-// es de otro comercial, se ve pero sin acciones. Mismo componente para el
-// panel (aviso) y para "También en curso" de Hoy.
+// Una visita EN CURSO en una lista ("También en curso" de Hoy, panel de
+// "visitas abiertas sin cerrar"). La fila SOLO abre la visita. Cerrar y
+// descartar NO son botones por fila: van por el modo "Seleccionar" del
+// contenedor (chip → casillas FilaToggle → BarraSeleccion con [Cerrar] /
+// [Descartar]). Barra de color a la izquierda según lleve más o menos
+// abierta. Si la visita es de otro comercial, se ve pero no es accionable
+// ni seleccionable.
 export function FilaVisitaAbierta({
   visita,
-  puedeAccionar = true,
   onAbrir,
-  onCerrar,
-  onDescartar,
+  seleccion,
 }: {
   visita: VisitaAbierta;
-  /** false sin conexión: se ven las acciones desactivadas. */
-  puedeAccionar?: boolean;
   onAbrir: () => void;
-  onCerrar: () => void;
-  onDescartar: () => void;
+  /** Lo pasa el contenedor cuando su modo "Seleccionar" está activo. Solo
+   *  aplica a las visitas propias. */
+  seleccion?: EstadoSeleccion;
 }) {
   const tono = tonoPorAntiguedad(visita.desde);
   const esMia = visita.esMia ?? true;
@@ -49,92 +48,45 @@ export function FilaVisitaAbierta({
     .filter(Boolean)
     .join(' · ');
 
+  const seleccionando = !!seleccion?.activa && esMia;
+  const marcada = !!seleccion?.marcada;
+
   return (
-    <div
+    <button
+      type="button"
+      onClick={seleccionando ? seleccion!.onToggle : onAbrir}
+      aria-pressed={seleccionando ? marcada : undefined}
       style={{
         display: 'flex',
-        alignItems: 'stretch',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        textAlign: 'left',
         border: '1px solid var(--ink-200)',
         borderLeft: `3px solid ${COLOR_TONO[tono]}`,
         borderRadius: 'var(--radius-field)',
-        overflow: 'hidden',
+        background: marcada ? 'var(--brand-050)' : 'none',
+        cursor: 'pointer',
+        padding: '10px 12px',
+        font: 'inherit',
       }}
     >
-      <button
-        type="button"
-        onClick={onAbrir}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          textAlign: 'left',
-          border: 'none',
-          background: 'none',
-          cursor: 'pointer',
-          padding: '10px 12px',
-          font: 'inherit',
-        }}
-      >
-        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-900)' }}>
+      {seleccionando && <FilaToggle marcada={marcada} />}
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--ink-900)' }}>
           {visita.clienteNombre}
-        </div>
+        </span>
         {meta && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+          <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
             {meta}
-          </div>
+          </span>
         )}
         {!esMia && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+          <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
             en curso de {visita.responsableNombre || 'otro comercial'} · no puedes cerrarla
-          </div>
+          </span>
         )}
-      </button>
-
-      {esMia && (
-        <div style={{ display: 'flex', borderLeft: '1px solid var(--ink-200)' }}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCerrar();
-            }}
-            disabled={!puedeAccionar}
-            title="Cerrar la visita"
-            style={botonAccion}
-          >
-            <Icono nombre="check" size={16} />
-            Cerrar
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDescartar();
-            }}
-            disabled={!puedeAccionar}
-            title="Descartar la visita"
-            style={{ ...botonAccion, color: 'var(--risk-600)', borderLeft: '1px solid var(--ink-200)' }}
-          >
-            <Icono nombre="borrar" size={16} />
-            Descartar
-          </button>
-        </div>
-      )}
-    </div>
+      </span>
+    </button>
   );
 }
-
-const botonAccion: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 2,
-  minWidth: 68,
-  padding: '4px 8px',
-  border: 'none',
-  background: 'none',
-  cursor: 'pointer',
-  font: 'inherit',
-  fontSize: 'var(--text-xs)',
-  color: 'var(--ink-700)',
-};

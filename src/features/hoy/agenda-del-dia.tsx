@@ -6,14 +6,14 @@ import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
-import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
 import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
-import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
@@ -78,6 +78,12 @@ export function AgendaDelDia() {
   const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
   const [empezarAbierto, setEmpezarAbierto] = useState(false);
+  // "También en curso": tope de 3 + "Ver las otras N"; modo Seleccionar para
+  // cerrar/descartar varias sin botones por fila.
+  const [enCursoTodas, setEnCursoTodas] = useState(false);
+  const [selEnCurso, setSelEnCurso] = useState(false);
+  const [marcadasEnCurso, setMarcadasEnCurso] = useState<Set<string>>(new Set());
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -273,8 +279,6 @@ export function AgendaDelDia() {
   // "También en curso" (todas menos la que va en la tarjeta de arriba),
   // ordenadas por urgencia: primero las que llevan más tiempo abiertas
   // (riesgo → aviso → neutral), y dentro de cada tono, la más vieja antes.
-  // Se enseñan 3 y el resto se pliega — una lista sin fin en Hoy rompe el
-  // "de un vistazo".
   const restoEnCurso = useMemo(() => {
     return hoyEnCurso.slice(1).slice().sort((a, b) => {
       const da = a.en_curso_desde ?? a.fecha;
@@ -283,11 +287,34 @@ export function AgendaDelDia() {
       return s !== 0 ? s : da < db ? -1 : 1;
     });
   }, [hoyEnCurso]);
-  // La sección se abre sola si hay alguna que lleva días abierta (aviso/riesgo)
-  // — eso hay que verlo. Si todas son de hoy (neutral), nace plegada.
-  const hayEnCursoUrgente = restoEnCurso.some(
-    (v) => tonoPorAntiguedad(v.en_curso_desde ?? v.fecha) !== 'neutral'
-  );
+  // Se ven 3; el resto tras "Ver las otras N". En modo Seleccionar se ven
+  // todas (para poder marcar cualquiera).
+  const TOPE_EN_CURSO = 3;
+  const enCursoVisibles =
+    selEnCurso || enCursoTodas ? restoEnCurso : restoEnCurso.slice(0, TOPE_EN_CURSO);
+  const marcadasArr = [...marcadasEnCurso];
+  // Poda: si una visita marcada deja de estar en curso (se cerró/descartó),
+  // fuera de la selección.
+  useEffect(() => {
+    setMarcadasEnCurso((prev) => {
+      const vivos = new Set(restoEnCurso.map((v) => v.id));
+      const filtrado = [...prev].filter((id) => vivos.has(id));
+      return filtrado.length === prev.size ? prev : new Set(filtrado);
+    });
+  }, [restoEnCurso]);
+  function salirSelEnCurso() {
+    setSelEnCurso(false);
+    setMarcadasEnCurso(new Set());
+    setConfirmandoDescarte(false);
+  }
+  function toggleMarcadaEnCurso(id: string) {
+    setMarcadasEnCurso((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
 
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
@@ -464,19 +491,74 @@ export function AgendaDelDia() {
             />
 
             {/* Resto de visitas en curso (la 1ª va en la tarjeta de arriba).
-                Sección plegable: cabecera "También en curso (N)" con chevron,
-                abierta sola si alguna lleva días sin cerrar. Cada fila:
-                abrirla, cerrarla (va al cierre) o descartarla. */}
+                Se ven 3 + "Ver las otras N". Cerrar / descartar van por el
+                modo "Seleccionar" (casillas + BarraSeleccion), no botones por
+                fila. */}
             {restoEnCurso.length > 0 && (
-              <SeccionColapsable
-                titulo="También en curso"
-                cantidad={restoEnCurso.length}
-                defaultAbierta={hayEnCursoUrgente}
-              >
-                {restoEnCurso.map((v) =>
-                  borrar.visitaBorrarId === v.id ? (
-                    <ConfirmarBorradoVisita key={v.id} ctrl={borrar} />
-                  ) : (
+              <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div className="lbl-seccion" style={{ marginBottom: 0 }}>
+                    También en curso{' '}
+                    {restoEnCurso.length > 1 && (
+                      <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>({restoEnCurso.length})</span>
+                    )}
+                  </div>
+                  {!selEnCurso && restoEnCurso.length > 1 && (
+                    <button type="button" className="chip" onClick={() => setSelEnCurso(true)}>
+                      Seleccionar
+                    </button>
+                  )}
+                </div>
+
+                {selEnCurso && !confirmandoDescarte && (
+                  <div style={{ marginTop: 8 }}>
+                    <BarraSeleccion
+                      n={marcadasArr.length}
+                      onCancelar={salirSelEnCurso}
+                      acciones={[
+                        {
+                          etiqueta: 'Cerrar',
+                          icono: 'check',
+                          disabled: marcadasArr.length !== 1 || !online,
+                          onClick: () => {
+                            const id = marcadasArr[0];
+                            salirSelEnCurso();
+                            navigate(`/visita/${id}/cierre`, { state: desde(location) });
+                          },
+                        },
+                        {
+                          etiqueta: `Descartar${marcadasArr.length ? ` (${marcadasArr.length})` : ''}`,
+                          icono: 'borrar',
+                          tono: 'riesgo',
+                          disabled: marcadasArr.length === 0 || !online,
+                          onClick: () => setConfirmandoDescarte(true),
+                        },
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {confirmandoDescarte && (
+                  <div style={{ marginTop: 8 }}>
+                    <ConfirmacionBorrado
+                      confirmar={`Sí, descartar ${marcadasArr.length}`}
+                      cargandoTexto="Descartando…"
+                      cargando={borrar.borrando.cargando}
+                      error={borrar.borrando.error}
+                      onCancelar={() => setConfirmandoDescarte(false)}
+                      onConfirmar={async () => {
+                        await borrar.borrarVarias(marcadasArr);
+                        salirSelEnCurso();
+                      }}
+                    >
+                      Se descartan {marcadasArr.length} {marcadasArr.length === 1 ? 'visita' : 'visitas'} y todo
+                      su contenido (fotos, audios, notas, hallazgos, oportunidades…).
+                    </ConfirmacionBorrado>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                  {enCursoVisibles.map((v) => (
                     <FilaVisitaAbierta
                       key={v.id}
                       visita={{
@@ -486,14 +568,30 @@ export function AgendaDelDia() {
                         desde: v.en_curso_desde ?? v.fecha,
                         esMia: true,
                       }}
-                      puedeAccionar={online}
                       onAbrir={() => abrirVisita(v)}
-                      onCerrar={() => navigate(`/visita/${v.id}/cierre`, { state: desde(location) })}
-                      onDescartar={() => void borrar.pedir(v.id)}
+                      seleccion={
+                        selEnCurso
+                          ? {
+                              activa: true,
+                              marcada: marcadasEnCurso.has(v.id),
+                              onToggle: () => toggleMarcadaEnCurso(v.id),
+                            }
+                          : undefined
+                      }
                     />
-                  )
-                )}
-              </SeccionColapsable>
+                  ))}
+                  {!selEnCurso && restoEnCurso.length > TOPE_EN_CURSO && (
+                    <FilaNavegable
+                      densidad="compacta"
+                      titulo={
+                        enCursoTodas ? 'Ver menos' : `Ver las otras ${restoEnCurso.length - TOPE_EN_CURSO}`
+                      }
+                      chevron={false}
+                      onClick={() => setEnCursoTodas((x) => !x)}
+                    />
+                  )}
+                </div>
+              </section>
             )}
 
             {atrasadas.length > 0 && (
