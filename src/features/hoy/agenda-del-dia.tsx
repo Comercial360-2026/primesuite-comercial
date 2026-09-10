@@ -13,6 +13,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
 import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
 import { Segmentado } from '@/components/ui/segmentado';
@@ -76,7 +77,6 @@ export function AgendaDelDia() {
   const modoAgenda = vista === 'agenda';
   const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
-  const [enCursoTodas, setEnCursoTodas] = useState(false);
   const [empezarAbierto, setEmpezarAbierto] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
@@ -283,8 +283,11 @@ export function AgendaDelDia() {
       return s !== 0 ? s : da < db ? -1 : 1;
     });
   }, [hoyEnCurso]);
-  const TOPE_EN_CURSO = 3;
-  const enCursoVisibles = enCursoTodas ? restoEnCurso : restoEnCurso.slice(0, TOPE_EN_CURSO);
+  // La sección se abre sola si hay alguna que lleva días abierta (aviso/riesgo)
+  // — eso hay que verlo. Si todas son de hoy (neutral), nace plegada.
+  const hayEnCursoUrgente = restoEnCurso.some(
+    (v) => tonoPorAntiguedad(v.en_curso_desde ?? v.fecha) !== 'neutral'
+  );
 
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
@@ -461,48 +464,36 @@ export function AgendaDelDia() {
             />
 
             {/* Resto de visitas en curso (la 1ª va en la tarjeta de arriba).
-                Cada fila: abrirla, cerrarla (va al cierre) o descartarla.
-                Color creciente según lleve más tiempo abierta. */}
-            {hoyEnCurso.length > 1 && (
-              <section>
-                <div className="lbl-seccion">También en curso</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {enCursoVisibles.map((v) =>
-                    borrar.visitaBorrarId === v.id ? (
-                      <ConfirmarBorradoVisita key={v.id} ctrl={borrar} />
-                    ) : (
-                      <FilaVisitaAbierta
-                        key={v.id}
-                        visita={{
-                          id: v.id,
-                          clienteNombre: v.cliente?.nombre ?? 'Cliente',
-                          proyectoNombre: v.proyecto?.nombre ?? null,
-                          desde: v.en_curso_desde ?? v.fecha,
-                          esMia: true,
-                        }}
-                        puedeAccionar={online}
-                        onAbrir={() => abrirVisita(v)}
-                        onCerrar={() =>
-                          navigate(`/visita/${v.id}/cierre`, { state: desde(location) })
-                        }
-                        onDescartar={() => void borrar.pedir(v.id)}
-                      />
-                    )
-                  )}
-                  {restoEnCurso.length > TOPE_EN_CURSO && (
-                    <button
-                      type="button"
-                      className="btn-enlace"
-                      style={{ alignSelf: 'flex-start' }}
-                      onClick={() => setEnCursoTodas((x) => !x)}
-                    >
-                      {enCursoTodas
-                        ? 'Ver menos'
-                        : `Ver las otras ${restoEnCurso.length - TOPE_EN_CURSO}`}
-                    </button>
-                  )}
-                </div>
-              </section>
+                Sección plegable: cabecera "También en curso (N)" con chevron,
+                abierta sola si alguna lleva días sin cerrar. Cada fila:
+                abrirla, cerrarla (va al cierre) o descartarla. */}
+            {restoEnCurso.length > 0 && (
+              <SeccionColapsable
+                titulo="También en curso"
+                cantidad={restoEnCurso.length}
+                defaultAbierta={hayEnCursoUrgente}
+              >
+                {restoEnCurso.map((v) =>
+                  borrar.visitaBorrarId === v.id ? (
+                    <ConfirmarBorradoVisita key={v.id} ctrl={borrar} />
+                  ) : (
+                    <FilaVisitaAbierta
+                      key={v.id}
+                      visita={{
+                        id: v.id,
+                        clienteNombre: v.cliente?.nombre ?? 'Cliente',
+                        proyectoNombre: v.proyecto?.nombre ?? null,
+                        desde: v.en_curso_desde ?? v.fecha,
+                        esMia: true,
+                      }}
+                      puedeAccionar={online}
+                      onAbrir={() => abrirVisita(v)}
+                      onCerrar={() => navigate(`/visita/${v.id}/cierre`, { state: desde(location) })}
+                      onDescartar={() => void borrar.pedir(v.id)}
+                    />
+                  )
+                )}
+              </SeccionColapsable>
             )}
 
             {atrasadas.length > 0 && (

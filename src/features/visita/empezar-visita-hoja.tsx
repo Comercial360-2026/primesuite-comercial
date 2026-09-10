@@ -296,15 +296,9 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         {/* Paso 2 — proyecto (solo si hay más de uno) */}
         {!!clienteId && !proyectoId && (
           <div>
-            <button
-              type="button"
-              className="btn-enlace"
-              style={{ marginBottom: 8 }}
-              onClick={() => setClienteId('')}
-            >
-              ‹ {cliente?.nombre ?? 'cambiar cliente'}
-            </button>
-            <div className="label" style={{ marginTop: 0 }}>¿En qué proyecto?</div>
+            <div className="label" style={{ marginTop: 0 }}>
+              {cliente?.nombre ? `${cliente.nombre} · ¿en qué proyecto?` : '¿En qué proyecto?'}
+            </div>
             <SeccionLista>
               {proyectos?.map((p) => (
                 <FilaNavegable key={p.id} titulo={p.nombre} onClick={() => setProyectoId(p.id)} chevron />
@@ -358,23 +352,11 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         {/* Paso 3 — objetivo + empezar */}
         {!!clienteId && !!proyectoId && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
-                {cliente?.nombre}
-                {proyectoElegido && (
-                  <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> · {proyectoElegido.nombre}</span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn-enlace"
-                onClick={() => {
-                  if ((proyectos?.length ?? 0) > 1) setProyectoId('');
-                  else setClienteId('');
-                }}
-              >
-                cambiar
-              </button>
+            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+              {cliente?.nombre}
+              {proyectoElegido && (
+                <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> · {proyectoElegido.nombre}</span>
+              )}
             </div>
 
             {clienteDeOtro && (
@@ -421,14 +403,14 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           </div>
         )}
 
-        <button
-          type="button"
-          className="btn-enlace"
-          style={{ alignSelf: 'center', marginTop: 12 }}
-          onClick={irAPlanificar}
-        >
-          ¿Es para otro día? Planificar →
-        </button>
+        <SeccionLista>
+          <FilaNavegable
+            icono="hoy"
+            titulo="Planificar para otro día"
+            onClick={irAPlanificar}
+            chevron
+          />
+        </SeccionLista>
       </div>
 
       {enCursoAbierto && visitaEnCurso && (
