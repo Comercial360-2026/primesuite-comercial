@@ -221,10 +221,27 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     navigate(`/planificar${q.toString() ? `?${q}` : ''}`, { state: desde(location) });
   }
 
+  // La × / Esc / tocar fuera RETROCEDE de paso, no sale de golpe (misma regla
+  // que el ← de /planificar): objetivo → proyecto → cliente → cerrar. El paso
+  // de proyecto solo se rehace si de verdad había que elegir (>1 proyecto);
+  // con uno solo se salta directo al de cliente para no re-autoseleccionarlo.
+  const puedeVolverAProyecto = !!proyectoId && (proyectos?.length ?? 0) > 1;
+  function cerrarORetroceder() {
+    if (puedeVolverAProyecto) {
+      setProyectoId('');
+      return;
+    }
+    if (clienteId) {
+      setClienteId('');
+      return;
+    }
+    onCerrar();
+  }
+
   const proyectoElegido = proyectos?.find((p) => p.id === proyectoId) ?? null;
 
   return (
-    <HojaSuperior titulo="empezar visita" onCerrar={onCerrar}>
+    <HojaSuperior titulo="empezar visita" onCerrar={cerrarORetroceder}>
       <div className="lista-agrupada" style={{ padding: '0 4px 8px' }}>
         {/* Paso 1 — cliente */}
         {!clienteId && (
