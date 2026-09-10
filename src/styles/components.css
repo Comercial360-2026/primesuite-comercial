@@ -206,24 +206,27 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .chip--on::before { content: "✓"; font-size: 0.95em; margin-right: 1px; }
 
 /* Opción de "qué es, además de una nota" en la hoja Anotar (prompt maestro
-   11): dos botones grandes en fila —palabra en grande + matiz pequeño
-   debajo—. Mismo lenguaje de activo que .chip--on (relleno sólido + ✓,
-   regla #11 daltónico), pero con dos líneas y área de toque de 44px. */
+   11): dos botones grandes en fila —icono + palabra en grande + matiz
+   pequeño debajo—. Fondo `--brand-050` e icono `--brand-600`, mismo
+   lenguaje que los botones de captura (Foto/Audio/…): se leen como control,
+   no como caja de texto. Activo = relleno sólido + ✓ (regla #11 daltónico). */
 .marca-opcion {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
-  min-height: 44px; padding: 8px var(--space-3);
-  border-radius: var(--radius-field); border: 1px solid var(--ink-200);
-  background: var(--surface-1); color: var(--ink-900);
+  min-height: 48px; padding: 8px var(--space-3);
+  border-radius: var(--radius-control); border: 1px solid transparent;
+  background: var(--brand-050); color: var(--ink-900);
   font-family: var(--font-sans); text-align: left; cursor: pointer;
 }
-.marca-opcion:active { background: var(--surface-0); }
-.marca-opcion--on { border-color: var(--brand-600); background: var(--brand-600); color: #fff; }
+.marca-opcion:active { transform: scale(0.98); }
+.marca-opcion--on { background: var(--brand-600); color: #fff; }
 .marca-opcion__t {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 5px;
   font-size: var(--text-sm); font-weight: 600;
 }
-.marca-opcion--on .marca-opcion__t::before { content: "✓"; font-size: 0.95em; }
+.marca-opcion__t > svg { color: var(--brand-600); flex-shrink: 0; }
+.marca-opcion--on .marca-opcion__t > svg { color: #fff; }
+.marca-opcion--on .marca-opcion__t::after { content: "✓"; font-size: 0.95em; margin-left: 2px; }
 .marca-opcion__s { font-size: var(--text-xs); color: var(--ink-400); }
 .marca-opcion--on .marca-opcion__s { color: rgba(255, 255, 255, 0.85); }
 

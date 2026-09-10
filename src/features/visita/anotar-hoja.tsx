@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 import type { Area } from '@/lib/vocabulario';
-import { SelectorAreas } from '@/components/ui/selector-areas';
+import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { useDictado } from '@/hooks/use-dictado';
@@ -216,7 +216,9 @@ export function AnotarHoja({
           className={`marca-opcion${marca === 'hallazgo' ? ' marca-opcion--on' : ''}`}
           onClick={() => alternarMarca('hallazgo')}
         >
-          <span className="marca-opcion__t">Hallazgo</span>
+          <span className="marca-opcion__t">
+            <Icono nombre="hallazgo" size={15} /> Hallazgo
+          </span>
           <span className="marca-opcion__s">algo que tienen</span>
         </button>
         <button
@@ -224,7 +226,9 @@ export function AnotarHoja({
           className={`marca-opcion${marca === 'oportunidad' ? ' marca-opcion--on' : ''}`}
           onClick={() => alternarMarca('oportunidad')}
         >
-          <span className="marca-opcion__t">Oportunidad</span>
+          <span className="marca-opcion__t">
+            <Icono nombre="oportunidad" size={15} /> Oportunidad
+          </span>
           <span className="marca-opcion__s">algo para venderles</span>
         </button>
       </div>
@@ -258,9 +262,10 @@ export function AnotarHoja({
         <>
           <div className="label">Área (opcional)</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-            Categoría del catálogo (Hardware, Software…) o el sistema concreto. Puedes marcar varias.
+            Marca las categorías que apliquen. La marca o el modelo concretos se afinan
+            luego en la ficha del hallazgo.
           </div>
-          <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
+          <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
         </>
       )}
 
