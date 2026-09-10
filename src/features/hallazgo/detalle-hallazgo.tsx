@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -7,6 +7,7 @@ import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
+import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -79,17 +80,29 @@ export function DetalleHallazgo() {
     .filter(Boolean)
     .join(' · ');
 
+  // El formulario se rellena con lo que hay en el servidor UNA sola vez por
+  // hallazgo. Sin estos guards, cualquier refetch de la query (foco de la
+  // ventana con la query ya vencida, o una invalidación tras convertir de
+  // tipo) volvía a llamar a `setNota`/`setAreas`/… y borraba lo que el
+  // comercial estuviera editando sin guardar. `guardarAreasDeHallazgo` hace
+  // su diff contra la BD al guardar, así que no reflejar en vivo un cambio
+  // remoto es seguro (además, editar en dos sitios a la vez no es el caso).
+  const camposSembradosRef = useRef<string | null>(null);
+  const areasSembradasRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!hallazgo) return;
+    if (!hallazgo || camposSembradosRef.current === hallazgoId) return;
     setNota(hallazgo.nota ?? '');
     setUbicacionId(hallazgo.ubicacion_id ?? '');
     setFechaRelevante(hallazgo.fecha_relevante ?? '');
     setTipoFechaRelevante(hallazgo.tipo_fecha_relevante ?? '');
-  }, [hallazgo]);
+    camposSembradosRef.current = hallazgoId ?? null;
+  }, [hallazgo, hallazgoId]);
 
   useEffect(() => {
-    if (areasCargadas) setAreas(areasCargadas);
-  }, [areasCargadas]);
+    if (!areasCargadas || areasSembradasRef.current === hallazgoId) return;
+    setAreas(areasCargadas);
+    areasSembradasRef.current = hallazgoId ?? null;
+  }, [areasCargadas, hallazgoId]);
 
   const { data: ubicaciones } = useQuery({
     queryKey: ['ubicaciones-cliente', hallazgo?.cliente_id],
@@ -139,6 +152,9 @@ export function DetalleHallazgo() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
+    // Si la visita está cerrada y su resumen es automático, se rehace con
+    // el texto nuevo del hallazgo.
+    await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
     setGuardando(false);
     setGuardadoConExito(true);
     // Breve pausa para que "guardado ✓" sea visible de verdad antes de
@@ -170,6 +186,7 @@ export function DetalleHallazgo() {
       setErrorBorrado('No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.');
       return;
     }
+    await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
     navigate(volver);
   }
 

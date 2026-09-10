@@ -16,6 +16,7 @@ import { fechaCorta } from '@/lib/fechas';
 import { useVolverA } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
+import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -260,6 +261,9 @@ export function DetalleOportunidad() {
       setError(err.message);
       return;
     }
+    // Si la visita de origen está cerrada y su resumen es automático, se
+    // rehace con el título nuevo de la oportunidad.
+    await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     setGuardadoConExito(true);
     setTimeout(() => navigate(volver), 700);
   }
@@ -299,6 +303,7 @@ export function DetalleOportunidad() {
     // local no existe (p.ej. oportunidad estructurada después, no creada
     // en el momento de la visita).
     await eliminarOperacion(oportunidadId);
+    await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     setBorrando(false);
     navigate(volver);
   }

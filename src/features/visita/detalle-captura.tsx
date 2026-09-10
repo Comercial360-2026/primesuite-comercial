@@ -12,6 +12,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
 import { RecategorizarItem } from './recategorizar-item';
+import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { enlaceMapa } from '@/lib/geo';
 
 // Regla 5 (cero jerga): el estado de sincronización de la cola offline
@@ -208,6 +209,9 @@ export function DetalleCaptura() {
             });
           }
         }
+
+        // Si la visita está cerrada y su resumen es automático, se rehace.
+        if (enServidor) await regenerarResumenSiAuto(captura.visitaId);
       },
       {
         onExito: () => {
@@ -279,6 +283,8 @@ export function DetalleCaptura() {
         if (captura.fuente === 'cola') {
           await eliminarOperacion(captura.id);
         }
+
+        if (enServidor) await regenerarResumenSiAuto(captura.visitaId);
       },
       {
         onExito: () => {

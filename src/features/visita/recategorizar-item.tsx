@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { Segmentado } from '@/components/ui/segmentado';
 import { reflejarRecategorizacionEnCola, RUTA_ITEM, type TipoItem } from '@/lib/recategorizar';
+import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 
 // Prompt maestro 11, Fase 3 — "Esto es: Nota · Hallazgo · Oportunidad".
 // El comercial captura casi todo como nota; marcar que además es un
@@ -64,6 +65,10 @@ export function RecategorizarItem({ id, tipoActual, visitaId, origen, sinSubir, 
       return;
     }
     await reflejarRecategorizacionEnCola(id, destino);
+    // Si la visita ya está cerrada y su resumen es el automático, se rehace
+    // con el contenido nuevo (una nota que pasa a hallazgo cambia el "N
+    // notas" del párrafo). No toca un resumen escrito a mano.
+    await regenerarResumenSiAuto(visitaId);
     for (const key of [
       ['detalle-visita-cerrada', visitaId],
       ['hallazgo', id],
