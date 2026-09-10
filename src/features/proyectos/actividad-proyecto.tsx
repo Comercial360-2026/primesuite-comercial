@@ -33,6 +33,13 @@ interface ProximoPasoPendiente {
   fecha_objetivo: string | null;
 }
 
+interface NotaProyecto {
+  id: string;
+  titulo: string | null;
+  contenido_texto: string | null;
+  creado_en: string;
+}
+
 interface HallazgoAbierto {
   id: string;
   nota: string | null;
@@ -148,6 +155,24 @@ export function ActividadProyecto({
     },
   });
 
+  // Notas del proyecto (PM11 Fase 4): lo anotado en sus visitas que no se
+  // marcó como hallazgo ni oportunidad. Las 5 más recientes; cada una abre
+  // su ficha.
+  const { data: notas } = useQuery({
+    queryKey: ['notas-proyecto', proyectoId],
+    queryFn: async (): Promise<NotaProyecto[]> => {
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select('id, titulo, contenido_texto, creado_en, visita:visita_id!inner(proyecto_id)')
+        .eq('visita.proyecto_id', proyectoId)
+        .eq('tipo', 'nota')
+        .order('creado_en', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return (data ?? []) as unknown as NotaProyecto[];
+    },
+  });
+
   const { data: historialVisitas } = useQuery({
     queryKey: ['historial-visitas-proyecto', proyectoId],
     queryFn: async (): Promise<VisitaHistorial[]> => {
@@ -170,12 +195,14 @@ export function ActividadProyecto({
     proximosPasos !== undefined &&
     hallazgos !== undefined &&
     numArchivados !== undefined &&
+    notas !== undefined &&
     historialVisitas !== undefined;
   const fichaVacia =
     !oportunidades?.length &&
     !proximosPasos?.length &&
     !hallazgos?.length &&
     !numArchivados &&
+    !notas?.length &&
     !historialVisitas?.length;
 
   const hoyMs = new Date().setHours(0, 0, 0, 0);
@@ -264,6 +291,22 @@ export function ActividadProyecto({
                 state={origen}
               />
             ))}
+        </SeccionLista>
+      )}
+
+      {!!notas?.length && (
+        <SeccionLista titulo="Notas">
+          {notas.map((n) => (
+            <FilaNavegable
+              key={n.id}
+              titulo={n.titulo?.trim() || n.contenido_texto?.trim() || 'Nota'}
+              subtitulo={n.titulo?.trim() ? n.contenido_texto?.trim() || undefined : undefined}
+              valor={fechaCorta(n.creado_en)}
+              valorTenue
+              to={`/capturas/${n.id}`}
+              state={origen}
+            />
+          ))}
         </SeccionLista>
       )}
 

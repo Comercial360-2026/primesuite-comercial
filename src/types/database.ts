@@ -2086,6 +2086,8 @@ export type Database = {
       }
       vw_ecosistema_actual_cliente: {
         Row: {
+          categoria_id: string | null
+          categoria_nombre: string | null
           cliente_id: string | null
           estado_validacion: string | null
           fecha_hallazgo: string | null

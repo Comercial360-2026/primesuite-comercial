@@ -17,16 +17,12 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
+import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
-
-interface EcosistemaItem {
-  termino_id: string;
-  naturaleza: string;
-}
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
@@ -229,34 +225,7 @@ export function FichaCliente() {
   const { data: ecosistema } = useQuery({
     queryKey: ['ecosistema-completo', clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
-      const { data: items, error } = await supabase
-        .from('vw_ecosistema_actual_cliente')
-        .select('termino_id, naturaleza')
-        .eq('cliente_id', clienteId!);
-      if (error) throw error;
-
-      const itemsValidos = (items ?? []).filter(
-        (i): i is { termino_id: string; naturaleza: string } =>
-          i.termino_id !== null && i.naturaleza !== null
-      );
-      if (!itemsValidos.length) return [];
-
-      const { data: terminos, error: errorTerminos } = await supabase
-        .from('termino')
-        .select('id, nombre, parent:parent_id(nombre)')
-        .in('id', itemsValidos.map((i) => i.termino_id));
-      if (errorTerminos) throw errorTerminos;
-
-      // Si el término es un modelo, se muestra con su ruta "MIFARE › DESFire
-      // EV2" (mismo criterio que SelectorTermino y Detalle de Oportunidad).
-      const nombreById = new Map(
-        ((terminos ?? []) as unknown as { id: string; nombre: string; parent: { nombre: string } | null }[]).map(
-          (t) => [t.id, t.parent ? `${t.parent.nombre} › ${t.nombre}` : t.nombre] as const
-        )
-      );
-      return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
-    },
+    queryFn: () => cargarEcosistemaCliente(clienteId!),
   });
 
   // Con red: INSERT directo (instantáneo, la ficha ya es navegable) — mismo
@@ -664,16 +633,12 @@ export function FichaCliente() {
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {/* "Me preocupa" primero — es lo que mira el comercial de un
-                  vistazo. Se recorta a ECO_VISIBLE. */}
-              {[...ecosistema]
-                .sort(
-                  (a, b) =>
-                    (a.naturaleza === 'riesgo' ? 0 : 1) - (b.naturaleza === 'riesgo' ? 0 : 1)
-                )
+              {/* Ya viene ordenado ("Me preocupa" primero, términos antes que
+                  categorías sueltas). Se recorta a ECO_VISIBLE. */}
+              {ecosistema
                 .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
                 .map((item) => (
-                  <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
+                  <EcoTag key={item.clave} nombre={item.nombre} naturaleza={item.naturaleza} tipo={item.tipo} />
                 ))}
               {ecosistema.length > ECO_VISIBLE && (
                 <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>

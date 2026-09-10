@@ -146,12 +146,57 @@ sin guardar**. Ahora el formulario se siembra del servidor **una sola vez por ha
   La RPC 107 se validó en vivo (las 4 direcciones + guard + hibernación ida y vuelta +
   permisos del autor), sin test SQL automatizado.
 
-### Fase 4 — informe y vista de proyecto
-- PDF (visita y proyecto): secciones **Notas · Hallazgos · Oportunidades ·
-  Próximos pasos**, con las mismas palabras que la app. Redesplegar
-  `generar-backup-visita` y `generar-informe-proyecto`.
-- "Actividad del proyecto" (dirección): añadir sección **Notas**.
-- Repaso pre-visita: incluir las notas.
+### Fase 4 — informe y vista de proyecto  ← HECHA (commit local, sin push)
+
+Migración **108** `ecosistema_por_categoria` (aplicada en dev).
+
+- **Informe PDF (`_shared/informe-pdf.ts`)**: `bloquesHallazgos` deja de agrupar
+  por naturaleza. Cada hallazgo = su **nota** en negrita + línea gris con sus
+  **áreas** (`hallazgo_area`: categorías y términos, término antes que
+  categoría) + vence + zona. `HallazgoRow` pierde `naturaleza`/`termino`, gana
+  `areas: AreaHallazgoRow[]`. Nuevo helper `areasDeFilaHallazgo(embed)`. Test
+  `informe-pdf.test.ts` actualizado (el ESPERADO y el fixture `HALL`).
+- **`generar-backup-visita`**: consulta `hallazgo` con embed
+  `hallazgo_area(categoria(nombre), termino(nombre, parent(nombre)))`. Secciones
+  y orden como la app: Resumen · Objetivo · **Notas** (fija, con estado vacío) ·
+  **Hallazgos** · **Oportunidades** · **Próximos pasos** · anexos. KPI "Riesgos
+  detectados" → **"Hallazgos"** (sin naturaleza no se calcula). Redesplegada.
+- **`generar-informe-proyecto`**: mismo embed; cada visita de la cronología gana
+  subsección **Notas** (texto de cada nota) antes de Hallazgos; el orden pasa a
+  Notas · Hallazgos · Oportunidades · Próximos pasos; la línea "Adjuntos" ya no
+  cuenta notas. Redesplegada.
+- **`ActividadProyecto`** (ficha de proyecto, dirección incluida): sección
+  **Notas** — las 5 notas más recientes del proyecto, fila navegable a
+  `/capturas/:id`.
+- **Repaso pre-visita** (`repaso-cliente`): bloque **Notas** (3 últimas notas
+  del cliente, solo lectura) tras Ecosistema.
+- **Ecosistema por categoría** (opción (b)): `src/lib/ecosistema.ts`
+  (`cargarEcosistemaCliente`, compartido por ficha-cliente y repaso, antes
+  duplicado). La matview `vw_ecosistema_actual_cliente` (migración 108, drop +
+  recreate) emite además **una fila por categoría de solo-categoría** con
+  `termino_id` NULL + `categoria_id`/`categoria_nombre`; se **omite si el
+  cliente ya tiene un término de esa categoría** (CTE `cats_cubiertas`) y se
+  **excluyen los hallazgos archivados** (antes no). `<EcoTag tipo="categoria">`
+  = gris tenue, borde punteado, sin naturaleza (`.eco-tag--categoria`). El cron
+  `refrescar-ecosistema-actual` (cada 10 min, `REFRESH … CONCURRENTLY`) sigue
+  igual — índice único `(cliente_id, termino_id, categoria_id) nulls not
+  distinct`.
+- `ayuda.ts`: `repaso-cliente` y `ficha-proyecto` al día. `database.ts`: Row de
+  la vista con `categoria_id` / `categoria_nombre`.
+
+**Verificado en vivo (Comercial Prueba)**: ficha-cliente y repaso de GABITEL
+muestran "Hardware"/"Software" como EcoTag de categoría en gris punteado;
+repaso de SAPA muestra el bloque Notas (3 notas); ficha de proyecto de SAPA
+muestra la sección Notas. `generar-backup-visita` y `generar-informe-proyecto`
+devuelven 200 y el texto extraído del PDF confirma el orden y las palabras
+nuevas (Notas · Hallazgos · Oportunidades · Próximos pasos; hallazgo = nota +
+áreas, sin chips de naturaleza). typecheck + lint + build + `deno test` +
+`ayuda:cobertura` OK.
+
+Pendiente conocido, **a propósito para Fase 5**: `detalle-visita-cerrada`
+sigue agrupando hallazgos por naturaleza (subcabeceras "Me preocupa"…) y el
+KPI "N riesgo(s)"; la ayuda `naturaleza-hallazgo` sigue en `ayuda.ts` sin
+`<AyudaNota>`.
 
 ### Fase 5 — migración y limpieza
 - Hallazgos viejos: se dejan como hallazgos; su `naturaleza` actual se conserva

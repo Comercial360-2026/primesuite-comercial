@@ -33,6 +33,7 @@ import {
   tablaOportunidades,
   bloquesHallazgos,
   tablaPasos,
+  areasDeFilaHallazgo,
   generarPdfBytes,
   type Nombrado,
   type OportunidadRow,
@@ -202,8 +203,9 @@ Deno.serve(async (req) => {
       admin
         .from('hallazgo')
         .select(
-          'id, nota, naturaleza, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, visita_id, ' +
-            'termino:termino_id(nombre, parent:parent_id(nombre)), ubicacion:ubicacion_id(nombre)'
+          'id, nota, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, visita_id, ' +
+            'ubicacion:ubicacion_id(nombre), ' +
+            'hallazgo_area(categoria:categoria_id(nombre), termino:termino_id(nombre, parent:parent_id(nombre)))'
         )
         .in('visita_id', visitaIds)
         .order('creado_en', { ascending: true }),
@@ -212,7 +214,11 @@ Deno.serve(async (req) => {
         .select('id, descripcion, fecha_objetivo, estado, visita_id, comercial_responsable:comercial_responsable_id(nombre)')
         .in('visita_id', visitaIds)
         .order('fecha_objetivo', { ascending: true }),
-      admin.from('captura_libre').select('visita_id, tipo').in('visita_id', visitaIds),
+      admin
+        .from('captura_libre')
+        .select('visita_id, tipo, titulo, contenido_texto, creado_en')
+        .in('visita_id', visitaIds)
+        .order('creado_en', { ascending: true }),
       admin
         .from('visita_participante')
         .select('visita_id, comercial:comercial_id(nombre)')
@@ -373,12 +379,26 @@ Deno.serve(async (req) => {
       const ops = ([...((opsPorVisita.get(v.id) ?? []) as unknown as OportunidadRow[])]).sort(
         (a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9)
       );
-      const hall = (hallPorVisita.get(v.id) ?? []) as unknown as HallazgoRow[];
+      // deno-lint-ignore no-explicit-any
+      const hall: HallazgoRow[] = ((hallPorVisita.get(v.id) ?? []) as any[]).map((h) => ({
+        id: h.id,
+        nota: h.nota,
+        creado_en: h.creado_en,
+        fecha_relevante: h.fecha_relevante,
+        tipo_fecha_relevante: h.tipo_fecha_relevante,
+        zona_texto: h.zona_texto,
+        ubicacion: h.ubicacion ?? null,
+        areas: areasDeFilaHallazgo(h.hallazgo_area),
+      }));
       const pasos = (pasosPorVisita.get(v.id) ?? []) as unknown as PasoRow[];
-      const caps = (capturasPorVisita.get(v.id) ?? []) as { tipo: string }[];
+      const caps = (capturasPorVisita.get(v.id) ?? []) as {
+        tipo: string;
+        titulo: string | null;
+        contenido_texto: string | null;
+      }[];
       const nFotos = caps.filter((c) => c.tipo === 'foto').length;
       const nAudios = caps.filter((c) => c.tipo === 'audio').length;
-      const nNotas = caps.filter((c) => c.tipo === 'nota').length;
+      const notasVisita = caps.filter((c) => c.tipo === 'nota');
 
       let lineaHora = '';
       if (v.hora_definida) lineaHora = ` · ${horaDe(v.fecha)}`;
@@ -389,7 +409,6 @@ Deno.serve(async (req) => {
       const adjuntos: string[] = [];
       if (nFotos) adjuntos.push(`${nFotos} foto${nFotos === 1 ? '' : 's'}`);
       if (nAudios) adjuntos.push(`${nAudios} audio${nAudios === 1 ? '' : 's'}`);
-      if (nNotas) adjuntos.push(`${nNotas} nota${nNotas === 1 ? '' : 's'}`);
 
       // deno-lint-ignore no-explicit-any
       const bloque: any[] = [
@@ -418,10 +437,26 @@ Deno.serve(async (req) => {
         bloque.push(subtitulo('Objetivo'));
         bloque.push({ text: v.objetivo, fontSize: 9.5, color: COLOR.ink700 });
       }
-      bloque.push(subtitulo(`Oportunidades${ops.length ? ` (${ops.length})` : ''}`));
-      bloque.push(ops.length ? tablaOportunidades(ops) : estadoVacio('Ninguna en esta visita.'));
+      // PM11 Fase 4 — mismo orden y palabras que la app: Notas · Hallazgos ·
+      // Oportunidades · Próximos pasos.
+      bloque.push(subtitulo(`Notas${notasVisita.length ? ` (${notasVisita.length})` : ''}`));
+      if (notasVisita.length) {
+        for (const n of notasVisita) {
+          bloque.push({
+            margin: [0, 0, 0, 5],
+            text: [
+              n.titulo?.trim() ? { text: `${n.titulo.trim()}. `, bold: true, fontSize: 9.5, color: COLOR.ink900 } : null,
+              { text: n.contenido_texto?.trim() || '(nota sin texto)', fontSize: 9.5, color: COLOR.ink700 },
+            ].filter(Boolean),
+          });
+        }
+      } else {
+        bloque.push(estadoVacio('Ninguna en esta visita.'));
+      }
       bloque.push(subtitulo(`Hallazgos${hall.length ? ` (${hall.length})` : ''}`));
       bloque.push(...bloquesHallazgos(hall, 'Ninguno en esta visita.'));
+      bloque.push(subtitulo(`Oportunidades${ops.length ? ` (${ops.length})` : ''}`));
+      bloque.push(ops.length ? tablaOportunidades(ops) : estadoVacio('Ninguna en esta visita.'));
       bloque.push(subtitulo(`Próximos pasos${pasos.length ? ` (${pasos.length})` : ''}`));
       bloque.push(pasos.length ? tablaPasos(pasos) : estadoVacio('Ninguno en esta visita.'));
       bloque.push({

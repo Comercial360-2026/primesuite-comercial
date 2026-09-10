@@ -13,6 +13,8 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
+import { cargarEcosistemaCliente } from '@/lib/ecosistema';
+import { fechaCorta } from '@/lib/fechas';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
@@ -21,9 +23,11 @@ import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 
-interface EcosistemaItem {
-  termino_id: string;
-  naturaleza: string;
+interface NotaReciente {
+  id: string;
+  titulo: string | null;
+  contenido_texto: string | null;
+  creado_en: string;
 }
 
 interface OportunidadActiva {
@@ -141,34 +145,42 @@ export function RepasoCliente() {
   } = useQuery({
     queryKey: ecosistemaQueryKey,
     enabled: !!clienteId,
-    queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
-      const { data: items, error } = await supabase
-        .from('vw_ecosistema_actual_cliente')
-        .select('termino_id, naturaleza')
-        .eq('cliente_id', clienteId!)
-        .limit(6);
-      if (error) throw error;
-
-      const itemsValidos = (items ?? []).filter(
-        (i): i is { termino_id: string; naturaleza: string } =>
-          i.termino_id !== null && i.naturaleza !== null
-      );
-      if (!itemsValidos.length) return [];
-
-      const { data: terminos, error: errorTerminos } = await supabase
-        .from('termino')
-        .select('id, nombre')
-        .in('id', itemsValidos.map((i) => i.termino_id));
-      if (errorTerminos) throw errorTerminos;
-
-      const nombreById = new Map((terminos ?? []).map((t) => [t.id, t.nombre]));
-      return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
-    },
+    queryFn: () => cargarEcosistemaCliente(clienteId!, 6),
   });
   const sinConexionEcosistema = isPausedEcosistema && ecosistema === undefined;
   function reintentarEcosistema() {
     queryClient.resetQueries({ queryKey: ecosistemaQueryKey });
     refetchEcosistema();
+  }
+
+  // Últimas notas del cliente (PM11 Fase 4): lo que se anotó en visitas
+  // pasadas y no se marcó como hallazgo ni oportunidad. Solo lectura —
+  // el repaso se lee de un vistazo, no navega a ningún sitio.
+  const notasQueryKey = ['notas-recientes-cliente', clienteId];
+  const {
+    data: notasRecientes,
+    isError: isErrorNotas,
+    isPaused: isPausedNotas,
+    refetch: refetchNotas,
+  } = useQuery({
+    queryKey: notasQueryKey,
+    enabled: !!clienteId,
+    queryFn: async (): Promise<NotaReciente[]> => {
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select('id, titulo, contenido_texto, creado_en, visita:visita_id!inner(cliente_id)')
+        .eq('visita.cliente_id', clienteId!)
+        .eq('tipo', 'nota')
+        .order('creado_en', { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return (data ?? []) as unknown as NotaReciente[];
+    },
+  });
+  const sinConexionNotas = isPausedNotas && notasRecientes === undefined;
+  function reintentarNotas() {
+    queryClient.resetQueries({ queryKey: notasQueryKey });
+    refetchNotas();
   }
 
   const interlocutoresQueryKey = ['interlocutores-cliente', clienteId];
@@ -354,13 +366,34 @@ export function RepasoCliente() {
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
             ) : ecosistema.length ? (
               ecosistema.map((item) => (
-                <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
+                <EcoTag key={item.clave} nombre={item.nombre} naturaleza={item.naturaleza} tipo={item.tipo} />
               ))
             ) : (
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>
             )}
           </div>
         </SeccionLista>
+      )}
+
+      {isErrorNotas || sinConexionNotas ? (
+        <EstadoError
+          mensaje={sinConexionNotas ? 'Sin conexión. Comprueba tu red.' : 'No se pudieron cargar las notas.'}
+          onReintentar={reintentarNotas}
+        />
+      ) : (
+        !!notasRecientes?.length && (
+          <SeccionLista titulo="Notas">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px var(--fila-pad-x)' }}>
+              {notasRecientes.map((n) => (
+                <div key={n.id} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+                  {n.titulo && <b>{n.titulo}. </b>}
+                  {n.contenido_texto?.trim() || '(nota sin texto)'}
+                  <span style={{ color: 'var(--ink-400)' }}> · {fechaCorta(n.creado_en)}</span>
+                </div>
+              ))}
+            </div>
+          </SeccionLista>
+        )
       )}
 
       {(isErrorOportunidad || sinConexionOportunidad) && (

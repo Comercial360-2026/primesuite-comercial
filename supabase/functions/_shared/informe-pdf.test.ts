@@ -186,46 +186,27 @@ function tablaOportunidadesESPERADO(oportunidadesOrdenadas: OportunidadRow[]): a
 
 // deno-lint-ignore no-explicit-any
 function bloquesHallazgosESPERADO(hallazgos: HallazgoRow[]): any[] {
-  const naturalezasConocidas = new Set(NATURALEZA_ORDEN);
-  const gruposHallazgos: { naturaleza: string; items: HallazgoRow[] }[] = NATURALEZA_ORDEN
-    .map((nat) => ({ naturaleza: nat, items: hallazgos.filter((h) => h.naturaleza === nat) }))
-    .filter((g) => g.items.length > 0);
-  const otrasNaturalezas = hallazgos.filter((h) => !naturalezasConocidas.has(h.naturaleza));
-  if (otrasNaturalezas.length) {
-    gruposHallazgos.push({ naturaleza: otrasNaturalezas[0].naturaleza, items: otrasNaturalezas });
-  }
-  return gruposHallazgos.length
-    ? gruposHallazgos.flatMap((g) => [
+  if (!hallazgos.length) return [_estadoVacio('No se registraron hallazgos en esta visita.')];
+  return hallazgos.map((h) => {
+    const ubicacionNombre = h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
+    const venceTexto = h.fecha_relevante
+      ? `Vence: ${_fechaCorta(h.fecha_relevante)}${h.tipo_fecha_relevante ? ` · ${_etiqueta(TIPO_FECHA_LABEL, h.tipo_fecha_relevante)}` : ''}`
+      : null;
+    const areasTexto = (h.areas ?? []).map((a) => a.nombre).join('  ·  ');
+    return {
+      margin: [0, 0, 0, 8],
+      stack: [
         {
-          margin: [0, 4, 0, 6],
-          columns: [
-            { width: 'auto', ..._chip(_etiqueta(NATURALEZA_LABEL, g.naturaleza).toUpperCase(), NATURALEZA_COLOR[g.naturaleza] ?? COLOR.ink400) },
-            { width: 'auto', text: `  ${g.items.length}`, color: COLOR.ink400, fontSize: 9.5, margin: [8, 3, 0, 0] },
-          ],
+          text: [
+            { text: h.nota?.trim() || 'Hallazgo', bold: true, fontSize: 10.5 },
+            venceTexto ? { text: `   ${venceTexto}`, color: COLOR.warning600, bold: true, fontSize: 8.5 } : null,
+          ].filter(Boolean),
         },
-        ...g.items.map((h) => {
-          const term = h.termino as unknown as { nombre: string; parent: { nombre: string } | null } | null;
-          const nombreTermino = term ? (term.parent ? `${term.parent.nombre} › ${term.nombre}` : term.nombre) : 'Hallazgo';
-          const ubicacionNombre = h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
-          const venceTexto = h.fecha_relevante
-            ? `Vence: ${_fechaCorta(h.fecha_relevante)}${h.tipo_fecha_relevante ? ` · ${_etiqueta(TIPO_FECHA_LABEL, h.tipo_fecha_relevante)}` : ''}`
-            : null;
-          return {
-            margin: [0, 0, 0, 8],
-            stack: [
-              {
-                text: [
-                  { text: nombreTermino, bold: true, fontSize: 10.5 },
-                  venceTexto ? { text: `   ${venceTexto}`, color: COLOR.warning600, bold: true, fontSize: 8.5 } : null,
-                ].filter(Boolean),
-              },
-              h.nota ? { text: h.nota, fontSize: 9.5, color: COLOR.ink700, margin: [0, 2, 0, 0] } : null,
-              ubicacionNombre ? { text: `Zona: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
-            ].filter(Boolean),
-          };
-        }),
-      ])
-    : [_estadoVacio('No se registraron hallazgos en esta visita.')];
+        areasTexto ? { text: areasTexto, fontSize: 8.5, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+        ubicacionNombre ? { text: `Zona: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+      ].filter(Boolean),
+    };
+  });
 }
 
 // deno-lint-ignore no-explicit-any
@@ -290,10 +271,10 @@ const OPS: OportunidadRow[] = [
 ];
 
 const HALL: HallazgoRow[] = [
-  { id: 'h1', nota: 'Compite con Dorlet', naturaleza: 'competencia', creado_en: '2026-09-01T10:00:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: { nombre: 'Dorlet', parent: null }, zona_texto: 'Vestíbulo', ubicacion: null },
-  { id: 'h2', nota: null, naturaleza: 'riesgo', creado_en: '2026-09-01T10:05:00Z', fecha_relevante: '2026-12-31', tipo_fecha_relevante: 'vencimiento_contrato', termino: { nombre: 'DESFire EV2', parent: { nombre: 'MIFARE' } }, zona_texto: null, ubicacion: { nombre: 'CPD' } },
-  { id: 'h3', nota: 'Interesados en móvil', naturaleza: 'contexto', creado_en: '2026-09-01T10:10:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: null, zona_texto: null, ubicacion: null },
-  { id: 'h4', nota: 'Naturaleza rara', naturaleza: 'lo_que_sea', creado_en: '2026-09-01T10:15:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: null, zona_texto: null, ubicacion: null },
+  { id: 'h1', nota: 'Compite con Dorlet', creado_en: '2026-09-01T10:00:00Z', fecha_relevante: null, tipo_fecha_relevante: null, areas: [{ tipo: 'termino', nombre: 'Dorlet' }], zona_texto: 'Vestíbulo', ubicacion: null },
+  { id: 'h2', nota: null, creado_en: '2026-09-01T10:05:00Z', fecha_relevante: '2026-12-31', tipo_fecha_relevante: 'vencimiento_contrato', areas: [{ tipo: 'termino', nombre: 'MIFARE › DESFire EV2' }], zona_texto: null, ubicacion: { nombre: 'CPD' } },
+  { id: 'h3', nota: 'Interesados en móvil', creado_en: '2026-09-01T10:10:00Z', fecha_relevante: null, tipo_fecha_relevante: null, areas: [], zona_texto: null, ubicacion: null },
+  { id: 'h4', nota: '  ', creado_en: '2026-09-01T10:15:00Z', fecha_relevante: null, tipo_fecha_relevante: null, areas: [{ tipo: 'categoria', nombre: 'Hardware' }, { tipo: 'termino', nombre: 'Lector' }], zona_texto: null, ubicacion: null },
 ];
 
 const PASOS: PasoRow[] = [

@@ -216,18 +216,47 @@ export interface PasoRow {
   estado: string;
   comercial_responsable: Nombrado | null;
 }
+// Un "área" del hallazgo (PM11 Fase 2): o una categoría del catálogo
+// ("Hardware") o un término concreto ("MIFARE › DESFire EV2"). Un hallazgo
+// tiene varias. Quien construye el HallazgoRow resuelve el `nombre` desde la
+// tabla puente `hallazgo_area` (con la ruta "Padre › Hijo" para los modelos).
+export interface AreaHallazgoRow {
+  tipo: 'categoria' | 'termino';
+  nombre: string;
+}
 export interface HallazgoRow {
   id: string;
   nota: string | null;
-  naturaleza: string;
   creado_en: string;
   fecha_relevante: string | null;
   tipo_fecha_relevante: string | null;
-  // Si el término es un modelo, `parent` trae el término padre para poder
-  // imprimir la ruta "MIFARE › DESFire EV2".
-  termino: (Nombrado & { parent: Nombrado | null }) | null;
+  areas: AreaHallazgoRow[];
   zona_texto: string | null;
   ubicacion: Nombrado | null;
+}
+
+// Convierte el recurso embebido `hallazgo_area(categoria(nombre),
+// termino(nombre, parent(nombre)))` de un select de supabase-js en la lista
+// `areas` de un HallazgoRow. Los dos informes lo usan igual.
+export function areasDeFilaHallazgo(hallazgoArea: unknown): AreaHallazgoRow[] {
+  const filas = (hallazgoArea ?? []) as {
+    categoria: { nombre: string } | null;
+    termino: { nombre: string; parent: { nombre: string } | null } | null;
+  }[];
+  const areas: AreaHallazgoRow[] = [];
+  for (const f of filas) {
+    if (f.categoria) {
+      areas.push({ tipo: 'categoria', nombre: f.categoria.nombre });
+    } else if (f.termino) {
+      areas.push({
+        tipo: 'termino',
+        nombre: f.termino.parent ? `${f.termino.parent.nombre} › ${f.termino.nombre}` : f.termino.nombre,
+      });
+    }
+  }
+  // Términos (más precisos) antes que categorías sueltas.
+  areas.sort((a, b) => (a.tipo === 'termino' ? 0 : 1) - (b.tipo === 'termino' ? 0 : 1));
+  return areas;
 }
 
 // ---------------------------------------------------------------------
@@ -359,54 +388,34 @@ export function tablaOportunidades(ordenadas: OportunidadRow[]): any {
   };
 }
 
-// Lista de hallazgos agrupada por naturaleza, en el orden de NATURALEZA_ORDEN;
-// las naturalezas desconocidas van al final en un solo grupo. Si no hay
-// ninguno devuelve un único nodo de estado vacío con el texto que se le pase.
+// Lista de hallazgos (PM11 Fase 4): ya no se agrupan por "naturaleza" —
+// como en la app, cada hallazgo es su NOTA en negrita, con una línea gris
+// debajo con sus ÁREAS del catálogo ("Software · MIFARE › DESFire EV2") y,
+// si la tiene, la fecha relevante y la zona. Vienen ya ordenados por quien
+// llama (por fecha de creación). Si no hay ninguno, un nodo de estado vacío.
 // deno-lint-ignore no-explicit-any
 export function bloquesHallazgos(hallazgos: HallazgoRow[], textoVacio: string): any[] {
-  const naturalezasConocidas = new Set(NATURALEZA_ORDEN);
-  const grupos: { naturaleza: string; items: HallazgoRow[] }[] = NATURALEZA_ORDEN
-    .map((nat) => ({ naturaleza: nat, items: hallazgos.filter((h) => h.naturaleza === nat) }))
-    .filter((g) => g.items.length > 0);
-  const otras = hallazgos.filter((h) => !naturalezasConocidas.has(h.naturaleza));
-  if (otras.length) {
-    grupos.push({ naturaleza: otras[0].naturaleza, items: otras });
-  }
-  if (!grupos.length) return [estadoVacio(textoVacio)];
-  return grupos.flatMap((g) => [
-    {
-      margin: [0, 4, 0, 6],
-      columns: [
-        { width: 'auto', ...chip(etiqueta(NATURALEZA_LABEL, g.naturaleza).toUpperCase(), NATURALEZA_COLOR[g.naturaleza] ?? COLOR.ink400) },
-        { width: 'auto', text: `  ${g.items.length}`, color: COLOR.ink400, fontSize: 9.5, margin: [8, 3, 0, 0] },
-      ],
-    },
-    ...g.items.map((h) => {
-      const term = h.termino as unknown as { nombre: string; parent: { nombre: string } | null } | null;
-      const nombreTermino = term
-        ? term.parent
-          ? `${term.parent.nombre} › ${term.nombre}`
-          : term.nombre
-        : 'Hallazgo';
-      const ubicacionNombre = h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
-      const venceTexto = h.fecha_relevante
-        ? `Vence: ${fechaCorta(h.fecha_relevante)}${h.tipo_fecha_relevante ? ` · ${etiqueta(TIPO_FECHA_LABEL, h.tipo_fecha_relevante)}` : ''}`
-        : null;
-      return {
-        margin: [0, 0, 0, 8],
-        stack: [
-          {
-            text: [
-              { text: nombreTermino, bold: true, fontSize: 10.5 },
-              venceTexto ? { text: `   ${venceTexto}`, color: COLOR.warning600, bold: true, fontSize: 8.5 } : null,
-            ].filter(Boolean),
-          },
-          h.nota ? { text: h.nota, fontSize: 9.5, color: COLOR.ink700, margin: [0, 2, 0, 0] } : null,
-          ubicacionNombre ? { text: `Zona: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
-        ].filter(Boolean),
-      };
-    }),
-  ]);
+  if (!hallazgos.length) return [estadoVacio(textoVacio)];
+  return hallazgos.map((h) => {
+    const ubicacionNombre = h.zona_texto || (h.ubicacion as unknown as { nombre: string } | null)?.nombre;
+    const venceTexto = h.fecha_relevante
+      ? `Vence: ${fechaCorta(h.fecha_relevante)}${h.tipo_fecha_relevante ? ` · ${etiqueta(TIPO_FECHA_LABEL, h.tipo_fecha_relevante)}` : ''}`
+      : null;
+    const areasTexto = (h.areas ?? []).map((a) => a.nombre).join('  ·  ');
+    return {
+      margin: [0, 0, 0, 8],
+      stack: [
+        {
+          text: [
+            { text: h.nota?.trim() || 'Hallazgo', bold: true, fontSize: 10.5 },
+            venceTexto ? { text: `   ${venceTexto}`, color: COLOR.warning600, bold: true, fontSize: 8.5 } : null,
+          ].filter(Boolean),
+        },
+        areasTexto ? { text: areasTexto, fontSize: 8.5, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+        ubicacionNombre ? { text: `Zona: ${ubicacionNombre}`, fontSize: 8, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+      ].filter(Boolean),
+    };
+  });
 }
 
 // Tabla de próximos pasos. `pasos` ya viene ordenado por quien llama.

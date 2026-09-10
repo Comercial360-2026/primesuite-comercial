@@ -65,6 +65,7 @@ import {
   tablaOportunidades as construirTablaOportunidades,
   bloquesHallazgos as construirBloquesHallazgos,
   tablaPasos as construirTablaPasos,
+  areasDeFilaHallazgo,
   generarPdfBytes,
   type Nombrado,
   type OportunidadRow,
@@ -253,8 +254,9 @@ Deno.serve(async (req) => {
     admin
       .from('hallazgo')
       .select(
-        'id, nota, naturaleza, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, ' +
-          'termino:termino_id(nombre, parent:parent_id(nombre)), ubicacion:ubicacion_id(nombre)'
+        'id, nota, creado_en, fecha_relevante, tipo_fecha_relevante, zona_texto, ' +
+          'ubicacion:ubicacion_id(nombre), ' +
+          'hallazgo_area(categoria:categoria_id(nombre), termino:termino_id(nombre, parent:parent_id(nombre)))'
       )
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
@@ -272,7 +274,17 @@ Deno.serve(async (req) => {
   ]);
 
   const capturas = (capturasData ?? []) as unknown as CapturaRow[];
-  const hallazgos = (hallazgosData ?? []) as unknown as HallazgoRow[];
+  // deno-lint-ignore no-explicit-any
+  const hallazgos: HallazgoRow[] = ((hallazgosData ?? []) as any[]).map((h) => ({
+    id: h.id,
+    nota: h.nota,
+    creado_en: h.creado_en,
+    fecha_relevante: h.fecha_relevante,
+    tipo_fecha_relevante: h.tipo_fecha_relevante,
+    zona_texto: h.zona_texto,
+    ubicacion: h.ubicacion ?? null,
+    areas: areasDeFilaHallazgo(h.hallazgo_area),
+  }));
   const oportunidades = (oportunidadesData ?? []) as unknown as OportunidadRow[];
   const proximosPasos = (proximosPasosData ?? []) as unknown as PasoRow[];
   const participantesVisita = (participantesData ?? []) as unknown as ParticipanteRow[];
@@ -315,7 +327,7 @@ Deno.serve(async (req) => {
   );
   const totalOportunidades = oportunidadesOrdenadas.reduce((suma, o) => suma + (o.valor_estimado ?? 0), 0);
 
-  const riesgosCount = (hallazgos ?? []).filter((h) => h.naturaleza === 'riesgo').length;
+  const hallazgosCount = hallazgos.length;
 
   const visitaEnCurso = visita.estado_captura === 'en_curso';
 
@@ -515,15 +527,16 @@ Deno.serve(async (req) => {
   ];
 
   // Bloques compartidos con generar-informe-proyecto (_shared/informe-pdf.ts):
-  // la tabla de oportunidades, la lista de hallazgos agrupada por naturaleza y
-  // la tabla de próximos pasos salen idénticas en los dos informes.
+  // la tabla de oportunidades, la lista de hallazgos (nota + áreas) y la tabla
+  // de próximos pasos salen idénticas en los dos informes.
   const tablaOportunidades = construirTablaOportunidades(oportunidadesOrdenadas);
-  const bloquesHallazgos = construirBloquesHallazgos(hallazgos ?? [], 'No se registraron hallazgos en esta visita.');
+  const bloquesHallazgos = construirBloquesHallazgos(hallazgos, 'No se registraron hallazgos en esta visita.');
   const tablaPasos = construirTablaPasos(pasosOrdenados);
 
-  // --- Notas de la visita (se omite del todo si no hay ninguna) ---
+  // --- Notas (sección fija; si no hay, un estado vacío como Hallazgos u
+  // Oportunidades) ---
   // deno-lint-ignore no-explicit-any
-  const bloquesNotas: any[] | null = notas.length
+  const bloquesNotas: any[] = notas.length
     ? notas.map((n) => ({
         margin: [0, 0, 0, 8],
         table: {
@@ -540,7 +553,7 @@ Deno.serve(async (req) => {
         },
         layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
       }))
-    : null;
+    : [estadoVacio('No se registraron notas en esta visita.')];
 
   // --- Anexo fotográfico, agrupado por ubicación ---
   // deno-lint-ignore no-explicit-any
@@ -654,7 +667,7 @@ Deno.serve(async (req) => {
       : estadoVacio('Sin resumen registrado para esta visita.'),
     filaKPIs([
       { valor: totalOportunidades > 0 ? `${totalOportunidades.toLocaleString('es-ES')} €` : '—', etiqueta: 'Valor estimado en oportunidades' },
-      { valor: String(riesgosCount), etiqueta: riesgosCount === 1 ? 'Riesgo detectado' : 'Riesgos detectados' },
+      { valor: String(hallazgosCount), etiqueta: hallazgosCount === 1 ? 'Hallazgo' : 'Hallazgos' },
       {
         valor: String(pasosVencidos),
         etiqueta: `Próximos pasos vencidos (de ${pasosOrdenados.length})`,
@@ -663,17 +676,18 @@ Deno.serve(async (req) => {
     ]),
     tituloSeccion('Objetivo de la visita'),
     visita.objetivo ? { text: visita.objetivo, fontSize: 10, color: COLOR.ink700 } : estadoVacio('Sin objetivo registrado para esta visita.'),
-    tituloSeccion('Oportunidades detectadas', oportunidadesOrdenadas.length ? `(${oportunidadesOrdenadas.length})` : undefined),
-    oportunidadesOrdenadas.length ? tablaOportunidades : estadoVacio('No se registraron oportunidades en esta visita.'),
-    tituloSeccion('Hallazgos', hallazgos?.length ? `(${hallazgos.length})` : undefined),
+    // PM11 Fase 4 — mismas palabras y orden que la app: Notas · Hallazgos ·
+    // Oportunidades · Próximos pasos.
+    tituloSeccion('Notas', notas.length ? `(${notas.length})` : undefined),
+    ...bloquesNotas,
+    tituloSeccion('Hallazgos', hallazgos.length ? `(${hallazgos.length})` : undefined),
     ...bloquesHallazgos,
+    tituloSeccion('Oportunidades', oportunidadesOrdenadas.length ? `(${oportunidadesOrdenadas.length})` : undefined),
+    oportunidadesOrdenadas.length ? tablaOportunidades : estadoVacio('No se registraron oportunidades en esta visita.'),
     tituloSeccion('Próximos pasos', pasosOrdenados.length ? `(${pasosOrdenados.length})` : undefined),
     pasosOrdenados.length ? tablaPasos : estadoVacio('No se registraron próximos pasos en esta visita.'),
   ];
 
-  if (bloquesNotas) {
-    contenido.push(tituloSeccion('Notas de la visita', `(${notas.length})`), ...bloquesNotas);
-  }
   contenido.push(
     tituloSeccion('Anexo fotográfico', fotos.length ? `(${fotos.length})` : undefined),
     ...bloquesFotos,
@@ -738,8 +752,8 @@ Deno.serve(async (req) => {
     `Visita:    ${fechaLarga(visita.fecha)}${visita.tipo_visita ? ` · ${frasesVisita}` : ''}\n` +
     `Generado:  ${fechaLarga(ahora)}, ${horaDe(ahora)}\n\n` +
     `Contenido de este archivo comprimido:\n\n` +
-    `  informe.pdf   Informe completo de la visita: resumen, oportunidades,\n` +
-    `                hallazgos, próximos pasos y anexo fotográfico.\n\n` +
+    `  informe.pdf   Informe completo de la visita: resumen, notas, hallazgos,\n` +
+    `                oportunidades, próximos pasos y anexo fotográfico.\n\n` +
     `  fotos/        Todas las fotos en su resolución original, numeradas por\n` +
     `                orden de captura. Las del PDF son copias reducidas.\n\n` +
     `  audios/       Grabaciones de voz de la visita.\n\n` +

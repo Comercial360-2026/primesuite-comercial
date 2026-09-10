@@ -361,6 +361,10 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .eco-tag--riesgo { color: var(--risk-600); background: var(--danger-050); }
 .eco-tag--competencia { color: var(--purple-600); background: var(--purple-050); }
 .eco-tag--neutro { color: var(--ink-700); background: var(--surface-0); }
+/* Área de solo-categoría (PM11 Fase 4): un hallazgo marcado sin bajar al
+   término. Gris tenue, borde punteado y sin relleno — se lee como algo
+   menos preciso que un término, no como un estado. */
+.eco-tag--categoria { color: var(--ink-400); background: none; border: 1px dashed var(--ink-200); font-weight: 500; }
 
 /* "+N más" / "ver menos" al final de la fila de etiquetas de Ecosistema.
    Hermana en alto y tipografía con .eco-tag, pero con borde y sin fondo:
