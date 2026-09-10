@@ -2091,7 +2091,17 @@ export function VisitaActiva() {
                 {hallazgosV.map((h) => {
                   const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
                   const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
-                  return filaEnVisita(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza), etiqueta(NATURALEZA_LABEL, p.naturaleza));
+                  // Se puede abrir para revisar/editar/borrar en cuanto ha
+                  // subido (su detalle lee de la BD, no de la cola local).
+                  return filaEnVisita(
+                    h.id,
+                    'hallazgo',
+                    tituloHallazgo(term, p.nota, p.naturaleza),
+                    etiqueta(NATURALEZA_LABEL, p.naturaleza),
+                    h.estado === 'completado'
+                      ? () => navigate(`/hallazgos/${h.id}`, { state: origen })
+                      : undefined
+                  );
                 })}
                 {hallazgosCompanerosV.map((h) =>
                   filaEnVisita(
@@ -2124,7 +2134,15 @@ export function VisitaActiva() {
                 {pasosV.map((p) => {
                   const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                   const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
-                  return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha);
+                  return filaEnVisita(
+                    p.id,
+                    'paso',
+                    capitalizarFrase(payload.descripcion),
+                    fecha,
+                    p.estado === 'completado'
+                      ? () => navigate(`/proximos-pasos/${p.id}`, { state: origen })
+                      : undefined
+                  );
                 })}
                 {pasosCompanerosV.map((p) =>
                   filaEnVisita(

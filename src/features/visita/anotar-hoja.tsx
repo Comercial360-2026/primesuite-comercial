@@ -242,6 +242,14 @@ export function AnotarHoja({
         )}
       </button>
 
+      {/* Por qué "Guardar" está en gris: no basta con elegir "¿Qué es?",
+          hace falta el texto de lo que has visto. */}
+      {!textoEnVivo.trim() && !guardadoConExito && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+          Escribe o dicta arriba lo que has visto para poder guardarlo.
+        </div>
+      )}
+
       {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
     </HojaSuperior>
   );
