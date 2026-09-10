@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { HallazgoPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
@@ -75,7 +75,7 @@ export function HallazgoRapidoHoja({
   }
 
   return (
-    <HojaInferior titulo="Hallazgo" onCerrar={onCerrar}>
+    <HojaSuperior titulo="Hallazgo" onCerrar={onCerrar}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
           Algo que el cliente ya tiene instalado, sea de la marca que sea.
         </div>
@@ -130,6 +130,6 @@ export function HallazgoRapidoHoja({
         </button>
 
         {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
-    </HojaInferior>
+    </HojaSuperior>
   );
 }

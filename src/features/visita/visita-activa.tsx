@@ -27,7 +27,7 @@ import { Icono, type NombreIcono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
 import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
@@ -2265,7 +2265,7 @@ export function VisitaActiva() {
           hallazgo, oportunidad, próximo paso): un solo gesto, un solo
           comportamiento. */}
       {notaAbierta && (
-        <HojaInferior titulo="Nota" onCerrar={cerrarNota}>
+        <HojaSuperior titulo="Nota" onCerrar={cerrarNota}>
           {/* El foco va al cuerpo, no al título: lo normal es querer
               escribir la nota ya; el título es opcional y casi nadie lo
               pone en caliente. */}
@@ -2312,14 +2312,14 @@ export function VisitaActiva() {
           {guardadoNota.error && (
             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
           )}
-        </HojaInferior>
+        </HojaSuperior>
       )}
 
       {/* Foto / Audio — tras capturar el binario, la misma hoja para
           ponerle título y confirmar. Cerrar sin guardar descarta la
           captura (igual que el botón "Descartar"). */}
       {(fotoPendiente || audioPendiente) && (
-        <HojaInferior titulo={fotoPendiente ? 'Foto' : 'Audio'} onCerrar={descartarPendiente}>
+        <HojaSuperior titulo={fotoPendiente ? 'Foto' : 'Audio'} onCerrar={descartarPendiente}>
           {fotoPendiente && (
             <img
               src={URL.createObjectURL(fotoPendiente)}
@@ -2368,7 +2368,7 @@ export function VisitaActiva() {
           {(capturaFoto.error || capturaAudio.error) && (
             <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
           )}
-        </HojaInferior>
+        </HojaSuperior>
       )}
 
       {visorFotos}

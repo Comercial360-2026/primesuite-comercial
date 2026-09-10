@@ -500,31 +500,9 @@ textarea.field {
   font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
 }
 
-/* Hoja inferior (bottom sheet) — ver hoja-inferior.tsx. Mismo criterio que
-   .modal-fondo (fondo opaco, sin transparencias) pero anclada abajo y sin
-   separación a los lados en móvil; en escritorio queda centrada en
-   --app-max-w igual que el resto de la app (regla 10). */
-.hoja-fondo {
-  position: fixed; inset: 0; z-index: 20;
-  background: var(--surface-0);
-  display: flex; align-items: flex-end; justify-content: center;
-  box-sizing: border-box;
-}
-.hoja-caja {
-  width: 100%;
-  max-width: var(--app-max-w);
-  max-height: min(80dvh, 640px);
-  overflow-y: auto; box-sizing: border-box;
-  background: var(--surface-1);
-  border: 1px solid var(--ink-100);
-  border-bottom: none;
-  border-radius: var(--radius-control) var(--radius-control) 0 0;
-  padding: var(--space-2) var(--space-4) var(--space-4);
-}
-.hoja-manija {
-  width: 36px; height: 4px; border-radius: 999px;
-  background: var(--ink-200); margin: 0 auto var(--space-3);
-}
+/* Cabecera compartida por la hoja (título + ×). Solo hay hoja SUPERIOR: la
+   inferior (bottom sheet) se eliminó — todo panel de la app baja desde
+   arriba. Ver hoja-superior.tsx y docs/08 §"Hojas". */
 .hoja-cabecera {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: var(--space-2);

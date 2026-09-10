@@ -590,6 +590,33 @@ Reglas:
 - El contenido interno usa los componentes normales (`.field`, `.btn`,
   `.chip`, `SeccionLista`…). `Modal` solo pone el marco y la cabecera.
 
+## Hojas
+
+Panel que se abre SOBRE una pantalla sin cambiar de ruta (elegir cliente,
+capturar un hallazgo/nota/foto, reportar un problema…). **Un solo
+componente: `HojaSuperior`** (`src/components/ui/hoja-superior.tsx`).
+
+**Toda hoja baja desde ARRIBA, nunca desde abajo.** La `HojaInferior`
+(bottom sheet) existió y se eliminó — no queda opción de equivocarse en una
+pantalla nueva. Regla de Cesar, repetida varias veces: un panel anclado
+abajo deja el contenido/los menús por debajo, obliga a mirar hacia abajo y
+rompe la coherencia con el resto de la app, que trabaja de arriba abajo.
+
+```tsx
+<HojaSuperior titulo="hallazgo" onCerrar={cerrar} derecha={<botón opcional>}>
+  …contenido…
+</HojaSuperior>
+```
+
+- Baja desde el borde superior, con cabecera propia (`titulo` + `derecha?` +
+  ×). Detrás, el fondo gris de la app; el panel blanco solo ocupa su
+  contenido. Cierre: × / `Esc` / tocar fuera.
+- ¿Hoja o pantalla propia? Si es una acción rápida desde otra pantalla y
+  vuelves a ella al terminar → hoja. Si es un destino con su propia URL →
+  pantalla.
+- ¿Hoja o `Modal`? `Modal` para un diálogo corto centrado (confirmar,
+  avisar). `HojaSuperior` para un formulario o una lista.
+
 ## Cabeceras
 
 Dos componentes, uno por nivel:

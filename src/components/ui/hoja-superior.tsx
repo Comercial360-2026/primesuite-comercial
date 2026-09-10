@@ -9,14 +9,16 @@ interface HojaSuperiorProps {
   children: ReactNode;
 }
 
-// Hoja SUPERIOR — panel que baja desde el borde de arriba, con cabecera
-// propia (título + acciones + ×), sin cambiar la URL. Detrás queda el
-// fondo gris de la app, como en cualquier pantalla (p. ej. "Nueva
+// La ÚNICA hoja de la app — panel que baja desde el borde de arriba, con
+// cabecera propia (título + acciones + ×), sin cambiar la URL. Detrás queda
+// el fondo gris de la app, como en cualquier pantalla (p. ej. "Nueva
 // visita"): el panel blanco solo ocupa su contenido, no llega al fondo.
-// Sustituye a `HojaInferior` para Interlocutores y Equipo (Cesar,
-// 2026-09-07: "lo quiero arriba, no debajo, no pantalla propia", y
-// "coherente con Nueva visita, no blanco hasta abajo"). Cierre: × / Esc /
-// tocar fuera. En escritorio se centra en --app-max-w igual que el resto.
+// Cierre: × / Esc / tocar fuera. En escritorio se centra en --app-max-w
+// igual que el resto.
+//
+// Regla (Cesar, repetido varias veces desde 2026-09-07; docs/08 §"Hojas"):
+// TODO panel emergente baja desde ARRIBA. La `HojaInferior` (bottom sheet)
+// se eliminó — no hay opción de equivocarse en una pantalla nueva.
 export function HojaSuperior({ titulo, onCerrar, derecha, children }: HojaSuperiorProps) {
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {

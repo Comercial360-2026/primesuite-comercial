@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { fechaCorta } from '@/lib/fechas';
 import { NATURALEZA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -81,7 +81,7 @@ export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: P
   const urlDe = (op: OperacionPendiente) => urlsLocales.get(op.id) ?? urlsRemotas?.[op.id] ?? null;
 
   return (
-    <HojaInferior titulo={`${TITULO[grupo]} (${items.length})`} onCerrar={onCerrar}>
+    <HojaSuperior titulo={`${TITULO[grupo]} (${items.length})`} onCerrar={onCerrar}>
       <ul className="detalle-cierre">
         {items.map((op) => {
           const pendiente = op.estado !== 'completado';
@@ -170,7 +170,7 @@ export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: P
           );
         })}
       </ul>
-    </HojaInferior>
+    </HojaSuperior>
   );
 }
 

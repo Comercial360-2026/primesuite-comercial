@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { esSinRed } from '@/lib/red';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 
 interface ReportarProblemaHojaProps {
@@ -54,7 +54,7 @@ export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarPro
   }
 
   return (
-    <HojaInferior titulo="Reportar un problema" onCerrar={onCerrar}>
+    <HojaSuperior titulo="Reportar un problema" onCerrar={onCerrar}>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
         Cuenta qué esperabas y qué pasó. Se envía con la versión de la app y la pantalla en la que estás; lo ve
         Dirección.
@@ -95,6 +95,6 @@ export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarPro
           {error}
         </div>
       )}
-    </HojaInferior>
+    </HojaSuperior>
   );
 }
