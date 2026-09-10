@@ -2,20 +2,21 @@ import { useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 import { SelectorTermino } from '@/components/ui/selector-termino';
-import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { useDictado } from '@/hooks/use-dictado';
-import { NATURALEZA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface AnotarHojaProps {
   visitaId: string;
   clienteId: string | undefined;
   comercialId: string;
-  /** Guarda un hallazgo (los 3 chips que no son "Oportunidad de venta"). */
+  /** Sin marcar nada: se guarda como nota (captura_libre tipo 'nota'). */
+  onGuardarNota: (texto: string) => Promise<void>;
+  /** Marcó "Algo que tienen": se guarda como hallazgo. */
   onGuardarHallazgo: (payload: HallazgoPayload) => Promise<void>;
-  /** Guarda una Oportunidad (entidad). El id se genera aquí para poder
-   *  ofrecer "Completar ahora" nada más guardarla. */
+  /** Marcó "Algo para venderles": se guarda como oportunidad. El id se
+   *  genera aquí para poder ofrecer "Completar ahora" nada más guardarla. */
   onGuardarOportunidad: (oportunidadId: string, payload: OportunidadPayload) => Promise<void>;
   /** Abre el Detalle de la oportunidad recién creada. */
   onCompletarOportunidad: (oportunidadId: string) => void;
@@ -27,26 +28,39 @@ interface TerminoSeleccionado {
   nombre: string;
 }
 
-// "¿Qué es?" — 3 son naturalezas de hallazgo, la 4ª crea una Oportunidad.
-type QueEs = 'contexto' | 'competencia' | 'riesgo' | 'oportunidad';
-const QUE_ES: { valor: QueEs; label: string }[] = [
-  { valor: 'contexto', label: NATURALEZA_LABEL.contexto },
-  { valor: 'competencia', label: NATURALEZA_LABEL.competencia },
-  { valor: 'riesgo', label: NATURALEZA_LABEL.riesgo },
-  { valor: 'oportunidad', label: 'Oportunidad de venta' },
-];
+// Qué es, además de una nota. 'nada' = nota suelta (el caso normal).
+type Marca = 'nada' | 'hallazgo' | 'oportunidad';
 
 const PRIORIDADES: OportunidadPayload['prioridad'][] = ['baja', 'media', 'alta', 'estrategica'];
 
-// Un solo gesto de captura (prompt maestro 10, Paso 2): el comercial
-// escribe o dicta lo que ha visto SIN decidir antes el tipo, y luego elige
-// "¿qué es?". Fusiona las antiguas hojas "Hallazgo rápido" y "Oportunidad
-// rápida" (borradas) y absorbe el flujo de "Nota" suelto — todo lo que se
-// anota es ahora un hallazgo (o una oportunidad).
+// Cuántas veces se ha usado "Anotar" en este dispositivo: mientras sea poco,
+// se enseña la línea de ayuda de primera vez. localStorage puede fallar
+// (modo privado) — se envuelve en try/catch y se asume 0.
+const CLAVE_USOS = 'anotar:usos';
+function leerUsos(): number {
+  try {
+    return Number(localStorage.getItem(CLAVE_USOS)) || 0;
+  } catch {
+    return 0;
+  }
+}
+function sumarUso() {
+  try {
+    localStorage.setItem(CLAVE_USOS, String(leerUsos() + 1));
+  } catch {
+    /* modo privado: sin memoria, no pasa nada */
+  }
+}
+
+// "Anotar" (prompt maestro 11): ante todo, escribir una nota. Marcar que
+// además es un hallazgo ("algo que tienen") o una oportunidad ("algo para
+// venderles") es opcional y excluyente — o ninguna. El caso "es las dos"
+// se resuelve luego desde la ficha, no en caliente.
 export function AnotarHoja({
   visitaId,
   clienteId,
   comercialId,
+  onGuardarNota,
   onGuardarHallazgo,
   onGuardarOportunidad,
   onCompletarOportunidad,
@@ -54,17 +68,17 @@ export function AnotarHoja({
 }: AnotarHojaProps) {
   const [oportunidadId] = useState(() => uuid());
   const [texto, setTexto] = useState('');
-  const [queEs, setQueEs] = useState<QueEs>('contexto');
+  const [marca, setMarca] = useState<Marca>('nada');
   const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoSeleccionado | null>(null);
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [oportunidadGuardada, setOportunidadGuardada] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarTip] = useState(() => leerUsos() < 2);
 
   // Dictado voz→texto: escribir en el móvil delante del cliente queda mal.
-  // Mismo patrón que tenía la Nota: lo final se añade al texto, lo
-  // provisional se pinta en vivo.
+  // Lo final se añade al texto, lo provisional se pinta en vivo.
   const [dictadoProvisional, setDictadoProvisional] = useState('');
   const dictado = useDictado((frag, { final }) => {
     if (final) {
@@ -90,13 +104,17 @@ export function AnotarHoja({
     return texto;
   }
 
+  function alternarMarca(m: Exclude<Marca, 'nada'>) {
+    setMarca((actual) => (actual === m ? 'nada' : m));
+  }
+
   async function guardar() {
     const cuerpo = textoConsolidado().trim();
     if (!cuerpo) return;
     setGuardando(true);
     setError(null);
     try {
-      if (queEs === 'oportunidad') {
+      if (marca === 'oportunidad') {
         if (!clienteId) {
           setError('No se ha podido identificar el cliente de esta visita. Vuelve a intentarlo en unos segundos.');
           setGuardando(false);
@@ -109,17 +127,25 @@ export function AnotarHoja({
           titulo: cuerpo,
           prioridad,
         });
+        sumarUso();
         setOportunidadGuardada(true);
-      } else {
+      } else if (marca === 'hallazgo') {
         await onGuardarHallazgo({
           visitaId,
           comercialAutorId: comercialId,
           terminoId: terminoSeleccionado?.id,
-          naturaleza: queEs,
+          // El concepto "naturaleza" está en retirada (prompt maestro 11);
+          // se guarda un valor fijo hasta que se quite de la BD.
+          naturaleza: 'contexto',
           nota: cuerpo,
         });
+        sumarUso();
         // El cierre lo controla el padre (visita-activa.tsx) con 700ms de
         // retraso, para que "Guardado ✓" sea visible.
+        setGuardadoConExito(true);
+      } else {
+        await onGuardarNota(cuerpo);
+        sumarUso();
         setGuardadoConExito(true);
       }
     } catch (err) {
@@ -152,8 +178,17 @@ export function AnotarHoja({
     );
   }
 
+  const textoBoton =
+    marca === 'hallazgo' ? 'Guardar hallazgo' : marca === 'oportunidad' ? 'Guardar oportunidad' : 'Guardar nota';
+
   return (
     <HojaSuperior titulo="Anotar" onCerrar={onCerrar}>
+      {mostrarTip && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
+          Apunta lo que veas. Si además es un hallazgo o una oportunidad, márcalo abajo.
+        </div>
+      )}
+
       <textarea
         className="field"
         style={{ height: 'auto', padding: 8 }}
@@ -162,7 +197,7 @@ export function AnotarHoja({
         value={textoEnVivo}
         onChange={(e) => setTexto(e.target.value)}
         readOnly={dictado.dictando && !!dictadoProvisional}
-        placeholder="lo que has visto: qué falla, desde cuándo, quién lo puso, qué quiere el cliente…"
+        placeholder="escribe o dicta lo que has visto…"
       />
       {dictado.soportado && (
         <button
@@ -176,22 +211,32 @@ export function AnotarHoja({
         </button>
       )}
 
-      <div className="label">¿Qué es?</div>
-      <AyudaNota concepto="naturaleza-hallazgo" />
+      <div className="label">Se guarda como nota. Márcalo si además es:</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {QUE_ES.map((q) => (
-          <button
-            key={q.valor}
-            type="button"
-            className={`chip${queEs === q.valor ? ' chip--on' : ''}`}
-            onClick={() => setQueEs(q.valor)}
-          >
-            {q.label}
-          </button>
-        ))}
+        <button
+          type="button"
+          className={`chip${marca === 'hallazgo' ? ' chip--on' : ''}`}
+          onClick={() => alternarMarca('hallazgo')}
+        >
+          Algo que tienen
+        </button>
+        <button
+          type="button"
+          className={`chip${marca === 'oportunidad' ? ' chip--on' : ''}`}
+          onClick={() => alternarMarca('oportunidad')}
+        >
+          Algo para venderles
+        </button>
+      </div>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+        {marca === 'hallazgo'
+          ? 'Hallazgo: algo del cliente. Se suma a su ficha.'
+          : marca === 'oportunidad'
+            ? 'Oportunidad: algo para venderle. Entra en el seguimiento.'
+            : 'Sin marcar nada, se guarda como nota de la visita.'}
       </div>
 
-      {queEs === 'oportunidad' ? (
+      {marca === 'oportunidad' && (
         <>
           <div className="label">Prioridad</div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -207,7 +252,9 @@ export function AnotarHoja({
             ))}
           </div>
         </>
-      ) : (
+      )}
+
+      {marca === 'hallazgo' && (
         <>
           <div className="label">¿De qué marca o sistema? (opcional)</div>
           {terminoSeleccionado ? (
@@ -238,12 +285,10 @@ export function AnotarHoja({
         ) : guardando ? (
           'Guardando…'
         ) : (
-          'Guardar'
+          textoBoton
         )}
       </button>
 
-      {/* Por qué "Guardar" está en gris: no basta con elegir "¿Qué es?",
-          hace falta el texto de lo que has visto. */}
       {!textoEnVivo.trim() && !guardadoConExito && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
           Escribe o dicta arriba lo que has visto para poder guardarlo.

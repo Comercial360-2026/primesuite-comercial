@@ -3,12 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
-import {
-  NATURALEZA_ORDEN,
-  NATURALEZA_LABEL,
-  TIPO_FECHA_RELEVANTE_LABEL,
-  etiqueta,
-} from '@/lib/etiquetas-visita';
+import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -220,19 +215,8 @@ export function DetalleHallazgo() {
         <SelectorTermino onSeleccionar={setTermino} />
       )}
 
-      <div className="label">Naturaleza</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {NATURALEZA_ORDEN.map((n) => (
-          <button
-            key={n}
-            type="button"
-            className={`chip${naturaleza === n ? ' chip--on' : ''}`}
-            onClick={() => setNaturaleza(n)}
-          >
-            {etiqueta(NATURALEZA_LABEL, n)}
-          </button>
-        ))}
-      </div>
+      {/* El concepto "naturaleza" está en retirada (prompt maestro 11): el
+          hallazgo conserva el valor que tuviera, pero ya no se elige aquí. */}
 
       <div className="label">Nota</div>
       <textarea

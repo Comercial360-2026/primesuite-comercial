@@ -175,7 +175,7 @@ function CapturasPorUbicacion({
       {c.hz.map((h) => {
         const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
         const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
-        return itemFila(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza), etiqueta(NATURALEZA_LABEL, p.naturaleza));
+        return itemFila(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza));
       })}
     </>
   );
@@ -852,6 +852,23 @@ export function VisitaActiva() {
         mensajeError: 'No se pudo guardar el objetivo.',
       }
     );
+  }
+
+  async function guardarNota(texto: string) {
+    const capturaId = uuid();
+    await encolar(
+      capturaId,
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: 'nota',
+        contenidoTexto: texto,
+        zonaTexto: zonaParaCaptura,
+      },
+      { dependeDe: visitaId }
+    );
+    setTimeout(() => setAnotarAbierto(false), 700);
   }
 
   async function guardarHallazgo(payload: HallazgoPayload) {
@@ -2097,7 +2114,7 @@ export function VisitaActiva() {
                     h.id,
                     'hallazgo',
                     tituloHallazgo(term, p.nota, p.naturaleza),
-                    etiqueta(NATURALEZA_LABEL, p.naturaleza),
+                    undefined,
                     h.estado === 'completado'
                       ? () => navigate(`/hallazgos/${h.id}`, { state: origen })
                       : undefined
@@ -2108,7 +2125,7 @@ export function VisitaActiva() {
                     h.id,
                     'hallazgo',
                     tituloHallazgo((h.termino as unknown as { nombre: string } | null)?.nombre, h.nota, h.naturaleza),
-                    `${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
+                    `de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
                     () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )
                 )}
@@ -2175,6 +2192,7 @@ export function VisitaActiva() {
           visitaId={visitaId}
           clienteId={visitaLocal?.clienteId}
           comercialId={comercial.id}
+          onGuardarNota={guardarNota}
           onGuardarHallazgo={guardarHallazgo}
           onGuardarOportunidad={guardarOportunidad}
           onCompletarOportunidad={completarOportunidad}
