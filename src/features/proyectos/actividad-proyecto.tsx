@@ -6,8 +6,10 @@ import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
-import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
+import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
 import { desde } from '@/lib/volver-a';
+import type { Area } from '@/lib/vocabulario';
+import { areasDeHallazgos } from '@/lib/hallazgo-areas';
 
 // Las secciones "vivas" de un proyecto: oportunidades activas, próximos
 // pasos, hallazgos e historial de visitas — todo acotado a ESE proyecto. Lo
@@ -33,10 +35,11 @@ interface ProximoPasoPendiente {
 
 interface HallazgoAbierto {
   id: string;
-  naturaleza: string;
   nota: string | null;
   fecha_relevante: string | null;
-  termino: { nombre: string } | null;
+  // Áreas del catálogo (prompt maestro 11, Fase 2) — categorías y/o
+  // términos, se resuelven aparte desde la tabla puente.
+  areas: Area[];
 }
 
 interface VisitaHistorial {
@@ -101,13 +104,15 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, naturaleza, nota, fecha_relevante, termino:termino_id(nombre)')
+        .select('id, nota, fecha_relevante')
         .eq('proyecto_id', proyectoId)
         .is('archivado_en', null)
         .order('creado_en', { ascending: false })
         .limit(5);
       if (error) throw error;
-      return (data ?? []) as unknown as HallazgoAbierto[];
+      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null }[];
+      const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
+      return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
     },
   });
 
@@ -131,13 +136,15 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, naturaleza, nota, fecha_relevante, termino:termino_id(nombre)')
+        .select('id, nota, fecha_relevante')
         .eq('proyecto_id', proyectoId)
         .not('archivado_en', 'is', null)
         .order('archivado_en', { ascending: false })
         .limit(20);
       if (error) throw error;
-      return (data ?? []) as unknown as HallazgoAbierto[];
+      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null }[];
+      const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
+      return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
     },
   });
 
@@ -231,9 +238,8 @@ export function ActividadProyecto({
           {hallazgos?.map((h) => (
             <FilaNavegable
               key={h.id}
-              titulo={h.termino?.nombre?.trim() || h.nota?.trim() || etiqueta(NATURALEZA_LABEL, h.naturaleza)}
-              tono={h.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
-              valor={etiqueta(NATURALEZA_LABEL, h.naturaleza)}
+              titulo={h.nota?.trim() || 'Hallazgo'}
+              valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
               valorTenue
               to={`/hallazgos/${h.id}`}
               state={origen}
@@ -251,7 +257,7 @@ export function ActividadProyecto({
             hallazgosArchivados?.map((h) => (
               <FilaNavegable
                 key={h.id}
-                titulo={h.termino?.nombre?.trim() || h.nota?.trim() || etiqueta(NATURALEZA_LABEL, h.naturaleza)}
+                titulo={h.nota?.trim() || 'Hallazgo'}
                 valor="archivado"
                 valorTenue
                 to={`/hallazgos/${h.id}`}

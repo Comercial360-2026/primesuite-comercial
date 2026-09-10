@@ -46,22 +46,17 @@ function elegirTipoAudio(): string | undefined {
   return TIPOS_AUDIO.find((t) => MediaRecorder.isTypeSupported(t));
 }
 
-// Título de una fila de hallazgo. Desde "Anotar" (prompt maestro 10) un
-// hallazgo puede no tener término: se usa su propio texto y, si tampoco,
-// la naturaleza.
-function tituloHallazgo(
-  termino: string | undefined | null,
-  nota: string | undefined | null,
-  naturaleza: string
-): string {
-  return termino?.trim() || nota?.trim() || etiqueta(NATURALEZA_LABEL, naturaleza);
+// Título de una fila de hallazgo. Desde "Anotar" (prompt maestro 11) todo
+// hallazgo lleva texto (el comercial escribe/dicta antes de marcar nada);
+// la naturaleza es solo el último recurso para datos antiguos sin nota.
+function tituloHallazgo(nota: string | undefined | null, naturaleza: string): string {
+  return nota?.trim() || etiqueta(NATURALEZA_LABEL, naturaleza);
 }
 
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
   nombresUbicaciones: Record<string, string>;
-  nombresTerminos?: Record<string, string>;
   onTocarCaptura: (id: string) => void;
   // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
   // (que sirve para audio/nota/hallazgo). Si no se pasa, la foto también
@@ -78,7 +73,6 @@ function CapturasPorUbicacion({
   capturas,
   hallazgos,
   nombresUbicaciones,
-  nombresTerminos,
   onTocarCaptura,
   onAbrirFoto,
 }: CapturasPorUbicacionProps) {
@@ -173,9 +167,8 @@ function CapturasPorUbicacion({
         return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
       })}
       {c.hz.map((h) => {
-        const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
-        const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
-        return itemFila(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza));
+        const p = h.payload as { naturaleza: string; nota?: string };
+        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota, p.naturaleza));
       })}
     </>
   );
@@ -373,29 +366,6 @@ export function VisitaActiva() {
         .single();
       if (error) throw error;
       return data;
-    },
-  });
-
-
-  // Movido aquí (antes del `if (!visitaId || !comercial) return null`)
-  // deliberadamente — un hook colocado después de ese return condicional
-  // viola las reglas de Hooks de React: si `comercial` es null en algún
-  // render (p.ej. durante un cambio de sesión), este hook dejaría de
-  // ejecutarse ese render y de otro no, provocando el error real que esto
-  // corrige: "Rendered more hooks than during the previous render".
-  const hallazgosParaNombres = operaciones.filter((op) => op.entidad === 'hallazgo');
-  const terminoIdsHallazgos = hallazgosParaNombres
-    .map((h) => (h.payload as { terminoId?: string }).terminoId)
-    .filter((id): id is string => !!id)
-    .filter((id, i, arr) => arr.indexOf(id) === i);
-
-  const { data: nombresTerminos } = useQuery({
-    queryKey: ['nombres-terminos-hallazgos', terminoIdsHallazgos.join(',')],
-    enabled: terminoIdsHallazgos.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('termino').select('id, nombre').in('id', terminoIdsHallazgos);
-      if (error) throw error;
-      return Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
     },
   });
 
@@ -1099,7 +1069,7 @@ export function VisitaActiva() {
           .neq('comercial_autor_id', comercial!.id),
         supabase
           .from('hallazgo')
-          .select('id, naturaleza, nota, comercial_autor_id, zona_texto, termino:termino_id(nombre)')
+          .select('id, naturaleza, nota, comercial_autor_id, zona_texto')
           .eq('visita_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
         supabase
@@ -2022,7 +1992,6 @@ export function VisitaActiva() {
                 capturas={capturas}
                 hallazgos={hallazgos}
                 nombresUbicaciones={nombresUbicacionesVisita}
-                nombresTerminos={nombresTerminos}
                 onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
                 onAbrirFoto={setFotoVisorId}
               />
@@ -2106,14 +2075,13 @@ export function VisitaActiva() {
                   )
                 )}
                 {hallazgosV.map((h) => {
-                  const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
-                  const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
+                  const p = h.payload as { naturaleza: string; nota?: string };
                   // Se puede abrir para revisar/editar/borrar en cuanto ha
                   // subido (su detalle lee de la BD, no de la cola local).
                   return filaEnVisita(
                     h.id,
                     'hallazgo',
-                    tituloHallazgo(term, p.nota, p.naturaleza),
+                    tituloHallazgo(p.nota, p.naturaleza),
                     undefined,
                     h.estado === 'completado'
                       ? () => navigate(`/hallazgos/${h.id}`, { state: origen })
@@ -2124,7 +2092,7 @@ export function VisitaActiva() {
                   filaEnVisita(
                     h.id,
                     'hallazgo',
-                    tituloHallazgo((h.termino as unknown as { nombre: string } | null)?.nombre, h.nota, h.naturaleza),
+                    tituloHallazgo(h.nota, h.naturaleza),
                     `de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
                     () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )

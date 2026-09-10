@@ -10,7 +10,9 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
-import { SelectorTermino } from '@/components/ui/selector-termino';
+import { SelectorAreas } from '@/components/ui/selector-areas';
+import type { Area } from '@/lib/vocabulario';
+import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
 import { Icono } from '@/components/ui/iconos';
 
 const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
@@ -28,10 +30,9 @@ export function DetalleHallazgo() {
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
 
-  const [naturaleza, setNaturaleza] = useState<string>('contexto');
-  // Marca o sistema del catálogo — opcional desde "Anotar" (prompt maestro
-  // 10). Se puede añadir/quitar aquí después.
-  const [termino, setTermino] = useState<{ id: string; nombre: string } | null>(null);
+  // Áreas del catálogo (prompt maestro 11, Fase 2): categorías y/o términos,
+  // varias. Se cargan de la tabla puente y se pueden añadir/quitar aquí.
+  const [areas, setAreas] = useState<Area[]>([]);
   const [nota, setNota] = useState('');
   const [ubicacionId, setUbicacionId] = useState<string>('');
   const [fechaRelevante, setFechaRelevante] = useState('');
@@ -52,13 +53,19 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, termino:termino_id(id, nombre, categoria_id), cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', hallazgoId!)
         .single();
       if (err) throw err;
       return data;
     },
+  });
+
+  const { data: areasCargadas } = useQuery({
+    queryKey: ['hallazgo-areas', hallazgoId],
+    enabled: !!hallazgoId,
+    queryFn: () => leerAreasDeHallazgo(hallazgoId!),
   });
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
   // cliente era el hallazgo. El nombre del proyecto se muestra siempre.
@@ -71,14 +78,15 @@ export function DetalleHallazgo() {
 
   useEffect(() => {
     if (!hallazgo) return;
-    setNaturaleza(hallazgo.naturaleza);
-    const t = hallazgo.termino as unknown as { id: string; nombre: string } | null;
-    setTermino(t ? { id: t.id, nombre: t.nombre } : null);
     setNota(hallazgo.nota ?? '');
     setUbicacionId(hallazgo.ubicacion_id ?? '');
     setFechaRelevante(hallazgo.fecha_relevante ?? '');
     setTipoFechaRelevante(hallazgo.tipo_fecha_relevante ?? '');
   }, [hallazgo]);
+
+  useEffect(() => {
+    if (areasCargadas) setAreas(areasCargadas);
+  }, [areasCargadas]);
 
   const { data: ubicaciones } = useQuery({
     queryKey: ['ubicaciones-cliente', hallazgo?.cliente_id],
@@ -107,19 +115,28 @@ export function DetalleHallazgo() {
     const { error: err } = await supabase
       .from('hallazgo')
       .update({
-        naturaleza,
-        termino_id: termino?.id ?? null,
+        // `naturaleza` ya no se toca aquí (concepto en retirada, prompt
+        // maestro 11): conserva el valor que tuviera.
         nota: nota.trim() || null,
         ubicacion_id: ubicacionId || null,
         fecha_relevante: fechaRelevante || null,
         tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
       })
       .eq('id', hallazgoId!);
-    setGuardando(false);
     if (err) {
+      setGuardando(false);
       setError(err.message);
       return;
     }
+    try {
+      await guardarAreasDeHallazgo(hallazgoId, areas);
+    } catch (errAreas) {
+      setGuardando(false);
+      setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
+    setGuardando(false);
     setGuardadoConExito(true);
     // Breve pausa para que "guardado ✓" sea visible de verdad antes de
     // volver — antes saltaba a la pantalla anterior sin ninguna
@@ -199,21 +216,11 @@ export function DetalleHallazgo() {
         subtitulo={contextoCliente || undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
-      <div className="label">Marca o sistema (opcional)</div>
-      {termino ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="chip chip--on">{termino.nombre}</span>
-          <button
-            type="button"
-            onClick={() => setTermino(null)}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 13 }}
-          >
-            quitar
-          </button>
-        </div>
-      ) : (
-        <SelectorTermino onSeleccionar={setTermino} />
-      )}
+      <div className="label">Áreas (opcional)</div>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+        Categorías del catálogo (Hardware, Software…) o sistemas concretos. Puedes marcar varias.
+      </div>
+      <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
 
       {/* El concepto "naturaleza" está en retirada (prompt maestro 11): el
           hallazgo conserva el valor que tuviera, pero ya no se elige aquí. */}

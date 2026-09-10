@@ -12,6 +12,8 @@ import {
   TIPO_VISITA_LABEL,
   etiqueta,
 } from '@/lib/etiquetas-visita';
+import type { Area } from '@/lib/vocabulario';
+import { areasDeHallazgos } from '@/lib/hallazgo-areas';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -52,7 +54,7 @@ interface DetalleVisita {
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
-  hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; termino_nombre: string }>;
+  hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string }>;
 }
@@ -135,7 +137,7 @@ export function DetalleVisitaCerrada() {
           .order('creado_en', { ascending: true }),
         supabase
           .from('hallazgo')
-          .select('id, nota, naturaleza, termino:termino_id(nombre)')
+          .select('id, nota, naturaleza')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -183,6 +185,9 @@ export function DetalleVisitaCerrada() {
         })
       );
 
+      // Áreas del catálogo de cada hallazgo (prompt maestro 11, Fase 2).
+      const mapaAreasHz = await areasDeHallazgos((hallazgos ?? []).map((h) => h.id));
+
       return {
         fecha: visita!.fecha,
         tipo_visita: visita!.tipo_visita,
@@ -198,7 +203,7 @@ export function DetalleVisitaCerrada() {
           id: h.id,
           naturaleza: h.naturaleza,
           nota: h.nota,
-          termino_nombre: (h.termino as unknown as { nombre: string } | null)?.nombre ?? '',
+          areas: mapaAreasHz.get(h.id) ?? [],
         })),
         oportunidades: (oportunidades ?? []) as DetalleVisita['oportunidades'],
         proximosPasos: proximosPasos ?? [],
@@ -454,8 +459,9 @@ export function DetalleVisitaCerrada() {
                 ...g.items.map((h) => (
                   <FilaNavegable
                     key={h.id}
-                    titulo={h.termino_nombre || etiqueta(NATURALEZA_LABEL, g.naturaleza)}
-                    subtitulo={h.nota ?? undefined}
+                    titulo={h.nota?.trim() || etiqueta(NATURALEZA_LABEL, g.naturaleza)}
+                    valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
+                    valorTenue
                     tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
                     to={`/hallazgos/${h.id}`}
                     state={origen}

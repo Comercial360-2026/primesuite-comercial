@@ -213,19 +213,24 @@ export function ColaVocabulario() {
               .eq('id', propuestaAbierta.visita_origen_id)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
+        // Los hallazgos que usan este término van por la tabla puente
+        // `hallazgo_area` (prompt maestro 11, Fase 2).
         supabase
-          .from('hallazgo')
-          .select('id, nota, creado_en, comercial:comercial_autor_id(nombre)')
-          .eq('termino_id', contextoAbiertoId!)
-          .order('creado_en', { ascending: false }),
+          .from('hallazgo_area')
+          .select('hallazgo:hallazgo_id(id, nota, creado_en, comercial:comercial_autor_id(nombre))')
+          .eq('termino_id', contextoAbiertoId!),
       ]);
       if (visita.error) throw visita.error;
       if (hallazgos.error) throw hallazgos.error;
       type VisitaContexto = { fecha: string; cliente: { nombre: string } | null } | null;
       type HallazgoContexto = { id: string; nota: string | null; creado_en: string; comercial: { nombre: string } | null };
+      const hallazgosContexto = ((hallazgos.data ?? []) as unknown as { hallazgo: HallazgoContexto | null }[])
+        .map((f) => f.hallazgo)
+        .filter((h): h is HallazgoContexto => h !== null)
+        .sort((a, b) => (a.creado_en < b.creado_en ? 1 : -1));
       return {
         visita: visita.data as unknown as VisitaContexto,
-        hallazgos: (hallazgos.data ?? []) as unknown as HallazgoContexto[],
+        hallazgos: hallazgosContexto,
       };
     },
   });
@@ -272,7 +277,9 @@ export function ColaVocabulario() {
           .neq('estado_gobierno', 'descartado')
           .order('orden')
           .order('nombre'),
-        supabase.from('hallazgo').select('termino_id'),
+        // Uso en hallazgos: por la tabla puente `hallazgo_area` (prompt
+        // maestro 11, Fase 2); solo cuentan las filas de tipo término.
+        supabase.from('hallazgo_area').select('termino_id').not('termino_id', 'is', null),
         supabase.from('oportunidad_termino').select('termino_id'),
       ]);
       if (cats.error) throw cats.error;

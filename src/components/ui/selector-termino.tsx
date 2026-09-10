@@ -1,24 +1,8 @@
 import { Fragment, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase-client';
-import { NOMBRE_CATEGORIA_SIN_CLASIFICAR } from '@/lib/vocabulario';
+import { useCatalogoVocabulario } from '@/hooks/use-catalogo-vocabulario';
+import { proponerTermino } from '@/lib/proponer-termino';
 import { Icono } from '@/components/ui/iconos';
 import { sinAcentos } from '@/lib/texto';
-
-interface Termino {
-  id: string;
-  nombre: string;
-  categoria_id: string;
-  estado_gobierno: string;
-  parent_id: string | null;
-  orden: number;
-}
-
-interface Categoria {
-  id: string;
-  nombre: string;
-  orden: number;
-}
 
 interface SelectorTerminoProps {
   onSeleccionar: (termino: { id: string; nombre: string }) => void;
@@ -26,107 +10,47 @@ interface SelectorTerminoProps {
   titulo?: string;
 }
 
-// Componente único, reutilizado en los tres sitios donde se elige un
-// término (Detalle de Oportunidad ×2, Hallazgo rápido ×1) — antes cada uno
-// tenía su propio buscador de texto libre, sin forma de explorar el
-// catálogo si no recordabas el nombre exacto. Ahora combina las dos vías:
-// buscador arriba (para cuando sabes el nombre) + categorías desplegables
-// debajo (para cuando no lo sabes) — reutiliza el mismo patrón categoría→
-// términos ya construido en Cola de vocabulario.
+// Componente único, reutilizado en los tres sitios donde se elige UN
+// término (Detalle de Oportunidad ×2, y antes en Hallazgo rápido). Combina
+// las dos vías: buscador arriba (para cuando sabes el nombre) + categorías
+// desplegables debajo (para cuando no lo sabes) — mismo patrón categoría→
+// términos de Cola de vocabulario. El catálogo y los helpers de ruta viven
+// en `useCatalogoVocabulario` (compartidos con SelectorAreas).
 //
-// Jerarquía (fase 2): un término puede tener modelos dentro (1 nivel:
-// "MIFARE" › "DESFire EV2"). Padre y modelo son tags independientes, los
-// dos seleccionables. Al elegir un modelo, `nombre` lleva la ruta completa
-// "MIFARE › DESFire EV2" — sólo es etiqueta para mostrar (aguas abajo sólo
-// se usa el `id`), así el chip del hallazgo / la oportunidad enseña de qué
-// familia es el modelo sin tener que volver a consultar el padre.
+// Jerarquía: un término puede tener modelos dentro (1 nivel: "MIFARE" ›
+// "DESFire EV2"). Padre y modelo son tags independientes, los dos
+// seleccionables. Al elegir un modelo, `nombre` lleva la ruta completa
+// "MIFARE › DESFire EV2" — solo es etiqueta para mostrar (aguas abajo solo
+// se usa el `id`).
 export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTerminoProps) {
   const [textoBusqueda, setTextoBusqueda] = useState('');
   const [categoriaAbiertaId, setCategoriaAbiertaId] = useState<string | null>(null);
   const [proponiendo, setProponiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: categorias } = useQuery({
-    queryKey: ['categorias'],
-    queryFn: async (): Promise<Categoria[]> => {
-      // Mismo orden que el catálogo (`cola-vocabulario.tsx`): primero el
-      // `orden` manual, el nombre sólo desempata. Antes esto ordenaba sólo
-      // por nombre e ignoraba el orden que Dirección fija a mano.
-      const { data, error: err } = await supabase
-        .from('categoria_vocabulario')
-        .select('id, nombre, orden')
-        .order('orden')
-        .order('nombre');
-      if (err) throw err;
-      return data ?? [];
-    },
-  });
-
-  const { data: terminos } = useQuery({
-    queryKey: ['catalogo-terminos-selector'],
-    queryFn: async (): Promise<Termino[]> => {
-      const { data, error: err } = await supabase
-        .from('termino')
-        .select('id, nombre, categoria_id, estado_gobierno, parent_id, orden')
-        .neq('estado_gobierno', 'descartado')
-        .order('orden')
-        .order('nombre');
-      if (err) throw err;
-      return data ?? [];
-    },
-  });
-
-  const terminosLista = useMemo(() => terminos ?? [], [terminos]);
-  const porId = useMemo(() => new Map(terminosLista.map((t) => [t.id, t])), [terminosLista]);
-  const hijosPorPadre = useMemo(() => {
-    const m = new Map<string, Termino[]>();
-    for (const t of terminosLista) {
-      if (!t.parent_id) continue;
-      const arr = m.get(t.parent_id) ?? [];
-      arr.push(t);
-      m.set(t.parent_id, arr);
-    }
-    return m;
-  }, [terminosLista]);
+  const { categorias, terminos, porId, hijosPorPadre, primerNivelDe, rutaDe, partesRuta } =
+    useCatalogoVocabulario();
 
   // Categorías con al menos un término de primer nivel, cada una con esos
-  // términos ya resueltos. Las vacías no se muestran (aquí no hay nada que
+  // términos ya resueltos. Las vacías no se muestran aquí (no hay nada que
   // elegir en ellas — el catálogo lo gestiona Dirección desde Vocabulario).
   const categoriasConTerminos = useMemo(
     () =>
-      (categorias ?? [])
-        .map((c) => ({
-          ...c,
-          primerNivel: terminosLista.filter(
-            (t) => t.categoria_id === c.id && (!t.parent_id || !porId.get(t.parent_id))
-          ),
-        }))
+      categorias
+        .map((c) => ({ ...c, primerNivel: primerNivelDe(c.id) }))
         .filter((c) => c.primerNivel.length > 0),
-    [categorias, terminosLista, porId]
+    [categorias, primerNivelDe]
   );
   const categoriaAbierta = categoriasConTerminos.find((c) => c.id === categoriaAbiertaId) ?? null;
 
-  // "MIFARE › DESFire EV2" para un modelo; sólo el nombre para un término
-  // de primer nivel (o si el padre está descartado y no aparece).
-  function rutaDe(t: Termino): string {
-    const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
-    return padre ? `${padre.nombre} › ${t.nombre}` : t.nombre;
-  }
-  // La ruta partida en dos para pintarla: el padre en gris, el modelo con peso.
-  function partesRuta(t: Termino): { lead: string; tail: string } {
-    const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
-    return padre ? { lead: `${padre.nombre} › `, tail: t.nombre } : { lead: '', tail: t.nombre };
-  }
-
-  // C4 · Comparación sin acentos: "desfire" encuentra "DESFire", "mifare"
-  // encuentra "MIFARE".
+  // C4 · Comparación sin acentos: "desfire" encuentra "DESFire".
   const q = sinAcentos(textoBusqueda.trim());
 
   // El buscador casa por el nombre del término Y por el de su padre: buscar
   // "MIFARE" saca también sus modelos; buscar "DESFire" saca el modelo con
   // su ruta.
   const resultadosBusqueda = q
-    ? terminosLista
+    ? terminos
         .filter((t) => {
           if (sinAcentos(t.nombre).includes(q)) return true;
           const padre = t.parent_id ? porId.get(t.parent_id) : undefined;
@@ -135,50 +59,19 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
         .slice(0, 10)
     : [];
 
-  const existeExacto = terminosLista.some((t) => sinAcentos(t.nombre) === q);
+  const existeExacto = terminos.some((t) => sinAcentos(t.nombre) === q);
 
   async function proponerYSeleccionar() {
     if (!textoBusqueda.trim()) return;
     setProponiendo(true);
     setError(null);
-
-    const { data: sesion } = await supabase.auth.getSession();
-    const usuarioId = sesion.session?.user.id;
-
-    // Las propuestas sobre la marcha caen en "Sin clasificar" (bandeja fija,
-    // migración 80). Si por lo que sea no existe, se usa la primera categoría
-    // como red de seguridad —- el término se propone igual y Dirección lo
-    // recoloca al aprobarlo.
-    const { data: cats, error: errCat } = await supabase
-      .from('categoria_vocabulario')
-      .select('id, nombre')
-      .order('nombre');
-    const categoriaDestino =
-      cats?.find((c) => c.nombre.trim().toLowerCase() === NOMBRE_CATEGORIA_SIN_CLASIFICAR.toLowerCase()) ??
-      cats?.[0];
-    if (errCat || !categoriaDestino) {
+    try {
+      onSeleccionar(await proponerTermino(textoBusqueda));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo proponer el término.');
+    } finally {
       setProponiendo(false);
-      setError('No se pudo determinar una categoría para el término nuevo.');
-      return;
     }
-
-    const { data: nuevo, error: errIns } = await supabase
-      .from('termino')
-      .insert({
-        nombre: textoBusqueda.trim(),
-        categoria_id: categoriaDestino.id,
-        rol_funcional: 'ambos',
-        propuesto_por_id: usuarioId,
-        fecha_propuesta: new Date().toISOString(),
-      })
-      .select('id, nombre')
-      .single();
-    setProponiendo(false);
-    if (errIns || !nuevo) {
-      setError(errIns?.message ?? 'No se pudo proponer el término.');
-      return;
-    }
-    onSeleccionar(nuevo);
   }
 
   return (
@@ -194,10 +87,6 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
           placeholder="buscar término o modelo…"
         />
       </div>
-      {/* Sin nota "¿qué es un término / modelo?" aquí: el placeholder ya lo
-          nombra y el árbol lo enseña (MIFARE › DESFire EV2). Se apilaba con
-          la de "naturaleza" en la hoja de Hallazgo y con las de Etapa /
-          Prioridad / Horizonte en Detalle de Oportunidad. Sigue en /ayuda. */}
 
       {textoBusqueda.trim() ? (
         <>

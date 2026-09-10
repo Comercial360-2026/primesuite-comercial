@@ -637,6 +637,73 @@ export type Database = {
           },
         ]
       }
+      hallazgo_area: {
+        Row: {
+          categoria_id: string | null
+          creado_en: string
+          hallazgo_id: string
+          id: string
+          termino_id: string | null
+        }
+        Insert: {
+          categoria_id?: string | null
+          creado_en?: string
+          hallazgo_id: string
+          id?: string
+          termino_id?: string | null
+        }
+        Update: {
+          categoria_id?: string | null
+          creado_en?: string
+          hallazgo_id?: string
+          id?: string
+          termino_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hallazgo_area_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categoria_vocabulario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hallazgo_area_hallazgo_id_fkey"
+            columns: ["hallazgo_id"]
+            isOneToOne: false
+            referencedRelation: "hallazgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hallazgo_area_hallazgo_id_fkey"
+            columns: ["hallazgo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_ecosistema_actual_cliente"
+            referencedColumns: ["hallazgo_id"]
+          },
+          {
+            foreignKeyName: "hallazgo_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "termino"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hallazgo_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "vw_termino_resuelto"
+            referencedColumns: ["termino_id"]
+          },
+          {
+            foreignKeyName: "hallazgo_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vocabulario_pendiente_revision"
+            referencedColumns: ["termino_id"]
+          },
+        ]
+      }
       interlocutor: {
         Row: {
           activo: boolean

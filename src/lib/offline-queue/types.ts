@@ -66,13 +66,23 @@ export interface VisitaPayload {
   agendada?: boolean;
 }
 
+// El "área" de un hallazgo (prompt maestro 11, Fase 2): o una categoría del
+// catálogo de vocabulario ("Hardware", "Software"…) o un término concreto
+// ("MIFARE › DESFire EV2"). Se guardan varias por hallazgo en la tabla
+// puente `hallazgo_area`. Aquí viaja sin el nombre (solo tipo + id): el
+// nombre es para pintar, no para persistir.
+export interface AreaHallazgoRef {
+  tipo: 'categoria' | 'termino';
+  id: string;
+}
+
 export interface HallazgoPayload {
   visitaId: string; // referencia al id de OperacionPendiente<'visita'>, no al id real todavía si aún no sincronizó
   comercialAutorId: string;
-  // Opcional desde "Anotar" (prompt maestro 10, Paso 2): el comercial
-  // escribe primero y el término del catálogo ("¿de qué marca o sistema?")
-  // ya no obliga. Un hallazgo sin término no entra en el Ecosistema.
-  terminoId?: string;
+  // Áreas del catálogo (prompt maestro 11, Fase 2) — opcionales y varias.
+  // Sustituyen al antiguo `terminoId` único. Un hallazgo sin ningún área de
+  // tipo término no entra en el Ecosistema (igual que antes sin término).
+  areas?: AreaHallazgoRef[];
   naturaleza: 'contexto' | 'riesgo' | 'competencia';
   // Lo que el comercial escribió/dictó en "Anotar" — el cuerpo del
   // hallazgo. Antes era una coletilla de contexto opcional sobre el término.

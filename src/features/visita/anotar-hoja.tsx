@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
-import { SelectorTermino } from '@/components/ui/selector-termino';
+import type { Area } from '@/lib/vocabulario';
+import { SelectorAreas } from '@/components/ui/selector-areas';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { useDictado } from '@/hooks/use-dictado';
@@ -21,11 +22,6 @@ interface AnotarHojaProps {
   /** Abre el Detalle de la oportunidad recién creada. */
   onCompletarOportunidad: (oportunidadId: string) => void;
   onCerrar: () => void;
-}
-
-interface TerminoSeleccionado {
-  id: string;
-  nombre: string;
 }
 
 // Qué es, además de una nota. 'nada' = nota suelta (el caso normal).
@@ -69,7 +65,7 @@ export function AnotarHoja({
   const [oportunidadId] = useState(() => uuid());
   const [texto, setTexto] = useState('');
   const [marca, setMarca] = useState<Marca>('nada');
-  const [terminoSeleccionado, setTerminoSeleccionado] = useState<TerminoSeleccionado | null>(null);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -133,7 +129,9 @@ export function AnotarHoja({
         await onGuardarHallazgo({
           visitaId,
           comercialAutorId: comercialId,
-          terminoId: terminoSeleccionado?.id,
+          // Áreas del catálogo (prompt maestro 11, Fase 2): categorías y/o
+          // términos, varias. Solo viaja tipo + id.
+          areas: areas.map((a) => ({ tipo: a.tipo, id: a.id })),
           // El concepto "naturaleza" está en retirada (prompt maestro 11);
           // se guarda un valor fijo hasta que se quite de la BD.
           naturaleza: 'contexto',
@@ -212,20 +210,22 @@ export function AnotarHoja({
       )}
 
       <div className="label">Se guarda como nota. Márcalo si además es:</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6 }}>
         <button
           type="button"
-          className={`chip${marca === 'hallazgo' ? ' chip--on' : ''}`}
+          className={`marca-opcion${marca === 'hallazgo' ? ' marca-opcion--on' : ''}`}
           onClick={() => alternarMarca('hallazgo')}
         >
-          Algo que tienen
+          <span className="marca-opcion__t">Hallazgo</span>
+          <span className="marca-opcion__s">algo que tienen</span>
         </button>
         <button
           type="button"
-          className={`chip${marca === 'oportunidad' ? ' chip--on' : ''}`}
+          className={`marca-opcion${marca === 'oportunidad' ? ' marca-opcion--on' : ''}`}
           onClick={() => alternarMarca('oportunidad')}
         >
-          Algo para venderles
+          <span className="marca-opcion__t">Oportunidad</span>
+          <span className="marca-opcion__s">algo para venderles</span>
         </button>
       </div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
@@ -256,21 +256,11 @@ export function AnotarHoja({
 
       {marca === 'hallazgo' && (
         <>
-          <div className="label">¿De qué marca o sistema? (opcional)</div>
-          {terminoSeleccionado ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="chip chip--on">{terminoSeleccionado.nombre}</span>
-              <button
-                type="button"
-                onClick={() => setTerminoSeleccionado(null)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 13 }}
-              >
-                quitar
-              </button>
-            </div>
-          ) : (
-            <SelectorTermino onSeleccionar={setTerminoSeleccionado} />
-          )}
+          <div className="label">Área (opcional)</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+            Categoría del catálogo (Hardware, Software…) o el sistema concreto. Puedes marcar varias.
+          </div>
+          <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
         </>
       )}
 

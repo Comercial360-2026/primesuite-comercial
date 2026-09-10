@@ -95,11 +95,13 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
         break;
       case 'cliente':
       case 'proyecto':
-      case 'hallazgo':
       case 'oportunidad':
       case 'proximo_paso':
       case 'ubicacion':
         await sincronizarInsertSimple(operacion.entidad, operacion);
+        break;
+      case 'hallazgo':
+        await sincronizarHallazgo(operacion);
         break;
       case 'captura_libre':
         await sincronizarCapturaLibre(operacion);
@@ -151,11 +153,12 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
   }
 }
 
-// Hallazgo, Oportunidad y Próximo paso son INSERT directos — no tienen el
-// problema de doble escritura atómica que sí tiene Visita (§1 de
-// 10_rpc_functions.sql), así que no necesitan pasar por una RPC.
+// Oportunidad y Próximo paso son INSERT directos — no tienen el problema de
+// doble escritura atómica que sí tiene Visita (§1 de 10_rpc_functions.sql),
+// así que no necesitan pasar por una RPC. (Hallazgo tiene su propia función
+// por la tabla puente `hallazgo_area` — ver `sincronizarHallazgo`.)
 async function sincronizarInsertSimple(
-  tabla: 'cliente' | 'proyecto' | 'hallazgo' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
+  tabla: 'cliente' | 'proyecto' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
   operacion: OperacionPendiente
 ): Promise<void> {
   const fila = aPayloadSnakeCase(operacion);
@@ -169,6 +172,38 @@ async function sincronizarInsertSimple(
   // deliberado entre esa capa tipada y la llamada genérica a Supabase.
   const { error } = await supabase.from(tabla).insert({ id: operacion.id, ...fila } as never);
   if (error) throw new Error(error.message);
+}
+
+// Hallazgo = fila en `hallazgo` + N filas en la tabla puente `hallazgo_area`
+// (prompt maestro 11, Fase 2). No es atómico en el servidor, así que se
+// escribe de forma idempotente para que un reintento tras un fallo a medias
+// no deje el hallazgo sin áreas ni las duplique:
+//  - la fila `hallazgo` va con upsert que ignora el duplicado de PK,
+//  - las áreas se borran y se reinsertan (borrar 0 en la primera pasada).
+async function sincronizarHallazgo(operacion: OperacionPendiente<'hallazgo'>): Promise<void> {
+  const { areas, ...restoPayload } = operacion.payload;
+  const fila = aPayloadSnakeCase({ ...operacion, payload: restoPayload } as OperacionPendiente);
+
+  const { error } = await supabase
+    .from('hallazgo')
+    .upsert({ id: operacion.id, ...fila } as never, { onConflict: 'id', ignoreDuplicates: true });
+  if (error) throw new Error(error.message);
+
+  const { error: errorBorrado } = await supabase
+    .from('hallazgo_area')
+    .delete()
+    .eq('hallazgo_id', operacion.id);
+  if (errorBorrado) throw new Error(errorBorrado.message);
+
+  if (areas && areas.length > 0) {
+    const filasArea = areas.map((a) => ({
+      hallazgo_id: operacion.id,
+      categoria_id: a.tipo === 'categoria' ? a.id : null,
+      termino_id: a.tipo === 'termino' ? a.id : null,
+    }));
+    const { error: errorAreas } = await supabase.from('hallazgo_area').insert(filasArea);
+    if (errorAreas) throw new Error(errorAreas.message);
+  }
 }
 
 function extensionAudio(mime: string): string {

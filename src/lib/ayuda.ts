@@ -186,7 +186,7 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso—. «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas, y luego eliges qué es (Dato del cliente, Competencia, Me preocupa u Oportunidad de venta). Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso—. «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas y se guarda como nota; si además es un hallazgo («algo que tienen») o una oportunidad («algo para venderles»), lo marcas ahí mismo. Un hallazgo puede llevar áreas del catálogo (Hardware, Software… o el sistema concreto), varias. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
     cuando:
       'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» puedes dictar en vez de escribir. Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada. Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar.',
@@ -222,9 +222,9 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Hallazgo',
     queEs:
-      'Algo que has observado en el cliente y quieres dejar registrado: su texto, qué significa (Me preocupa / Competencia / Dato del cliente), opcionalmente de qué marca o sistema es, en qué zona estaba y, si aplica, una fecha relevante.',
+      'Algo que has observado en el cliente y quieres dejar registrado: su texto, sus áreas del catálogo (categorías como Hardware o Software, o el sistema concreto; puedes marcar varias), en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; la marca o sistema del catálogo es opcional y puedes añadirla aquí después. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las áreas del catálogo son opcionales y puedes añadirlas o quitarlas aquí después. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
     ojo: 'Archivar y borrar solo los puede hacer el autor del hallazgo o Dirección Comercial.',
   },
   'detalle-oportunidad': {
