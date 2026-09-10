@@ -14,8 +14,9 @@ objetivo → se siente como «navegar lejos» para arrancar una visita.
 
 ## Solución
 
-**Separar los dos caminos.** El «+» de Hoy abre una **hoja inferior
-`EmpezarVisitaHoja`** (componente `HojaInferior` ya existe) que resuelve
+**Separar los dos caminos.** El «+» de Hoy abre una **hoja superior
+`EmpezarVisitaHoja`** (componente `HojaSuperior`; baja desde arriba, nunca
+`HojaInferior` — [[primesuite-hoja-siempre-arriba]]) que resuelve
 «ahora» de principio a fin sin cambiar de pantalla hasta entrar en la visita.
 `/planificar` se queda **solo para «otro día»** (agenda) y se alcanza desde un
 enlace secundario de la hoja y desde las fichas de cliente/proyecto.

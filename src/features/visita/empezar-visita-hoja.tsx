@@ -9,7 +9,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { arrancarVisitaAhora } from '@/lib/arrancar-visita';
-import { HojaInferior } from '@/components/ui/hoja-inferior';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -224,7 +224,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   const proyectoElegido = proyectos?.find((p) => p.id === proyectoId) ?? null;
 
   return (
-    <HojaInferior titulo="empezar visita" onCerrar={onCerrar}>
+    <HojaSuperior titulo="empezar visita" onCerrar={onCerrar}>
       <div className="lista-agrupada" style={{ padding: '0 4px 8px' }}>
         {/* Paso 1 — cliente */}
         {!clienteId && (
@@ -431,6 +431,6 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           onCerrar={() => setEnCursoAbierto(false)}
         />
       )}
-    </HojaInferior>
+    </HojaSuperior>
   );
 }
