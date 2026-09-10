@@ -108,17 +108,26 @@ Reglas:
   «algo para venderles», ábrela y márcala."* — **solo si hay notas y no se ha marcado
   ningún hallazgo ni oportunidad** en la visita.
 - `detalle-visita-cerrada`: las notas del anexo pasan a fila navegable (`.dvc-bloque--accion`).
+- **Resumen automático** (`visita.resumen_texto` con `resumen_origen = 'reglas'`): se
+  **rehace** con el contenido actual tras convertir/editar/borrar una nota, hallazgo u
+  oportunidad de una visita ya cerrada — así no dice "2 notas" cuando ya hay "1 nota y 1
+  hallazgo". Un resumen escrito a mano (`'manual'`) NO se toca. `src/lib/regenerar-resumen.ts`,
+  cableado en RecategorizarItem, detalle-captura, detalle-hallazgo, detalle-oportunidad.
+
+**Verificado en vivo (punta a punta)**: visita de prueba cerrada — aviso "Notas sin
+clasificar"; nota abrible/editable/borrable con la visita cerrada leyendo de Supabase;
+convertir tras cerrar; resumen `'reglas'` se rehace, `'manual'` se respeta.
 
 **Sitios tocados**: `detalle-captura.tsx` (reescrito), `detalle-hallazgo.tsx`,
 `detalle-oportunidad.tsx`, `detalle-visita-cerrada.tsx`, `cierre-visita.tsx`,
 `recategorizar-item.tsx` (nuevo), `lib/recategorizar.ts` (nuevo), `styles/components.css`,
 `lib/ayuda.ts`, `types/database.ts`, `supabase/migrations/107_recategorizar_item.sql` (nuevo).
 
-**Bug PRE-EXISTENTE encontrado (Fase 2, no de Fase 3, sin arreglar)**: en
-`detalle-hallazgo.tsx` el `useEffect(() => { if (areasCargadas) setAreas(areasCargadas) },
-[areasCargadas])` + `refetchOnWindowFocus` activo (no se desactiva en `main.tsx`) → un
-refetch de `['hallazgo-areas', id]` mientras editas **borra la selección de áreas sin
-guardar**. No afecta a la hibernación de Fase 3 (va por la RPC). Pendiente de arreglar aparte.
+**Bug PRE-EXISTENTE de Fase 2 ARREGLADO**: en `detalle-hallazgo.tsx` el
+`useEffect([areasCargadas]) → setAreas` (+ `refetchOnWindowFocus` activo, `main.tsx` solo
+pone `staleTime`) reejecutaba `setAreas`/`setNota` en cada refetch y **borraba lo editado
+sin guardar**. Ahora el formulario se siembra del servidor **una sola vez por hallazgo**
+(refs `camposSembradosRef` / `areasSembradasRef`).
 
 ### Fase 4 — informe y vista de proyecto
 - PDF (visita y proyecto): secciones **Notas · Hallazgos · Oportunidades ·
