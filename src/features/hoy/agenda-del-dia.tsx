@@ -382,6 +382,9 @@ export function AgendaDelDia() {
     }
   }
 
+  // `conDia` marca las de OTRO día (sección "Próximas"): icono de agenda (no
+  // el de "hoy"), y el día va con peso — es lo que las define frente a las de
+  // hoy, que solo llevan hora. Regla docs/08 §"Listas hermanas".
   function renderVisita(visita: VisitaAgenda, conDia: boolean) {
     const responsableId = responsables?.[visita.id];
     const deOtro = !!responsableId && responsableId !== comercial?.id;
@@ -390,14 +393,16 @@ export function AgendaDelDia() {
         .filter(Boolean)
         .join(' · ') || undefined;
     const cuando = cuandoTexto(visita, conDia);
+    const icono =
+      visita.estado_captura === 'consolidada' ? 'check' : conDia ? 'agenda' : 'hoy';
     return (
       <FilaNavegable
         key={visita.id}
-        icono={visita.estado_captura === 'consolidada' ? 'check' : 'hoy'}
+        icono={icono}
         titulo={visita.cliente?.nombre ?? 'Cliente'}
         subtitulo={subtitulo}
         valor={cuando || undefined}
-        valorTenue
+        valorTenue={!conDia}
         onClick={() => abrirVisita(visita)}
         chevron
       />

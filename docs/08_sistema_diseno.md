@@ -77,6 +77,17 @@ propaga a toda la app):
   palabra (daltónico). Neutro = todo lo demás.
 - **El ritmo agrupa.** `.grupo` (hueco `--space-2`) envuelve secciones
   relacionadas; `.lista-agrupada` (`--space-6`) separa grupos sin relación.
+- **Listas hermanas se distinguen por forma, no por color.** Cuando una
+  pantalla apila varias listas de la MISMA fila que significan cosas
+  distintas (hoy / futuro / hecho / atrasado; pendiente / vencido), cada
+  lista lleva **su icono** (forma) y el **atributo que la define va con
+  peso** — no tenue, no solo el color de un borde (el usuario es daltónico).
+  Vocabulario de iconos para el estado temporal de una visita: `hoy` **solo**
+  para lo de HOY, `agenda` para futuras/planificación, `check` para hechas,
+  `atencion` (+ tono `aviso`) para atrasadas. En "Hoy": las de la sección
+  "Próximas" llevan `agenda` y el día con peso; las de "Hoy", `hoy` y solo la
+  hora. El título de sección y el `.lista-agrupada` entre bloques hacen el
+  resto.
 - **Lo escaso no lleva tarjeta.** Un solo dato trivial suelto →
   `.dato-inline` (etiqueta + valor en una línea, sin caja). Una tarjeta
   entera para una fila se lee como un error.

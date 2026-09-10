@@ -265,7 +265,9 @@ export function Agenda() {
     return (
       <FilaNavegable
         key={v.id}
-        icono={atrasada ? 'atencion' : 'hoy'}
+        // Vista de planificación: icono de agenda (no el de "hoy", reservado
+        // a lo de HOY). Atrasadas, icono de atención. Regla docs/08.
+        icono={atrasada ? 'atencion' : 'agenda'}
         tono={atrasada ? 'aviso' : 'neutral'}
         titulo={v.cliente?.nombre ?? 'Cliente'}
         subtitulo={
