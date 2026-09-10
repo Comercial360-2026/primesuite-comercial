@@ -85,12 +85,40 @@ Reglas:
   al término. Multi. Toca base de datos (una tabla puente hallazgo↔área/término, o
   equivalente). Aplica a hallazgo (y a oportunidad si se decide).
 
-### Fase 3 — fichas de detalle + convertir/editar después
-- Ficha de nota mínima: texto + editar + borrar (sin "naturaleza", sin "archivar").
-- Desde nota/hallazgo/oportunidad: marcar/desmarcar el otro tipo, cambiar área.
-- Editar y borrar permitido **con la visita cerrada** (autor o dirección),
-  regenerando el informe.
-- Aviso informativo de notas sin revisar en la pantalla de "Cerrar visita".
+### Fase 3 — fichas de detalle + convertir/editar después  ← HECHA (commit `891d2f2`)
+- Ficha de nota mínima: texto + editar + borrar (sin "naturaleza", sin "archivar"). Ya
+  estaba en `detalle-captura`; se le añadió **fallback a Supabase** cuando la nota no
+  está en la cola local (visita cerrada u otro dispositivo) + `useVolverA`.
+- "Esto es: Nota · Hallazgo · Oportunidad" (`<Segmentado>`) en las 3 fichas, componente
+  `src/features/visita/recategorizar-item.tsx` + `src/lib/recategorizar.ts`.
+- **Motor**: migración 107 `recategorizar_item` (RPC `SECURITY DEFINER`). Mueve de tabla
+  **reutilizando el id**, una transacción, sin perder nada (texto, título → antepuesto,
+  zona, ubicación, `creado_en` original; fecha relevante del hallazgo → al texto al
+  degradarlo). FKs entrantes a hallazgo/oportunidad a NULL antes de borrar.
+- **Áreas del catálogo**: se hibernan en `item_hallazgo_hibernado` al salir de hallazgo y
+  **vuelven solas** al remarcar como hallazgo. 3 triggers `AFTER DELETE` limpian el
+  hibernado si el item se borra de verdad.
+- **Guard**: una oportunidad no `latente`, o con términos / seguimiento / próximos pasos,
+  no se degrada (mensaje claro). Solo autor o Dirección pueden cambiar de tipo.
+- Editar y borrar con la visita cerrada: **la RLS de las 3 tablas ya lo permitía** (autor
+  o Dirección, sin candado por `estado_captura`) y el informe se **regenera con datos
+  vivos** en cada descarga (`generar-backup-visita` reconstruye el ZIP siempre) — no hace
+  falta paso extra.
+- Aviso no bloqueante en "Cerrar visita": *"N notas. Si alguna es «algo que tienen» o
+  «algo para venderles», ábrela y márcala."* — **solo si hay notas y no se ha marcado
+  ningún hallazgo ni oportunidad** en la visita.
+- `detalle-visita-cerrada`: las notas del anexo pasan a fila navegable (`.dvc-bloque--accion`).
+
+**Sitios tocados**: `detalle-captura.tsx` (reescrito), `detalle-hallazgo.tsx`,
+`detalle-oportunidad.tsx`, `detalle-visita-cerrada.tsx`, `cierre-visita.tsx`,
+`recategorizar-item.tsx` (nuevo), `lib/recategorizar.ts` (nuevo), `styles/components.css`,
+`lib/ayuda.ts`, `types/database.ts`, `supabase/migrations/107_recategorizar_item.sql` (nuevo).
+
+**Bug PRE-EXISTENTE encontrado (Fase 2, no de Fase 3, sin arreglar)**: en
+`detalle-hallazgo.tsx` el `useEffect(() => { if (areasCargadas) setAreas(areasCargadas) },
+[areasCargadas])` + `refetchOnWindowFocus` activo (no se desactiva en `main.tsx`) → un
+refetch de `['hallazgo-areas', id]` mientras editas **borra la selección de áreas sin
+guardar**. No afecta a la hibernación de Fase 3 (va por la RPC). Pendiente de arreglar aparte.
 
 ### Fase 4 — informe y vista de proyecto
 - PDF (visita y proyecto): secciones **Notas · Hallazgos · Oportunidades ·
