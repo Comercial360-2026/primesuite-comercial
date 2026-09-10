@@ -157,8 +157,8 @@ export function Login() {
           </button>
           <button
             type="button"
-            className="btn-enlace"
-            style={{ display: 'block', margin: 'var(--space-3) auto 0' }}
+            className="btn btn-secondary"
+            style={{ marginTop: 'var(--space-2)' }}
             onClick={() => {
               setRecuperarAbierto(false);
               recuperar.limpiarError();

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal } from '@/components/ui/modal';
+import { Icono } from '@/components/ui/iconos';
 
 interface ProyectoOpcion {
   id: string;
@@ -128,11 +129,11 @@ export function ObjetivoVisitaModal({
           {onCrearProyecto && !creando && (
             <button
               type="button"
-              className="btn-enlace"
+              className="eco-tag-mas"
               style={{ marginTop: 6, alignSelf: 'flex-start' }}
               onClick={() => setCreando(true)}
             >
-              + Nuevo proyecto
+              <Icono nombre="mas" size={13} /> Nuevo proyecto
             </button>
           )}
           {creando && (
