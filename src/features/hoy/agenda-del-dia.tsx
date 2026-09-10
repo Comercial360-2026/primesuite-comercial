@@ -583,6 +583,7 @@ export function AgendaDelDia() {
                   {!selEnCurso && restoEnCurso.length > TOPE_EN_CURSO && (
                     <FilaNavegable
                       densidad="compacta"
+                      icono={enCursoTodas ? 'subir' : 'bajar'}
                       titulo={
                         enCursoTodas ? 'Ver menos' : `Ver las otras ${restoEnCurso.length - TOPE_EN_CURSO}`
                       }
