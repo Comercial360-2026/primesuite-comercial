@@ -550,6 +550,7 @@ export function VisitaActiva() {
   const { data: otrasVisitasEnCurso = [] } = useQuery({
     queryKey: ['otras-visitas-en-curso', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial,
+    refetchOnMount: 'always',
     refetchInterval: 20000,
     queryFn: async (): Promise<
       { id: string; clienteNombre: string; proyectoNombre: string | null; desde: string | null }[]

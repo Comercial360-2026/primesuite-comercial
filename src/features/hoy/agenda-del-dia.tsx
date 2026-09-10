@@ -13,6 +13,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
 import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { BotonVerMas } from '@/components/ui/boton-ver-mas';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
@@ -581,13 +582,9 @@ export function AgendaDelDia() {
                     />
                   ))}
                   {!selEnCurso && restoEnCurso.length > TOPE_EN_CURSO && (
-                    <FilaNavegable
-                      densidad="compacta"
-                      icono={enCursoTodas ? 'subir' : 'bajar'}
-                      titulo={
-                        enCursoTodas ? 'Ver menos' : `Ver las otras ${restoEnCurso.length - TOPE_EN_CURSO}`
-                      }
-                      chevron={false}
+                    <BotonVerMas
+                      n={restoEnCurso.length - TOPE_EN_CURSO}
+                      abierto={enCursoTodas}
                       onClick={() => setEnCursoTodas((x) => !x)}
                     />
                   )}

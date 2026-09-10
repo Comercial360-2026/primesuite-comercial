@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
-import { Modal } from '@/components/ui/modal';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { BotonVerMas } from '@/components/ui/boton-ver-mas';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { FilaVisitaAbierta, type VisitaAbierta } from './fila-visita-abierta';
 
-// El panel que abre el aviso de "N visitas sin cerrar". No navega fuera:
-// enseña la lista donde estabas. Cada fila abre la visita; cerrar y descartar
-// van por el modo "Seleccionar" (casillas + BarraSeleccion), no botones por
-// fila. Mismo panel en la visita en curso y en las fichas.
+const TOPE = 3;
+
+// El panel que abre el aviso de "N visitas sin cerrar". Baja desde arriba
+// (como el resto de la app), no navega fuera. Cada fila abre la visita;
+// cerrar y descartar van por el modo "Seleccionar" (casillas +
+// BarraSeleccion). Se ven 3 + botón sutil para el resto, igual que "También
+// en curso" en Hoy.
 export function PanelVisitasAbiertas({
   visitas,
   onCerrar,
@@ -26,6 +30,7 @@ export function PanelVisitasAbiertas({
   const [seleccionando, setSeleccionando] = useState(false);
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
+  const [verTodas, setVerTodas] = useState(false);
 
   // Más antigua primero: la que más urge cerrar, arriba. Solo las propias son
   // seleccionables (a las de otro comercial no se les puede hacer nada).
@@ -35,6 +40,7 @@ export function PanelVisitasAbiertas({
     return ta - tb;
   });
   const propias = ordenadas.filter((v) => v.esMia ?? true);
+  const visibles = seleccionando || verTodas ? ordenadas : ordenadas.slice(0, TOPE);
 
   useEffect(() => {
     setMarcadas((prev) => {
@@ -66,7 +72,17 @@ export function PanelVisitasAbiertas({
   }
 
   return (
-    <Modal titulo="visitas abiertas sin cerrar" onCerrar={onCerrar}>
+    <HojaSuperior
+      titulo={`visitas abiertas sin cerrar (${ordenadas.length})`}
+      onCerrar={onCerrar}
+      derecha={
+        !seleccionando && propias.length > 0 ? (
+          <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
+            Seleccionar
+          </button>
+        ) : undefined
+      }
+    >
       {ordenadas.length === 0 ? (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', margin: '10px 0 4px' }}>
           Ya no queda ninguna visita abierta.
@@ -76,14 +92,6 @@ export function PanelVisitasAbiertas({
           {!online && (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
               Sin conexión: cerrar y descartar no están disponibles ahora.
-            </div>
-          )}
-
-          {!seleccionando && propias.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
-                Seleccionar
-              </button>
             </div>
           )}
 
@@ -131,7 +139,7 @@ export function PanelVisitasAbiertas({
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '55vh', overflowY: 'auto' }}>
-            {ordenadas.map((v) => (
+            {visibles.map((v) => (
               <FilaVisitaAbierta
                 key={v.id}
                 visita={v}
@@ -143,9 +151,16 @@ export function PanelVisitasAbiertas({
                 }
               />
             ))}
+            {!seleccionando && ordenadas.length > TOPE && (
+              <BotonVerMas
+                n={ordenadas.length - TOPE}
+                abierto={verTodas}
+                onClick={() => setVerTodas((x) => !x)}
+              />
+            )}
           </div>
         </div>
       )}
-    </Modal>
+    </HojaSuperior>
   );
 }
