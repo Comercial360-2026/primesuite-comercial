@@ -3,22 +3,16 @@
 // sitio en la app — la Edge Function del informe tiene su propia copia
 // (runtime distinto, no puede importar de src/), pero deben coincidir.
 
-export const NATURALEZA_ORDEN = [
-  'riesgo',
-  'proyecto_activo',
-  'competencia',
-  'oportunidad',
-  'fortaleza',
-  'contexto',
-] as const;
+// Naturaleza del hallazgo — 3 valores (prompt maestro 10). Lo que el
+// comercial elige tras escribir en "Anotar": qué significa lo que ha visto.
+// "Oportunidad de venta" NO está aquí: eso crea una Oportunidad (entidad),
+// no un hallazgo.
+export const NATURALEZA_ORDEN = ['riesgo', 'competencia', 'contexto'] as const;
 
 export const NATURALEZA_LABEL: Record<string, string> = {
-  riesgo: 'Riesgo',
-  proyecto_activo: 'Proyecto activo',
+  riesgo: 'Me preocupa',
   competencia: 'Competencia',
-  oportunidad: 'Señal de oportunidad',
-  fortaleza: 'Fortaleza',
-  contexto: 'Contexto',
+  contexto: 'Dato del cliente',
 };
 
 export const ETAPA_LABEL: Record<string, string> = {

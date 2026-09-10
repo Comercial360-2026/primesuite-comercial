@@ -334,7 +334,7 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .eco-tag--abierto { align-items: flex-start; }
 .eco-tag--abierto .eco-tag__txt { white-space: normal; overflow-wrap: anywhere; }
 .eco-tag--riesgo { color: var(--risk-600); background: var(--danger-050); }
-.eco-tag--oportunidad { color: var(--signal-600); background: var(--signal-050); }
+.eco-tag--competencia { color: var(--purple-600); background: var(--purple-050); }
 .eco-tag--neutro { color: var(--ink-700); background: var(--surface-0); }
 
 /* "+N más" / "ver menos" al final de la fila de etiquetas de Ecosistema.

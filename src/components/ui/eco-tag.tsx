@@ -11,10 +11,10 @@ import { Icono, type NombreIcono } from './iconos';
 // Color + icono de forma + palabra: el usuario es daltónico. Aspecto en
 // components.css (.eco-tag*). Ver 08_sistema_diseno.md §"Color y accesibilidad".
 
-// Solo riesgo y oportunidad llevan icono; el resto es neutro sin icono.
+// "Me preocupa" (riesgo) lleva icono de atención; "Competencia" va en morado
+// sin icono (es un dato, no una alerta); "Dato del cliente" (contexto), neutro.
 const ICONO_POR_NATURALEZA: Record<string, NombreIcono> = {
   riesgo: 'atencion',
-  oportunidad: 'oportunidad',
 };
 
 interface Props {
@@ -28,8 +28,8 @@ export function EcoTag({ nombre, naturaleza }: Props) {
   const variante =
     naturaleza === 'riesgo'
       ? 'eco-tag--riesgo'
-      : naturaleza === 'oportunidad'
-        ? 'eco-tag--oportunidad'
+      : naturaleza === 'competencia'
+        ? 'eco-tag--competencia'
         : 'eco-tag--neutro';
 
   return (

@@ -48,10 +48,9 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
     });
   if (riesgos.length) frases.push(`Riesgo: ${listaCorta(riesgos, 2)}.`);
 
-  const oportunidades = [
-    ...d.oportunidades.map((o) => o.titulo),
-    ...d.hallazgos.filter((h) => h.naturaleza === 'oportunidad').map((h) => h.terminoNombre),
-  ];
+  // Oportunidades = la entidad (ya no hay hallazgos "de oportunidad", prompt
+  // maestro 10).
+  const oportunidades = d.oportunidades.map((o) => o.titulo);
   if (oportunidades.length) frases.push(`Oportunidad: ${listaCorta(oportunidades.map(capitalizarFrase))}.`);
 
   if (d.pasos.length) {
@@ -66,10 +65,10 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
     frases.push(`Próximo paso: ${pasosTexto}${extra}.`);
   }
 
-  // Otros hallazgos que no son riesgo ni oportunidad (contexto, competencia,
-  // fortaleza, proyecto activo): se mencionan pero sin protagonismo.
+  // Hallazgos que no son "Me preocupa" (competencia, dato del cliente): se
+  // mencionan pero sin protagonismo.
   const otros = d.hallazgos
-    .filter((h) => h.naturaleza !== 'riesgo' && h.naturaleza !== 'oportunidad')
+    .filter((h) => h.naturaleza !== 'riesgo')
     .map((h) => h.terminoNombre);
   if (otros.length) frases.push(`También anotado: ${listaCorta(otros)}.`);
 

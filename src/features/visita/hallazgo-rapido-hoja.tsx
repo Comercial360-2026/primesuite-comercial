@@ -4,7 +4,7 @@ import { SelectorTermino } from '@/components/ui/selector-termino';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
-import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+import { NATURALEZA_ORDEN, NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface HallazgoRapidoHojaProps {
   visitaId: string;
@@ -18,14 +18,7 @@ interface TerminoSeleccionado {
   nombre: string;
 }
 
-const NATURALEZAS: HallazgoPayload['naturaleza'][] = [
-  'contexto',
-  'oportunidad',
-  'riesgo',
-  'competencia',
-  'fortaleza',
-  'proyecto_activo',
-];
+const NATURALEZAS = NATURALEZA_ORDEN;
 
 // Captura en caliente: término + naturaleza + una nota opcional para el
 // contexto ("el lector falla dos veces al día", "lo instaló la competencia

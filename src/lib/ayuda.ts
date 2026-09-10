@@ -222,7 +222,7 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Hallazgo',
     queEs:
-      'Algo que has observado en el cliente y quieres dejar registrado: su naturaleza (contexto, oportunidad, riesgo…), una nota, en qué zona estaba y, si aplica, una fecha relevante.',
+      'Algo que has observado en el cliente y quieres dejar registrado: qué significa (Me preocupa / Competencia / Dato del cliente), una nota, en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
       'Para completar o corregir un hallazgo. Se crea durante la visita, desde el botón «Hallazgo». «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
     ojo: 'Archivar y borrar solo los puede hacer el autor del hallazgo o Dirección Comercial.',
@@ -344,9 +344,9 @@ const _CONCEPTOS = {
     grupo: 'visita',
     titulo: 'Naturaleza de un hallazgo',
     queEs:
-      'Qué tipo de cosa has observado en el cliente: contexto (información de fondo), señal de oportunidad (algo que podrías venderle), riesgo (algo que te puede hacer perder la cuenta), competencia (producto de otro proveedor), fortaleza (algo que juega a tu favor) o proyecto activo (una obra o cambio en marcha).',
+      'Qué significa lo que has visto: «Me preocupa» (algo que te puede complicar o hacer perder la cuenta), «Competencia» (producto o marca de otro proveedor) o «Dato del cliente» (información útil, sin acción concreta). Si lo que ves es un hueco para vender, eso no es un hallazgo: es una Oportunidad.',
     ejemplo:
-      'Ves lectores de otra marca en las puertas → competencia. El cliente comenta que abren otra nave → señal de oportunidad.',
+      'Lectores de otra marca en las puertas → Competencia. El contrato de mantenimiento vence pronto y no lo tienes tú → Me preocupa.',
   },
   'tipo-fecha-hallazgo': {
     grupo: 'visita',

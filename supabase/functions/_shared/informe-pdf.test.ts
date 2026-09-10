@@ -72,21 +72,15 @@ Deno.test('Diccionarios de negocio sin cambios al mover', () => {
     'sin fecha definida': 'Sin fecha definida',
   });
   assertEquals(ESTADO_PASO_LABEL, { pendiente: 'Pendiente', completado: 'Hecho', cancelado: 'Cancelado' });
-  assertEquals(NATURALEZA_ORDEN, ['riesgo', 'proyecto_activo', 'competencia', 'oportunidad', 'fortaleza', 'contexto']);
+  assertEquals(NATURALEZA_ORDEN, ['riesgo', 'competencia', 'contexto']);
   assertEquals(NATURALEZA_LABEL, {
-    riesgo: 'Riesgo',
-    proyecto_activo: 'Proyecto activo',
+    riesgo: 'Me preocupa',
     competencia: 'Competencia',
-    oportunidad: 'Señal de oportunidad',
-    fortaleza: 'Fortaleza',
-    contexto: 'Contexto',
+    contexto: 'Dato del cliente',
   });
   assertEquals(NATURALEZA_COLOR, {
     riesgo: '#6E2430',
-    proyecto_activo: '#1A3654',
     competencia: '#6E4C9E',
-    oportunidad: '#EF4136',
-    fortaleza: '#3A7D4F',
     contexto: '#7C8492',
   });
   assertEquals(TIPO_FECHA_LABEL, {
@@ -298,7 +292,7 @@ const OPS: OportunidadRow[] = [
 const HALL: HallazgoRow[] = [
   { id: 'h1', nota: 'Compite con Dorlet', naturaleza: 'competencia', creado_en: '2026-09-01T10:00:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: { nombre: 'Dorlet', parent: null }, zona_texto: 'Vestíbulo', ubicacion: null },
   { id: 'h2', nota: null, naturaleza: 'riesgo', creado_en: '2026-09-01T10:05:00Z', fecha_relevante: '2026-12-31', tipo_fecha_relevante: 'vencimiento_contrato', termino: { nombre: 'DESFire EV2', parent: { nombre: 'MIFARE' } }, zona_texto: null, ubicacion: { nombre: 'CPD' } },
-  { id: 'h3', nota: 'Interesados en móvil', naturaleza: 'oportunidad', creado_en: '2026-09-01T10:10:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: null, zona_texto: null, ubicacion: null },
+  { id: 'h3', nota: 'Interesados en móvil', naturaleza: 'contexto', creado_en: '2026-09-01T10:10:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: null, zona_texto: null, ubicacion: null },
   { id: 'h4', nota: 'Naturaleza rara', naturaleza: 'lo_que_sea', creado_en: '2026-09-01T10:15:00Z', fecha_relevante: null, tipo_fecha_relevante: null, termino: null, zona_texto: null, ubicacion: null },
 ];
 

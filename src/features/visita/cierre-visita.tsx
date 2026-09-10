@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
 import { generarResumenReglas } from '@/lib/resumen-visita';
+import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -384,12 +385,16 @@ export function CierreVisita() {
           {hallazgos.length > 0 && (
             <SeccionLista titulo="Hallazgos">
               {hallazgos.map((h) => {
-                const payload = h.payload as { terminoId: string; naturaleza: string };
+                const payload = h.payload as { terminoId?: string; naturaleza: string };
                 return (
                   <FilaDato
                     key={h.id}
-                    etiqueta={nombresTerminos?.[payload.terminoId] ?? '…'}
-                    valor={payload.naturaleza.replace('_', ' ')}
+                    etiqueta={
+                      payload.terminoId
+                        ? nombresTerminos?.[payload.terminoId] ?? '…'
+                        : etiqueta(NATURALEZA_LABEL, payload.naturaleza)
+                    }
+                    valor={payload.terminoId ? etiqueta(NATURALEZA_LABEL, payload.naturaleza) : undefined}
                     valorTenue
                     tono={payload.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
                   />

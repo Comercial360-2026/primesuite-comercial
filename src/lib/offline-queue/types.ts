@@ -70,13 +70,7 @@ export interface HallazgoPayload {
   visitaId: string; // referencia al id de OperacionPendiente<'visita'>, no al id real todavía si aún no sincronizó
   comercialAutorId: string;
   terminoId: string;
-  naturaleza:
-    | 'contexto'
-    | 'oportunidad'
-    | 'riesgo'
-    | 'competencia'
-    | 'fortaleza'
-    | 'proyecto_activo';
+  naturaleza: 'contexto' | 'riesgo' | 'competencia';
   nota?: string;
   ubicacionId?: string;
   // Etiqueta de zona del Modo Recorrido: texto libre, de usar y tirar, que
