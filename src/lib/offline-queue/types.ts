@@ -69,8 +69,13 @@ export interface VisitaPayload {
 export interface HallazgoPayload {
   visitaId: string; // referencia al id de OperacionPendiente<'visita'>, no al id real todavía si aún no sincronizó
   comercialAutorId: string;
-  terminoId: string;
+  // Opcional desde "Anotar" (prompt maestro 10, Paso 2): el comercial
+  // escribe primero y el término del catálogo ("¿de qué marca o sistema?")
+  // ya no obliga. Un hallazgo sin término no entra en el Ecosistema.
+  terminoId?: string;
   naturaleza: 'contexto' | 'riesgo' | 'competencia';
+  // Lo que el comercial escribió/dictó en "Anotar" — el cuerpo del
+  // hallazgo. Antes era una coletilla de contexto opcional sobre el término.
   nota?: string;
   ubicacionId?: string;
   // Etiqueta de zona del Modo Recorrido: texto libre, de usar y tirar, que

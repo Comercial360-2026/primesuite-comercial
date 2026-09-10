@@ -43,8 +43,13 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
   const riesgos = d.hallazgos
     .filter((h) => h.naturaleza === 'riesgo')
     .map((h) => {
+      const t = h.terminoNombre.trim();
       const n = h.nota?.trim();
-      return n ? `${h.terminoNombre} (${sinPuntuacionFinal(n)})` : h.terminoNombre;
+      // Desde "Anotar" un hallazgo puede no tener término: entonces su
+      // propio texto es lo que se muestra.
+      if (t && n) return `${t} (${sinPuntuacionFinal(n)})`;
+      if (t) return t;
+      return n ? sinPuntuacionFinal(n) : 'algo que te preocupa';
     });
   if (riesgos.length) frases.push(`Riesgo: ${listaCorta(riesgos, 2)}.`);
 
@@ -69,7 +74,8 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
   // mencionan pero sin protagonismo.
   const otros = d.hallazgos
     .filter((h) => h.naturaleza !== 'riesgo')
-    .map((h) => h.terminoNombre);
+    .map((h) => h.terminoNombre.trim() || sinPuntuacionFinal(h.nota?.trim() || ''))
+    .filter(Boolean);
   if (otros.length) frases.push(`También anotado: ${listaCorta(otros)}.`);
 
   // Si no hay nada "de fondo" pero sí capturas sueltas, al menos que el

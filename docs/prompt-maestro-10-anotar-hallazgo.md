@@ -86,3 +86,82 @@ Anotar · Próximo paso** (de 6 a 4; desaparecen "Hallazgo", "Oportunidad" y
 - En vivo: "Anotar" con los 4 chips; oportunidad con "Completar ahora"; PDF de
   una visita con hallazgos de las 3 naturalezas; Ecosistema de la ficha.
 - Migración aplicada; 2 edge functions redesplegadas.
+
+---
+
+## ESTADO — Paso 1 hecho (sesión 2026-09-10, commit `3c3ccc2`)
+
+Naturaleza 6→3 ya cerrado y barrido: `etiquetas-visita.ts`, `_shared/informe-pdf.ts`
++ test, `offline-queue/types.ts`, `eco-tag`, `resumen-visita`, `cierre-visita`,
+`ayuda.ts`, `tokens.css`. Migración **100** `hallazgo_naturaleza_recorte` aplicada.
+Edge functions `generar-backup-visita` y `generar-informe-proyecto` redesplegadas.
+
+## ESTADO — Paso 2 hecho (sesión 2026-09-11, en local, sin push)
+
+**Migración 105** `hallazgo_termino_opcional` — `alter table hallazgo alter column
+termino_id drop not null`. Aplicada en `primesuite-comercial-dev`. Fichero local en
+`supabase/migrations/105_...sql`. `src/types/database.ts` (Row/Insert/Update de
+`hallazgo`) → `termino_id: string | null`.
+
+### Nuevo / borrado
+- **Nuevo** `src/features/visita/anotar-hoja.tsx` — cuadro de texto + `useDictado`
+  propio + "¿Qué es?" (4 chips: Dato del cliente / Competencia / Me preocupa /
+  Oportunidad de venta). "Oportunidad de venta" → Prioridad + guarda Oportunidad
+  con pantalla "Completar ahora / Listo, sigo en la visita". Los otros 3 →
+  hallazgo con `naturaleza` = el chip, `nota` = el texto, `terminoId` opcional
+  (SelectorTermino bajo "¿De qué marca o sistema? (opcional)").
+- **Borrados** `hallazgo-rapido-hoja.tsx` y `oportunidad-rapida-hoja.tsx`.
+
+### `visita-activa.tsx`
+- Grid capture 6→4: **Foto · Audio · Anotar · Próximo paso**.
+- Fuera todo el flujo "Nota" suelto: estados `notaAbierta/notaTitulo/notaTexto/
+  notaDictadoProvisional`, `guardadoNota`, `dictadoNota`, `notaTextoEnVivo`,
+  funciones `cerrarNota`/`guardarNota`, el `<HojaSuperior titulo="Nota">`, el
+  import `useDictado`. (Las notas viejas ya guardadas se siguen leyendo.)
+- `oportunidadAbierta` fuera; `hallazgoAbierto` → `anotarAbierto`. Monta
+  `<AnotarHoja>` con `onGuardarHallazgo` / `onGuardarOportunidad` /
+  `onCompletarOportunidad`.
+- Helper nuevo `tituloHallazgo(termino, nota, naturaleza)` → término ?? nota ??
+  etiqueta de naturaleza. Usado en las 3 filas de hallazgo ("por zona", "En esta
+  visita" propio y de compañeros). Query de compañeros añade `nota` al select.
+- `terminoIdsHallazgos` filtra `Boolean` antes del `.in()`.
+- Textos: empty-state "Toca Foto, Audio o Anotar"; aviso de espacio lleno
+  "Anotar y Próximo paso siguen funcionando".
+
+### Null-guards de término (barrido completo)
+- `cierre-visita.tsx` — `terminoIdsHallazgos` filtra Boolean; `terminoNombre` pasa
+  `''` cuando no hay término (388 ya lo trataba desde Paso 1).
+- `lib/resumen-visita.ts` — riesgos y "También anotado" usan la nota cuando no
+  hay término; se filtran los vacíos.
+- `hoja-detalle-cierre.tsx` — título = término ?? etiqueta naturaleza ??
+  "Anotación"; la naturaleza no se repite en meta si ya es el título.
+- `detalle-visita-cerrada.tsx` — título = `termino_nombre` ?? etiqueta naturaleza.
+- `actividad-proyecto.tsx` — `HallazgoAbierto` añade `nota`; select añade `nota`;
+  título = término ?? nota ?? etiqueta naturaleza (activos y archivados).
+- `repaso-cliente.tsx` / `ficha-cliente.tsx` — YA filtraban `termino_id !== null`
+  (sin término no entra en Ecosistema). Sin cambios salvo quitar el ternario
+  muerto `naturaleza === 'oportunidad'` del sort de `ficha-cliente`.
+- `detalle-hallazgo.tsx` — el término pasa a **editable opcional**
+  ("Marca o sistema (opcional)" con SelectorTermino / "quitar"); `guardar()`
+  manda `termino_id: termino?.id ?? null`.
+- PDF (`_shared/informe-pdf.ts`) — ya tenía `term ? … : 'Hallazgo'` desde Paso 1.
+  Paso 2 no toca el módulo compartido → **no hace falta redesplegar** las 2 edge
+  functions esta vez (ya se redeplegaron en Paso 1 con el módulo actual).
+
+### Ayuda
+- `visita-activa` (6→4 botones, describe "Anotar"), `detalle-hallazgo` (se crea
+  desde "Anotar", marca/sistema opcional), `naturaleza-hallazgo` (título "Qué
+  significa lo que anotas", 4 opciones incl. "Oportunidad de venta"),
+  `detalle-oportunidad` (se crea desde "Anotar"). `ayuda:cobertura` sin nuevos
+  huecos.
+
+### Verificado en vivo (localhost, sesión Comercial Prueba, visita GABITEL)
+- Grid de 4. "Anotar" → texto + "Dato del cliente" → hallazgo con `termino_id
+  NULL`, `naturaleza contexto`, sincronizado ("todo subido"). Confirmado en BD.
+- "Anotar" → "Oportunidad de venta" + Prioridad Alta → Oportunidad creada,
+  pantalla "Completar ahora / Listo, sigo en la visita".
+- "En esta visita" y cierre muestran "Dato del cliente" + la nota (no "Término").
+- Sin errores de consola. Datos de prueba borrados de BD y de la cola local.
+
+Verde + limpio: typecheck + lint + build + `deno test --no-check` del módulo PDF
+(6/6). `ayuda:cobertura` sin regresión.

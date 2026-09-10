@@ -186,9 +186,9 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: seis botones iguales —foto, nota, audio, hallazgo, oportunidad, próximo paso—. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso—. «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas, y luego eliges qué es (Dato del cliente, Competencia, Me preocupa u Oportunidad de venta). Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
     cuando:
-      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En la nota puedes dictar en vez de escribir. Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
+      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» puedes dictar en vez de escribir. Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada. Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar.',
   },
   'cierre-visita': {
@@ -222,9 +222,9 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Hallazgo',
     queEs:
-      'Algo que has observado en el cliente y quieres dejar registrado: qué significa (Me preocupa / Competencia / Dato del cliente), una nota, en qué zona estaba y, si aplica, una fecha relevante.',
+      'Algo que has observado en el cliente y quieres dejar registrado: su texto, qué significa (Me preocupa / Competencia / Dato del cliente), opcionalmente de qué marca o sistema es, en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita, desde el botón «Hallazgo». «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; la marca o sistema del catálogo es opcional y puedes añadirla aquí después. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
     ojo: 'Archivar y borrar solo los puede hacer el autor del hallazgo o Dirección Comercial.',
   },
   'detalle-oportunidad': {
@@ -233,7 +233,7 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas «rápida» en la visita puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
     ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento.',
   },
   'proximo-paso': {
@@ -342,11 +342,11 @@ const _CONCEPTOS = {
   },
   'naturaleza-hallazgo': {
     grupo: 'visita',
-    titulo: 'Naturaleza de un hallazgo',
+    titulo: 'Qué significa lo que anotas',
     queEs:
-      'Qué significa lo que has visto: «Me preocupa» (algo que te puede complicar o hacer perder la cuenta), «Competencia» (producto o marca de otro proveedor) o «Dato del cliente» (información útil, sin acción concreta). Si lo que ves es un hueco para vender, eso no es un hallazgo: es una Oportunidad.',
+      'Después de escribir en «Anotar», eliges qué significa lo que has visto: «Me preocupa» (algo que te puede complicar o hacer perder la cuenta), «Competencia» (producto o marca de otro proveedor), «Dato del cliente» (información útil, sin acción concreta) u «Oportunidad de venta» (un hueco para vender). Los tres primeros se guardan como hallazgo; «Oportunidad de venta» crea una Oportunidad y te pide su prioridad.',
     ejemplo:
-      'Lectores de otra marca en las puertas → Competencia. El contrato de mantenimiento vence pronto y no lo tienes tú → Me preocupa.',
+      'Lectores de otra marca en las puertas → Competencia. El contrato de mantenimiento vence pronto y no lo tienes tú → Me preocupa. Quieren cambiar el control de accesos el año que viene → Oportunidad de venta.',
   },
   'tipo-fecha-hallazgo': {
     grupo: 'visita',

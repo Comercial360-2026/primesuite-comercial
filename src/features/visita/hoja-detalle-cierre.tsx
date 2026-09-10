@@ -152,10 +152,16 @@ export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: P
 
               {grupo === 'hallazgos' && (
                 <>
-                  <span className="detalle-cierre__titulo">
-                    {(p.terminoId && nombresTerminos?.[p.terminoId]) || 'Término'}
-                  </span>
-                  {meta([p.naturaleza && etiqueta(NATURALEZA_LABEL, p.naturaleza), zona])}
+                  {(() => {
+                    const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
+                    const nat = p.naturaleza ? etiqueta(NATURALEZA_LABEL, p.naturaleza) : null;
+                    return (
+                      <>
+                        <span className="detalle-cierre__titulo">{term || nat || 'Anotación'}</span>
+                        {meta([term ? nat : null, zona])}
+                      </>
+                    );
+                  })()}
                   {p.nota?.trim() && <span className="detalle-cierre__nota">{p.nota}</span>}
                 </>
               )}

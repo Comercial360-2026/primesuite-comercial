@@ -15,15 +15,16 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { SelectorTermino } from '@/components/ui/selector-termino';
 import { Icono } from '@/components/ui/iconos';
 
 const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
 // Pantalla de edición (no de creación): el Hallazgo se crea con captura
-// mínima (término + naturaleza) desde el botón "Hallazgo" en Visita Activa
-// (ver hallazgo-rapido-hoja.tsx). Esta pantalla sirve para
-// estructurar/completar después (nota, ubicación, fecha relevante),
-// tal como se cerró en el flujo funcional.
+// mínima desde "Anotar" en Visita Activa (ver anotar-hoja.tsx) — texto +
+// "¿qué es?", con el término del catálogo OPCIONAL. Esta pantalla sirve
+// para estructurar/completar después (marca o sistema, nota, ubicación,
+// fecha relevante).
 export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
@@ -33,6 +34,9 @@ export function DetalleHallazgo() {
   const volver = useVolverA('/');
 
   const [naturaleza, setNaturaleza] = useState<string>('contexto');
+  // Marca o sistema del catálogo — opcional desde "Anotar" (prompt maestro
+  // 10). Se puede añadir/quitar aquí después.
+  const [termino, setTermino] = useState<{ id: string; nombre: string } | null>(null);
   const [nota, setNota] = useState('');
   const [ubicacionId, setUbicacionId] = useState<string>('');
   const [fechaRelevante, setFechaRelevante] = useState('');
@@ -73,6 +77,8 @@ export function DetalleHallazgo() {
   useEffect(() => {
     if (!hallazgo) return;
     setNaturaleza(hallazgo.naturaleza);
+    const t = hallazgo.termino as unknown as { id: string; nombre: string } | null;
+    setTermino(t ? { id: t.id, nombre: t.nombre } : null);
     setNota(hallazgo.nota ?? '');
     setUbicacionId(hallazgo.ubicacion_id ?? '');
     setFechaRelevante(hallazgo.fecha_relevante ?? '');
@@ -107,6 +113,7 @@ export function DetalleHallazgo() {
       .from('hallazgo')
       .update({
         naturaleza,
+        termino_id: termino?.id ?? null,
         nota: nota.trim() || null,
         ubicacion_id: ubicacionId || null,
         fecha_relevante: fechaRelevante || null,
@@ -197,10 +204,20 @@ export function DetalleHallazgo() {
         subtitulo={contextoCliente || undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
-      {(hallazgo.termino as unknown as { nombre: string } | null)?.nombre && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '-6px 2px 0' }}>
-          {(hallazgo.termino as unknown as { nombre: string }).nombre}
+      <div className="label">Marca o sistema (opcional)</div>
+      {termino ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="chip chip--on">{termino.nombre}</span>
+          <button
+            type="button"
+            onClick={() => setTermino(null)}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 13 }}
+          >
+            quitar
+          </button>
         </div>
+      ) : (
+        <SelectorTermino onSeleccionar={setTermino} />
       )}
 
       <div className="label">Naturaleza</div>

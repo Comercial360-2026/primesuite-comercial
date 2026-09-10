@@ -14,10 +14,8 @@ import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { useDictado } from '@/hooks/use-dictado';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
-import { OportunidadRapidaHoja } from './oportunidad-rapida-hoja';
-import { HallazgoRapidoHoja } from './hallazgo-rapido-hoja';
+import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
 import { ParticipantesHoja } from './participantes-hoja';
@@ -46,6 +44,17 @@ const TIPOS_AUDIO = ['audio/mp4', 'audio/webm', 'audio/ogg'];
 function elegirTipoAudio(): string | undefined {
   if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return undefined;
   return TIPOS_AUDIO.find((t) => MediaRecorder.isTypeSupported(t));
+}
+
+// Título de una fila de hallazgo. Desde "Anotar" (prompt maestro 10) un
+// hallazgo puede no tener término: se usa su propio texto y, si tampoco,
+// la naturaleza.
+function tituloHallazgo(
+  termino: string | undefined | null,
+  nota: string | undefined | null,
+  naturaleza: string
+): string {
+  return termino?.trim() || nota?.trim() || etiqueta(NATURALEZA_LABEL, naturaleza);
 }
 
 interface CapturasPorUbicacionProps {
@@ -164,8 +173,9 @@ function CapturasPorUbicacion({
         return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
       })}
       {c.hz.map((h) => {
-        const p = h.payload as { terminoId: string; naturaleza: string };
-        return itemFila(h.id, 'hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza));
+        const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
+        const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
+        return itemFila(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza), etiqueta(NATURALEZA_LABEL, p.naturaleza));
       })}
     </>
   );
@@ -300,26 +310,20 @@ export function VisitaActiva() {
   const [zonaGestionError, setZonaGestionError] = useState<string | null>(null);
   const [borrandoZona, setBorrandoZona] = useState(false);
   // Etiqueta que se estampa en TODO lo que se captura ahora mismo (foto,
-  // audio, nota, hallazgo, oportunidad, próximo paso). Vacía => undefined.
+  // audio, anotación/hallazgo, oportunidad, próximo paso). Vacía => undefined.
   const zonaParaCaptura = zonaActual.trim() || undefined;
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
-  const [oportunidadAbierta, setOportunidadAbierta] = useState(false);
   // D1 (rediseño Zona 3): "En esta visita" agrupa por tipo por defecto; el
   // conmutador a "por zona" solo tiene sentido si la visita ha usado el
   // Recorrido (si no, no hay zonas que agrupar).
   const [ordenPorZona, setOrdenPorZona] = useState(false);
-  const [hallazgoAbierto, setHallazgoAbierto] = useState(false);
+  // "Anotar" (prompt maestro 10): una sola hoja que fusiona lo que antes
+  // eran los botones "Hallazgo", "Oportunidad" y "Nota".
+  const [anotarAbierto, setAnotarAbierto] = useState(false);
   const [pasoAbierto, setPasoAbierto] = useState(false);
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
   const [participantesAbierto, setParticipantesAbierto] = useState(false);
-  const [notaAbierta, setNotaAbierta] = useState(false);
-  const [notaTitulo, setNotaTitulo] = useState('');
-  const [notaTexto, setNotaTexto] = useState('');
-  // Texto que se está dictando AHORA (provisional): se ve en el textarea
-  // según hablas y se consolida en `notaTexto` cuando el motor lo da por
-  // bueno.
-  const [notaDictadoProvisional, setNotaDictadoProvisional] = useState('');
   const [grabando, setGrabando] = useState(false);
   // Segundos que lleva la grabación — el botón "Detener" enseña mm:ss
   // corriendo, para que se vea de un vistazo que está grabando (no solo
@@ -331,27 +335,9 @@ export function VisitaActiva() {
   // B6 · La zona se congela en el MOMENTO de capturar (disparo de la foto,
   // inicio de la grabación), no al pulsar "Guardar" en la hoja de título:
   // si entre medias cambias de zona, la captura anterior debe quedarse en
-  // la suya. Nota/hallazgo/oportunidad/paso no lo necesitan — su hoja es
-  // modal y tapa el campo de zona.
+  // la suya. Anotar/paso no lo necesitan — su hoja es modal y tapa el campo
+  // de zona.
   const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
-  const guardadoNota = useAccionAsync();
-  const [guardadoNotaConExito, setGuardadoNotaConExito] = useState(false);
-  // Dictado voz→texto para la nota. Lo final se añade al texto; lo
-  // provisional se pinta en vivo (así se ve que está escuchando).
-  const dictadoNota = useDictado((frag, { final }) => {
-    if (final) {
-      setNotaTexto((t) => (t.trim() ? `${t.trimEnd()} ${frag}` : frag));
-      setNotaDictadoProvisional('');
-    } else {
-      setNotaDictadoProvisional(frag);
-    }
-  });
-  // Lo que se ve en el textarea mientras dictas: el texto consolidado + lo
-  // que estás diciendo ahora.
-  const notaTextoEnVivo =
-    dictadoNota.dictando && notaDictadoProvisional
-      ? `${notaTexto.trimEnd()}${notaTexto.trim() ? ' ' : ''}${notaDictadoProvisional}`
-      : notaTexto;
   const capturaFoto = useAccionAsync();
   const capturaAudio = useAccionAsync();
 
@@ -399,7 +385,8 @@ export function VisitaActiva() {
   // corrige: "Rendered more hooks than during the previous render".
   const hallazgosParaNombres = operaciones.filter((op) => op.entidad === 'hallazgo');
   const terminoIdsHallazgos = hallazgosParaNombres
-    .map((h) => (h.payload as { terminoId: string }).terminoId)
+    .map((h) => (h.payload as { terminoId?: string }).terminoId)
+    .filter((id): id is string => !!id)
     .filter((id, i, arr) => arr.indexOf(id) === i);
 
   const { data: nombresTerminos } = useQuery({
@@ -843,55 +830,6 @@ export function VisitaActiva() {
     return () => clearInterval(t);
   }, [grabando]);
 
-  function cerrarNota() {
-    dictadoNota.parar();
-    setNotaDictadoProvisional('');
-    guardadoNota.limpiarError();
-    setNotaAbierta(false);
-  }
-
-  async function guardarNota() {
-    // Si aún se está dictando, para y da por bueno lo provisional para no
-    // perderlo.
-    let textoFinal = notaTexto;
-    if (notaDictadoProvisional.trim()) {
-      textoFinal = `${notaTexto.trimEnd()}${notaTexto.trim() ? ' ' : ''}${notaDictadoProvisional.trim()}`;
-      dictadoNota.parar();
-      setNotaTexto(textoFinal);
-      setNotaDictadoProvisional('');
-    }
-    if (!textoFinal.trim()) return;
-    const capturaId = uuid();
-    await guardadoNota.ejecutar(
-      () =>
-        encolar(
-          capturaId,
-          'captura_libre',
-          {
-            visitaId: visitaId!,
-            comercialAutorId: comercial!.id,
-            tipo: 'nota',
-            titulo: notaTitulo.trim() || undefined,
-            contenidoTexto: textoFinal.trim(),
-            zonaTexto: zonaParaCaptura,
-          },
-          { dependeDe: visitaId }
-        ),
-      {
-        onExito: () => {
-          setGuardadoNotaConExito(true);
-          setTimeout(() => {
-            setNotaTitulo('');
-            setNotaTexto('');
-            setNotaAbierta(false);
-            setGuardadoNotaConExito(false);
-          }, 700);
-        },
-        mensajeError: 'No se pudo guardar la nota. Inténtalo de nuevo.',
-      }
-    );
-  }
-
   async function guardarObjetivo() {
     await guardadoObjetivo.ejecutar(
       async () => {
@@ -919,17 +857,17 @@ export function VisitaActiva() {
   async function guardarHallazgo(payload: HallazgoPayload) {
     const hallazgoId = uuid();
     await encolar(hallazgoId, 'hallazgo', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
-    setTimeout(() => setHallazgoAbierto(false), 700);
+    setTimeout(() => setAnotarAbierto(false), 700);
   }
 
   async function guardarOportunidad(oportunidadId: string, payload: OportunidadPayload) {
-    // El id lo genera el modal para poder ofrecer "Completar ahora". El
-    // modal ya no se cierra solo: el comercial elige (completar / seguir).
+    // El id lo genera la hoja para poder ofrecer "Completar ahora". La hoja
+    // no se cierra sola: el comercial elige (completar / seguir en la visita).
     await encolar(oportunidadId, 'oportunidad', { ...payload, zonaTexto: zonaParaCaptura }, { dependeDe: visitaId });
   }
 
   function completarOportunidad(oportunidadId: string) {
-    setOportunidadAbierta(false);
+    setAnotarAbierto(false);
     navigate(`/oportunidades/${oportunidadId}`, { state: origen });
   }
 
@@ -1144,7 +1082,7 @@ export function VisitaActiva() {
           .neq('comercial_autor_id', comercial!.id),
         supabase
           .from('hallazgo')
-          .select('id, naturaleza, comercial_autor_id, zona_texto, termino:termino_id(nombre)')
+          .select('id, naturaleza, nota, comercial_autor_id, zona_texto, termino:termino_id(nombre)')
           .eq('visita_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
         supabase
@@ -1921,9 +1859,10 @@ export function VisitaActiva() {
           </div>
         )}
 
-        {/* Rejilla de 6, todas al mismo peso (B3), 2 columnas. Hueco mayor
-            entre las dos filas: separa la captura en caliente
-            (foto/nota/audio) de la que abre un formulario, sin jerarquizar. */}
+        {/* Rejilla de 4, todas al mismo peso (B3), 2 columnas. "Anotar"
+            (prompt maestro 10) fusiona lo que antes eran tres botones
+            (Hallazgo, Oportunidad, Nota): se captura primero y se clasifica
+            después. */}
         <div className="capture-grid" style={{ rowGap: 'var(--space-4)' }}>
           <button
             className="capture-btn"
@@ -1932,10 +1871,6 @@ export function VisitaActiva() {
           >
             <Icono nombre="foto" size={22} />
             {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
-          </button>
-          <button className="capture-btn" onClick={() => setNotaAbierta(true)}>
-            <Icono nombre="nota" size={22} />
-            Nota
           </button>
           <button
             className={`capture-btn${grabando ? ' capture-btn--rec' : ''}`}
@@ -1955,13 +1890,9 @@ export function VisitaActiva() {
               </>
             )}
           </button>
-          <button type="button" className="capture-btn" onClick={() => setHallazgoAbierto(true)}>
-            <Icono nombre="hallazgo" size={22} />
-            Hallazgo
-          </button>
-          <button type="button" className="capture-btn" onClick={() => setOportunidadAbierta(true)}>
-            <Icono nombre="oportunidad" size={22} />
-            Oportunidad
+          <button type="button" className="capture-btn" onClick={() => setAnotarAbierto(true)}>
+            <Icono nombre="nota" size={22} />
+            Anotar
           </button>
           <button
             type="button"
@@ -1978,7 +1909,7 @@ export function VisitaActiva() {
             pozo del equipo lleno — antes solo se veía si conseguías pulsar. */}
         {espacioBloqueado && (
           <Aviso tipo="atencion" titulo="Sin espacio para fotos ni audios">
-            El espacio del equipo está lleno. Las notas de texto siguen
+            El espacio del equipo está lleno. Anotar y Próximo paso siguen
             funcionando; para volver a subir fotos y audios, alguien tiene que
             liberar espacio en Yo → Mi espacio.
           </Aviso>
@@ -2063,7 +1994,7 @@ export function VisitaActiva() {
             ) : (
               <>
                 Aún no has capturado nada.<br />
-                Toca Foto, Nota o Audio para empezar.
+                Toca Foto, Audio o Anotar para empezar.
               </>
             )}
           </div>
@@ -2158,14 +2089,15 @@ export function VisitaActiva() {
                   )
                 )}
                 {hallazgosV.map((h) => {
-                  const p = h.payload as { terminoId: string; naturaleza: string };
-                  return filaEnVisita(h.id, 'hallazgo', nombresTerminos?.[p.terminoId] ?? '…', etiqueta(NATURALEZA_LABEL, p.naturaleza));
+                  const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
+                  const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
+                  return filaEnVisita(h.id, 'hallazgo', tituloHallazgo(term, p.nota, p.naturaleza), etiqueta(NATURALEZA_LABEL, p.naturaleza));
                 })}
                 {hallazgosCompanerosV.map((h) =>
                   filaEnVisita(
                     h.id,
                     'hallazgo',
-                    (h.termino as unknown as { nombre: string } | null)?.nombre ?? '…',
+                    tituloHallazgo((h.termino as unknown as { nombre: string } | null)?.nombre, h.nota, h.naturaleza),
                     `${etiqueta(NATURALEZA_LABEL, h.naturaleza)} · de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
                     () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )
@@ -2220,23 +2152,15 @@ export function VisitaActiva() {
         </button>
       </div>
 
-      {oportunidadAbierta && (
-        <OportunidadRapidaHoja
+      {anotarAbierto && (
+        <AnotarHoja
           visitaId={visitaId}
           clienteId={visitaLocal?.clienteId}
           comercialId={comercial.id}
-          onGuardar={guardarOportunidad}
-          onCompletar={completarOportunidad}
-          onCerrar={() => setOportunidadAbierta(false)}
-        />
-      )}
-
-      {hallazgoAbierto && (
-        <HallazgoRapidoHoja
-          visitaId={visitaId}
-          comercialId={comercial.id}
-          onGuardar={guardarHallazgo}
-          onCerrar={() => setHallazgoAbierto(false)}
+          onGuardarHallazgo={guardarHallazgo}
+          onGuardarOportunidad={guardarOportunidad}
+          onCompletarOportunidad={completarOportunidad}
+          onCerrar={() => setAnotarAbierto(false)}
         />
       )}
 
@@ -2259,60 +2183,6 @@ export function VisitaActiva() {
       )}
       {participantesAbierto && visitaId && (
         <ParticipantesHoja visitaId={visitaId} onCerrar={() => setParticipantesAbierto(false)} />
-      )}
-
-      {/* Nota — misma hoja inferior que el resto de capturas (foto, audio,
-          hallazgo, oportunidad, próximo paso): un solo gesto, un solo
-          comportamiento. */}
-      {notaAbierta && (
-        <HojaSuperior titulo="Nota" onCerrar={cerrarNota}>
-          {/* El foco va al cuerpo, no al título: lo normal es querer
-              escribir la nota ya; el título es opcional y casi nadie lo
-              pone en caliente. */}
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={3}
-            autoFocus
-            value={notaTextoEnVivo}
-            onChange={(e) => setNotaTexto(e.target.value)}
-            readOnly={dictadoNota.dictando && !!notaDictadoProvisional}
-            placeholder="escribe o dicta la nota…"
-          />
-          {dictadoNota.soportado && (
-            <button
-              type="button"
-              className={`chip${dictadoNota.dictando ? ' chip--on' : ''}`}
-              style={{ marginTop: 6 }}
-              onClick={dictadoNota.alternar}
-            >
-              <Icono nombre="audio" size={14} />
-              {dictadoNota.dictando ? 'Escuchando… tocar para parar' : 'Dictar'}
-            </button>
-          )}
-          <input
-            className="field"
-            style={{ marginTop: 8 }}
-            value={notaTitulo}
-            onChange={(e) => setNotaTitulo(e.target.value)}
-            placeholder="título breve (opcional)"
-          />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="btn btn-secondary" disabled={guardadoNota.cargando} onClick={cerrarNota}>
-              Cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={guardadoNota.cargando || guardadoNotaConExito || !notaTextoEnVivo.trim()}
-              onClick={guardarNota}
-            >
-              {guardadoNotaConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardadoNota.cargando ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-          {guardadoNota.error && (
-            <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoNota.error}</div>
-          )}
-        </HojaSuperior>
       )}
 
       {/* Foto / Audio — tras capturar el binario, la misma hoja para

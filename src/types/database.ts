@@ -450,7 +450,7 @@ export type Database = {
           nota: string | null
           origen: string
           proyecto_id: string
-          termino_id: string
+          termino_id: string | null
           tipo_fecha_relevante: string | null
           ubicacion_id: string | null
           visita_id: string
@@ -469,7 +469,7 @@ export type Database = {
           nota?: string | null
           origen?: string
           proyecto_id: string
-          termino_id: string
+          termino_id?: string | null
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id: string
@@ -488,7 +488,7 @@ export type Database = {
           nota?: string | null
           origen?: string
           proyecto_id?: string
-          termino_id?: string
+          termino_id?: string | null
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id?: string

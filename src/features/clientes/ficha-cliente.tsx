@@ -664,13 +664,12 @@ export function FichaCliente() {
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {/* Riesgos y oportunidades primero — es lo que mira el
-                  comercial de un vistazo. Se recorta a ECO_VISIBLE. */}
+              {/* "Me preocupa" primero — es lo que mira el comercial de un
+                  vistazo. Se recorta a ECO_VISIBLE. */}
               {[...ecosistema]
                 .sort(
                   (a, b) =>
-                    (a.naturaleza === 'riesgo' ? 0 : a.naturaleza === 'oportunidad' ? 1 : 2) -
-                    (b.naturaleza === 'riesgo' ? 0 : b.naturaleza === 'oportunidad' ? 1 : 2)
+                    (a.naturaleza === 'riesgo' ? 0 : 1) - (b.naturaleza === 'riesgo' ? 0 : 1)
                 )
                 .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
                 .map((item) => (

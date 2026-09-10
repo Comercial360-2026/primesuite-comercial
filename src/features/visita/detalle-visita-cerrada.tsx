@@ -454,7 +454,7 @@ export function DetalleVisitaCerrada() {
                 ...g.items.map((h) => (
                   <FilaNavegable
                     key={h.id}
-                    titulo={h.termino_nombre || 'Hallazgo'}
+                    titulo={h.termino_nombre || etiqueta(NATURALEZA_LABEL, g.naturaleza)}
                     subtitulo={h.nota ?? undefined}
                     tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
                     to={`/hallazgos/${h.id}`}

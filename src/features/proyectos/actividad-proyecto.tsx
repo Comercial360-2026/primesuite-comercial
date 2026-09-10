@@ -34,6 +34,7 @@ interface ProximoPasoPendiente {
 interface HallazgoAbierto {
   id: string;
   naturaleza: string;
+  nota: string | null;
   fecha_relevante: string | null;
   termino: { nombre: string } | null;
 }
@@ -100,7 +101,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, naturaleza, fecha_relevante, termino:termino_id(nombre)')
+        .select('id, naturaleza, nota, fecha_relevante, termino:termino_id(nombre)')
         .eq('proyecto_id', proyectoId)
         .is('archivado_en', null)
         .order('creado_en', { ascending: false })
@@ -130,7 +131,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, naturaleza, fecha_relevante, termino:termino_id(nombre)')
+        .select('id, naturaleza, nota, fecha_relevante, termino:termino_id(nombre)')
         .eq('proyecto_id', proyectoId)
         .not('archivado_en', 'is', null)
         .order('archivado_en', { ascending: false })
@@ -230,7 +231,7 @@ export function ActividadProyecto({
           {hallazgos?.map((h) => (
             <FilaNavegable
               key={h.id}
-              titulo={h.termino?.nombre ?? '…'}
+              titulo={h.termino?.nombre?.trim() || h.nota?.trim() || etiqueta(NATURALEZA_LABEL, h.naturaleza)}
               tono={h.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
               valor={etiqueta(NATURALEZA_LABEL, h.naturaleza)}
               valorTenue
@@ -250,7 +251,7 @@ export function ActividadProyecto({
             hallazgosArchivados?.map((h) => (
               <FilaNavegable
                 key={h.id}
-                titulo={h.termino?.nombre ?? '…'}
+                titulo={h.termino?.nombre?.trim() || h.nota?.trim() || etiqueta(NATURALEZA_LABEL, h.naturaleza)}
                 valor="archivado"
                 valorTenue
                 to={`/hallazgos/${h.id}`}

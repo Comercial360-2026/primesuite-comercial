@@ -151,7 +151,8 @@ export function CierreVisita() {
 
   const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
   const terminoIdsHallazgos = hallazgosParaResumen
-    .map((h) => (h.payload as { terminoId: string }).terminoId)
+    .map((h) => (h.payload as { terminoId?: string }).terminoId)
+    .filter((id): id is string => !!id)
     .filter((id, i, arr) => arr.indexOf(id) === i);
 
   const { data: nombresTerminos } = useQuery({
@@ -229,9 +230,9 @@ export function CierreVisita() {
   const resumenReglas = generarResumenReglas({
     objetivo: visitaObjetivo?.objetivo ?? visitaLocal?.objetivo,
     hallazgos: hallazgos.map((h) => {
-      const p = h.payload as { terminoId: string; naturaleza: string; nota?: string };
+      const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
       return {
-        terminoNombre: nombresTerminos?.[p.terminoId] ?? 'un término',
+        terminoNombre: (p.terminoId && nombresTerminos?.[p.terminoId]) || '',
         naturaleza: p.naturaleza,
         nota: p.nota ?? null,
       };
