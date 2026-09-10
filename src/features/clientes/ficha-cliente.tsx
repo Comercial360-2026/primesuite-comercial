@@ -633,12 +633,12 @@ export function FichaCliente() {
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {/* Ya viene ordenado ("Me preocupa" primero, términos antes que
-                  categorías sueltas). Se recorta a ECO_VISIBLE. */}
+              {/* Ya viene ordenado (términos antes que categorías sueltas).
+                  Se recorta a ECO_VISIBLE. */}
               {ecosistema
                 .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
                 .map((item) => (
-                  <EcoTag key={item.clave} nombre={item.nombre} naturaleza={item.naturaleza} tipo={item.tipo} />
+                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
                 ))}
               {ecosistema.length > ECO_VISIBLE && (
                 <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>

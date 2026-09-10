@@ -119,11 +119,9 @@ export type Database = {
           creado_en: string
           estado_subida: string
           estado_validacion: string
-          hallazgo_id: string | null
           id: string
           latitud: number | null
           longitud: number | null
-          oportunidad_id: string | null
           origen: string
           storage_path: string | null
           storage_path_thumbnail: string | null
@@ -142,11 +140,9 @@ export type Database = {
           creado_en?: string
           estado_subida?: string
           estado_validacion?: string
-          hallazgo_id?: string | null
           id?: string
           latitud?: number | null
           longitud?: number | null
-          oportunidad_id?: string | null
           origen?: string
           storage_path?: string | null
           storage_path_thumbnail?: string | null
@@ -230,20 +226,6 @@ export type Database = {
             referencedColumns: ["comercial_id"]
           },
           {
-            foreignKeyName: "captura_libre_hallazgo_id_fkey"
-            columns: ["hallazgo_id"]
-            isOneToOne: false
-            referencedRelation: "hallazgo"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "captura_libre_hallazgo_id_fkey"
-            columns: ["hallazgo_id"]
-            isOneToOne: false
-            referencedRelation: "vw_ecosistema_actual_cliente"
-            referencedColumns: ["hallazgo_id"]
-          },
-          {
             foreignKeyName: "captura_libre_ubicacion_id_fkey"
             columns: ["ubicacion_id"]
             isOneToOne: false
@@ -270,20 +252,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_resumen_visita"
             referencedColumns: ["visita_id"]
-          },
-          {
-            foreignKeyName: "fk_captura_oportunidad"
-            columns: ["oportunidad_id"]
-            isOneToOne: false
-            referencedRelation: "oportunidad"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_captura_oportunidad"
-            columns: ["oportunidad_id"]
-            isOneToOne: false
-            referencedRelation: "vw_pipeline_oportunidades"
-            referencedColumns: ["oportunidad_id"]
           },
         ]
       }
@@ -446,11 +414,9 @@ export type Database = {
           estado_validacion: string
           fecha_relevante: string | null
           id: string
-          naturaleza: string
           nota: string | null
           origen: string
           proyecto_id: string
-          termino_id: string | null
           tipo_fecha_relevante: string | null
           ubicacion_id: string | null
           visita_id: string
@@ -465,11 +431,9 @@ export type Database = {
           estado_validacion?: string
           fecha_relevante?: string | null
           id?: string
-          naturaleza: string
           nota?: string | null
           origen?: string
           proyecto_id: string
-          termino_id?: string | null
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id: string
@@ -484,11 +448,9 @@ export type Database = {
           estado_validacion?: string
           fecha_relevante?: string | null
           id?: string
-          naturaleza?: string
           nota?: string | null
           origen?: string
           proyecto_id?: string
-          termino_id?: string | null
           tipo_fecha_relevante?: string | null
           ubicacion_id?: string | null
           visita_id?: string
@@ -585,27 +547,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "proyecto"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hallazgo_termino_id_fkey"
-            columns: ["termino_id"]
-            isOneToOne: false
-            referencedRelation: "termino"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hallazgo_termino_id_fkey"
-            columns: ["termino_id"]
-            isOneToOne: false
-            referencedRelation: "vw_termino_resuelto"
-            referencedColumns: ["termino_id"]
-          },
-          {
-            foreignKeyName: "hallazgo_termino_id_fkey"
-            columns: ["termino_id"]
-            isOneToOne: false
-            referencedRelation: "vw_vocabulario_pendiente_revision"
-            referencedColumns: ["termino_id"]
           },
           {
             foreignKeyName: "hallazgo_ubicacion_id_fkey"
@@ -2092,7 +2033,6 @@ export type Database = {
           estado_validacion: string | null
           fecha_hallazgo: string | null
           hallazgo_id: string | null
-          naturaleza: string | null
           nota: string | null
           termino_id: string | null
           ubicacion_id: string | null
@@ -2105,24 +2045,7 @@ export type Database = {
             referencedRelation: "ubicacion"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "hallazgo_ubicacion_id_fkey"
-            columns: ["ubicacion_id"]
-            isOneToOne: false
-            referencedRelation: "vw_mapa_hallazgos_ubicacion"
-            referencedColumns: ["ubicacion_id"]
-          },
         ]
-      }
-      vw_mapa_hallazgos_ubicacion: {
-        Row: {
-          cliente_id: string | null
-          naturaleza: string | null
-          num_hallazgos: number | null
-          ubicacion_id: string | null
-          ubicacion_nombre: string | null
-        }
-        Relationships: []
       }
       vw_motivos_perdida: {
         Row: {
@@ -2150,24 +2073,6 @@ export type Database = {
           soluciones_asociadas: string | null
           titulo: string | null
           valor_estimado: number | null
-        }
-        Relationships: []
-      }
-      vw_resumen_visita: {
-        Row: {
-          cliente_nombre: string | null
-          comercial_responsable: string | null
-          estado_captura: string | null
-          fecha: string | null
-          num_audios: number | null
-          num_fotos: number | null
-          num_hallazgos: number | null
-          num_oportunidades: number | null
-          num_proximos_pasos: number | null
-          num_riesgos: number | null
-          num_senales_oportunidad: number | null
-          tipo_visita: string | null
-          visita_id: string | null
         }
         Relationships: []
       }

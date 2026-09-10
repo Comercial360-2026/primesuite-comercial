@@ -132,9 +132,6 @@ export function AnotarHoja({
           // Áreas del catálogo (prompt maestro 11, Fase 2): categorías y/o
           // términos, varias. Solo viaja tipo + id.
           areas: areas.map((a) => ({ tipo: a.tipo, id: a.id })),
-          // El concepto "naturaleza" está en retirada (prompt maestro 11);
-          // se guarda un valor fijo hasta que se quite de la BD.
-          naturaleza: 'contexto',
           nota: cuerpo,
         });
         sumarUso();

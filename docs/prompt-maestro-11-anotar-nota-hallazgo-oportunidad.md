@@ -198,14 +198,60 @@ sigue agrupando hallazgos por naturaleza (subcabeceras "Me preocupa"…) y el
 KPI "N riesgo(s)"; la ayuda `naturaleza-hallazgo` sigue en `ayuda.ts` sin
 `<AyudaNota>`.
 
-### Fase 5 — migración y limpieza
-- Hallazgos viejos: se dejan como hallazgos; su `naturaleza` actual se conserva
-  como una línea de texto en la nota/comentario (dejamos de usar el concepto).
-- Quitar el `NOT NULL` / `CHECK` de `hallazgo.naturaleza` cuando ya no se use.
-- Limpiar datos de prueba (visitas GEWING/GABITEL/TOTAL/CNMC de Comercial Prueba
-  las limpia Cesar; lo que haya creado Claude probando, lo borra Claude).
-- Textos de ayuda: `visita-activa`, ficha de nota, `detalle-hallazgo`,
-  `detalle-oportunidad`. Quitar/rehacer `naturaleza-hallazgo`. `ayuda:cobertura`.
+### Fase 5 — migración y limpieza  ← HECHA (commit local, sin push)
+
+Migración **109** `retirar_naturaleza_hallazgo` (aplicada en dev). "Lo que no
+sirve se quita" — se **borra** `naturaleza`, no se deja nullable.
+
+- **BD (migración 109)**:
+  - Hallazgos `riesgo`/`competencia` conservan la marca como línea al final de
+    la nota (`(Marcado antes como «Me preocupa».)` / `«Competencia»`); los
+    `contexto` no llevaban info → nada que conservar.
+  - `hallazgo.naturaleza` (+ CHECK), `hallazgo.termino_id` (+ FK),
+    `captura_libre.hallazgo_id` / `.oportunidad_id` (+ FKs) → **DROP COLUMN**.
+  - Vistas sin uso en la app → **DROP**: `vw_resumen_visita`,
+    `vw_mapa_hallazgos_ubicacion`.
+  - `vw_ecosistema_actual_cliente` (matview) recreada sin `naturaleza` (drop +
+    recreate, resto igual que la 108; REFRESH CONCURRENTLY probado OK).
+  - Funciones ajustadas: `fn_fusionar_termino` (quita el `update hallazgo set
+    termino_id`), `recategorizar_item` (deja de insertar `naturaleza='contexto'`
+    y de anular `captura_libre.hallazgo_id`).
+- **Front**:
+  - `etiquetas-visita.ts`: fuera `NATURALEZA_ORDEN` / `NATURALEZA_LABEL`.
+  - `EcoTag`: sin prop `naturaleza` — solo `tipo` (`termino` | `categoria`).
+    `ecosistema.ts` / `cargarEcosistemaCliente` no leen `naturaleza`; orden =
+    términos antes que categorías. CSS: fuera `.eco-tag--riesgo` /
+    `--competencia` y `.seccion-lista__subcabecera--riesgo`; tokens
+    `--purple-600` / `--purple-050` retirados.
+  - `detalle-visita-cerrada`: hallazgos = **lista plana** (sin subcabeceras por
+    naturaleza); KPI "N riesgos" → **"N hallazgos"** (neutro).
+  - `resumen-visita.ts` / `regenerar-resumen.ts` / `cierre-visita`: el resumen
+    "por reglas" ya no separa riesgos; una línea **`Hallazgos: …`** con la nota
+    de cada uno. Fuera el termino-name resolver (muerto desde Fase 2).
+  - `visita-activa` (`tituloHallazgo(nota)`), `hoja-detalle-cierre`,
+    `detalle-hallazgo`, `recategorizar.ts`, `HallazgoPayload` /
+    `CapturaLibrePayload`: fuera `naturaleza` / `terminoId` / `hallazgoId` /
+    `oportunidadId`. `sync-engine.sincronizarHallazgo` borra un `naturaleza`
+    residual del payload (colas viejas en IndexedDB).
+  - `ayuda.ts`: entrada `naturaleza-hallazgo` eliminada. `ayuda-nota.tsx`:
+    comentario al día.
+  - `database.ts`: parche a mano (quitar `naturaleza`/`termino_id` de `hallazgo`,
+    `hallazgo_id`/`oportunidad_id` de `captura_libre`, `naturaleza` de la vista
+    de ecosistema, bloques `vw_resumen_visita` / `vw_mapa_hallazgos_ubicacion`).
+    Quedan `referencedRelation` sueltos a esas 2 vistas en arrays de
+    `Relationships` (inertes para `tsc`; se limpian en el próximo
+    `generate_typescript_types`).
+- **Datos de prueba**: el hallazgo `PRUEBA CLAUDE fase5…` (GABITEL) creado y
+  borrado por Claude (BD + cola local). Las visitas GEWING/GABITEL/TOTAL/CNMC de
+  Cesar, intactas.
+
+**Verificado en vivo (Comercial Prueba)**: `detalle-visita-cerrada` de SAPA
+sin subcabeceras de naturaleza y KPI "3 hallazgos"; nota preservada
+"(Marcado antes como «Me preocupa».)" visible; ecosistema de GABITEL sigue
+pintando términos + categorías; "Anotar" → Hallazgo (con área) guarda e
+sincroniza sin `naturaleza` (7 hallazgos, "todo subido"); `detalle-hallazgo`
+carga, edita y borra sin errores (cascada de `hallazgo_area` OK). typecheck +
+lint + build + `deno test` (6/6) + `ayuda:cobertura` OK.
 
 ## Verificación (cada fase)
 typecheck + lint + build + `ayuda:cobertura` + `deno test --no-check` del módulo

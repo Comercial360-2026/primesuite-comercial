@@ -24,12 +24,10 @@
   /* Acento funcional — Oportunidad */
   --signal-600: #EF4136;
 
-  /* Semántica de naturaleza de Hallazgo — y ÚNICO rojo de "acción
-     destructiva" en toda la app (borrar / anular / dar de baja). Ver
-     08_sistema_diseno.md §"Botones". */
-  --risk-600: #6E2430;       /* Riesgo — borgoña, separado de Oportunidad */
-  --risk-700: #57121C;       /* Riesgo pulsado (:active de .btn-peligro) */
-  --purple-600: #6E4C9E;     /* Competencia */
+  /* ÚNICO rojo de "acción destructiva" en toda la app (borrar / anular /
+     dar de baja). Ver 08_sistema_diseno.md §"Botones". */
+  --risk-600: #6E2430;       /* borgoña, separado de Oportunidad */
+  --risk-700: #57121C;       /* pulsado (:active de .btn-peligro) */
   --success-600: #3A7D4F;    /* Fortaleza / semáforo verde */
   --warning-600: #A87A12;    /* Semáforo amarillo */
   --danger-600: #B23A3A;     /* SOLO errores de formulario y semáforo rojo — nunca acciones destructivas */
@@ -39,8 +37,7 @@
   --success-050: #E7F1EB;
   --warning-050: #F5EFE0;
   --danger-050: #F6E9E9;
-  --signal-050: #FCEAE9;     /* tinte suave de Oportunidad — etiquetas de Ecosistema */
-  --purple-050: #EFEBF6;     /* tinte suave de Competencia — etiquetas de Ecosistema */
+  --signal-050: #FCEAE9;     /* tinte suave de Oportunidad */
   --ink-500: #5A6270;        /* cabeceras de sección con algo de peso */
 
   /* Ancho máximo de la app — en escritorio queda como una columna de móvil

@@ -6,8 +6,9 @@ interface Props {
   concepto: ConceptoAyudaId;
 }
 
-// Ayuda de un campo que no se explica solo (la naturaleza de un hallazgo,
-// el horizonte de una oportunidad…). Va PLEGADA por defecto: una línea
+// Ayuda de un campo que no se explica solo (el horizonte de una
+// oportunidad, la fecha relevante de un hallazgo…). Va PLEGADA por
+// defecto: una línea
 // discreta y tocable; al abrirla muestra el `queEs` del concepto en
 // `ayuda.ts` —el mismo del que se genera el manual, para que no diverjan—.
 // Sin plegar, tres campos seguidos con su ayuda eran un muro de texto gris

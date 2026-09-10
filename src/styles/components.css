@@ -339,12 +339,11 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .sem-tag--amarillo { color: var(--warning-600); background: var(--warning-050); }
 .sem-tag--rojo { color: var(--danger-600); background: var(--danger-050); }
 
-/* Etiqueta de Ecosistema — un término del cliente con su naturaleza
-   (riesgo / oportunidad / neutro). Mismo principio que .sem-tag: fondo
+/* Etiqueta de Ecosistema — algo que el cliente tiene (un término del
+   catálogo, o una categoría suelta). Mismo principio que .sem-tag: fondo
    suave + texto fuerte, SIN borde, para que se lea como estado y no como
-   un chip de filtro pulsable (que sí llevan borde). Color + icono de forma
-   + palabra: el usuario es daltónico. Se usa en la ficha de cliente y en
-   el repaso de cliente. */
+   un chip de filtro pulsable (que sí llevan borde). Se usa en la ficha de
+   cliente y en el repaso de cliente. */
 /* Es un <button>: el "término" del ecosistema es texto libre y puede ser
    largo ("no tiene fuente de alimentación, poner carcasa"). En reposo se
    recorta a 1 línea con "…"; al tocarlo se despliega entero (estas
@@ -358,8 +357,6 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .eco-tag__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eco-tag--abierto { align-items: flex-start; }
 .eco-tag--abierto .eco-tag__txt { white-space: normal; overflow-wrap: anywhere; }
-.eco-tag--riesgo { color: var(--risk-600); background: var(--danger-050); }
-.eco-tag--competencia { color: var(--purple-600); background: var(--purple-050); }
 .eco-tag--neutro { color: var(--ink-700); background: var(--surface-0); }
 /* Área de solo-categoría (PM11 Fase 4): un hallazgo marcado sin bajar al
    término. Gris tenue, borde punteado y sin relleno — se lee como algo
@@ -891,11 +888,6 @@ textarea.field {
   font-size: var(--text-xs); color: var(--seccion-cabecera);
 }
 .seccion-lista__subcabecera:first-child { border-top: none; }
-.seccion-lista__subcabecera--riesgo {
-  color: var(--risk-600); font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.03em;
-  display: flex; align-items: center; gap: 4px;
-}
 
 .fila {
   display: flex; align-items: center; gap: var(--space-3);

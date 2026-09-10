@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
 import { generarResumenReglas } from '@/lib/resumen-visita';
-import { NATURALEZA_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -150,22 +149,6 @@ export function CierreVisita() {
     },
   });
 
-  const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
-  const terminoIdsHallazgos = hallazgosParaResumen
-    .map((h) => (h.payload as { terminoId?: string }).terminoId)
-    .filter((id): id is string => !!id)
-    .filter((id, i, arr) => arr.indexOf(id) === i);
-
-  const { data: nombresTerminos } = useQuery({
-    queryKey: ['nombres-terminos-cierre', terminoIdsHallazgos.join(',')],
-    enabled: terminoIdsHallazgos.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('termino').select('id, nombre').in('id', terminoIdsHallazgos);
-      if (error) throw error;
-      return Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
-    },
-  });
-
   // Ids de zona presentes en CUALQUIER elemento (capturas, hallazgos,
   // oportunidades) — el recorrido ata los cinco tipos a una zona.
   const ubicacionIds = operaciones
@@ -230,14 +213,7 @@ export function CierreVisita() {
   // construir sobre arrays pequeños — no necesita memo.
   const resumenReglas = generarResumenReglas({
     objetivo: visitaObjetivo?.objetivo ?? visitaLocal?.objetivo,
-    hallazgos: hallazgos.map((h) => {
-      const p = h.payload as { terminoId?: string; naturaleza: string; nota?: string };
-      return {
-        terminoNombre: (p.terminoId && nombresTerminos?.[p.terminoId]) || '',
-        naturaleza: p.naturaleza,
-        nota: p.nota ?? null,
-      };
-    }),
+    hallazgos: hallazgos.map((h) => ({ nota: (h.payload as { nota?: string }).nota ?? null })),
     oportunidades: oportunidades.map((o) => ({ titulo: (o.payload as { titulo: string }).titulo })),
     pasos: pasos.map((p) => {
       const pl = p.payload as { descripcion: string; fechaObjetivo?: string };
@@ -386,22 +362,13 @@ export function CierreVisita() {
 
           {hallazgos.length > 0 && (
             <SeccionLista titulo="Hallazgos">
-              {hallazgos.map((h) => {
-                const payload = h.payload as { terminoId?: string; naturaleza: string };
-                return (
-                  <FilaDato
-                    key={h.id}
-                    etiqueta={
-                      payload.terminoId
-                        ? nombresTerminos?.[payload.terminoId] ?? '…'
-                        : etiqueta(NATURALEZA_LABEL, payload.naturaleza)
-                    }
-                    valor={payload.terminoId ? etiqueta(NATURALEZA_LABEL, payload.naturaleza) : undefined}
-                    valorTenue
-                    tono={payload.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
-                  />
-                );
-              })}
+              {hallazgos.map((h) => (
+                <FilaDato
+                  key={h.id}
+                  etiqueta={(h.payload as { nota?: string }).nota?.trim() || 'Hallazgo'}
+                  valor=""
+                />
+              ))}
             </SeccionLista>
           )}
 
@@ -667,7 +634,6 @@ export function CierreVisita() {
         <HojaDetalleCierre
           grupo={detalle.grupo}
           items={detalle.items}
-          nombresTerminos={nombresTerminos}
           onCerrar={() => setDetalle(null)}
         />
       )}

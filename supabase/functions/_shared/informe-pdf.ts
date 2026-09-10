@@ -78,20 +78,6 @@ export const COLOR = {
 // Diccionario de negocio — etiquetas legibles de los enum de texto libre.
 // ---------------------------------------------------------------------
 
-// Naturaleza del hallazgo — 3 valores (prompt maestro 10). Espejo de
-// src/lib/etiquetas-visita.ts.
-export const NATURALEZA_ORDEN = ['riesgo', 'competencia', 'contexto'];
-export const NATURALEZA_LABEL: Record<string, string> = {
-  riesgo: 'Me preocupa',
-  competencia: 'Competencia',
-  contexto: 'Dato del cliente',
-};
-export const NATURALEZA_COLOR: Record<string, string> = {
-  riesgo: COLOR.risk600,
-  competencia: COLOR.purple600,
-  contexto: COLOR.ink400,
-};
-
 export const ETAPA_LABEL: Record<string, string> = {
   latente: 'Latente',
   cualificada: 'Cualificada',

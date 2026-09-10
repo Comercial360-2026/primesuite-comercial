@@ -1,19 +1,7 @@
-// Etiquetas legibles de los enums de texto libre de una visita (naturaleza
-// de hallazgo, etapa y prioridad de oportunidad, tipo de visita). Un solo
-// sitio en la app — la Edge Function del informe tiene su propia copia
+// Etiquetas legibles de los enums de texto libre de una visita (etapa y
+// prioridad de oportunidad, tipo de visita, tipo de fecha relevante). Un
+// solo sitio en la app — la Edge Function del informe tiene su propia copia
 // (runtime distinto, no puede importar de src/), pero deben coincidir.
-
-// Naturaleza del hallazgo — 3 valores (prompt maestro 10). Lo que el
-// comercial elige tras escribir en "Anotar": qué significa lo que ha visto.
-// "Oportunidad de venta" NO está aquí: eso crea una Oportunidad (entidad),
-// no un hallazgo.
-export const NATURALEZA_ORDEN = ['riesgo', 'competencia', 'contexto'] as const;
-
-export const NATURALEZA_LABEL: Record<string, string> = {
-  riesgo: 'Me preocupa',
-  competencia: 'Competencia',
-  contexto: 'Dato del cliente',
-};
 
 export const ETAPA_LABEL: Record<string, string> = {
   latente: 'Latente',

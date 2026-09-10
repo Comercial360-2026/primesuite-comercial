@@ -366,7 +366,7 @@ export function RepasoCliente() {
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
             ) : ecosistema.length ? (
               ecosistema.map((item) => (
-                <EcoTag key={item.clave} nombre={item.nombre} naturaleza={item.naturaleza} tipo={item.tipo} />
+                <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
               ))
             ) : (
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>

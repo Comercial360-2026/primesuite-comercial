@@ -28,7 +28,6 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
 import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
-import { etiqueta, NATURALEZA_LABEL } from '@/lib/etiquetas-visita';
 import type {
   OperacionPendiente,
   HallazgoPayload,
@@ -47,10 +46,9 @@ function elegirTipoAudio(): string | undefined {
 }
 
 // Título de una fila de hallazgo. Desde "Anotar" (prompt maestro 11) todo
-// hallazgo lleva texto (el comercial escribe/dicta antes de marcar nada);
-// la naturaleza es solo el último recurso para datos antiguos sin nota.
-function tituloHallazgo(nota: string | undefined | null, naturaleza: string): string {
-  return nota?.trim() || etiqueta(NATURALEZA_LABEL, naturaleza);
+// hallazgo lleva texto (el comercial escribe/dicta antes de marcar nada).
+function tituloHallazgo(nota: string | undefined | null): string {
+  return nota?.trim() || 'Hallazgo';
 }
 
 interface CapturasPorUbicacionProps {
@@ -167,8 +165,8 @@ function CapturasPorUbicacion({
         return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
       })}
       {c.hz.map((h) => {
-        const p = h.payload as { naturaleza: string; nota?: string };
-        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota, p.naturaleza));
+        const p = h.payload as { nota?: string };
+        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota));
       })}
     </>
   );
@@ -1069,7 +1067,7 @@ export function VisitaActiva() {
           .neq('comercial_autor_id', comercial!.id),
         supabase
           .from('hallazgo')
-          .select('id, naturaleza, nota, comercial_autor_id, zona_texto')
+          .select('id, nota, comercial_autor_id, zona_texto')
           .eq('visita_id', visitaId!)
           .neq('comercial_autor_id', comercial!.id),
         supabase
@@ -2075,13 +2073,13 @@ export function VisitaActiva() {
                   )
                 )}
                 {hallazgosV.map((h) => {
-                  const p = h.payload as { naturaleza: string; nota?: string };
+                  const p = h.payload as { nota?: string };
                   // Se puede abrir para revisar/editar/borrar en cuanto ha
                   // subido (su detalle lee de la BD, no de la cola local).
                   return filaEnVisita(
                     h.id,
                     'hallazgo',
-                    tituloHallazgo(p.nota, p.naturaleza),
+                    tituloHallazgo(p.nota),
                     undefined,
                     h.estado === 'completado'
                       ? () => navigate(`/hallazgos/${h.id}`, { state: origen })
@@ -2092,7 +2090,7 @@ export function VisitaActiva() {
                   filaEnVisita(
                     h.id,
                     'hallazgo',
-                    tituloHallazgo(h.nota, h.naturaleza),
+                    tituloHallazgo(h.nota),
                     `de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
                     () => navigate(`/hallazgos/${h.id}`, { state: origen })
                   )

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { fechaCorta } from '@/lib/fechas';
-import { NATURALEZA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
 export type GrupoCierre = 'fotos' | 'audios' | 'notas' | 'oportunidades' | 'hallazgos' | 'pasos';
@@ -21,8 +21,6 @@ interface Props {
   grupo: GrupoCierre;
   /** Operaciones de la cola ya filtradas al grupo. */
   items: OperacionPendiente[];
-  /** id de término → nombre, para los hallazgos. */
-  nombresTerminos?: Record<string, string>;
   onCerrar: () => void;
 }
 
@@ -32,7 +30,7 @@ interface Props {
 // "Cerrar". Los datos salen de la cola offline (useSyncQueue) → valen con o
 // sin conexión. Las fotos y audios se ven/oyen aquí: el binario está en el
 // móvil (IndexedDB) mientras no se ha subido, y en Storage cuando ya sí.
-export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: Props) {
+export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
   const esMedia = grupo === 'fotos' || grupo === 'audios';
 
   // Capturas todavía en el móvil: URL directa al Blob local. Se crea en un
@@ -91,8 +89,6 @@ export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: P
             contenidoTexto?: string;
             titulo?: string;
             prioridad?: string;
-            terminoId?: string;
-            naturaleza?: string;
             nota?: string;
             descripcion?: string;
             fechaObjetivo?: string;
@@ -152,17 +148,8 @@ export function HojaDetalleCierre({ grupo, items, nombresTerminos, onCerrar }: P
 
               {grupo === 'hallazgos' && (
                 <>
-                  {(() => {
-                    const term = p.terminoId ? nombresTerminos?.[p.terminoId] : undefined;
-                    const nat = p.naturaleza ? etiqueta(NATURALEZA_LABEL, p.naturaleza) : null;
-                    return (
-                      <>
-                        <span className="detalle-cierre__titulo">{term || nat || 'Anotación'}</span>
-                        {meta([term ? nat : null, zona])}
-                      </>
-                    );
-                  })()}
-                  {p.nota?.trim() && <span className="detalle-cierre__nota">{p.nota}</span>}
+                  <span className="detalle-cierre__titulo">{p.nota?.trim() || 'Hallazgo'}</span>
+                  {meta([zona])}
                 </>
               )}
 

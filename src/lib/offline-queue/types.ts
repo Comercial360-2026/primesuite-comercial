@@ -83,9 +83,8 @@ export interface HallazgoPayload {
   // Sustituyen al antiguo `terminoId` único. Un hallazgo sin ningún área de
   // tipo término no entra en el Ecosistema (igual que antes sin término).
   areas?: AreaHallazgoRef[];
-  naturaleza: 'contexto' | 'riesgo' | 'competencia';
   // Lo que el comercial escribió/dictó en "Anotar" — el cuerpo del
-  // hallazgo. Antes era una coletilla de contexto opcional sobre el término.
+  // hallazgo. Es lo que identifica al hallazgo (PM11).
   nota?: string;
   ubicacionId?: string;
   // Etiqueta de zona del Modo Recorrido: texto libre, de usar y tirar, que
@@ -102,8 +101,6 @@ export interface CapturaLibrePayload {
   tipo: 'foto' | 'audio' | 'nota';
   titulo?: string; // referencia corta para distinguir capturas en la lista; solo aplica a 'nota'
   contenidoTexto?: string; // nota, o transcripción posterior de audio
-  hallazgoId?: string;
-  oportunidadId?: string;
   ubicacionId?: string;
   zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   categoriaFoto?: string;

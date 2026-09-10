@@ -3,14 +3,15 @@ import { fechaCorta } from '@/lib/fechas';
 
 // Resumen "por reglas" de una visita al cerrarla: no un recuento (eso ya
 // está en los chips), sino una micro-historia legible de un vistazo —
-// objetivo + lo que de verdad importa (riesgos, oportunidades, próximos
+// objetivo + lo que de verdad importa (hallazgos, oportunidades, próximos
 // pasos). Se guarda en `visita.resumen_texto` con `resumen_origen =
 // 'reglas'`; el comercial puede reescribirlo a mano desde el detalle de la
 // visita (entonces pasa a `'manual'`).
 
 export interface DatosResumenVisita {
   objetivo?: string | null;
-  hallazgos: { terminoNombre: string; naturaleza: string; nota?: string | null }[];
+  /** Cada hallazgo se identifica por su nota (PM11 — no hay "naturaleza"). */
+  hallazgos: { nota?: string | null }[];
   oportunidades: { titulo: string }[];
   pasos: { descripcion: string; fecha?: string | null }[];
   nFotos: number;
@@ -38,20 +39,12 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
   const objetivo = d.objetivo?.trim();
   if (objetivo) frases.push(`Ibas a: ${capitalizarFrase(objetivo)}.`);
 
-  // Los riesgos llevan su nota entre paréntesis si la hay ("el lector
-  // falla dos veces al día") — es lo que da valor al resumen.
-  const riesgos = d.hallazgos
-    .filter((h) => h.naturaleza === 'riesgo')
-    .map((h) => {
-      const t = h.terminoNombre.trim();
-      const n = h.nota?.trim();
-      // Desde "Anotar" un hallazgo puede no tener término: entonces su
-      // propio texto es lo que se muestra.
-      if (t && n) return `${t} (${sinPuntuacionFinal(n)})`;
-      if (t) return t;
-      return n ? sinPuntuacionFinal(n) : 'algo que te preocupa';
-    });
-  if (riesgos.length) frases.push(`Riesgo: ${listaCorta(riesgos, 2)}.`);
+  // Hallazgos: cada uno es su nota (PM11 — sin "naturaleza"). Los dos
+  // primeros con texto entran en la micro-historia.
+  const hallazgos = d.hallazgos
+    .map((h) => sinPuntuacionFinal(h.nota?.trim() || ''))
+    .filter(Boolean);
+  if (hallazgos.length) frases.push(`Hallazgos: ${listaCorta(hallazgos, 2)}.`);
 
   // Oportunidades = la entidad (ya no hay hallazgos "de oportunidad", prompt
   // maestro 10).
@@ -69,14 +62,6 @@ export function generarResumenReglas(d: DatosResumenVisita): string {
     const extra = d.pasos.length > 3 ? ` y ${d.pasos.length - 3} más` : '';
     frases.push(`Próximo paso: ${pasosTexto}${extra}.`);
   }
-
-  // Hallazgos que no son "Me preocupa" (competencia, dato del cliente): se
-  // mencionan pero sin protagonismo.
-  const otros = d.hallazgos
-    .filter((h) => h.naturaleza !== 'riesgo')
-    .map((h) => h.terminoNombre.trim() || sinPuntuacionFinal(h.nota?.trim() || ''))
-    .filter(Boolean);
-  if (otros.length) frases.push(`También anotado: ${listaCorta(otros)}.`);
 
   // Si no hay nada "de fondo" pero sí capturas sueltas, al menos que el
   // resumen diga qué se llevó.

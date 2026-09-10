@@ -27,29 +27,14 @@ export async function regenerarResumenSiAuto(visitaId: string | undefined): Prom
   const [{ data: capturas }, { data: hallazgos }, { data: oportunidades }, { data: pasos }] =
     await Promise.all([
       supabase.from('captura_libre').select('tipo').eq('visita_id', visitaId),
-      supabase.from('hallazgo').select('nota, naturaleza, termino_id').eq('visita_id', visitaId),
+      supabase.from('hallazgo').select('nota').eq('visita_id', visitaId),
       supabase.from('oportunidad').select('titulo').eq('visita_origen_id', visitaId),
       supabase.from('proximo_paso').select('descripcion, fecha_objetivo').eq('visita_id', visitaId),
     ]);
 
-  // Mismo criterio que `cierre-visita.tsx`: el nombre del término, si lo
-  // hay, encabeza cada hallazgo; si no, su propio texto.
-  const terminoIds = [
-    ...new Set((hallazgos ?? []).map((h) => h.termino_id).filter((x): x is string => !!x)),
-  ];
-  let nombresTerminos: Record<string, string> = {};
-  if (terminoIds.length) {
-    const { data } = await supabase.from('termino').select('id, nombre').in('id', terminoIds);
-    nombresTerminos = Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
-  }
-
   const texto = generarResumenReglas({
     objetivo: v.objetivo,
-    hallazgos: (hallazgos ?? []).map((h) => ({
-      terminoNombre: (h.termino_id && nombresTerminos[h.termino_id]) || '',
-      naturaleza: h.naturaleza,
-      nota: h.nota ?? null,
-    })),
+    hallazgos: (hallazgos ?? []).map((h) => ({ nota: h.nota ?? null })),
     oportunidades: (oportunidades ?? []).map((o) => ({ titulo: o.titulo })),
     pasos: (pasos ?? []).map((p) => ({ descripcion: p.descripcion, fecha: p.fecha_objetivo ?? null })),
     nFotos: (capturas ?? []).filter((c) => c.tipo === 'foto').length,

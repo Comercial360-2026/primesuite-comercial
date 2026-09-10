@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import {
-  NATURALEZA_ORDEN,
-  NATURALEZA_LABEL,
   ETAPA_LABEL,
   PRIORIDAD_LABEL,
   PRIORIDAD_ORDEN,
@@ -54,7 +52,7 @@ interface DetalleVisita {
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
-  hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; areas: Area[] }>;
+  hallazgos: Array<{ id: string; nota: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string }>;
 }
@@ -137,7 +135,7 @@ export function DetalleVisitaCerrada() {
           .order('creado_en', { ascending: true }),
         supabase
           .from('hallazgo')
-          .select('id, nota, naturaleza')
+          .select('id, nota')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -201,7 +199,6 @@ export function DetalleVisitaCerrada() {
         notas: notas.map((n) => ({ id: n.id, titulo: n.titulo, contenido_texto: n.contenido_texto })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
-          naturaleza: h.naturaleza,
           nota: h.nota,
           areas: mapaAreasHz.get(h.id) ?? [],
         })),
@@ -269,22 +266,8 @@ export function DetalleVisitaCerrada() {
     ? [...data.oportunidades].sort((a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9))
     : [];
   const totalEuros = data ? data.oportunidades.reduce((s, o) => s + (o.valor_estimado ?? 0), 0) : 0;
-  const riesgosN = data ? data.hallazgos.filter((h) => h.naturaleza === 'riesgo').length : 0;
+  const hallazgosN = data ? data.hallazgos.length : 0;
   const vencidosN = data ? data.proximosPasos.filter(esVencido).length : 0;
-
-  const conocidas = new Set<string>(NATURALEZA_ORDEN);
-  const gruposHallazgos: { naturaleza: string; items: DetalleVisita['hallazgos'] }[] = data
-    ? [
-        ...NATURALEZA_ORDEN.map((n) => ({
-          naturaleza: n as string,
-          items: data.hallazgos.filter((h) => h.naturaleza === n),
-        })).filter((g) => g.items.length > 0),
-        ...(() => {
-          const otras = data.hallazgos.filter((h) => !conocidas.has(h.naturaleza));
-          return otras.length ? [{ naturaleza: otras[0].naturaleza, items: otras }] : [];
-        })(),
-      ]
-    : [];
 
   const fotosPorUbi = new Map<string, { foto: Foto; idx: number }[]>();
   data?.fotos.forEach((foto, idx) => {
@@ -296,7 +279,7 @@ export function DetalleVisitaCerrada() {
 
   const kpis: { texto: string; alerta: boolean }[] = [];
   if (totalEuros > 0) kpis.push({ texto: `${totalEuros.toLocaleString('es-ES')} € en oportunidades`, alerta: false });
-  if (riesgosN > 0) kpis.push({ texto: `${riesgosN} riesgo${riesgosN === 1 ? '' : 's'}`, alerta: true });
+  if (hallazgosN > 0) kpis.push({ texto: `${hallazgosN} hallazgo${hallazgosN === 1 ? '' : 's'}`, alerta: false });
   if (vencidosN > 0)
     kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
 
@@ -446,28 +429,18 @@ export function DetalleVisitaCerrada() {
             </SeccionLista>
           )}
 
-          {gruposHallazgos.length > 0 && (
+          {data.hallazgos.length > 0 && (
             <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
-              {gruposHallazgos.flatMap((g) => [
-                <div
-                  key={`sub-${g.naturaleza}`}
-                  className={`seccion-lista__subcabecera${g.naturaleza === 'riesgo' ? ' seccion-lista__subcabecera--riesgo' : ''}`}
-                >
-                  {g.naturaleza === 'riesgo' && <Icono nombre="atencion" size={12} />}{' '}
-                  {etiqueta(NATURALEZA_LABEL, g.naturaleza)} ({g.items.length})
-                </div>,
-                ...g.items.map((h) => (
-                  <FilaNavegable
-                    key={h.id}
-                    titulo={h.nota?.trim() || etiqueta(NATURALEZA_LABEL, g.naturaleza)}
-                    valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
-                    valorTenue
-                    tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
-                    to={`/hallazgos/${h.id}`}
-                    state={origen}
-                  />
-                )),
-              ])}
+              {data.hallazgos.map((h) => (
+                <FilaNavegable
+                  key={h.id}
+                  titulo={h.nota?.trim() || 'Hallazgo'}
+                  valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
+                  valorTenue
+                  to={`/hallazgos/${h.id}`}
+                  state={origen}
+                />
+              ))}
             </SeccionLista>
           )}
 

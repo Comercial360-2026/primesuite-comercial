@@ -183,6 +183,10 @@ async function sincronizarInsertSimple(
 async function sincronizarHallazgo(operacion: OperacionPendiente<'hallazgo'>): Promise<void> {
   const { areas, ...restoPayload } = operacion.payload;
   const fila = aPayloadSnakeCase({ ...operacion, payload: restoPayload } as OperacionPendiente);
+  // `naturaleza` se retiró de `hallazgo` (PM11 Fase 5). Una operación
+  // encolada antes del cambio aún la lleva en el payload — se descarta aquí
+  // para que el INSERT no falle por columna inexistente.
+  delete (fila as Record<string, unknown>).naturaleza;
 
   const { error } = await supabase
     .from('hallazgo')

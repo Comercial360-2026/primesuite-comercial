@@ -35,7 +35,7 @@ export async function reflejarRecategorizacionEnCola(id: string, hacia: TipoItem
   if (hacia === 'hallazgo') {
     const { data } = await supabase
       .from('hallazgo')
-      .select('visita_id, cliente_id, comercial_autor_id, naturaleza, nota, zona_texto, creado_en')
+      .select('visita_id, cliente_id, comercial_autor_id, nota, zona_texto, creado_en')
       .eq('id', id)
       .single();
     if (data) {
@@ -48,7 +48,6 @@ export async function reflejarRecategorizacionEnCola(id: string, hacia: TipoItem
         payload: {
           visitaId: data.visita_id,
           comercialAutorId: data.comercial_autor_id,
-          naturaleza: data.naturaleza as 'contexto' | 'riesgo' | 'competencia',
           nota: data.nota ?? undefined,
           zonaTexto: data.zona_texto ?? undefined,
         },

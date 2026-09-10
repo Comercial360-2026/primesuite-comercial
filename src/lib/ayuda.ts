@@ -342,14 +342,6 @@ const _CONCEPTOS = {
       'Una etiqueta libre para el sitio que estás mirando (una puerta, una barrera, un rincón). Sale al pulsar «Marcar zonas», junto a «Captura lo que veas»; mientras haya una zona escrita, todo lo que captures queda atado a ella y al cerrar la visita lo repasas zona por zona. Si no marcas ninguna, todas las capturas van juntas al grupo «General». La etiqueta es de usar y tirar —no se guarda en ninguna lista—, pero las que ya has usado en esta visita te vuelven a salir como chip para reutilizarlas.',
     cuando: 'En clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio. Si no vas por zonas, ni toques «Marcar zonas»: captura normal y todo va a «General».',
   },
-  'naturaleza-hallazgo': {
-    grupo: 'visita',
-    titulo: 'Qué significa lo que anotas',
-    queEs:
-      'Después de escribir en «Anotar», eliges qué significa lo que has visto: «Me preocupa» (algo que te puede complicar o hacer perder la cuenta), «Competencia» (producto o marca de otro proveedor), «Dato del cliente» (información útil, sin acción concreta) u «Oportunidad de venta» (un hueco para vender). Los tres primeros se guardan como hallazgo; «Oportunidad de venta» crea una Oportunidad y te pide su prioridad.',
-    ejemplo:
-      'Lectores de otra marca en las puertas → Competencia. El contrato de mantenimiento vence pronto y no lo tienes tú → Me preocupa. Quieren cambiar el control de accesos el año que viene → Oportunidad de venta.',
-  },
   'tipo-fecha-hallazgo': {
     grupo: 'visita',
     titulo: 'Fecha relevante de un hallazgo',

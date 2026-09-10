@@ -16,9 +16,6 @@ import {
   ETAPA_LABEL,
   PRIORIDAD_LABEL,
   HORIZONTE_LABEL,
-  NATURALEZA_ORDEN,
-  NATURALEZA_LABEL,
-  NATURALEZA_COLOR,
   ESTADO_PASO_LABEL,
   TIPO_FECHA_LABEL,
   tablaOportunidades,
@@ -72,17 +69,6 @@ Deno.test('Diccionarios de negocio sin cambios al mover', () => {
     'sin fecha definida': 'Sin fecha definida',
   });
   assertEquals(ESTADO_PASO_LABEL, { pendiente: 'Pendiente', completado: 'Hecho', cancelado: 'Cancelado' });
-  assertEquals(NATURALEZA_ORDEN, ['riesgo', 'competencia', 'contexto']);
-  assertEquals(NATURALEZA_LABEL, {
-    riesgo: 'Me preocupa',
-    competencia: 'Competencia',
-    contexto: 'Dato del cliente',
-  });
-  assertEquals(NATURALEZA_COLOR, {
-    riesgo: '#6E2430',
-    competencia: '#6E4C9E',
-    contexto: '#7C8492',
-  });
   assertEquals(TIPO_FECHA_LABEL, {
     vencimiento_contrato: 'Vencimiento de contrato',
     renovacion: 'Renovación',

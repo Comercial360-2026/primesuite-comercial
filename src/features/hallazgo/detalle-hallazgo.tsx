@@ -57,7 +57,7 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, visita_id, comercial_autor_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, cliente_id, visita_id, comercial_autor_id, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', hallazgoId!)
         .single();
@@ -131,8 +131,6 @@ export function DetalleHallazgo() {
     const { error: err } = await supabase
       .from('hallazgo')
       .update({
-        // `naturaleza` ya no se toca aquí (concepto en retirada, prompt
-        // maestro 11): conserva el valor que tuviera.
         nota: nota.trim() || null,
         ubicacion_id: ubicacionId || null,
         fecha_relevante: fechaRelevante || null,
@@ -254,9 +252,6 @@ export function DetalleHallazgo() {
         Categorías del catálogo (Hardware, Software…) o sistemas concretos. Puedes marcar varias.
       </div>
       <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
-
-      {/* El concepto "naturaleza" está en retirada (prompt maestro 11): el
-          hallazgo conserva el valor que tuviera, pero ya no se elige aquí. */}
 
       <div className="label">Nota</div>
       <textarea
