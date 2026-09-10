@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
-import type { OperacionPendiente, CapturaLibrePayload } from '@/lib/offline-queue';
+import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
+import { RecategorizarItem } from './recategorizar-item';
 import { enlaceMapa } from '@/lib/geo';
 
 // Regla 5 (cero jerga): el estado de sincronización de la cola offline
@@ -20,15 +23,39 @@ const ESTADO_SYNC_TEXTO: Record<string, string> = {
   error: 'error al subir',
 };
 
+// Modelo unificado de la captura que se está mirando, venga de la cola
+// offline (visita en curso, aún sin subir) o de Supabase (visita ya
+// cerrada, u otro dispositivo). Así la ficha —y editar/borrar— funciona
+// igual esté donde esté el dato (prompt maestro 11, Fase 3): la RLS ya
+// autoriza al autor y a Dirección a editar/borrar aunque la visita esté
+// cerrada, y el informe se regenera con datos vivos en la siguiente
+// descarga.
+interface CapturaVista {
+  id: string;
+  tipo: 'foto' | 'audio' | 'nota';
+  titulo: string;
+  contenidoTexto: string;
+  visitaId: string | undefined;
+  autorId: string | undefined;
+  creadoEn: string;
+  // 'cola' = vive en IndexedDB (puede estar sin subir todavía).
+  // 'servidor' = solo en Supabase, sin copia local.
+  fuente: 'cola' | 'servidor';
+  estadoSync: string;
+  archivoLocal?: Blob | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  storagePath?: string | null;
+}
+
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
-// El binario (Blob) de foto/audio se lee siempre desde IndexedDB local —
-// el motor de sincronización nunca lo borra tras subir (ver sync-engine.ts),
-// así que funciona igual esté la captura ya sincronizada o no.
 export function DetalleCaptura() {
   const { capturaId } = useParams<{ capturaId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { comercial } = useSesionActual();
 
-  const [operacion, setOperacion] = useState<OperacionPendiente<'captura_libre'> | null>(null);
+  const [captura, setCaptura] = useState<CapturaVista | null>(null);
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [tituloEdit, setTituloEdit] = useState('');
   const [textoEdit, setTextoEdit] = useState('');
@@ -40,29 +67,96 @@ export function DetalleCaptura() {
 
   useEffect(() => {
     if (!capturaId) return;
-    obtenerOperacion(capturaId).then((op) => {
+    let cancelado = false;
+    (async () => {
+      const op = await obtenerOperacion(capturaId);
+      if (cancelado) return;
       if (op && op.entidad === 'captura_libre') {
-        setOperacion(op as OperacionPendiente<'captura_libre'>);
-        const payload = op.payload as CapturaLibrePayload;
-        setTituloEdit(payload.titulo ?? '');
-        setTextoEdit(payload.contenidoTexto ?? '');
+        const p = op.payload as CapturaLibrePayload;
+        setCaptura({
+          id: op.id,
+          tipo: p.tipo,
+          titulo: p.titulo ?? '',
+          contenidoTexto: p.contenidoTexto ?? '',
+          visitaId: p.visitaId,
+          autorId: p.comercialAutorId,
+          creadoEn: op.creadoEn,
+          fuente: 'cola',
+          estadoSync: op.estado,
+          archivoLocal: op.archivoLocal ?? null,
+          latitud: p.latitud ?? null,
+          longitud: p.longitud ?? null,
+        });
+        setTituloEdit(p.titulo ?? '');
+        setTextoEdit(p.contenidoTexto ?? '');
+        setCargandoInicial(false);
+        return;
+      }
+
+      // No está en la cola local: leerla de Supabase (visita cerrada u otro
+      // dispositivo). Editar/borrar sigue permitido para el autor o
+      // Dirección.
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select(
+          'id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en'
+        )
+        .eq('id', capturaId)
+        .maybeSingle();
+      if (cancelado) return;
+      if (!error && data) {
+        setCaptura({
+          id: data.id,
+          tipo: data.tipo as CapturaVista['tipo'],
+          titulo: data.titulo ?? '',
+          contenidoTexto: data.contenido_texto ?? '',
+          visitaId: data.visita_id ?? undefined,
+          autorId: data.comercial_autor_id ?? undefined,
+          creadoEn: data.creado_en,
+          fuente: 'servidor',
+          estadoSync: 'completado',
+          storagePath: data.storage_path,
+          latitud: data.latitud,
+          longitud: data.longitud,
+        });
+        setTituloEdit(data.titulo ?? '');
+        setTextoEdit(data.contenido_texto ?? '');
       }
       setCargandoInicial(false);
-    });
+    })();
+    return () => {
+      cancelado = true;
+    };
   }, [capturaId]);
 
+  // Binario (foto/audio): de IndexedDB si hay copia local, si no de Storage
+  // con una URL firmada (visita cerrada u otro dispositivo).
   useEffect(() => {
-    if (operacion?.archivoLocal) {
-      const url = URL.createObjectURL(operacion.archivoLocal);
+    if (!captura) return;
+    if (captura.archivoLocal) {
+      const url = URL.createObjectURL(captura.archivoLocal);
       setUrlMedia(url);
       return () => URL.revokeObjectURL(url);
     }
-  }, [operacion]);
+    if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio')) {
+      const bucket = captura.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+      let vivo = true;
+      supabase.storage
+        .from(bucket)
+        .createSignedUrl(captura.storagePath, 600)
+        .then(({ data }) => {
+          if (vivo) setUrlMedia(data?.signedUrl ?? null);
+        });
+      return () => {
+        vivo = false;
+      };
+    }
+    setUrlMedia(null);
+  }, [captura]);
 
-  // Regla 6 (contexto siempre visible): antes la cabecera solo decía
-  // "Nota"/"Foto"/"Audio", sin decir de qué cliente ni visita. Toda visita
-  // tiene proyecto con nombre y se muestra siempre.
-  const visitaId = (operacion?.payload as CapturaLibrePayload | undefined)?.visitaId;
+  // Regla 6 (contexto siempre visible): la cabecera dice de qué cliente y
+  // proyecto es la captura.
+  const visitaId = captura?.visitaId;
   const { data: contextoVisita } = useQuery({
     queryKey: ['captura-contexto-visita', visitaId],
     enabled: !!visitaId,
@@ -76,56 +170,55 @@ export function DetalleCaptura() {
       return data;
     },
   });
-  const contextoTexto = [
-    contextoVisita?.cliente?.nombre,
-    contextoVisita?.proyecto?.nombre ?? null,
-  ]
+  const contextoTexto = [contextoVisita?.cliente?.nombre, contextoVisita?.proyecto?.nombre ?? null]
     .filter(Boolean)
     .join(' · ');
 
-  // Regla #14: el ← nunca es `navigate(-1)`. Una captura solo se abre desde
-  // su visita en curso, así que se vuelve a ella; si aún no se sabe cuál
-  // (carga o captura no encontrada), a Hoy.
-  const volver = visitaId ? `/visita/${visitaId}` : '/';
+  // Regla #14: el ← nunca es `navigate(-1)`. Quien navega aquí estampa el
+  // origen (visita en curso, visita cerrada, cierre de visita); si no
+  // consta, a la visita.
+  const volver = useVolverA(visitaId ? `/visita/${visitaId}` : '/');
 
   async function guardarEdicion() {
-    if (!operacion) return;
+    if (!captura) return;
 
     await guardado.ejecutar(
       async () => {
-        const payloadNuevo: CapturaLibrePayload = {
-          ...(operacion.payload as CapturaLibrePayload),
-          titulo: tituloEdit.trim() || undefined,
-          contenidoTexto: textoEdit.trim(),
-        };
+        const tituloNuevo = tituloEdit.trim() || undefined;
+        const textoNuevo = textoEdit.trim();
+        const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
-        if (operacion.estado === 'completado') {
-          // Ya sincronizada con Supabase: la edición requiere UPDATE directo
-          // contra la tabla, no pasa por la cola de creación (que es solo
-          // append-only). Si la política RLS no permite UPDATE al comercial
-          // sobre sus propias capturas, este error se mostrará tal cual,
-          // sin fallo silencioso.
+        if (enServidor) {
+          // Ya sincronizada: UPDATE directo contra la tabla. Si la RLS no lo
+          // permite, el error se muestra tal cual, sin fallo silencioso.
           const { error } = await supabase
             .from('captura_libre')
-            .update({ contenido_texto: payloadNuevo.contenidoTexto, titulo: payloadNuevo.titulo ?? null })
-            .eq('id', operacion.id);
+            .update({ contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null })
+            .eq('id', captura.id);
           if (error) throw new Error(error.message);
         }
 
-        // Se actualiza también la copia local, tanto si estaba pendiente
-        // (única fuente de verdad hasta que sincronice) como si ya estaba
-        // completada (para que la UI no dependa de una nueva lectura remota).
-        await actualizarOperacion(operacion.id, { payload: payloadNuevo });
-
-        return payloadNuevo;
+        if (captura.fuente === 'cola') {
+          // Alinear la copia local (única fuente de verdad hasta que
+          // sincronice; y para que la UI no dependa de una relectura).
+          const op = await obtenerOperacion(captura.id);
+          if (op) {
+            await actualizarOperacion(captura.id, {
+              payload: { ...(op.payload as CapturaLibrePayload), titulo: tituloNuevo, contenidoTexto: textoNuevo },
+            });
+          }
+        }
       },
       {
-        onExito: (payloadNuevo) => {
-          setOperacion((prev) => (prev ? { ...prev, payload: payloadNuevo } : prev));
+        onExito: () => {
+          setCaptura((prev) =>
+            prev ? { ...prev, titulo: tituloEdit.trim(), contenidoTexto: textoEdit.trim() } : prev
+          );
           setGuardadoConExito(true);
-          // Breve pausa para que el mensaje "guardado ✓" sea visible de
-          // verdad antes de volver — un flash demasiado rápido no sirve
-          // como confirmación, sobre todo sin poder fiarse del color.
+          if (captura.visitaId) {
+            queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
+          }
+          // Breve pausa para que "guardado ✓" sea visible antes de volver.
           setTimeout(() => navigate(volver), 700);
         },
         mensajeError:
@@ -134,42 +227,47 @@ export function DetalleCaptura() {
     );
   }
 
-  // Borrado — encargo técnico punto 3: si la captura tiene binario (foto o
-  // audio) y ya está sincronizada, primero se borra el archivo real en
-  // Storage y solo después la fila de metadatos — en ese orden, para no
-  // dejar la fila borrada apuntando a un archivo que ya no se puede
-  // limpiar. El payload local (IndexedDB) nunca guarda `storage_path` (ver
-  // comentario de CapturaLibrePayload), así que hay que leerlo de Supabase
-  // antes de intentar borrar el archivo.
   async function confirmarBorrado() {
-    if (!operacion) return;
+    if (!captura) return;
 
     await borrado.ejecutar(
       async () => {
-        if (operacion.estado === 'completado') {
-          const { data: fila, error: errLectura } = await supabase
-            .from('captura_libre')
-            .select('storage_path, tipo')
-            .eq('id', operacion.id)
-            .single();
-          if (errLectura) throw new Error(errLectura.message);
+        const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
-          if (fila?.storage_path) {
-            const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
-            const { error: errStorage } = await supabase.storage.from(bucket).remove([fila.storage_path]);
-            // No aborta el borrado si falla la limpieza de Storage — es
-            // preferible un archivo huérfano (riesgo ya documentado y
-            // mitigado con revisión manual) que dejar la fila sin poder
-            // borrarla nunca por un fallo puntual del bucket.
+        if (enServidor) {
+          // Si tiene binario (foto/audio), primero se borra el archivo de
+          // Storage y luego la fila — en ese orden, para no dejar la fila
+          // borrada apuntando a un archivo que ya no se puede limpiar. La
+          // cola local nunca guarda `storage_path`, así que se lee de
+          // Supabase cuando la fuente es la cola.
+          let storagePath = captura.storagePath ?? null;
+          let tipo = captura.tipo;
+          if (captura.fuente === 'cola') {
+            const { data: fila, error: errLectura } = await supabase
+              .from('captura_libre')
+              .select('storage_path, tipo')
+              .eq('id', captura.id)
+              .single();
+            if (errLectura) throw new Error(errLectura.message);
+            storagePath = fila?.storage_path ?? null;
+            tipo = (fila?.tipo as CapturaVista['tipo']) ?? tipo;
+          }
+
+          if (storagePath) {
+            const bucket = tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+            const { error: errStorage } = await supabase.storage.from(bucket).remove([storagePath]);
             if (errStorage) {
-              console.error('No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:', errStorage.message);
+              console.error(
+                'No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:',
+                errStorage.message
+              );
             }
           }
 
           const { error: errDelete, count } = await supabase
             .from('captura_libre')
             .delete({ count: 'exact' })
-            .eq('id', operacion.id);
+            .eq('id', captura.id);
           if (errDelete) throw new Error(errDelete.message);
           if (!count) {
             throw new Error(
@@ -178,13 +276,17 @@ export function DetalleCaptura() {
           }
         }
 
-        // Se borra también (o solo, si nunca llegó a sincronizar) de la
-        // cola local — si no, seguiría apareciendo en el listado de la
-        // visita como si existiera.
-        await eliminarOperacion(operacion.id);
+        if (captura.fuente === 'cola') {
+          await eliminarOperacion(captura.id);
+        }
       },
       {
-        onExito: () => navigate(volver),
+        onExito: () => {
+          if (captura.visitaId) {
+            queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
+          }
+          navigate(volver);
+        },
         mensajeError: 'No se pudo borrar la captura. Inténtalo de nuevo.',
       }
     );
@@ -192,7 +294,7 @@ export function DetalleCaptura() {
 
   if (cargandoInicial) return null;
 
-  if (!operacion) {
+  if (!captura) {
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Captura" volverA={volver} />
@@ -201,29 +303,45 @@ export function DetalleCaptura() {
     );
   }
 
-  const payload = operacion.payload as CapturaLibrePayload;
+  const mostrarEstadoSync = captura.fuente === 'cola' && captura.estadoSync !== 'completado';
 
   return (
     <div className="screen">
       <CabeceraDetalle
-        titulo={payload.tipo === 'nota' ? 'Nota' : payload.tipo === 'foto' ? 'Foto' : 'Audio'}
+        titulo={captura.tipo === 'nota' ? 'Nota' : captura.tipo === 'foto' ? 'Foto' : 'Audio'}
         subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-        {new Date(operacion.creadoEn).toLocaleString('es-ES')} · {ESTADO_SYNC_TEXTO[operacion.estado] ?? operacion.estado}
+        {new Date(captura.creadoEn).toLocaleString('es-ES')}
+        {mostrarEstadoSync ? ` · ${ESTADO_SYNC_TEXTO[captura.estadoSync] ?? captura.estadoSync}` : ''}
       </div>
 
-      {payload.tipo === 'foto' && urlMedia && (
+      {captura.tipo === 'nota' && (
+        <RecategorizarItem
+          id={captura.id}
+          tipoActual="nota"
+          visitaId={captura.visitaId}
+          origen={{ from: volver }}
+          sinSubir={captura.fuente === 'cola' && captura.estadoSync !== 'completado'}
+          motivoBloqueo={
+            comercial?.rol === 'direccion_comercial' || captura.autorId === comercial?.id
+              ? undefined
+              : 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'
+          }
+        />
+      )}
+
+      {captura.tipo === 'foto' && urlMedia && (
         <img src={urlMedia} alt="captura" style={{ width: '100%', borderRadius: 12 }} />
       )}
 
-      {payload.tipo === 'foto' && payload.latitud != null && payload.longitud != null && (
+      {captura.tipo === 'foto' && captura.latitud != null && captura.longitud != null && (
         <a
           className="btn-enlace"
-          href={enlaceMapa(payload.latitud, payload.longitud)}
+          href={enlaceMapa(captura.latitud, captura.longitud)}
           target="_blank"
           rel="noreferrer"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4 }}
@@ -232,30 +350,36 @@ export function DetalleCaptura() {
         </a>
       )}
 
-      {payload.tipo === 'audio' && urlMedia && (
-        <audio controls src={urlMedia} style={{ width: '100%' }} />
-      )}
+      {captura.tipo === 'audio' && urlMedia && <audio controls src={urlMedia} style={{ width: '100%' }} />}
 
-      {(payload.tipo === 'foto' || payload.tipo === 'audio') && (
+      {(captura.tipo === 'foto' || captura.tipo === 'audio') && (
         <>
           <input
             className="field"
             value={tituloEdit}
             onChange={(e) => setTituloEdit(e.target.value)}
-            placeholder={payload.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+            placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
           />
           <button
             className="btn btn-primary"
             disabled={guardado.cargando || guardadoConExito}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
+            {guardadoConExito ? (
+              <>
+                <Icono nombre="check" size={16} /> Guardado
+              </>
+            ) : guardado.cargando ? (
+              'Guardando…'
+            ) : (
+              'Guardar cambios'
+            )}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
       )}
 
-      {payload.tipo === 'nota' && (
+      {captura.tipo === 'nota' && (
         <>
           <input
             className="field"
@@ -276,7 +400,15 @@ export function DetalleCaptura() {
             disabled={guardado.cargando || guardadoConExito || !textoEdit.trim()}
             onClick={guardarEdicion}
           >
-            {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardado.cargando ? 'Guardando…' : 'Guardar cambios'}
+            {guardadoConExito ? (
+              <>
+                <Icono nombre="check" size={16} /> Guardado
+              </>
+            ) : guardado.cargando ? (
+              'Guardando…'
+            ) : (
+              'Guardar cambios'
+            )}
           </button>
           {guardado.error && <div className="field-error-text">{guardado.error}</div>}
         </>
@@ -286,7 +418,7 @@ export function DetalleCaptura() {
         {!confirmandoBorrado ? (
           <FilaNavegable
             icono="borrar"
-            titulo={`Borrar ${payload.tipo}`}
+            titulo={`Borrar ${captura.tipo}`}
             tono="riesgo"
             chevron={false}
             onClick={() => setConfirmandoBorrado(true)}
@@ -298,7 +430,7 @@ export function DetalleCaptura() {
             cargando={borrado.cargando}
             error={borrado.error}
           >
-            {payload.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+            {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
           </ConfirmacionBorrado>
         )}
       </div>

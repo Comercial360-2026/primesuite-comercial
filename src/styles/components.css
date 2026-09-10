@@ -696,6 +696,18 @@ textarea.field {
 }
 .dvc-bloque__texto { font-size: var(--text-base); margin-top: 4px; line-height: 1.4; }
 
+/* Bloque de texto que además es tocable: abre su ficha (nota del anexo de
+   una visita cerrada — prompt maestro 11, Fase 3). */
+.dvc-bloque--accion {
+  width: 100%; display: block; text-align: left; font: inherit; color: inherit;
+  cursor: pointer; position: relative;
+}
+.dvc-bloque--accion:hover { border-color: var(--ink-300); }
+.dvc-bloque__editar {
+  position: absolute; top: var(--space-3); right: var(--space-3);
+  color: var(--ink-300); display: inline-flex;
+}
+
 /* Medidor de espacio del equipo (pantalla Mi espacio). Barra con
    presencia, no un sliver; cifra en positivo. */
 .medidor {

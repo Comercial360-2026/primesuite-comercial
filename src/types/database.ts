@@ -2464,6 +2464,10 @@ export type Database = {
           rutas_storage: string[]
         }[]
       }
+      recategorizar_item: {
+        Args: { p_id: string; p_desde: string; p_hacia: string }
+        Returns: string
+      }
       resolver_termino_propuesto: {
         Args: {
           p_accion: string

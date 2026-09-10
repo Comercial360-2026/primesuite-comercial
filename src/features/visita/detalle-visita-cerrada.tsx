@@ -504,13 +504,31 @@ export function DetalleVisitaCerrada() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {data.notas.map((n) => (
-                  <div key={n.id} className="dvc-bloque">
+                  <button
+                    key={n.id}
+                    type="button"
+                    className="dvc-bloque dvc-bloque--accion"
+                    onClick={() => navigate(`/capturas/${n.id}`, { state: origen })}
+                  >
                     {n.titulo && <div style={{ fontWeight: 500, marginBottom: 2 }}>{n.titulo}</div>}
                     <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>
                       {n.contenido_texto}
                     </div>
-                  </div>
+                    <span aria-hidden className="dvc-bloque__editar">
+                      <Icono nombre="editar" size={14} />
+                    </span>
+                  </button>
                 ))}
+              </div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--ink-400)',
+                  marginTop: 4,
+                  paddingInline: 'var(--fila-pad-x)',
+                }}
+              >
+                Toca una nota para revisarla, editarla o marcarla como hallazgo u oportunidad.
               </div>
             </div>
           )}

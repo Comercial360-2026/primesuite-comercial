@@ -215,8 +215,10 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Foto, audio o nota',
     queEs:
-      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título.',
-    cuando: 'Para revisar o retocar algo que capturaste, o borrarlo si te has equivocado.',
+      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
+    cuando:
+      'Para revisar o retocar algo que capturaste, marcar una nota como hallazgo u oportunidad, o borrarlo si te has equivocado. Editar y borrar sigue disponible con la visita cerrada; el informe se rehace con lo último al descargarlo.',
+    ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial.',
   },
   'detalle-hallazgo': {
     grupo: 'registro',
@@ -224,8 +226,8 @@ const _PANTALLAS = {
     queEs:
       'Algo que has observado en el cliente y quieres dejar registrado: su texto, sus áreas del catálogo (categorías como Hardware o Software, o el sistema concreto; puedes marcar varias), en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las áreas del catálogo son opcionales y puedes añadirlas o quitarlas aquí después. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
-    ojo: 'Archivar y borrar solo los puede hacer el autor del hallazgo o Dirección Comercial.',
+      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las áreas del catálogo son opcionales y puedes añadirlas o quitarlas aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; las áreas se guardan y vuelven si lo marcas otra vez como hallazgo—. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+    ojo: 'Archivar, borrar y cambiar de tipo solo los puede hacer el autor del hallazgo o Dirección Comercial. Editar y borrar sigue disponible con la visita cerrada.',
   },
   'detalle-oportunidad': {
     grupo: 'registro',
@@ -233,8 +235,8 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente.',
-    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento.',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin términos asociados).',
+    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
   },
   'proximo-paso': {
     grupo: 'registro',

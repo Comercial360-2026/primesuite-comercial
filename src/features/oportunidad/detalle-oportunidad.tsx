@@ -14,6 +14,8 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { fechaCorta } from '@/lib/fechas';
 import { useVolverA } from '@/lib/volver-a';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -40,6 +42,7 @@ export function DetalleOportunidad() {
   const { oportunidadId } = useParams<{ oportunidadId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { comercial } = useSesionActual();
   // Se llega desde Visita activa, desde una visita cerrada o desde la
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
@@ -77,7 +80,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -99,6 +102,8 @@ export function DetalleOportunidad() {
           motivo_cierre: p.motivoCierre ?? null,
           comentario_cierre: p.comentarioCierre ?? null,
           creado_en: null as string | null,
+          comercial_autor_id: p.comercialAutorId ?? null,
+          visita_origen_id: p.visitaOrigenId ?? null,
           cliente: null as { nombre: string } | null,
           proyecto: null as { nombre: string } | null,
           enCola: true,
@@ -344,6 +349,21 @@ export function DetalleOportunidad() {
     );
   }
 
+  // "Esto es: Nota · Hallazgo · Oportunidad" (prompt maestro 11, Fase 3).
+  // Una oportunidad solo se puede degradar si está intacta: en `latente`,
+  // sin términos asociados. El resto de dependencias (seguimiento, próximos
+  // pasos) las corta la RPC y devuelve un mensaje claro.
+  const puedeRecategorizar =
+    comercial?.rol === 'direccion_comercial' || oportunidad.comercial_autor_id === comercial?.id;
+  const nTerminosAsociados = (soluciones?.length ?? 0) + (motivadoras?.length ?? 0);
+  const motivoBloqueoRecat = !puedeRecategorizar
+    ? 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'
+    : oportunidad.etapa !== 'latente'
+      ? 'Esta oportunidad ya está en marcha. Ciérrala o bórrala antes de cambiarla de tipo.'
+      : nTerminosAsociados > 0
+        ? 'Tiene términos asociados. Quítalos antes de cambiarla de tipo.'
+        : undefined;
+
   return (
     <div className="screen">
       <CabeceraDetalle
@@ -351,6 +371,15 @@ export function DetalleOportunidad() {
         subtitulo={contextoCliente || undefined}
         ayuda="detalle-oportunidad"
         onVolver={alVolver}
+      />
+
+      <RecategorizarItem
+        id={oportunidad.id}
+        tipoActual="oportunidad"
+        visitaId={oportunidad.visita_origen_id ?? undefined}
+        origen={{ from: volver }}
+        sinSubir={enCola}
+        motivoBloqueo={motivoBloqueoRecat}
       />
 
       <div className="label" style={{ marginTop: 0 }}>Título</div>

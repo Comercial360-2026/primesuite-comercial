@@ -15,6 +15,7 @@ import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { Aviso } from '@/components/ui/aviso';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
@@ -600,6 +601,37 @@ export function CierreVisita() {
               )}
             </ul>
           </Aviso>
+        )}
+
+        {/* Aviso informativo (no bloquea): solo si hay notas y NO se ha
+            marcado ningún hallazgo ni oportunidad en toda la visita —
+            señal de que aún no se ha clasificado nada. Si ya marcó algo,
+            sabe hacerlo y no se le insiste. Prompt maestro 11, Fase 3. */}
+        {notas.length > 0 && hallazgos.length === 0 && oportunidades.length === 0 && (
+          <SeccionLista titulo="Notas sin clasificar">
+            <div
+              style={{
+                padding: '2px var(--fila-pad-x) 6px',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--ink-400)',
+              }}
+            >
+              {plural(notas.length, 'nota', 'notas')}. Si alguna es «algo que tienen» o «algo para
+              venderles», ábrela y márcala. No hace falta para cerrar.
+            </div>
+            {notas.map((n) => {
+              const p = n.payload as { titulo?: string; contenidoTexto?: string };
+              return (
+                <FilaNavegable
+                  key={n.id}
+                  titulo={p.titulo?.trim() || p.contenidoTexto?.trim() || '(nota vacía)'}
+                  onClick={() =>
+                    navigate(`/capturas/${n.id}`, { state: { from: `/visita/${visitaId}/cierre` } })
+                  }
+                />
+              );
+            })}
+          </SeccionLista>
         )}
 
         {Object.keys(elementosPorUbicacion).some((k) => k !== 'sin ubicación') && (

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase-client';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -26,6 +28,7 @@ export function DetalleHallazgo() {
   const { hallazgoId } = useParams<{ hallazgoId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { comercial } = useSesionActual();
   // Se llega desde Visita activa, desde una visita cerrada o desde la
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
@@ -53,7 +56,7 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, cliente_id, visita_id, comercial_autor_id, naturaleza, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', hallazgoId!)
         .single();
@@ -216,6 +219,19 @@ export function DetalleHallazgo() {
         subtitulo={contextoCliente || undefined}
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
       />
+
+      <RecategorizarItem
+        id={hallazgo.id}
+        tipoActual="hallazgo"
+        visitaId={hallazgo.visita_id ?? undefined}
+        origen={{ from: volver }}
+        motivoBloqueo={
+          comercial?.rol === 'direccion_comercial' || hallazgo.comercial_autor_id === comercial?.id
+            ? undefined
+            : 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'
+        }
+      />
+
       <div className="label">Áreas (opcional)</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
         Categorías del catálogo (Hardware, Software…) o sistemas concretos. Puedes marcar varias.
