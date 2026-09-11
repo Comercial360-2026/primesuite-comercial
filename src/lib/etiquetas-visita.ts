@@ -7,9 +7,7 @@ export const ETAPA_LABEL: Record<string, string> = {
   latente: 'Idea',
   cualificada: 'Interés',
   en_propuesta: 'En propuesta',
-  ganada: 'Ganada',
-  perdida: 'Perdida',
-  descartada: 'Descartada',
+  cerrada: 'Cerrada',
 };
 
 export const PRIORIDAD_LABEL: Record<string, string> = {

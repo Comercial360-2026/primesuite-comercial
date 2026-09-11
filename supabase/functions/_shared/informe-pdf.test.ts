@@ -53,12 +53,10 @@ Deno.test('COLOR — espejo de tokens.css sin cambios al mover', () => {
 
 Deno.test('Diccionarios de negocio sin cambios al mover', () => {
   assertEquals(ETAPA_LABEL, {
-    latente: 'Latente',
-    cualificada: 'Cualificada',
+    latente: 'Idea',
+    cualificada: 'Interés',
     en_propuesta: 'En propuesta',
-    ganada: 'Ganada',
-    perdida: 'Perdida',
-    descartada: 'Descartada',
+    cerrada: 'Cerrada',
   });
   assertEquals(PRIORIDAD_LABEL, { baja: 'Baja', media: 'Media', alta: 'Alta', estrategica: 'Estratégica' });
   assertEquals(HORIZONTE_LABEL, {
@@ -253,7 +251,7 @@ function tablaPasosESPERADO(pasosOrdenados: PasoRow[]): any {
 const OPS: OportunidadRow[] = [
   { id: 'o1', titulo: 'Torniquetes vestíbulo', descripcion: 'Cambio de 6 uds', etapa: 'en_propuesta', prioridad: 'estrategica', valor_estimado: 42000, horizonte_decision: '3-6 meses' },
   { id: 'o2', titulo: 'Lectoras oficinas', descripcion: null, etapa: 'latente', prioridad: 'media', valor_estimado: null, horizonte_decision: null },
-  { id: 'o3', titulo: 'Mantenimiento', descripcion: 'Anual', etapa: 'ganada', prioridad: 'alta', valor_estimado: 8000, horizonte_decision: 'raro-no-mapeado' },
+  { id: 'o3', titulo: 'Mantenimiento', descripcion: 'Anual', etapa: 'cerrada', prioridad: 'alta', valor_estimado: 8000, horizonte_decision: 'raro-no-mapeado' },
 ];
 
 const HALL: HallazgoRow[] = [

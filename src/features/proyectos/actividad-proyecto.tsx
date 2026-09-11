@@ -79,7 +79,7 @@ export function ActividadProyecto({
         .from('oportunidad')
         .select('id, titulo, prioridad, etapa, valor_estimado')
         .eq('proyecto_id', proyectoId)
-        .not('etapa', 'in', '(ganada,perdida,descartada)')
+        .neq('etapa', 'cerrada')
         .order('creado_en', { ascending: false })
         .limit(5);
       if (error) throw error;

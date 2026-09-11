@@ -235,7 +235,7 @@ const _PANTALLAS = {
     queEs:
       'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, en qué zona surgió y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin términos asociados).',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla (se confirma antes; si ganó o perdió y por qué lo llevas en tu CRM, aquí no se pregunta). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin términos asociados).',
     ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
   },
   'proximo-paso': {
@@ -362,7 +362,7 @@ const _CONCEPTOS = {
     grupo: 'oportunidad',
     titulo: 'Etapa, prioridad y horizonte de una oportunidad',
     queEs:
-      'Las tres cosas que sitúan una oportunidad. Etapa: por dónde va la venta —idea (primer indicio, sin confirmar), interés (ya has visto interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada—. Prioridad: cuánto foco merece (baja, media, alta o estratégica); ordena tu lista y ayuda a Dirección a ver dónde está lo importante. Horizonte de decisión: cuándo crees que decidirá el cliente (0-3 meses, 3-6, 6-12, más de 12, o sin fecha); no es un compromiso, sirve para no dejar enfriar lo que está caliente.',
+      'Las tres cosas que sitúan una oportunidad. Etapa: por dónde va la venta —idea (primer indicio, sin confirmar), interés (ya has visto interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, cerrada—. Si ganó o perdió y por qué lo llevas en tu CRM; aquí solo importa si sigue abierta o no. Prioridad: cuánto foco merece (baja, media, alta o estratégica); ordena tu lista y ayuda a Dirección a ver dónde está lo importante. Horizonte de decisión: cuándo crees que decidirá el cliente (0-3 meses, 3-6, 6-12, más de 12, o sin fecha); no es un compromiso, sirve para no dejar enfriar lo que está caliente.',
     ejemplo:
       'El cliente quiere cerrar antes de fin de trimestre → horizonte 0-3 meses. Le has mandado oferta → etapa «en propuesta».',
   },

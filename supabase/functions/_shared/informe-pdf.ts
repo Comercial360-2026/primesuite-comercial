@@ -79,12 +79,10 @@ export const COLOR = {
 // ---------------------------------------------------------------------
 
 export const ETAPA_LABEL: Record<string, string> = {
-  latente: 'Latente',
-  cualificada: 'Cualificada',
+  latente: 'Idea',
+  cualificada: 'Interés',
   en_propuesta: 'En propuesta',
-  ganada: 'Ganada',
-  perdida: 'Perdida',
-  descartada: 'Descartada',
+  cerrada: 'Cerrada',
 };
 
 export const PRIORIDAD_LABEL: Record<string, string> = { baja: 'Baja', media: 'Media', alta: 'Alta', estrategica: 'Estratégica' };

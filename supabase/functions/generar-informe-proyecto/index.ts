@@ -48,9 +48,6 @@ const URL_FIRMADA_SEGUNDOS = 60 * 60;
 // hay más, se toman las más recientes y se avisa en la portada.
 const MAX_VISITAS = 25;
 
-// Etapas que cuentan una oportunidad como "cerrada". El resto = abierta.
-const ETAPAS_CERRADAS = ['ganada', 'perdida', 'descartada'];
-
 const ESTADO_PROYECTO_LABEL: Record<string, string> = {
   activo: 'Activo',
   pausado: 'Pausado',
@@ -257,17 +254,17 @@ Deno.serve(async (req) => {
   }
 
   // --- Agregados del proyecto entero (no solo las <=25 del cuerpo) ---
-  const [{ data: opsAbiertasData }, { count: opsGanadas }, { data: pasosPendientesData }] = await Promise.all([
+  const [{ data: opsAbiertasData }, { count: opsCerradas }, { data: pasosPendientesData }] = await Promise.all([
     admin
       .from('oportunidad')
       .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision')
       .eq('proyecto_id', proyectoId)
-      .not('etapa', 'in', `(${ETAPAS_CERRADAS.join(',')})`),
+      .neq('etapa', 'cerrada'),
     admin
       .from('oportunidad')
       .select('id', { count: 'exact', head: true })
       .eq('proyecto_id', proyectoId)
-      .eq('etapa', 'ganada'),
+      .eq('etapa', 'cerrada'),
     admin
       .from('proximo_paso')
       .select('id, descripcion, fecha_objetivo, estado, comercial_responsable:comercial_responsable_id(nombre)')
@@ -486,7 +483,7 @@ Deno.serve(async (req) => {
     filaKPIs([
       { valor: String(visitasCerradas), etiqueta: visitasCerradas === 1 ? 'Visita cerrada' : 'Visitas cerradas' },
       { valor: String(opsAbiertas.length), etiqueta: 'Oportunidades abiertas' },
-      { valor: String(opsGanadas ?? 0), etiqueta: 'Oportunidades ganadas' },
+      { valor: String(opsCerradas ?? 0), etiqueta: 'Oportunidades cerradas' },
       { valor: String(pasosPendientes.length), etiqueta: 'Próximos pasos pendientes', alerta: pasosPendientes.length > 0 },
     ]),
     valorAbierto > 0

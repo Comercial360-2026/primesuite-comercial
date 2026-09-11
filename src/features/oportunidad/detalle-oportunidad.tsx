@@ -25,10 +25,9 @@ import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
 const capFrase = (s: string) => s.charAt(0).toLocaleUpperCase('es') + s.slice(1);
 
-const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'ganada', 'perdida', 'descartada'] as const;
+const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'cerrada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
 const HORIZONTES = ['0-3 meses', '3-6 meses', '6-12 meses', 'mas de 12 meses', 'sin fecha definida'];
-const MOTIVOS_CIERRE = ['precio', 'competencia', 'sin presupuesto', 'proyecto cancelado', 'no encaja', 'timing', 'otro'];
 
 // 'tecnologia_motivadora' = lo que el cliente ya tiene y motivó la
 // oportunidad (p.ej. terminales de otra marca a sustituir/integrar).
@@ -57,8 +56,6 @@ export function DetalleOportunidad() {
   const [horizonte, setHorizonte] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [zonaTexto, setZonaTexto] = useState('');
-  const [motivoCierre, setMotivoCierre] = useState('');
-  const [comentarioCierre, setComentarioCierre] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,9 +63,9 @@ export function DetalleOportunidad() {
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
   // Confirmar antes de salir con cambios sin guardar, y antes de cerrar la
-  // oportunidad (marcarla perdida/descartada) desde un chip de Etapa.
+  // oportunidad desde el chip de Etapa.
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
-  const [confirmandoCierre, setConfirmandoCierre] = useState<string | null>(null);
+  const [confirmandoCierre, setConfirmandoCierre] = useState(false);
 
   // Se muestra el selector solo para uno de los dos papeles a la vez,
   // según qué botón "+ añadir" se pulsó.
@@ -85,7 +82,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, zona_texto, motivo_cierre, comentario_cierre, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, zona_texto, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -105,8 +102,6 @@ export function DetalleOportunidad() {
           horizonte_decision: p.horizonteDecision ?? null,
           descripcion: p.descripcion ?? null,
           zona_texto: p.zonaTexto ?? null,
-          motivo_cierre: p.motivoCierre ?? null,
-          comentario_cierre: p.comentarioCierre ?? null,
           creado_en: null as string | null,
           comercial_autor_id: p.comercialAutorId ?? null,
           visita_origen_id: p.visitaOrigenId ?? null,
@@ -171,11 +166,7 @@ export function DetalleOportunidad() {
     setHorizonte(oportunidad.horizonte_decision ?? '');
     setDescripcion(oportunidad.descripcion ?? '');
     setZonaTexto(oportunidad.zona_texto ?? '');
-    setMotivoCierre(oportunidad.motivo_cierre ?? '');
-    setComentarioCierre(oportunidad.comentario_cierre ?? '');
   }, [oportunidad]);
-
-  const esCierreNegativo = etapa === 'perdida' || etapa === 'descartada';
 
   // Los dos bloques de términos ("lo que ya tiene" + "lo que le proponemos")
   // se estructuran normalmente desde la oficina, no en la visita: van en una
@@ -194,9 +185,7 @@ export function DetalleOportunidad() {
       prioridad !== oportunidad.prioridad ||
       horizonte !== (oportunidad.horizonte_decision ?? '') ||
       descripcion !== (oportunidad.descripcion ?? '') ||
-      zonaTexto !== (oportunidad.zona_texto ?? '') ||
-      motivoCierre !== (oportunidad.motivo_cierre ?? '') ||
-      comentarioCierre !== (oportunidad.comentario_cierre ?? ''));
+      zonaTexto !== (oportunidad.zona_texto ?? ''));
 
   function alVolver() {
     if (confirmandoBorrado) {
@@ -216,12 +205,6 @@ export function DetalleOportunidad() {
 
   async function guardar() {
     if (!oportunidadId) return;
-    // Refleja chk_oportunidad_motivo_cierre_obligatorio (01_schema.sql):
-    // validar en cliente evita un rechazo del servidor con mensaje críptico.
-    if (esCierreNegativo && !motivoCierre) {
-      setError('Indica un motivo de cierre para continuar.');
-      return;
-    }
     setGuardando(true);
     setError(null);
 
@@ -241,8 +224,6 @@ export function DetalleOportunidad() {
             horizonteDecision: horizonte || undefined,
             descripcion: descripcion.trim() || undefined,
             zonaTexto: zonaTexto.trim() || undefined,
-            motivoCierre: esCierreNegativo ? motivoCierre : undefined,
-            comentarioCierre: esCierreNegativo ? comentarioCierre.trim() || undefined : undefined,
           },
         });
       }
@@ -267,8 +248,6 @@ export function DetalleOportunidad() {
           horizonte_decision: horizonte || null,
           descripcion: descripcion.trim() || null,
           zona_texto: zonaTexto.trim() || null,
-          motivo_cierre: esCierreNegativo ? motivoCierre : null,
-          comentario_cierre: esCierreNegativo ? comentarioCierre.trim() || null : null,
         },
         { count: 'exact' }
       )
@@ -437,12 +416,12 @@ export function DetalleOportunidad() {
             type="button"
             className={`chip${etapa === e ? ' chip--on' : ''}`}
             onClick={() => {
-              // Marcar «Perdida» / «Descartada» cierra la oportunidad — se
-              // confirma antes; el resto de etapas se aplican al toque.
-              if ((e === 'perdida' || e === 'descartada') && etapa !== e) {
-                setConfirmandoCierre(e);
+              // Marcar «Cerrada» se confirma antes; el resto de etapas se
+              // aplican al toque.
+              if (e === 'cerrada' && etapa !== e) {
+                setConfirmandoCierre(true);
               } else {
-                setConfirmandoCierre(null);
+                setConfirmandoCierre(false);
                 setEtapa(e);
               }
             }}
@@ -454,20 +433,17 @@ export function DetalleOportunidad() {
 
       {confirmandoCierre && (
         <div className="card card--riesgo" style={{ marginTop: 6 }}>
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-            Vas a marcar esta oportunidad como «{etiqueta(ETAPA_LABEL, confirmandoCierre)}»: se da por cerrada y
-            tendrás que indicar un motivo. ¿Seguro?
-          </p>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>Vas a cerrar esta oportunidad. ¿Seguro?</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoCierre(null)}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoCierre(false)}>
               Cancelar
             </button>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={() => {
-                setEtapa(confirmandoCierre);
-                setConfirmandoCierre(null);
+                setEtapa('cerrada');
+                setConfirmandoCierre(false);
               }}
             >
               Sí, cerrarla
@@ -589,32 +565,6 @@ export function DetalleOportunidad() {
 
       <div className="label">Zona (opcional)</div>
       <SelectorZona visitaId={oportunidad.visita_origen_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
-
-      {esCierreNegativo && (
-        <div className="card card--riesgo">
-          <div className="label" style={{ marginTop: 0 }}>Motivo de cierre</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {MOTIVOS_CIERRE.map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`chip${motivoCierre === m ? ' chip--on' : ''}`}
-                onClick={() => setMotivoCierre(m)}
-              >
-                {capFrase(m)}
-              </button>
-            ))}
-          </div>
-          <div className="label">Comentario (opcional)</div>
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={2}
-            value={comentarioCierre}
-            onChange={(e) => setComentarioCierre(e.target.value)}
-          />
-        </div>
-      )}
 
       {error && <div className="field-error-text">{error}</div>}
 

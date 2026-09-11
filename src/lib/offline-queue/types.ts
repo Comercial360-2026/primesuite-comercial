@@ -127,8 +127,6 @@ export interface OportunidadPayload {
   // los lleva. Si no, `etapa` nace 'latente' por defecto en la BD.
   etapa?: string;
   descripcion?: string;
-  motivoCierre?: string;
-  comentarioCierre?: string;
 }
 
 export interface ProximoPasoPayload {

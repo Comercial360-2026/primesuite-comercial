@@ -137,7 +137,7 @@ export function FichaProyecto() {
         .from('oportunidad')
         .select('id', { count: 'exact', head: true })
         .eq('proyecto_id', proyectoId!)
-        .not('etapa', 'in', '(ganada,perdida,descartada)');
+        .neq('etapa', 'cerrada');
       if (error) throw error;
       return count ?? 0;
     },
