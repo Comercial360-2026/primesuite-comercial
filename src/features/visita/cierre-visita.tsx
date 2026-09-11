@@ -17,6 +17,7 @@ import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { Aviso } from '@/components/ui/aviso';
+import { Icono } from '@/components/ui/iconos';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
@@ -327,7 +328,21 @@ export function CierreVisita() {
         />
 
         {sincronizada ? (
-          <Aviso tipo="exito">Visita cerrada correctamente.</Aviso>
+          // El "momento de marca" del rediseño: el único punto de toda la
+          // app donde el trabajo de una visita entera queda cerrado de
+          // verdad. Check animado al entrar (una vez, no se repite) — el
+          // resto de "éxito" de la app sigue siendo el <Aviso> de siempre;
+          // este es la excepción deliberada. Círculo + check + palabra:
+          // el color nunca va solo (daltónico).
+          <div className="cierre-exito">
+            <span className="cierre-exito__check">
+              <Icono nombre="check" size={26} weight="bold" />
+            </span>
+            <span className="cierre-exito__texto">
+              <span className="cierre-exito__titulo">Visita cerrada</span>
+              <span className="cierre-exito__sub">Todo guardado correctamente.</span>
+            </span>
+          </div>
         ) : (
           <Aviso tipo="atencion" titulo="Guardado localmente, pendiente de conexión">
             El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que

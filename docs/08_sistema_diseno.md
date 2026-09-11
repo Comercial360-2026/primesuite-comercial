@@ -810,3 +810,24 @@ de pantalla (avisos, errores, confirmaciones). Sustituye a los
 - `role="alert"` para `error`, `role="status"` para el resto.
 - Para el error corto pegado a un campo de formulario se sigue usando
   `.field-error-text` (no un `Aviso` con caja).
+
+## Momento de marca
+
+Un producto se siente diseñado, no ensamblado, cuando tiene UN detalle
+pequeño y memorable — no veinte. La app tiene exactamente uno:
+`.cierre-exito` (`src/features/visita/cierre-visita.tsx`), el resumen que
+se ve al cerrar una visita con éxito. Círculo verde sólido + `check` +
+"Visita cerrada" con una animación de entrada (`cierre-exito-pop`,
+480ms) — respeta `prefers-reduced-motion` como todo el resto de la app.
+
+- **Por qué esta pantalla y no otra**: es el único punto de toda la app
+  donde se cierra el trabajo de una visita entera — el pago de todo lo
+  capturado durante la visita, no un guardado más.
+- **No es un patrón a reutilizar.** El resto de confirmaciones "hecho" de
+  la app siguen siendo un `Aviso tipo="exito"` normal, sin animación
+  propia. Copiar esta caja a otro "guardado con éxito" banalizaría el
+  único momento que la tiene — si hace falta otro en el futuro, se decide
+  con Cesar antes de añadirlo, no por costumbre.
+- Círculo + icono + palabra: el color nunca es la única pista
+  (accesibilidad, daltónico), igual que en cualquier otro sitio de la
+  app.

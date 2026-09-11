@@ -813,6 +813,33 @@ textarea.field {
   color: var(--ink-300); display: inline-flex;
 }
 
+/* "Momento de marca" — el único punto de toda la app con una animación de
+   celebración propia (ver 08_sistema_diseno.md §"Momento de marca"): el
+   resumen de una visita que se acaba de cerrar con éxito. NO es un patrón
+   a reutilizar en otros "éxito" de la app — esos siguen siendo un `.aviso`
+   normal; esta excepción está documentada y es deliberada. */
+.cierre-exito {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-4); box-sizing: border-box;
+  background: var(--success-050); border: 1px solid var(--success-600);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card);
+}
+.cierre-exito__check {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--success-600); color: #fff;
+  animation: cierre-exito-pop 480ms var(--motion-ease);
+}
+.cierre-exito__texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cierre-exito__titulo { font-size: var(--text-base); font-weight: 700; letter-spacing: -0.006em; color: var(--ink-900); }
+.cierre-exito__sub { font-size: var(--text-sm); color: var(--ink-700); }
+@keyframes cierre-exito-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  65% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
 /* Gráfico de barras horizontales "por comercial" (Actividad, Consumo). Sin
    librería: son `<div>` con ancho en %, mismo lenguaje que `.medidor__barra`.
    Ver `src/components/ui/grafico-barras.tsx` y 08_sistema_diseno.md
