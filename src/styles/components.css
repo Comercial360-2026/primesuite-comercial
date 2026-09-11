@@ -21,11 +21,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  /* Píldora (Android/Material), no el radio-control de cajas/tarjetas: un
-     botón de acción y una tarjeta no son la misma forma. El navegador
-     recorta solo a la mitad de la altura real, así que vale para
-     cualquier .btn, tenga la altura de --h-button o una anulada en línea. */
-  border-radius: var(--radius-chip);
+  /* Esquina suave (--radius-control), NO píldora completa: a --h-button
+     (52px) de alto y ancho completo, una píldora de 999px se ve
+     desproporcionada — muy fina y alargada. Cesar lo señaló varias veces
+     comparando con "Continuar visita" (Hoy), que SÍ tenía este radio de
+     esquina — ese botón era el correcto, no la excepción. */
+  border-radius: var(--radius-control);
   font-family: var(--font-sans);
   font-size: var(--text-base);
   font-weight: 500;
@@ -748,10 +749,11 @@ textarea.field {
 .bloque-ahora__meta { font-size: var(--text-xs); color: var(--ink-400); margin-top: 2px; }
 /* "Ver preparación" / "Continuar visita" son la acción principal de la
    pantalla Hoy — las dos van con el mismo .btn.btn-primary que cualquier
-   otro botón principal de la app (antes tenían su propia clase con menos
-   redondeo — única excepción a la píldora estándar, corregida). Las dos
-   van rellenas en azul. Antes la de "próxima visita" iba en borde gris y
-   un usuario daltónico no la distinguía de un botón secundario. La
+   otro botón principal de la app (antes tenían su propia clase, con el
+   mismo radio de esquina que ahora es el estándar de .btn — la clase
+   propia ya no hacía falta y se quitó). Las dos van rellenas en azul.
+   Antes la de "próxima visita" iba en borde gris y un usuario daltónico
+   no la distinguía de un botón secundario. La
    urgencia la marca el borde de la tarjeta (1.5px azul en curso vs 1px
    gris próxima), no el botón. */
 
