@@ -57,9 +57,18 @@ interface CapturasPorUbicacionProps {
   nombresUbicaciones: Record<string, string>;
   onTocarCaptura: (id: string) => void;
   // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
-  // (que sirve para audio/nota/hallazgo). Si no se pasa, la foto también
-  // cae en `onTocarCaptura`.
+  // (que sirve para audio/nota). Si no se pasa, la foto también cae en
+  // `onTocarCaptura`.
   onAbrirFoto?: (id: string) => void;
+  // El hallazgo vive en su propia tabla/ruta (/hallazgos/:id, no
+  // /capturas/:id) — bug real encontrado en vivo: esta vista pintaba la
+  // fila de hallazgo sin enganchar NINGÚN toque (ni éste ni onTocarCaptura,
+  // que habría llevado a la ruta equivocada).
+  onAbrirHallazgo: (id: string) => void;
+  // Zona real (BD) de lo que ya se subió, por id — ver comentario en
+  // `misZonasReales`. Si un id no está aquí (aún sin subir), se usa la
+  // zona que quedó en la cola local.
+  zonasReales: Record<string, string | null>;
 }
 
 // Vista "En esta visita" agrupada por zona (conmutador "ver por zona" de
@@ -73,10 +82,16 @@ function CapturasPorUbicacion({
   nombresUbicaciones,
   onTocarCaptura,
   onAbrirFoto,
+  onAbrirHallazgo,
+  zonasReales,
 }: CapturasPorUbicacionProps) {
-  // Clave de agrupación por zona. Las capturas nuevas llevan `zonaTexto`
-  // (etiqueta libre); las de visitas antiguas, `ubicacionId`.
+  // Clave de agrupación por zona. Si ya se conoce la zona real (subido y
+  // refrescado de la BD), manda ella — así una zona editada después de
+  // capturar (desde la propia ficha del hallazgo/captura) se ve aquí sin
+  // esperar a cerrar y reabrir la visita. Si no, la copia de la cola
+  // local: `zonaTexto` (etiqueta libre) o, en visitas antiguas, `ubicacionId`.
   const claveDe = (op: OperacionPendiente) => {
+    if (op.id in zonasReales) return zonasReales[op.id] || 'sin-ubicacion';
     const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
     return p.zonaTexto ?? p.ubicacionId ?? 'sin-ubicacion';
   };
@@ -166,7 +181,15 @@ function CapturasPorUbicacion({
       })}
       {c.hz.map((h) => {
         const p = h.payload as { nota?: string };
-        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota));
+        // Igual que la vista "Tipo": solo se puede abrir en cuanto ha
+        // subido (su detalle lee de la BD, no de la cola local).
+        return itemFila(
+          h.id,
+          'hallazgo',
+          tituloHallazgo(p.nota),
+          undefined,
+          h.estado === 'completado' ? () => onAbrirHallazgo(h.id) : undefined
+        );
       })}
     </>
   );
@@ -1089,6 +1112,35 @@ export function VisitaActiva() {
       };
     },
   });
+  // Zona REAL de lo mío ya subido — bug real encontrado en vivo: la vista
+  // "por zona" agrupaba con la zona que quedó copiada en la cola local en
+  // el momento de capturar, sin enterarse si luego se editaba la zona
+  // desde la propia ficha del hallazgo/captura (fuera de esta pantalla).
+  // Mismo patrón que `deCompaneros` (arriba) pero de lo mío, solo id+zona.
+  const { data: misZonasReales } = useQuery({
+    queryKey: ['mis-zonas-reales-visita', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const [capturasRes, hallazgosRes] = await Promise.all([
+        supabase
+          .from('captura_libre')
+          .select('id, zona_texto')
+          .eq('visita_id', visitaId!)
+          .eq('comercial_autor_id', comercial!.id),
+        supabase
+          .from('hallazgo')
+          .select('id, zona_texto')
+          .eq('visita_id', visitaId!)
+          .eq('comercial_autor_id', comercial!.id),
+      ]);
+      const mapa: Record<string, string | null> = {};
+      for (const fila of [...(capturasRes.data ?? []), ...(hallazgosRes.data ?? [])]) {
+        mapa[fila.id] = fila.zona_texto;
+      }
+      return mapa;
+    },
+  });
   const notasCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'nota') ?? [];
   const audiosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'audio') ?? [];
   // B4 · Las fotos de compañeros también cuentan y se listan (antes se
@@ -1992,6 +2044,8 @@ export function VisitaActiva() {
                 nombresUbicaciones={nombresUbicacionesVisita}
                 onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
                 onAbrirFoto={setFotoVisorId}
+                onAbrirHallazgo={(id) => navigate(`/hallazgos/${id}`, { state: origen })}
+                zonasReales={misZonasReales ?? {}}
               />
             ) : (
               <>
