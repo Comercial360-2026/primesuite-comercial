@@ -65,7 +65,7 @@ export function AnotarHoja({
   const [oportunidadId] = useState(() => uuid());
   const [texto, setTexto] = useState('');
   const [marca, setMarca] = useState<Marca>('nada');
-  const [area, setArea] = useState<Area | null>(null);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -129,11 +129,12 @@ export function AnotarHoja({
         await onGuardarHallazgo({
           visitaId,
           comercialAutorId: comercialId,
-          // Hallazgo simplificado a "categoría + nota": una categoría del
-          // catálogo, opcional. El payload sigue viajando como array (tabla
-          // puente `hallazgo_area`) para no tocar la sincronización ni la
-          // base de datos — aquí nunca lleva más de un elemento.
-          areas: area ? [{ tipo: area.tipo, id: area.id }] : [],
+          // Hallazgo simplificado a "categorías + nota": una o varias
+          // categorías del catálogo, opcional — término/modelo sigue
+          // reservado para más adelante. El payload ya viajaba como array
+          // (tabla puente `hallazgo_area`), no ha hecho falta tocar la
+          // sincronización ni la base de datos.
+          areas: areas.map((a) => ({ tipo: a.tipo, id: a.id })),
           nota: cuerpo,
         });
         sumarUso();
@@ -261,9 +262,9 @@ export function AnotarHoja({
         <>
           <div className="label">Categoría (opcional)</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-            Marca la que aplique.
+            Marca las que apliquen.
           </div>
-          <SelectorCategorias seleccionada={area} onCambio={setArea} />
+          <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
         </>
       )}
 

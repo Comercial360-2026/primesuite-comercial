@@ -2,21 +2,26 @@ import { type Area, esCategoriaSinClasificar } from '@/lib/vocabulario';
 import { useCatalogoVocabulario } from '@/hooks/use-catalogo-vocabulario';
 
 interface SelectorCategoriasProps {
-  seleccionada: Area | null;
-  onCambio: (area: Area | null) => void;
+  seleccionadas: Area[];
+  onCambio: (areas: Area[]) => void;
 }
 
-// Lista simple de categorías del catálogo: se marca UNA (Hallazgo,
-// simplificado a "categoría + nota" — término/modelo queda reservado para
-// más adelante, ver docs de la decisión). Tocar la ya marcada la quita.
+// Lista simple de categorías del catálogo: se marcan una o varias (Hallazgo,
+// simplificado a "categorías + nota" — término/modelo queda reservado para
+// más adelante, ver docs de la decisión). Tocar una ya marcada la quita.
 // "Sin clasificar" queda fuera: es la bandeja de propuestas, no una
 // categoría real.
-export function SelectorCategorias({ seleccionada, onCambio }: SelectorCategoriasProps) {
+export function SelectorCategorias({ seleccionadas, onCambio }: SelectorCategoriasProps) {
   const { categorias } = useCatalogoVocabulario();
   const lista = categorias.filter((c) => !esCategoriaSinClasificar(c.nombre));
 
   function alternar(c: { id: string; nombre: string }) {
-    onCambio(seleccionada?.id === c.id ? null : { tipo: 'categoria', id: c.id, nombre: c.nombre });
+    const marcada = seleccionadas.some((a) => a.id === c.id);
+    onCambio(
+      marcada
+        ? seleccionadas.filter((a) => a.id !== c.id)
+        : [...seleccionadas, { tipo: 'categoria', id: c.id, nombre: c.nombre }]
+    );
   }
 
   return (
@@ -25,7 +30,7 @@ export function SelectorCategorias({ seleccionada, onCambio }: SelectorCategoria
         <button
           key={c.id}
           type="button"
-          className={`chip${seleccionada?.id === c.id ? ' chip--on' : ''}`}
+          className={`chip${seleccionadas.some((a) => a.id === c.id) ? ' chip--on' : ''}`}
           onClick={() => alternar(c)}
         >
           {c.nombre}

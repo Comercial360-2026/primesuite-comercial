@@ -36,11 +36,11 @@ export function DetalleHallazgo() {
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
 
-  // Hallazgo simplificado a "categoría + nota": una categoría del catálogo,
-  // opcional. Se sigue guardando en la tabla puente `hallazgo_area` (sin
-  // tocar la base de datos, por si más adelante se reactiva término/modelo);
-  // aquí solo se lee/escribe la primera.
-  const [area, setArea] = useState<Area | null>(null);
+  // Hallazgo simplificado a "categorías + nota": una o varias categorías
+  // del catálogo, opcional — término/modelo sigue reservado para más
+  // adelante. Se guarda en la tabla puente `hallazgo_area`, que ya admitía
+  // varias filas por hallazgo desde el principio.
+  const [areas, setAreas] = useState<Area[]>([]);
   const [nota, setNota] = useState('');
   const [zonaTexto, setZonaTexto] = useState('');
   const [fechaRelevante, setFechaRelevante] = useState('');
@@ -111,7 +111,7 @@ export function DetalleHallazgo() {
 
   useEffect(() => {
     if (!areasCargadas || areasSembradasRef.current === hallazgoId) return;
-    setArea(areasCargadas[0] ?? null);
+    setAreas(areasCargadas);
     areasSembradasRef.current = hallazgoId ?? null;
   }, [areasCargadas, hallazgoId]);
 
@@ -155,7 +155,7 @@ export function DetalleHallazgo() {
       return;
     }
     try {
-      await guardarAreasDeHallazgo(hallazgoId, area ? [area] : []);
+      await guardarAreasDeHallazgo(hallazgoId, areas);
     } catch (errAreas) {
       setGuardando(false);
       setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
@@ -282,9 +282,9 @@ export function DetalleHallazgo() {
 
       <div className="label">Categoría (opcional)</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-        Del catálogo (Hardware, Software…).
+        Del catálogo (Hardware, Software…). Puedes marcar varias.
       </div>
-      <SelectorCategorias seleccionada={area} onCambio={setArea} />
+      <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
 
       <div className="label">Nota</div>
       <textarea
