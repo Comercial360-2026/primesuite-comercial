@@ -97,6 +97,34 @@ mayoría son pantallas de Dirección o actúan sobre un recurso recién creado
 por el propio usuario — menor riesgo, pero queda pendiente como revisión
 aparte si se quiere ir más allá de PM11.
 
+## [D] Bug encontrado y corregido — hallazgo: zona no editable + categorías atascadas
+
+Reportado por Cesar directamente (no en la sesión de pruebas): al abrir un
+hallazgo de GABITEL ya hecho, podía marcar categorías nuevas pero no quitar
+ni modificar las que ya tenía, y tampoco podía "asignar una zona".
+
+- **Zona**: `detalle-hallazgo.tsx` seguía con el `<select>` de "Ubicación"
+  del catálogo antiguo (tabla `ubicacion`) — muerto desde la migración a
+  zona libre (2026-09-03), no se pueden crear ubicaciones nuevas. Sustituido
+  por el campo de texto libre "Zona (opcional)" (mismo que Anotar),
+  escribiendo en `hallazgo.zona_texto`. Una `ubicacion_id` antigua se
+  conserva sin tocar (el informe la sigue usando de último recurso) con un
+  aviso de que sigue ahí.
+- **Áreas**: en `SelectorAreas`, un chip de categoría YA marcada en la
+  rejilla solo abría/cerraba su árbol de términos al pulsarlo — para
+  quitarla había que entrar al árbol y encontrar "Toda la categoría «X»"
+  (ya marcada). Ahora el chip ya marcado lleva su propia × directa, igual
+  que la fila de arriba.
+- **Mismo hueco de zona, sin corregir en esta tanda**: nota, oportunidad y
+  próximo paso tampoco editan su zona desde la ficha — anotado, no tocado
+  (alcance: lo que Cesar reportó era sobre hallazgo).
+
+**Verificado en vivo** (localhost, hallazgo de prueba con área "Hardware"):
+escribir zona → Guardar → `zona_texto` en BD; quitar "Hardware" con la ×
+nueva → Guardar → 0 filas en `hallazgo_area`. Dato de prueba borrado.
+typecheck+lint+build verdes. **Pendiente**: Cesar no lo ha vuelto a probar
+él mismo todavía.
+
 ## Resumen
 
 - **2 bugs encontrados y corregidos**, ambos re-probados y cerrados:
