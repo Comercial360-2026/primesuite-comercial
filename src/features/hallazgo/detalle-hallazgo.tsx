@@ -14,7 +14,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
-import { SelectorAreas } from '@/components/ui/selector-areas';
+import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import type { Area } from '@/lib/vocabulario';
 import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
@@ -36,9 +36,11 @@ export function DetalleHallazgo() {
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
 
-  // Áreas del catálogo (prompt maestro 11, Fase 2): categorías y/o términos,
-  // varias. Se cargan de la tabla puente y se pueden añadir/quitar aquí.
-  const [areas, setAreas] = useState<Area[]>([]);
+  // Hallazgo simplificado a "categoría + nota": una categoría del catálogo,
+  // opcional. Se sigue guardando en la tabla puente `hallazgo_area` (sin
+  // tocar la base de datos, por si más adelante se reactiva término/modelo);
+  // aquí solo se lee/escribe la primera.
+  const [area, setArea] = useState<Area | null>(null);
   const [nota, setNota] = useState('');
   const [zonaTexto, setZonaTexto] = useState('');
   const [fechaRelevante, setFechaRelevante] = useState('');
@@ -92,7 +94,7 @@ export function DetalleHallazgo() {
   // El formulario se rellena con lo que hay en el servidor UNA sola vez por
   // hallazgo. Sin estos guards, cualquier refetch de la query (foco de la
   // ventana con la query ya vencida, o una invalidación tras convertir de
-  // tipo) volvía a llamar a `setNota`/`setAreas`/… y borraba lo que el
+  // tipo) volvía a llamar a `setNota`/`setArea`/… y borraba lo que el
   // comercial estuviera editando sin guardar. `guardarAreasDeHallazgo` hace
   // su diff contra la BD al guardar, así que no reflejar en vivo un cambio
   // remoto es seguro (además, editar en dos sitios a la vez no es el caso).
@@ -109,7 +111,7 @@ export function DetalleHallazgo() {
 
   useEffect(() => {
     if (!areasCargadas || areasSembradasRef.current === hallazgoId) return;
-    setAreas(areasCargadas);
+    setArea(areasCargadas[0] ?? null);
     areasSembradasRef.current = hallazgoId ?? null;
   }, [areasCargadas, hallazgoId]);
 
@@ -153,7 +155,7 @@ export function DetalleHallazgo() {
       return;
     }
     try {
-      await guardarAreasDeHallazgo(hallazgoId, areas);
+      await guardarAreasDeHallazgo(hallazgoId, area ? [area] : []);
     } catch (errAreas) {
       setGuardando(false);
       setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
@@ -278,11 +280,11 @@ export function DetalleHallazgo() {
         }
       />
 
-      <div className="label">Áreas (opcional)</div>
+      <div className="label">Categoría (opcional)</div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-        Categorías del catálogo (Hardware, Software…) o sistemas concretos. Puedes marcar varias.
+        Del catálogo (Hardware, Software…).
       </div>
-      <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
+      <SelectorCategorias seleccionada={area} onCambio={setArea} />
 
       <div className="label">Nota</div>
       <textarea

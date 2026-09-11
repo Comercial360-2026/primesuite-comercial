@@ -65,7 +65,7 @@ export function AnotarHoja({
   const [oportunidadId] = useState(() => uuid());
   const [texto, setTexto] = useState('');
   const [marca, setMarca] = useState<Marca>('nada');
-  const [areas, setAreas] = useState<Area[]>([]);
+  const [area, setArea] = useState<Area | null>(null);
   const [prioridad, setPrioridad] = useState<OportunidadPayload['prioridad']>('media');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -129,9 +129,11 @@ export function AnotarHoja({
         await onGuardarHallazgo({
           visitaId,
           comercialAutorId: comercialId,
-          // Áreas del catálogo (prompt maestro 11, Fase 2): categorías y/o
-          // términos, varias. Solo viaja tipo + id.
-          areas: areas.map((a) => ({ tipo: a.tipo, id: a.id })),
+          // Hallazgo simplificado a "categoría + nota": una categoría del
+          // catálogo, opcional. El payload sigue viajando como array (tabla
+          // puente `hallazgo_area`) para no tocar la sincronización ni la
+          // base de datos — aquí nunca lleva más de un elemento.
+          areas: area ? [{ tipo: area.tipo, id: area.id }] : [],
           nota: cuerpo,
         });
         sumarUso();
@@ -257,12 +259,11 @@ export function AnotarHoja({
 
       {marca === 'hallazgo' && (
         <>
-          <div className="label">Área (opcional)</div>
+          <div className="label">Categoría (opcional)</div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
-            Marca las categorías que apliquen. La marca o el modelo concretos se afinan
-            luego en la ficha del hallazgo.
+            Marca la que aplique.
           </div>
-          <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+          <SelectorCategorias seleccionada={area} onCambio={setArea} />
         </>
       )}
 
