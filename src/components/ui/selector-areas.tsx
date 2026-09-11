@@ -61,6 +61,18 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
     : [];
   const existeTerminoExacto = terminos.some((t) => sinAcentos(t.nombre) === q);
 
+  // Elegir una coincidencia real del catálogo desde la lista de resultados:
+  // marca/desmarca Y vacía la búsqueda, igual que `proponerYMarcar`. Vaciar
+  // no es cosmético: si el texto se queda, sigue colgando debajo el botón
+  // "+ Proponer … como término nuevo" para algo que acabas de encontrar en
+  // el catálogo. Todo resultado de la lista pasa por aquí, no por `alternar`
+  // a pelo (el árbol de categorías de abajo sí usa `alternar`: ahí no hay
+  // búsqueda que vaciar).
+  function elegirDeBusqueda(area: Area) {
+    alternar(area);
+    setTextoBusqueda('');
+  }
+
   async function proponerYMarcar() {
     if (!textoBusqueda.trim()) return;
     setProponiendo(true);
@@ -158,7 +170,7 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
                   key={`cat-${c.id}`}
                   type="button"
                   className="selector-opt"
-                  onClick={() => alternar(area)}
+                  onClick={() => elegirDeBusqueda(area)}
                 >
                   {estaSel(area) && <Icono nombre="check" size={13} />}{' '}
                   <span className="selector-opt__tail">{c.nombre}</span>
@@ -174,7 +186,7 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
                   key={`ter-${t.id}`}
                   type="button"
                   className="selector-opt"
-                  onClick={() => alternar(area)}
+                  onClick={() => elegirDeBusqueda(area)}
                 >
                   {estaSel(area) && <Icono nombre="check" size={13} />}{' '}
                   {lead && <span className="selector-opt__lead">{lead}</span>}

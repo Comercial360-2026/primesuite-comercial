@@ -81,6 +81,27 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   navega a una, comprobar que estampa origen y que el destino usa
   `useVolverA`. Detalle en `src/lib/volver-a.ts`.
 
+- **Buscador de selección: elegir un resultado vacía la búsqueda.** En un
+  campo que busca sobre un catálogo o una lista y del que se *elige* algo
+  (categoría, término, comercial, cliente…) quedándote en la misma
+  pantalla, el `onClick` del resultado **vacía el texto** además de aplicar
+  la selección. Si no, el buscador se queda con el texto y debajo siguen
+  colgando los resultados y el botón «+ Proponer "…" como término nuevo»
+  para algo que acabas de encontrar en el catálogo. El patrón es una
+  función única (`elegirDeBusqueda`) que hace las dos cosas, nunca repetir
+  `setTexto('')` en cada `onClick`: así un resultado nuevo no se olvida.
+  Cuando la acción es asíncrona, se vacía **después** del éxito — si falla,
+  el texto se queda para reintentar (`asociarTermino` en detalle-
+  oportunidad, `resolver` en cola-vocabulario, `asignar` en solicitudes-
+  reasignacion ya lo hacen así).
+  **No aplica** —y se deja a propósito— cuando el campo es un *filtro* de
+  una lista que sigue en pantalla y la confirmación llega luego con un
+  botón (`participantes-hoja`, modo «Añadir al equipo»: vaciar repoblaría
+  la lista entera y perderías el sitio mientras marcas casillas), ni
+  cuando el buscador desaparece solo al pasar de paso
+  (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
+  listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
+
 ## Despliegue (Netlify)
 
 | Concepto                  | Valor                                                     |
