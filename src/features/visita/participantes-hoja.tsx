@@ -259,17 +259,29 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     setQuitandoId(comercialId);
     setError(null);
     const salgoYo = comercialId === comercial?.id;
-    const { error: err } = salgoYo
-      ? await supabase.from('visita_participante').delete().eq('visita_id', visitaId).eq('comercial_id', comercialId)
+    // Mismo patrón que el resto de guardados: sin permiso, un UPDATE/DELETE
+    // sin fila que matchee por RLS "tiene éxito" con 0 filas — comprobar
+    // `count` es la única forma de no decir que se ha salido/expulsado sin
+    // haberlo hecho de verdad.
+    const { error: err, count } = salgoYo
+      ? await supabase
+          .from('visita_participante')
+          .delete({ count: 'exact' })
+          .eq('visita_id', visitaId)
+          .eq('comercial_id', comercialId)
       : await supabase
           .from('visita_participante')
-          .update({ estado: 'expulsado', rechazo_visto: false })
+          .update({ estado: 'expulsado', rechazo_visto: false }, { count: 'exact' })
           .eq('visita_id', visitaId)
           .eq('comercial_id', comercialId);
     setQuitandoId(null);
     setConfirmandoQuitar(null);
     if (err) {
       setError(err.message);
+      return;
+    }
+    if (!count) {
+      setError('No se ha podido (0 filas afectadas). Puede que no tengas permiso.');
       return;
     }
     for (const clave of [

@@ -210,9 +210,21 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     setGuardando(true);
     setError(null);
     for (const id of marcados) {
-      const { error: err } = await supabase.from('interlocutor').update({ activo: false }).eq('id', id);
+      // Mismo patrón que el resto de guardados: sin permiso, Supabase no da
+      // error en un UPDATE que no matchea ninguna fila por RLS — comprobar
+      // `count` es la única forma de no decir "quitado" sin haberlo dado de
+      // baja de verdad.
+      const { error: err, count } = await supabase
+        .from('interlocutor')
+        .update({ activo: false }, { count: 'exact' })
+        .eq('id', id);
       if (err) {
         setError(err.message);
+        setGuardando(false);
+        return;
+      }
+      if (!count) {
+        setError('No se ha podido quitar a alguno (0 filas afectadas). Puede que no tengas permiso.');
         setGuardando(false);
         return;
       }

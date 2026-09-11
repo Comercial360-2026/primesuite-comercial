@@ -73,14 +73,22 @@ export async function guardarAreasDeHallazgo(hallazgoId: string, deseadas: Area[
   const sobran = actuales.filter((a) => !deseadas.some((d) => mismaArea(a, d)));
   const faltan = deseadas.filter((d) => !actuales.some((a) => mismaArea(a, d)));
 
+  // Mismo patrón que el guardado de la ficha (detalle-hallazgo.tsx): sin
+  // permiso, Supabase no da error en un DELETE que no matchea ninguna
+  // fila por RLS — "tiene éxito" afectando a 0 filas. Sin comprobar
+  // `count`, quitar un área quedaría "guardado ✓" en pantalla sin haberse
+  // borrado de verdad, y reaparecería al recargar.
   for (const a of sobran) {
     const filtro = a.tipo === 'categoria' ? { categoria_id: a.id } : { termino_id: a.id };
-    const { error } = await supabase
+    const { error, count } = await supabase
       .from('hallazgo_area')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('hallazgo_id', hallazgoId)
       .match(filtro);
     if (error) throw error;
+    if (!count) {
+      throw new Error(`No se pudo quitar "${a.nombre}" (0 filas afectadas). Puede que no tengas permiso.`);
+    }
   }
 
   if (faltan.length > 0) {
