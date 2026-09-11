@@ -14,6 +14,7 @@ import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { SelectorZona } from '@/components/ui/selector-zona';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
 // vía paso-rapido-hoja.tsx). Mismo patrón que detalle-hallazgo.tsx:
@@ -50,7 +51,7 @@ export function DetalleProximoPaso() {
       const { data, error: err } = await supabase
         .from('proximo_paso')
         .select(
-          'id, descripcion, fecha_objetivo, estado, zona_texto, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
+          'id, descripcion, fecha_objetivo, estado, zona_texto, proyecto_id, visita_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
         )
         .eq('id', pasoId!)
         .single();
@@ -258,12 +259,7 @@ export function DetalleProximoPaso() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <input
-        className="field"
-        value={zonaTexto}
-        onChange={(e) => setZonaTexto(e.target.value)}
-        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-      />
+      <SelectorZona visitaId={paso.visita_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
 
       {error && <div className="field-error-text">{error}</div>}
 

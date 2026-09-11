@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
+import { SelectorZona } from '@/components/ui/selector-zona';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -568,12 +569,7 @@ export function DetalleOportunidad() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <input
-        className="field"
-        value={zonaTexto}
-        onChange={(e) => setZonaTexto(e.target.value)}
-        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-      />
+      <SelectorZona visitaId={oportunidad.visita_origen_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
 
       {esCierreNegativo && (
         <div className="card card--riesgo">

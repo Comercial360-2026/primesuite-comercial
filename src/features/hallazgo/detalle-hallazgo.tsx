@@ -15,6 +15,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { SelectorAreas } from '@/components/ui/selector-areas';
+import { SelectorZona } from '@/components/ui/selector-zona';
 import type { Area } from '@/lib/vocabulario';
 import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
 import { Icono } from '@/components/ui/iconos';
@@ -281,12 +282,7 @@ export function DetalleHallazgo() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <input
-        className="field"
-        value={zonaTexto}
-        onChange={(e) => setZonaTexto(e.target.value)}
-        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-      />
+      <SelectorZona visitaId={hallazgo.visita_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
       {!zonaTexto.trim() && hallazgoTieneUbicacionLegado && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
           Tenía una ubicación del catálogo antiguo; se conserva en el informe hasta que escribas

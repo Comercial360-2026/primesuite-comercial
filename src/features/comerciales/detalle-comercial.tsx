@@ -423,7 +423,7 @@ export function DetalleComercial() {
             disabled={!nombre.trim() || !hayCambios || guardando}
             onClick={guardar}
           >
-            {guardando ? 'Guardando…' : 'Guardar cambios'}
+            {guardando ? 'Guardando…' : 'Guardar'}
           </button>
         )}
 
@@ -498,7 +498,7 @@ export function DetalleComercial() {
           disabled={!nombre.trim() || !hayCambios || guardando}
           onClick={guardar}
         >
-          {guardando ? 'Guardando…' : 'Guardar cambios'}
+          {guardando ? 'Guardando…' : 'Guardar'}
         </button>
       ) : (
         <button className="btn btn-primary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>

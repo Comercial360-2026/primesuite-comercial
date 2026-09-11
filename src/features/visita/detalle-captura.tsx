@@ -14,6 +14,7 @@ import { Icono } from '@/components/ui/iconos';
 import { RecategorizarItem } from './recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { enlaceMapa } from '@/lib/geo';
+import { SelectorZona } from '@/components/ui/selector-zona';
 
 // Regla 5 (cero jerga): el estado de sincronización de la cola offline
 // (pendiente/subiendo/completado/error) no se enseña nunca en crudo.
@@ -392,28 +393,7 @@ export function DetalleCaptura() {
             placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
           />
           <div className="label">Zona (opcional)</div>
-          <input
-            className="field"
-            value={zonaEdit}
-            onChange={(e) => setZonaEdit(e.target.value)}
-            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-          />
-          <button
-            className="btn btn-primary"
-            disabled={guardado.cargando || guardadoConExito}
-            onClick={guardarEdicion}
-          >
-            {guardadoConExito ? (
-              <>
-                <Icono nombre="check" size={16} /> Guardado
-              </>
-            ) : guardado.cargando ? (
-              'Guardando…'
-            ) : (
-              'Guardar cambios'
-            )}
-          </button>
-          {guardado.error && <div className="field-error-text">{guardado.error}</div>}
+          <SelectorZona visitaId={captura.visitaId} value={zonaEdit} onChange={setZonaEdit} />
         </>
       )}
 
@@ -434,51 +414,52 @@ export function DetalleCaptura() {
             onChange={(e) => setTextoEdit(e.target.value)}
           />
           <div className="label">Zona (opcional)</div>
-          <input
-            className="field"
-            value={zonaEdit}
-            onChange={(e) => setZonaEdit(e.target.value)}
-            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
-          />
-          <button
-            className="btn btn-primary"
-            disabled={guardado.cargando || guardadoConExito || !textoEdit.trim()}
-            onClick={guardarEdicion}
-          >
-            {guardadoConExito ? (
-              <>
-                <Icono nombre="check" size={16} /> Guardado
-              </>
-            ) : guardado.cargando ? (
-              'Guardando…'
-            ) : (
-              'Guardar cambios'
-            )}
-          </button>
-          {guardado.error && <div className="field-error-text">{guardado.error}</div>}
+          <SelectorZona visitaId={captura.visitaId} value={zonaEdit} onChange={setZonaEdit} />
         </>
       )}
 
-      <div style={{ marginTop: 'auto' }}>
-        {!confirmandoBorrado ? (
-          <FilaNavegable
-            icono="borrar"
-            titulo={`Borrar ${captura.tipo}`}
-            tono="riesgo"
-            chevron={false}
-            onClick={() => setConfirmandoBorrado(true)}
-          />
+      {guardado.error && <div className="field-error-text">{guardado.error}</div>}
+
+      {/* Un solo botón "Guardar" — mismo patrón que hallazgo/oportunidad/
+          próximo paso (antes esta pantalla tenía uno duplicado por tipo,
+          con su propio texto "Guardar cambios" y sin anclar abajo: no
+          hacía juego con el resto de la app). Mientras la confirmación de
+          borrado está abierta, baja a secundario para no competir. */}
+      <button
+        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        style={{ marginTop: 'auto' }}
+        disabled={guardado.cargando || guardadoConExito || (captura.tipo === 'nota' && !textoEdit.trim())}
+        onClick={guardarEdicion}
+      >
+        {guardadoConExito ? (
+          <>
+            <Icono nombre="check" size={16} /> Guardado
+          </>
+        ) : guardado.cargando ? (
+          'Guardando…'
         ) : (
-          <ConfirmacionBorrado
-            onCancelar={() => setConfirmandoBorrado(false)}
-            onConfirmar={confirmarBorrado}
-            cargando={borrado.cargando}
-            error={borrado.error}
-          >
-            {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
-          </ConfirmacionBorrado>
+          'Guardar'
         )}
-      </div>
+      </button>
+
+      {!confirmandoBorrado ? (
+        <FilaNavegable
+          icono="borrar"
+          titulo={`Borrar ${captura.tipo}`}
+          tono="riesgo"
+          chevron={false}
+          onClick={() => setConfirmandoBorrado(true)}
+        />
+      ) : (
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrado.cargando}
+          error={borrado.error}
+        >
+          {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+        </ConfirmacionBorrado>
+      )}
     </div>
   );
 }
