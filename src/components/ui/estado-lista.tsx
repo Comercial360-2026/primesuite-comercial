@@ -41,7 +41,7 @@ export function EstadoLista(props: Props) {
   return (
     <div className="estado-lista estado-lista--vacio">
       <span className="estado-lista__icono">
-        <Icono nombre={props.icono ?? 'bandeja'} size={32} />
+        <Icono nombre={props.icono ?? 'bandeja'} size={30} />
       </span>
       <span>{props.mensaje}</span>
     </div>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { FilaToggle } from '@/components/ui/fila-toggle';
 import { Avatar } from '@/components/ui/avatar';
+import { Icono } from '@/components/ui/iconos';
 
 interface Interlocutor {
   id: string;
@@ -425,9 +426,12 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           );
         })}
         {!directorio?.length && (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-            Todavía no hay interlocutores registrados para este cliente
-          </span>
+          <div className="estado-lista">
+            <span className="estado-lista__icono">
+              <Icono nombre="interlocutor" size={30} />
+            </span>
+            <span>Todavía no hay interlocutores registrados para este cliente</span>
+          </div>
         )}
       </div>
 

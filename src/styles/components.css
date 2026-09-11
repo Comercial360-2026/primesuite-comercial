@@ -1442,7 +1442,18 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
   min-height: 45vh; justify-content: center;
   font-size: var(--text-base);
 }
-.estado-lista__icono { color: var(--ink-200); }
+/* El icono de un vacío deja de ser una pista gris casi invisible y pasa a
+   un círculo con tinte de marca — mismo lenguaje que un icono de app, no
+   una ilustración libre. Un "aún no tienes nada aquí" se siente diseñado,
+   no una ausencia sin cuidar. Un solo sitio (aquí), reutilizado por
+   `EstadoLista` y por el vacío de "En esta visita" (visita-activa) — no
+   se duplica el círculo a mano en cada pantalla. */
+.estado-lista__icono {
+  display: flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--brand-050); color: var(--brand-600);
+  margin-bottom: 2px;
+}
 
 /* TarjetaAccion — bloque informativo + 1 botón. Misma caja que .card; el
    tono colorea borde + título + texto de estado (lo que antes se hacía con

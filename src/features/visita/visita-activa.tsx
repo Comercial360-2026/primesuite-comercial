@@ -2047,18 +2047,23 @@ export function VisitaActiva() {
         )}
 
         {totalEnVisita === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--ink-400)', fontSize: 'var(--text-sm)', padding: '12px 0' }}>
-            {zonaParaCaptura ? (
-              <>
-                Aún no has capturado nada en «{zonaParaCaptura}».<br />
-                Captura algo, o quita la zona (✕) para ver todo.
-              </>
-            ) : (
-              <>
-                Aún no has capturado nada.<br />
-                Toca Foto, Audio o Anotar para empezar.
-              </>
-            )}
+          <div className="estado-lista">
+            <span className="estado-lista__icono">
+              <Icono nombre="bandeja" size={30} />
+            </span>
+            <span>
+              {zonaParaCaptura ? (
+                <>
+                  Aún no has capturado nada en «{zonaParaCaptura}».<br />
+                  Captura algo, o quita la zona (✕) para ver todo.
+                </>
+              ) : (
+                <>
+                  Aún no has capturado nada.<br />
+                  Toca Foto, Audio o Anotar para empezar.
+                </>
+              )}
+            </span>
           </div>
         ) : (
           <div style={{ padding: '0 4px' }}>
