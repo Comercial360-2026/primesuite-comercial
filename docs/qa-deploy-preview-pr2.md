@@ -61,16 +61,59 @@ pasa a "Aún no has capturado nada" al instante, sin recargar. BD confirma
 Repetido con **Próximo paso** (el otro sitio corregido): mismo resultado,
 sin fantasma, BD confirma 0 filas. ✅ **Cerrado.**
 
+## [C] Bug encontrado y corregido — guardar (no solo borrar) fallaba en silencio sin permiso
+
+Probado en vivo con **Borja** (comercial normal, sesión aparte): abre un
+hallazgo de Comercial Prueba en la visita cerrada de SAPA (la RLS de
+`select` lo deja ver porque la visita está `consolidada`), edita la nota,
+pulsa Guardar → antes de corregir, la app decía "guardado ✓" y volvía atrás
+sin haber tocado nada (confirmado en BD: 0 filas afectadas, verificado
+también con un PATCH directo a PostgREST: `content-range: */0`). Mismo
+encargo técnico que ya se documentó y corrigió para el **borrado**
+(`adenda_punto1_delete_silencioso.md`: sin permiso, Supabase no da error,
+"tiene éxito" afectando a 0 filas) pero nunca se aplicó al **guardado**.
+
+**Corregido** (commit `640d9f5`): comprobación de `count` + mensaje de error
+en las 4 pantallas de "Guardar" con el mismo patrón RLS (autor/responsable
+o Dirección Comercial): `detalle-hallazgo.tsx`, `detalle-oportunidad.tsx`,
+`detalle-captura.tsx` (nota), `detalle-proximo-paso.tsx` (guardar y
+"marcar hecho" — este último ni siquiera comprobaba `error`).
+
+**Re-probado con Borja tras el rebuild**: hallazgo → Guardar → "No se ha
+podido guardar (0 filas afectadas)…", se queda en la pantalla, BD sin
+cambios. ✅ Borrar → mismo hallazgo → "No se ha podido borrar (0 filas
+afectadas)…". ✅ Nota → Guardar → "No se pudo actualizar. Si la nota ya
+estaba sincronizada, puede que falte permiso de edición en el servidor.",
+BD sin cambios. ✅
+
+**No verificado en vivo con Borja** (por alcance de datos, no por el fix):
+oportunidad (RLS de `select` no lo dejaba ver ninguna de SAPA — no es
+participante de esas visitas) y próximo paso (mismo motivo). El código es
+idéntico al ya probado dos veces; typecheck+lint+build verdes.
+
+**No auditado**: el resto de `.update()` de la app fuera de estas 4
+pantallas (vocabulario, proyecto, interlocutor, participantes…). La
+mayoría son pantallas de Dirección o actúan sobre un recurso recién creado
+por el propio usuario — menor riesgo, pero queda pendiente como revisión
+aparte si se quiere ir más allá de PM11.
+
 ## Resumen
 
-- **1 bug encontrado y corregido** (fantasma en "En esta visita" al borrar
-  hallazgo/próximo paso), re-probado y cerrado.
+- **2 bugs encontrados y corregidos**, ambos re-probados y cerrados:
+  - [B] fantasma en "En esta visita" al borrar hallazgo/próximo paso.
+  - [C] guardar (no solo borrar) fallaba en silencio sin permiso — probado
+    en vivo con Borja, el más importante de los dos (podía hacer creer a
+    un comercial que había editado algo de otro cuando no había pasado nada).
 - Todo lo demás probado (modelo Proyectos, ecosistema por categoría, Notas
   en repaso/actividad de proyecto, detalle de visita cerrada sin naturaleza,
   informe de visita, Anotar) — sin errores de consola, comportamiento
   correcto.
-- **No probado**: permisos con Borja (ventana incógnito, no accesible desde
-  la extensión de Chrome de esta sesión); resto del backlog de "qué más
-  queda" (fuera del alcance de esta QA, es trabajo posterior al PR).
-- Datos de prueba de esta QA borrados (BD + IndexedDB del Preview).
+- **Login de Borja**: lo hizo Cesar a mano en una pestaña normal (no
+  incógnito) — la extensión de Chrome no puede entrar en ventanas de
+  incógnito ni escribir contraseñas.
+- **No auditado**: el resto de `.update()` de la app fuera de las 4
+  pantallas corregidas (vocabulario, proyecto, interlocutor,
+  participantes…) — revisión aparte si se quiere ir más allá de PM11.
+- Datos de prueba de esta QA borrados o sin persistir (BD, IndexedDB del
+  Preview y caché/service worker de la pestaña de prueba).
 
