@@ -158,7 +158,10 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
                   key={`cat-${c.id}`}
                   type="button"
                   className="selector-opt"
-                  onClick={() => alternar(area)}
+                  onClick={() => {
+                    alternar(area);
+                    setTextoBusqueda('');
+                  }}
                 >
                   {estaSel(area) && <Icono nombre="check" size={13} />}{' '}
                   <span className="selector-opt__tail">{c.nombre}</span>
@@ -174,7 +177,10 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
                   key={`ter-${t.id}`}
                   type="button"
                   className="selector-opt"
-                  onClick={() => alternar(area)}
+                  onClick={() => {
+                    alternar(area);
+                    setTextoBusqueda('');
+                  }}
                 >
                   {estaSel(area) && <Icono nombre="check" size={13} />}{' '}
                   {lead && <span className="selector-opt__lead">{lead}</span>}
