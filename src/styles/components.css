@@ -16,6 +16,13 @@ body {
 
 .btn {
   height: var(--h-button);
+  /* Sin esto, en una pantalla cuyo contenido es más alto que el hueco
+     visible, .screen (flex-direction: column) encoge el botón en vez de
+     dejar que la pantalla haga scroll — se veía fino y bajo solo en
+     pantallas largas (detectado en vivo: Guardar de Hallazgo medía 21px
+     en vez de 52px). Cualquier .btn dentro de un contenedor flex debe
+     conservar su alto siempre. */
+  flex-shrink: 0;
   width: 100%;
   display: inline-flex;
   align-items: center;
