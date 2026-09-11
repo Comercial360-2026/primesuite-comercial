@@ -40,8 +40,16 @@ function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
     const clave = `consolidar-pendiente-${visitaId}`;
     const pendiente = localStorage.getItem(clave);
     if (!pendiente) return;
-    const { error } = await supabase.from('visita').update(JSON.parse(pendiente)).eq('id', visitaId);
-    if (!error) {
+    // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría éxito"
+    // con 0 filas: se borraría el pendiente de localStorage y se dejaría
+    // de reintentar, pero la visita nunca se habría consolidado de
+    // verdad — y aquí no hay pantalla donde avisar de eso. Mejor seguir
+    // reintentando (no se pierde el dato) que darlo por hecho en falso.
+    const { error, count } = await supabase
+      .from('visita')
+      .update(JSON.parse(pendiente), { count: 'exact' })
+      .eq('id', visitaId);
+    if (!error && count) {
       localStorage.removeItem(clave);
       window.removeEventListener('online', reintentar);
     }
@@ -267,7 +275,10 @@ export function CierreVisita() {
     await consolidacion.ejecutar(
       async () => {
         if (navigator.onLine) {
-          const { error } = await supabase.from('visita').update(parche).eq('id', visitaId);
+          const { error, count } = await supabase
+            .from('visita')
+            .update(parche, { count: 'exact' })
+            .eq('id', visitaId);
           if (error) {
             // Con conexión presente, un error de Supabase es un fallo real
             // (RLS, validación, servidor) — no desconexión. Se lanza para
@@ -275,6 +286,11 @@ export function CierreVisita() {
             // en vez de disfrazarlo de "pendiente de conexión".
             throw error;
           }
+          // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría
+          // éxito" con 0 filas: la pantalla pasaría a "resumen" como si la
+          // visita se hubiera cerrado, cuando en el servidor seguiría
+          // 'en_curso'. Mismo encargo técnico que el resto de guardados.
+          if (!count) throw new Error('No se ha podido cerrar la visita (0 filas afectadas). Puede que no tengas permiso.');
           return { sincronizada: true };
         } else {
           intentarConsolidarOffline(visitaId, parche);

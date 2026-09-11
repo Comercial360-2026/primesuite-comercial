@@ -86,13 +86,20 @@ export function SolicitudesReasignacion() {
       setError(errParticipante.message);
       return;
     }
-    const { error: errSolicitud } = await supabase
+    const { error: errSolicitud, count } = await supabase
       .from('solicitud_reasignacion')
-      .update({ estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() })
+      .update(
+        { estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() },
+        { count: 'exact' }
+      )
       .eq('id', solicitud.id);
     setProcesando(null);
     if (errSolicitud) {
       setError(errSolicitud.message);
+      return;
+    }
+    if (!count) {
+      setError('El participante se añadió, pero no se ha podido marcar la solicitud como resuelta (0 filas afectadas).');
       return;
     }
     setAsignandoId(null);
@@ -103,13 +110,17 @@ export function SolicitudesReasignacion() {
   async function descartar(id: string) {
     setProcesando(id);
     setError(null);
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('solicitud_reasignacion')
-      .update({ estado: 'descartada', resuelto_en: new Date().toISOString() })
+      .update({ estado: 'descartada', resuelto_en: new Date().toISOString() }, { count: 'exact' })
       .eq('id', id);
     setProcesando(null);
     if (err) {
       setError(err.message);
+      return;
+    }
+    if (!count) {
+      setError('No se ha podido descartar (0 filas afectadas). Puede que no tengas permiso.');
       return;
     }
     invalidar();

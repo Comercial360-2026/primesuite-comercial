@@ -173,11 +173,12 @@ export function Yo() {
   });
 
   async function marcarReporteVisto(id: string) {
-    const { error: err } = await supabase
+    const { error: err, count } = await supabase
       .from('reporte_problema')
-      .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id })
+      .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id }, { count: 'exact' })
       .eq('id', id);
     if (err) throw new Error(err.message);
+    if (!count) throw new Error('No se ha podido marcar como visto (0 filas afectadas).');
     queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
   }
 

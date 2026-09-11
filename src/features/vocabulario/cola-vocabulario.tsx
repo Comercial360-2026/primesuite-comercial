@@ -421,11 +421,14 @@ export function ColaVocabulario() {
     for (let i = 0; i < ids.length; i++) {
       setProgresoPend({ hecho: i, total: ids.length });
       if (accion === 'incorporar' && destinoCategoriaId) {
-        const { error: errMover } = await supabase
+        // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría
+        // éxito" con 0 filas — el término seguiría en "Sin clasificar" pero
+        // la RPC de abajo lo marcaría igualmente como incorporado.
+        const { error: errMover, count } = await supabase
           .from('termino')
-          .update({ categoria_id: destinoCategoriaId })
+          .update({ categoria_id: destinoCategoriaId }, { count: 'exact' })
           .eq('id', ids[i]);
-        if (errMover) {
+        if (errMover || !count) {
           fallo++;
           continue;
         }

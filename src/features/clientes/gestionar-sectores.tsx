@@ -97,8 +97,12 @@ export function GestionarSectores() {
     if (!nombre) return;
     await cambio.ejecutar(
       async () => {
-        const { error } = await supabase.from('sector').update({ nombre }).eq('id', id);
+        const { error, count } = await supabase
+          .from('sector')
+          .update({ nombre }, { count: 'exact' })
+          .eq('id', id);
         if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ya existe ese sector.' : error.message);
+        if (!count) throw new Error('No se ha podido renombrar (0 filas afectadas).');
       },
       { onExito: () => { cerrarRenombrado(); refrescar(); } }
     );
@@ -108,8 +112,18 @@ export function GestionarSectores() {
     if (!ids.length) return;
     await cambio.ejecutar(
       async () => {
-        const { error } = await supabase.from('sector').update({ activo: activar }).in('id', ids);
+        // Se conoce de antemano cuántas filas debería tocar (una por id
+        // marcado) — comparar `count` contra `ids.length` detecta tanto el
+        // fallo total (RLS) como uno parcial (alguno ya no existe o no es
+        // tuyo).
+        const { error, count } = await supabase
+          .from('sector')
+          .update({ activo: activar }, { count: 'exact' })
+          .in('id', ids);
         if (error) throw new Error(error.message);
+        if (count !== ids.length) {
+          throw new Error(`Solo se ha podido cambiar ${count ?? 0} de ${ids.length}. Puede que no tengas permiso sobre alguno.`);
+        }
       },
       { onExito: () => { salirSeleccion(); refrescar(); } }
     );

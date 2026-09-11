@@ -276,12 +276,19 @@ export function RepasoCliente() {
         if (!cliente || !comercial || !visitaIdAgendada) {
           throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
         }
-        const { error: errEstado } = await supabase
+        // Sin permiso, o si otro comercial ya la empezó primero, el UPDATE
+        // no da error — "tiene éxito" afectando a 0 filas (mismo encargo
+        // técnico que el resto de guardados, ver
+        // adenda_punto1_delete_silencioso.md). Comprobar `count` es la
+        // única forma de no meter al comercial en una visita que en
+        // realidad no se ha marcado "en curso".
+        const { error: errEstado, count } = await supabase
           .from('visita')
-          .update({ estado_captura: 'en_curso' })
+          .update({ estado_captura: 'en_curso' }, { count: 'exact' })
           .eq('id', visitaIdAgendada)
           .eq('estado_captura', 'agendada');
         if (errEstado) throw new Error(errEstado.message);
+        if (!count) throw new Error('No se ha podido empezar la visita (puede que ya la haya empezado otro, o que no tengas permiso).');
         return { visitaId: visitaIdAgendada, clienteNombre: cliente.nombre };
       },
       {

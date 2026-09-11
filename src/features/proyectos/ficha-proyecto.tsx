@@ -209,11 +209,12 @@ export function FichaProyecto() {
     }
     await guardadoNombre.ejecutar(
       async () => {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from('proyecto')
-          .update({ nombre: formNombre.trim() })
+          .update({ nombre: formNombre.trim() }, { count: 'exact' })
           .eq('id', proyectoId);
         if (error) throw new Error(error.message);
+        if (!count) throw new Error('No se ha podido renombrar (0 filas afectadas). Puede que no tengas permiso.');
       },
       {
         onExito: () => {
@@ -232,11 +233,12 @@ export function FichaProyecto() {
     }
     await cambioEstado.ejecutar(
       async () => {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from('proyecto')
-          .update({ estado: nuevo })
+          .update({ estado: nuevo }, { count: 'exact' })
           .eq('id', proyectoId);
         if (error) throw new Error(error.message);
+        if (!count) throw new Error('No se ha podido cambiar el estado (0 filas afectadas). Puede que no tengas permiso.');
       },
       {
         onExito: () => queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] }),

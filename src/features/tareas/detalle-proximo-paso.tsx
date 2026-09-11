@@ -160,11 +160,12 @@ export function DetalleProximoPaso() {
       if (err) throw new Error(err);
       // La visita hereda la descripción del paso como objetivo — "esto lo
       // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
-      const { error: errParche } = await supabase
+      const { error: errParche, count } = await supabase
         .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim() })
+        .update({ hora_definida: false, objetivo: descripcion.trim() }, { count: 'exact' })
         .eq('id', nuevaId);
       if (errParche) throw new Error(errParche.message);
+      if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
       setVisitaPlanificada(true);
       for (const k of [
         ['visitas-hoy'],

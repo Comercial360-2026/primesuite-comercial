@@ -240,11 +240,12 @@ export function DetalleVisitaCerrada() {
     const texto = borradorResumen.trim();
     await guardadoResumen.ejecutar(
       async () => {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from('visita')
-          .update({ resumen_texto: texto || null, resumen_origen: 'manual' })
+          .update({ resumen_texto: texto || null, resumen_origen: 'manual' }, { count: 'exact' })
           .eq('id', visitaId);
         if (error) throw new Error(error.message);
+        if (!count) throw new Error('No se ha podido guardar el resumen (0 filas afectadas). Puede que no tengas permiso.');
       },
       {
         onExito: () => {

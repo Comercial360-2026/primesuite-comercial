@@ -106,16 +106,24 @@ export function DetalleVisitaPlanificada() {
     if (!fechaNueva) return;
     await reprogramar.ejecutar(
       async () => {
-        const { error } = await supabase
+        // Mismo encargo técnico que el resto de guardados: sin permiso,
+        // Supabase no da error en un UPDATE que no matchea ninguna fila por
+        // RLS — comprobar `count` es la única forma de no decir
+        // "reprogramada" sin haberlo hecho de verdad.
+        const { error, count } = await supabase
           .from('visita')
-          .update({
-            fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
-            hora_definida: !!horaNueva,
-            franja: horaNueva ? null : franjaNueva || null,
-          })
+          .update(
+            {
+              fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
+              hora_definida: !!horaNueva,
+              franja: horaNueva ? null : franjaNueva || null,
+            },
+            { count: 'exact' }
+          )
           .eq('id', visitaId!)
           .eq('estado_captura', 'agendada');
         if (error) throw new Error(error.message);
+        if (!count) throw new Error('No se ha podido reprogramar (0 filas afectadas). Puede que no tengas permiso.');
       },
       {
         onExito: () => {

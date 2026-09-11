@@ -116,16 +116,20 @@ export function FichaCliente() {
     }
     await guardadoDatos.ejecutar(
       async () => {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from('cliente')
-          .update({
-            nombre: formNombre.trim(),
-            sector: formSector || null,
-            tamano_aprox: formTamano || null,
-            ubicacion_general: formUbicacion.trim() || null,
-          })
+          .update(
+            {
+              nombre: formNombre.trim(),
+              sector: formSector || null,
+              tamano_aprox: formTamano || null,
+              ubicacion_general: formUbicacion.trim() || null,
+            },
+            { count: 'exact' }
+          )
           .eq('id', clienteId);
         if (error) throw new Error(error.message);
+        if (!count) throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
       },
       {
         onExito: () => {

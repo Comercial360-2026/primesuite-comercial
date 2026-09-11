@@ -245,8 +245,17 @@ export function PlanificarVisita() {
           parche.hora_definida = false;
           parche.franja = franja || null;
         }
-        const { error: errParche } = await supabase.from('visita').update(parche).eq('id', visitaId);
+        // La visita se acaba de crear por RPC, pero el UPDATE que le pone
+        // el objetivo es una llamada aparte con su propia RLS — si
+        // Dirección planifica en nombre de otro comercial y esa RLS no lo
+        // cubriera, "tendría éxito" con 0 filas sin dar error, y la visita
+        // se quedaría sin objetivo en silencio.
+        const { error: errParche, count } = await supabase
+          .from('visita')
+          .update(parche, { count: 'exact' })
+          .eq('id', visitaId);
         if (errParche) throw new Error(errParche.message);
+        if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
       },
       {
         onExito: () => {

@@ -152,13 +152,18 @@ export function Deduplicacion() {
     // de bajo volumen. Si uno falla, los ya fusionados quedan bien y el
     // grupo se puede reintentar con lo que queda.
     for (const dup of duplicados) {
-      const { error: err } = await supabase
+      const { error: err, count } = await supabase
         .from('cliente')
-        .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId })
+        .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId }, { count: 'exact' })
         .eq('id', dup.id);
       if (err) {
         setProcesando(null);
         setError(`No se pudo fusionar «${dup.nombre}»: ${err.message}`);
+        return;
+      }
+      if (!count) {
+        setProcesando(null);
+        setError(`No se pudo fusionar «${dup.nombre}» (0 filas afectadas). Puede que no tengas permiso.`);
         return;
       }
     }

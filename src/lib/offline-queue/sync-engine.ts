@@ -148,8 +148,12 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
   const parche: { objetivo?: string } = {};
   if (objetivo?.trim()) parche.objetivo = objetivo.trim();
   if (Object.keys(parche).length) {
-    const { error: errParche } = await supabase.from('visita').update(parche).eq('id', operacion.id);
+    const { error: errParche, count } = await supabase
+      .from('visita')
+      .update(parche, { count: 'exact' })
+      .eq('id', operacion.id);
     if (errParche) throw new Error(errParche.message);
+    if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
   }
 }
 
