@@ -210,43 +210,45 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
               const abierta = categoriaAbiertaId === c.id;
               const area: Area = { tipo: 'categoria', id: c.id, nombre: c.nombre };
               const marcada = estaSel(area);
-              // Marca visible en el chip si la categoría entera está
-              // seleccionada; abrir/cerrar su árbol es un gesto aparte. Si ya
-              // está marcada, el chip lleva además su propia × (mismo patrón
-              // que la fila de arriba) para quitarla en un toque, sin tener
-              // que abrir el árbol y buscar "Toda la categoría «X»" —
-              // confundía ("no puedo quitar las que ya están").
-              return marcada ? (
+              // Tocar el NOMBRE marca/desmarca la categoría entera al
+              // instante, sin preguntar nada — mismo gesto que
+              // SelectorCategorias en Anotar (ya definido así con Cesar); la
+              // pastillita ▾/▴ aparte es SOLO para bajar al árbol de
+              // términos, un gesto independiente. Antes ambos gestos
+              // compartían el mismo botón (tocar = abrir árbol) y la
+              // categoría marcada además usaba la MISMA clase `chip--on` que
+              // el estado "árbol abierto" — visualmente indistinguibles: al
+              // quitar una categoría con su × pero dejar el árbol abierto,
+              // el chip seguía viéndose "marcado" (relleno sólido + ✓) sin
+              // estarlo. Ahora `chip--on` refleja SIEMPRE `marcada`, nunca
+              // `abierta`; abierta es solo un contorno.
+              return (
                 <span
                   key={c.id}
-                  className="chip chip--on"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, outline: abierta ? '2px solid var(--brand-600)' : undefined }}
+                  className={`chip${marcada ? ' chip--on' : ''}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    outline: abierta ? '2px solid var(--brand-600)' : undefined,
+                  }}
                 >
                   <button
                     type="button"
                     style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}
-                    onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
+                    onClick={() => alternar(area)}
                   >
                     {c.nombre}
                   </button>
                   <button
                     type="button"
-                    onClick={() => alternar(area)}
-                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
-                    aria-label={`quitar ${c.nombre}`}
+                    onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', display: 'inline-flex', color: 'inherit', opacity: 0.7 }}
+                    aria-label={abierta ? `ocultar términos de ${c.nombre}` : `ver términos de ${c.nombre}`}
                   >
-                    ×
+                    <Icono nombre={abierta ? 'subir' : 'bajar'} size={11} />
                   </button>
                 </span>
-              ) : (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`chip${abierta ? ' chip--on' : ''}`}
-                  onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
-                >
-                  {c.nombre}
-                </button>
               );
             })}
           </div>
