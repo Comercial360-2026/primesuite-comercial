@@ -434,7 +434,7 @@ export function FichaProyecto() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {guardadoNombre.error && <div className="field-error-text">{guardadoNombre.error}</div>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div className="fila-btns" style={{ marginTop: 10 }}>
               <button
                 className="btn btn-secondary"
                 disabled={guardadoNombre.cargando}
@@ -644,7 +644,7 @@ function PuertaTerminarProyecto({
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div className="fila-btns" style={{ justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-secondary" disabled={cerrando} onClick={onCancelar}>
               Cancelar
             </button>
@@ -730,7 +730,7 @@ function FilaVisitaViva({
               : 'Se borra la visita planificada. No se puede deshacer.'}
           </div>
           {cancelar.error && <div className="field-error-text">{cancelar.error}</div>}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="fila-btns">
             <button
               type="button"
               className="btn btn-secondary"

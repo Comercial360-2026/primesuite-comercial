@@ -398,7 +398,7 @@ export function PlanificarVisita() {
                 {creacionProyecto.error && (
                   <div className="field-error-text">{creacionProyecto.error}</div>
                 )}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div className="fila-btns" style={{ marginTop: 8 }}>
                   <button
                     type="button"
                     className="btn btn-secondary"

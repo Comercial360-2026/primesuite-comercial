@@ -356,7 +356,7 @@ function MisVisitas() {
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
                 Si quieres conservar alguna, cancela, ábrela y descárgala antes de borrar.
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmandoLote(false)}>
                   Cancelar
                 </button>
@@ -575,7 +575,7 @@ function PorComercial() {
                     Se enviará un aviso a {marcadas.size} compañero{marcadas.size === 1 ? '' : 's'} ({nombresMarcados})
                     para que liberen espacio.
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <div className="fila-btns" style={{ marginTop: 10 }}>
                     <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>
                       Cancelar
                     </button>

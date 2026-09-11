@@ -176,7 +176,7 @@ export function GestionarSectores() {
               placeholder="p. ej. Automoción"
             />
             {alta.error && <div className="field-error-text" style={{ marginTop: 8 }}>{alta.error}</div>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div className="fila-btns" style={{ marginTop: 8 }}>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -264,7 +264,7 @@ export function GestionarSectores() {
                       }}
                     />
                     {cambio.error && <div className="field-error-text">{cambio.error}</div>}
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="fila-btns">
                       <button
                         type="button"
                         className="btn btn-secondary"

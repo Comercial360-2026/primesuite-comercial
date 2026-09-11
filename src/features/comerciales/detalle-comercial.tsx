@@ -320,7 +320,7 @@ export function DetalleComercial() {
               Pásaselo a {data.nombre}. La petición queda resuelta.
             </Aviso>
             <div className="enlace-copia">{enlaceReenviado}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="fila-btns" style={{ flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiarEnlace}>
                 {copiado ? <><Icono nombre="check" size={16} /> Copiado</> : 'Copiar enlace'}
               </button>
@@ -357,7 +357,7 @@ export function DetalleComercial() {
                 <option key={d.id} value={d.id}>{d.nombre}</option>
               ))}
             </select>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div className="fila-btns" style={{ marginTop: 10 }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} disabled={cambiandoEstado} onClick={() => { setModo(null); setTraspasoA(''); }}>
                 Cancelar
               </button>
@@ -447,7 +447,7 @@ export function DetalleComercial() {
                 </select>
               </>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div className="fila-btns" style={{ marginTop: 10 }}>
               <button
                 className="btn btn-secondary"
                 style={{ flex: 1 }}

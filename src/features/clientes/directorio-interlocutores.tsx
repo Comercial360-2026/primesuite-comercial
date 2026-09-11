@@ -341,7 +341,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             return (
               <div key={i.id} className="card" style={{ margin: '6px 0' }}>
                 {camposComunes(formEdicion, setFormEdicion)}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -429,7 +429,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
 
       {/* Barra de acción del modo seleccionar. */}
       {seleccionando && nMarcados > 0 && !confirmandoQuitar && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <div className="fila-btns" style={{ marginTop: 10, flexWrap: 'wrap' }}>
           {nMarcados === 1 && (
             <button
               type="button"
@@ -462,7 +462,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             ¿Quitar {nMarcados} del directorio del cliente?
             {presencia && ' También dejan de contar como presentes en esta visita.'}
           </p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-primary" onClick={() => setConfirmandoQuitar(false)}>
               No
             </button>
@@ -506,7 +506,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             </button>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={cancelarAlta} disabled={guardando}>
               Cancelar
             </button>

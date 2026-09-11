@@ -322,7 +322,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                   placeholder="p. ej. Mantenimiento, Obra nueva…"
                 />
                 {creandoProyErr && <div className="field-error-text">{creandoProyErr}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div className="fila-btns" style={{ marginTop: 8 }}>
                   <button
                     type="button"
                     className="btn btn-secondary"

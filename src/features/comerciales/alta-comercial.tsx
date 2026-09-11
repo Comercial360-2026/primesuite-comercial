@@ -143,7 +143,7 @@ export function AltaComercial() {
                   <div className="label">Enlace de acceso</div>
                   <div className="enlace-copia">{resultado.action_link}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ flexWrap: 'wrap' }}>
                   <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiar}>
                     {copiado ? <><Icono nombre="check" size={16} /> Copiado</> : 'Copiar enlace'}
                   </button>

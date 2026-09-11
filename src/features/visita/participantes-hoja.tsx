@@ -459,7 +459,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
               )}
             </div>
             {modoAñadir && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button type="button" className="btn btn-secondary" onClick={salirModoAñadir} disabled={añadiendoLote}>
                   Cancelar
                 </button>
@@ -493,7 +493,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
               onChange={(e) => setNotaAyuda(e.target.value)}
               placeholder="por qué necesitas ayuda (opcional)"
             />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div className="fila-btns" style={{ marginTop: 8 }}>
               <button type="button" className="btn btn-secondary" onClick={() => setPidiendoAyuda(false)} disabled={enviandoSolicitud}>
                 Cancelar
               </button>

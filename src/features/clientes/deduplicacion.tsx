@@ -259,7 +259,7 @@ export function Deduplicacion() {
                   oportunidad{oportunidadesQueMueven === 1 ? '' : 'es'} (más hallazgos, ubicaciones y contactos). No se
                   puede deshacer desde la app.
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-secondary"

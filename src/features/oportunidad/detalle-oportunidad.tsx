@@ -434,7 +434,7 @@ export function DetalleOportunidad() {
       {confirmandoCierre && (
         <div className="card card--riesgo" style={{ marginTop: 6 }}>
           <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>Vas a cerrar esta oportunidad. ¿Seguro?</p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
             <button type="button" className="btn btn-primary" onClick={() => setConfirmandoCierre(false)}>
               Cancelar
             </button>
@@ -573,7 +573,7 @@ export function DetalleOportunidad() {
           <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
             Has cambiado algo y no lo has guardado. Si sales ahora se pierde.
           </p>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
             <button type="button" className="btn btn-primary" onClick={() => setConfirmandoSalida(false)}>
               Seguir editando
             </button>

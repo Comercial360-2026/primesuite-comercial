@@ -876,7 +876,7 @@ export function ColaVocabulario() {
               Se usa en {t.usos} {t.usos === 1 ? 'ficha' : 'fichas'} ya guardadas; el nombre cambia también ahí.
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
               Cancelar
             </button>
@@ -1115,7 +1115,7 @@ export function ColaVocabulario() {
                   </button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <div className="fila-btns" style={{ marginTop: 8 }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1387,7 +1387,7 @@ export function ColaVocabulario() {
                   «{nuevaCategoriaTexto.trim()}» ya existe como categoría.
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <div className="fila-btns" style={{ marginTop: 8 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreandoCategoria(false); setNuevaCategoriaTexto(''); }}>
                   Cancelar
                 </button>
@@ -1516,7 +1516,7 @@ export function ColaVocabulario() {
                       value={textoRenombrarCategoria}
                       onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
                     />
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <div className="fila-btns" style={{ marginTop: 8 }}>
                       <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
                         Cancelar
                       </button>

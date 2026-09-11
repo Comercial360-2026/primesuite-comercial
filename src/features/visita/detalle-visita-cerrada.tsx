@@ -371,7 +371,7 @@ export function DetalleVisitaCerrada() {
                   {guardadoResumen.error && (
                     <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoResumen.error}</div>
                   )}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <div className="fila-btns" style={{ marginTop: 8 }}>
                     <button
                       className="btn btn-secondary"
                       disabled={guardadoResumen.cargando}

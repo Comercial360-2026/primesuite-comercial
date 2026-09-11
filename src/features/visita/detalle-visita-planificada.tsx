@@ -229,7 +229,7 @@ export function DetalleVisitaPlanificada() {
                 {fechaCorta(fechaVisita!)}. ¿Empezarla ahora
                 igualmente?
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button className="btn btn-secondary" onClick={() => setConfirmando(null)}>
                   No
                 </button>
@@ -296,7 +296,7 @@ export function DetalleVisitaPlanificada() {
                 </>
               )}
               {reprogramar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{reprogramar.error}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button
                   className="btn btn-secondary"
                   disabled={reprogramar.cargando}

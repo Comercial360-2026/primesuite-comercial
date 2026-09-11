@@ -66,6 +66,18 @@ body {
 .btn-secondary { background: var(--surface-1); color: var(--ink-900); border: 1px solid var(--ink-200); }
 .btn-secondary:active:not(:disabled) { background: var(--surface-0); }
 
+/* Fila de 2+ .btn que comparten el ancho (Cancelar/Guardar,
+   Cancelar/Sí borrar…) — patrón repetido en toda la app, antes cada
+   pantalla lo escribía a mano con `style={{display:'flex', gap:8}}`.
+   Un .btn suelto ocupa el 100% de su contenedor (flex-shrink: 0, arriba);
+   dentro de esta fila, en cambio, cada uno reparte el hueco con `flex: 1`
+   — si no, dos botones al 100% cada uno desbordan la fila (bug real,
+   visto en Vocabulario: "Cancelar" empujaba a "Guardar" fuera de la
+   tarjeta). `min-width: 0` deja que el texto largo de un botón no fuerce
+   overflow del que tiene al lado. */
+.fila-btns { display: flex; gap: var(--space-2); }
+.fila-btns > .btn { flex: 1; width: auto; min-width: 0; }
+
 /* Acción DESTRUCTIVA — ver 08_sistema_diseno.md §"Botones".
    - `.btn-peligro`: relleno borgoña, SOLO para el botón que consuma el
      borrado dentro de un panel de confirmación (y para "Fusionar", que

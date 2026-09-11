@@ -109,7 +109,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
           </button>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="fila-btns">
         <button
           className="btn btn-primary"
           style={{ flex: 1 }}

@@ -480,7 +480,7 @@ export function CierreVisita() {
 
         {consolidacion.error && <Aviso tipo="error">{consolidacion.error}</Aviso>}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
+        <div className="fila-btns" style={{ marginTop: 'var(--space-2)' }}>
           <button
             className="btn btn-secondary"
             disabled={consolidacion.cargando}

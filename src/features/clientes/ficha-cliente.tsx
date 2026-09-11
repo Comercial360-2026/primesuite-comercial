@@ -442,7 +442,7 @@ export function FichaCliente() {
            {cambioResp.error && (
              <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
            )}
-           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+           <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
                className="btn btn-secondary"
                disabled={cambioResp.cargando}
@@ -503,7 +503,7 @@ export function FichaCliente() {
            {guardadoDatos.error && (
              <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoDatos.error}</div>
            )}
-           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+           <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
                className="btn btn-secondary"
                disabled={guardadoDatos.cargando}
@@ -609,7 +609,7 @@ export function FichaCliente() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <div className="fila-btns" style={{ marginTop: 8 }}>
               <button
                 className="btn btn-secondary"
                 disabled={creacionProyecto.cargando}
@@ -686,7 +686,7 @@ export function FichaCliente() {
                   Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
                   antes desde "mi espacio".
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
                     Cancelar
                   </button>

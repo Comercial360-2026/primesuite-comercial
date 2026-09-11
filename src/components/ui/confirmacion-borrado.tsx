@@ -51,7 +51,7 @@ export function ConfirmacionBorrado({
           {error}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+      <div className="fila-btns" style={{ marginTop: 10 }}>
         <button type="button" className="btn btn-secondary" onClick={onCancelar} disabled={cargando}>
           Cancelar
         </button>

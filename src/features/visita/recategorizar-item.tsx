@@ -126,7 +126,7 @@ export function RecategorizarItem({ id, tipoActual, visitaId, origen, sinSubir, 
               {error}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
             <button
               type="button"
               className="btn btn-primary"

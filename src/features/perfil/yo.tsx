@@ -369,7 +369,7 @@ export function Yo() {
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
                   {fechaCorta(inv.fechaVisita)} · te añadió {inv.anadidoPorNombre}
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div className="fila-btns" style={{ marginTop: 8 }}>
                   <button
                     type="button"
                     className="btn btn-primary"

@@ -1540,7 +1540,7 @@ export function VisitaActiva() {
               onChange={(e) => setObjetivoBorrador(e.target.value)}
               placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
             />
-            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <div className="fila-btns" style={{ marginTop: 6 }}>
               <button
                 className="btn btn-secondary"
                 style={{ fontSize: 'var(--text-sm)' }}
@@ -1779,7 +1779,7 @@ export function VisitaActiva() {
                           value={nombreZonaNuevo}
                           onChange={(e) => setNombreZonaNuevo(e.target.value)}
                         />
-                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <div className="fila-btns" style={{ marginTop: 8 }}>
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -1812,7 +1812,7 @@ export function VisitaActiva() {
                           {c.comp > 0 && ` Lo de tus compañeros (${c.comp}) se queda.`} No se puede
                           deshacer.
                         </p>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <div className="fila-btns" style={{ marginTop: 8 }}>
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -2221,7 +2221,7 @@ export function VisitaActiva() {
             onChange={(e) => setTituloPendiente(e.target.value)}
             placeholder={fotoPendiente ? 'p. ej. lector averiado puerta 3 · opcional' : 'p. ej. notas del jefe de planta · opcional'}
           />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div className="fila-btns" style={{ marginTop: 12 }}>
             <button
               className="btn btn-secondary"
               disabled={capturaFoto.cargando || capturaAudio.cargando}
