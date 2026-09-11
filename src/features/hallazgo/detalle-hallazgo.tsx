@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { eliminarOperacion } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
@@ -184,6 +185,14 @@ export function DetalleHallazgo() {
       setErrorBorrado('No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.');
       return;
     }
+    // Mismo bug que ya se corrigió en nota (detalle-captura.tsx) y
+    // oportunidad (detalle-oportunidad.tsx): si este hallazgo se creó desde
+    // "Anotar" en la visita en curso, sigue existiendo una copia local en
+    // IndexedDB (misma id). Borrar solo la fila real en Supabase no la
+    // quita de ahí — "En esta visita" seguía mostrándolo como fantasma
+    // aunque ya no existiera en la base de datos. No falla si la entrada
+    // local no existe (hallazgo abierto desde fuera de la visita).
+    await eliminarOperacion(hallazgoId);
     await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
     navigate(volver);
   }

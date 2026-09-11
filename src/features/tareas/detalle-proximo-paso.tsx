@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { eliminarOperacion } from '@/lib/offline-queue';
 import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -106,6 +107,13 @@ export function DetalleProximoPaso() {
       );
       return;
     }
+    // Mismo bug que ya se corrigió en nota (detalle-captura.tsx) y
+    // oportunidad (detalle-oportunidad.tsx), y que faltaba también en
+    // hallazgo (detalle-hallazgo.tsx): si este paso se creó desde la visita
+    // en curso, sigue existiendo una copia local en IndexedDB (misma id).
+    // Borrar solo la fila real no la quita de ahí — "En esta visita" lo
+    // seguía mostrando como fantasma. No falla si la entrada local no existe.
+    await eliminarOperacion(pasoId);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
     navigate(volver);
   }
