@@ -119,9 +119,14 @@ function CapturasPorUbicacion({
   // teclado, rol) — antes era un <div onClick> sin nada de eso. Misma clase
   // .va-item que la vista "por tipo", para que se lean igual.
   const itemFila = (key: string, icono: NombreIcono, texto: string, sub?: string, onClick?: () => void) => {
+    const tono = COLOR_TIPO_ITEM[icono];
+    // La barra es la MISMA pista de color que el icono, solo que se lee de
+    // un vistazo bajando por la lista sin fijarse en cada icono de 16px —
+    // no sustituye al icono (regla #11), lo refuerza.
+    const estiloBarra = tono ? { boxShadow: `inset 3px 0 0 ${tono}` } : undefined;
     const contenido = (
       <>
-        <span style={{ display: 'inline-flex', color: COLOR_TIPO_ITEM[icono] }}>
+        <span style={{ display: 'inline-flex', color: tono }}>
           <Icono nombre={icono} size={16} />
         </span>
         <span className="va-item__texto">{texto}</span>
@@ -129,11 +134,11 @@ function CapturasPorUbicacion({
       </>
     );
     return onClick ? (
-      <button key={key} type="button" className="va-item" onClick={onClick}>
+      <button key={key} type="button" className="va-item" style={estiloBarra} onClick={onClick}>
         {contenido}
       </button>
     ) : (
-      <div key={key} className="va-item">{contenido}</div>
+      <div key={key} className="va-item" style={estiloBarra}>{contenido}</div>
     );
   };
 
@@ -1457,19 +1462,21 @@ export function VisitaActiva() {
     sub?: string,
     onClick?: () => void
   ) => {
+    const tono = COLOR_TIPO_ITEM[icono];
+    const estiloBarra = tono ? { boxShadow: `inset 3px 0 0 ${tono}` } : undefined;
     const iconoConTono = (
-      <span style={{ display: 'inline-flex', color: COLOR_TIPO_ITEM[icono] }}>
+      <span style={{ display: 'inline-flex', color: tono }}>
         <Icono nombre={icono} size={16} />
       </span>
     );
     return onClick ? (
-      <button key={key} type="button" className="va-item" onClick={onClick}>
+      <button key={key} type="button" className="va-item" style={estiloBarra} onClick={onClick}>
         {iconoConTono}
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </button>
     ) : (
-      <div key={key} className="va-item">
+      <div key={key} className="va-item" style={estiloBarra}>
         {iconoConTono}
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}

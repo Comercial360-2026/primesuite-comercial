@@ -195,7 +195,7 @@ body {
    gris opcional, separador fino entre filas salvo la primera. */
 .va-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 4px; border: none; border-top: 1px solid var(--ink-100);
+  padding: 8px 4px 8px 8px; border: none; border-top: 1px solid var(--ink-100);
   background: none; font-size: var(--text-sm); text-align: left;
   font-family: var(--font-sans); color: var(--ink-900);
 }

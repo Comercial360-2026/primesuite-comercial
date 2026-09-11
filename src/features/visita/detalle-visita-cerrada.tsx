@@ -533,7 +533,13 @@ export function DetalleVisitaCerrada() {
 
           {data.fotos.length > 0 && (
             <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+              <div
+                className="seccion-lista__cabecera"
+                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <span style={{ display: 'inline-flex', color: 'var(--tipo-foto)' }}>
+                  <Icono nombre="foto" size={14} />
+                </span>
                 Anexo · Fotos ({data.fotos.length})
               </div>
               {[...fotosPorUbi.entries()].map(([ubi, lista]) => (
@@ -559,7 +565,13 @@ export function DetalleVisitaCerrada() {
 
           {data.audios.length > 0 && (
             <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+              <div
+                className="seccion-lista__cabecera"
+                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <span style={{ display: 'inline-flex', color: 'var(--tipo-audio)' }}>
+                  <Icono nombre="audio" size={14} />
+                </span>
                 Anexo · Audios ({data.audios.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
