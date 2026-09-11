@@ -115,9 +115,13 @@ ni modificar las que ya tenía, y tampoco podía "asignar una zona".
   quitarla había que entrar al árbol y encontrar "Toda la categoría «X»"
   (ya marcada). Ahora el chip ya marcado lleva su propia × directa, igual
   que la fila de arriba.
-- **Mismo hueco de zona, sin corregir en esta tanda**: nota, oportunidad y
-  próximo paso tampoco editan su zona desde la ficha — anotado, no tocado
-  (alcance: lo que Cesar reportó era sobre hallazgo).
+- **Mismo hueco de zona, corregido también** (Cesar pidió expresamente
+  "si hay más sitios, hazlo en todos los sitios que has detectado no dejes
+  nada al azar"): nota (`detalle-captura.tsx`), oportunidad
+  (`detalle-oportunidad.tsx`) y próximo paso (`detalle-proximo-paso.tsx`)
+  tampoco editaban su zona desde la ficha — mismo campo "Zona (opcional)"
+  añadido a las tres, con carga y guardado en cola y en servidor.
+  `ayuda.ts` actualizado en el mismo commit (`98c5bd8`).
 
 **Verificado en vivo** (localhost, hallazgo de prueba con área "Hardware"):
 escribir zona → Guardar → `zona_texto` en BD; quitar "Hardware" con la ×
@@ -125,13 +129,23 @@ nueva → Guardar → 0 filas en `hallazgo_area`. Dato de prueba borrado.
 typecheck+lint+build verdes. **Pendiente**: Cesar no lo ha vuelto a probar
 él mismo todavía.
 
+**Verificado en vivo también en nota/oportunidad/próximo paso** (localhost,
+sesión de Borja, registros de prueba en la visita cerrada de CAPSA): en
+cada una de las tres pantallas, escribir zona → Guardar → confirmado en BD
+(`captura_libre.zona_texto`, `oportunidad.zona_texto`,
+`proximo_paso.zona_texto`). Datos de prueba borrados (0 filas tras limpiar).
+typecheck+lint+build verdes.
+
 ## Resumen
 
-- **2 bugs encontrados y corregidos**, ambos re-probados y cerrados:
+- **3 bugs encontrados y corregidos**, todos re-probados y cerrados:
   - [B] fantasma en "En esta visita" al borrar hallazgo/próximo paso.
   - [C] guardar (no solo borrar) fallaba en silencio sin permiso — probado
-    en vivo con Borja, el más importante de los dos (podía hacer creer a
+    en vivo con Borja, el más importante de los tres (podía hacer creer a
     un comercial que había editado algo de otro cuando no había pasado nada).
+  - [D] zona no editable + categorías atascadas en hallazgo, y mismo hueco
+    de zona barrido en nota/oportunidad/próximo paso — las 4 pantallas
+    verificadas en vivo con datos de prueba y BD.
 - Todo lo demás probado (modelo Proyectos, ecosistema por categoría, Notas
   en repaso/actividad de proyecto, detalle de visita cerrada sin naturaleza,
   informe de visita, Anotar) — sin errores de consola, comportamiento
