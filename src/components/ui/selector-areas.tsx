@@ -45,6 +45,15 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
     onCambio(estaSel(a) ? seleccionadas.filter((s) => !mismaArea(s, a)) : [...seleccionadas, a]);
   }
 
+  // La franja de arriba solo lleva TÉRMINOS: una categoría marcada ya se ve
+  // (relleno + ✓) y se quita tocando su propio nombre en la rejilla de
+  // abajo — repetirla aquí con una × aparte era la misma selección con dos
+  // mecanismos distintos en la misma pantalla (Cesar: "¿por qué repetir
+  // arriba lo que ya está marcado abajo?"). Un término no tiene ese sitio
+  // fijo — solo aparece si lo buscas — así que sí necesita vivir aquí para
+  // poder verse y quitarse.
+  const terminosSeleccionados = seleccionadas.filter((a) => a.tipo === 'termino');
+
   const q = sinAcentos(textoBusqueda.trim());
 
   const categoriasEncontradas = q
@@ -128,9 +137,9 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
 
   return (
     <div className="card">
-      {seleccionadas.length > 0 && (
+      {terminosSeleccionados.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-          {seleccionadas.map((a) => (
+          {terminosSeleccionados.map((a) => (
             <span
               key={`${a.tipo}:${a.id}`}
               className="chip chip--on"
