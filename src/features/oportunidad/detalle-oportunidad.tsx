@@ -8,6 +8,7 @@ import { SelectorTermino } from '@/components/ui/selector-termino';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -73,7 +74,7 @@ export function DetalleOportunidad() {
   const [buscandoRol, setBuscandoRol] = useState<'solucion_propuesta' | 'tecnologia_motivadora' | null>(null);
   const [errorAsociar, setErrorAsociar] = useState<string | null>(null);
 
-  const { data: oportunidad, isLoading } = useQuery({
+  const { data: oportunidad, isLoading, isError, refetch } = useQuery({
     queryKey: ['oportunidad', oportunidadId],
     enabled: !!oportunidadId,
     // Si acaba de sincronizar desde la cola, al volver a entrar queremos la
@@ -365,10 +366,24 @@ export function DetalleOportunidad() {
     queryClient.invalidateQueries({ queryKey: ['terminos-oportunidad', oportunidadId, rol] });
   }
 
-  if (isLoading || !oportunidad) {
+  if (isLoading || (!oportunidad && !isError)) {
     return (
       <div className="screen">
-        <p style={{ color: 'var(--ink-400)', fontSize: 'var(--text-sm)' }}>Cargando…</p>
+        <CabeceraDetalle titulo="Oportunidad" volverA={volver} />
+        <EstadoLista estado="cargando" />
+      </div>
+    );
+  }
+
+  if (isError || !oportunidad) {
+    return (
+      <div className="screen">
+        <CabeceraDetalle titulo="Oportunidad" volverA={volver} />
+        <EstadoLista
+          estado="error"
+          mensaje="No se pudo cargar la oportunidad. Puede que no tengas permiso."
+          onReintentar={() => refetch()}
+        />
       </div>
     );
   }

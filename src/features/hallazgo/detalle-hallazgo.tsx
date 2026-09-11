@@ -52,7 +52,7 @@ export function DetalleHallazgo() {
   const [archivando, setArchivando] = useState(false);
   const [errorArchivado, setErrorArchivado] = useState<string | null>(null);
 
-  const { data: hallazgo, isLoading } = useQuery({
+  const { data: hallazgo, isLoading, isError, refetch } = useQuery({
     queryKey: ['hallazgo', hallazgoId],
     enabled: !!hallazgoId,
     queryFn: async () => {
@@ -235,11 +235,24 @@ export function DetalleHallazgo() {
     navigate(volver);
   }
 
-  if (isLoading || !hallazgo) {
+  if (isLoading || (!hallazgo && !isError)) {
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Hallazgo" volverA={volver} />
         <EstadoLista estado="cargando" />
+      </div>
+    );
+  }
+
+  if (isError || !hallazgo) {
+    return (
+      <div className="screen">
+        <CabeceraDetalle titulo="Hallazgo" volverA={volver} />
+        <EstadoLista
+          estado="error"
+          mensaje="No se pudo cargar el hallazgo. Puede que no tengas permiso."
+          onReintentar={() => refetch()}
+        />
       </div>
     );
   }
