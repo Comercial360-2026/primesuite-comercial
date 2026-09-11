@@ -42,3 +42,11 @@ export function Avatar({ nombre, size = 'sm' }: Props) {
     </span>
   );
 }
+
+/** El mismo color que pinta el `Avatar` de esta persona, como valor CSS
+ *  (`var(--avatar-N)`) — para teñir con SU color algo que no es un avatar
+ *  (p. ej. la barra de un gráfico "por comercial"). Mismo hash, así que
+ *  identifica a la misma persona en cualquier sitio de la app. */
+export function colorAvatarDe(nombre: string): string {
+  return `var(--avatar-${tonoDe(nombre)})`;
+}

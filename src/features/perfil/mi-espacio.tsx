@@ -17,6 +17,8 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { Aviso } from '@/components/ui/aviso';
 import { Segmentado } from '@/components/ui/segmentado';
+import { Avatar } from '@/components/ui/avatar';
+import { GraficoBarras } from '@/components/ui/grafico-barras';
 
 type VisitaEspacio = {
   visita_id: string;
@@ -586,6 +588,35 @@ function PorComercial() {
                 </div>
               )}
             </div>
+          )}
+
+          {!seleccionando && (
+            <GraficoBarras
+              items={[...(consumo ?? [])]
+                .sort((a, b) => b.bytes - a.bytes)
+                .map((c) => {
+                  const pctBarra = cuotaBytes ? (c.bytes / cuotaBytes) * 100 : 0;
+                  const colorBarraFila =
+                    cuotaBytes && pctBarra >= 100
+                      ? 'var(--risk-600)'
+                      : cuotaBytes && pctBarra >= 85
+                        ? 'var(--warning-600)'
+                        : 'var(--brand-600)';
+                  return {
+                    id: c.comercial_id,
+                    etiqueta: (
+                      <>
+                        <Avatar nombre={c.nombre} /> {c.nombre}
+                      </>
+                    ),
+                    valor: c.bytes,
+                    valorTexto: cuotaBytes
+                      ? `${formatearMB(c.bytes)} MB · ${Math.round(pctBarra)}%`
+                      : `${formatearMB(c.bytes)} MB`,
+                    color: colorBarraFila,
+                  };
+                })}
+            />
           )}
 
           <SeccionLista titulo="Por comercial">

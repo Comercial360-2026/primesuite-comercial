@@ -813,6 +813,38 @@ textarea.field {
   color: var(--ink-300); display: inline-flex;
 }
 
+/* Gráfico de barras horizontales "por comercial" (Actividad, Consumo). Sin
+   librería: son `<div>` con ancho en %, mismo lenguaje que `.medidor__barra`.
+   Ver `src/components/ui/grafico-barras.tsx` y 08_sistema_diseno.md
+   §"Gráficos por comercial". */
+.grafico-barras {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  background: var(--surface-1); border: 1px solid var(--ink-100);
+  border-radius: var(--radius-control); padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-card);
+}
+.grafico-barras__fila {
+  display: grid; grid-template-columns: minmax(84px, 152px) 1fr auto;
+  align-items: center; gap: var(--space-3);
+}
+.grafico-barras__etiqueta {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  font-size: var(--text-sm); color: var(--ink-900);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grafico-barras__pista {
+  display: block; height: 10px; border-radius: var(--radius-chip);
+  background: var(--ink-100); overflow: hidden;
+}
+.grafico-barras__relleno {
+  display: block; height: 100%; border-radius: var(--radius-chip);
+  transition: width var(--motion-base) var(--motion-ease);
+}
+.grafico-barras__valor {
+  flex-shrink: 0; text-align: right; min-width: 34px;
+  font-size: var(--text-xs); font-weight: 600; color: var(--ink-700);
+}
+
 /* Medidor de espacio del equipo (pantalla Mi espacio). Barra con
    presencia, no un sliver; cifra en positivo. */
 .medidor {

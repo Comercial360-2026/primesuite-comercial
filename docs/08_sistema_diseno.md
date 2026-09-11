@@ -592,6 +592,25 @@ accesibilidad" de siempre) — el círculo nunca es la única señal.
 - Dos tamaños únicos: `sm` (28px, dentro de una fila) y `md` (40px, junto
   a un título de cabecera). Ningún otro tamaño suelto.
 
+## Gráficos por comercial
+
+`GraficoBarras` (`src/components/ui/grafico-barras.tsx`) — barras
+horizontales sin librería externa (mismo lenguaje que `.medidor__barra`,
+ya usado en Mi espacio): una fila por comercial, etiqueta con su `Avatar`
+a la izquierda, barra proporcional al valor, cifra exacta siempre en texto
+a la derecha — el color nunca es la única forma de leer el dato. Cada
+barra lleva su etiqueta al lado, así que no hace falta una leyenda aparte.
+
+- **Color de la barra**: o bien `colorAvatarDe(nombre)` (mismo tono que
+  el `Avatar` de esa persona — identidad, para un ranking sin más
+  significado que "quién es quién"), o un tono de estado
+  (`var(--risk-600)`/`var(--warning-600)`/`var(--brand-600)`) cuando el
+  valor SÍ tiene un umbral real (p. ej. % de cuota de espacio). No se
+  mezclan los dos criterios en el mismo gráfico.
+- Usado hoy en "Actividad por comercial" (visitas, color por persona) y
+  "Consumo por comercial" (MB, color por umbral de cuota) — pantalla Yo →
+  Gestión, la que mira Dirección.
+
 ## Iconos — cuándo sí y cuándo no
 
 Una sola regla para toda la app: el icono depende de **qué hace** el

@@ -6,6 +6,8 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Segmentado } from '@/components/ui/segmentado';
+import { Avatar, colorAvatarDe } from '@/components/ui/avatar';
+import { GraficoBarras } from '@/components/ui/grafico-barras';
 import { desde } from '@/lib/volver-a';
 import { desdeDePeriodo, periodoDeParams, type PeriodoActividad } from './periodo-actividad';
 
@@ -85,18 +87,39 @@ export function ActividadComerciales() {
         ) : actividad?.length === 0 ? (
           <EstadoLista estado="vacio" mensaje="No hay comerciales activos." />
         ) : (
-          <SeccionLista titulo="Por comercial">
-            {actividad?.map((c) => (
-              <FilaNavegable
-                key={c.comercial_id}
-                avatar={c.nombre}
-                titulo={c.nombre}
-                subtitulo={resumen(c)}
-                to={`/actividad-comerciales/${c.comercial_id}${location.search}`}
-                state={desde(location)}
-              />
-            ))}
-          </SeccionLista>
+          <>
+            {/* Visitas por comercial, de un vistazo — el resto del desglose
+                (hallazgos, capturas, oportunidades) sigue en el subtítulo de
+                cada fila de abajo; esto es la cifra que manda para Dirección. */}
+            <GraficoBarras
+              items={[...(actividad ?? [])]
+                .sort((a, b) => b.num_visitas - a.num_visitas)
+                .map((c) => ({
+                  id: c.comercial_id,
+                  etiqueta: (
+                    <>
+                      <Avatar nombre={c.nombre} /> {c.nombre}
+                    </>
+                  ),
+                  valor: c.num_visitas,
+                  valorTexto: `${c.num_visitas} visita${c.num_visitas === 1 ? '' : 's'}`,
+                  color: colorAvatarDe(c.nombre),
+                }))}
+            />
+
+            <SeccionLista titulo="Por comercial">
+              {actividad?.map((c) => (
+                <FilaNavegable
+                  key={c.comercial_id}
+                  avatar={c.nombre}
+                  titulo={c.nombre}
+                  subtitulo={resumen(c)}
+                  to={`/actividad-comerciales/${c.comercial_id}${location.search}`}
+                  state={desde(location)}
+                />
+              ))}
+            </SeccionLista>
+          </>
         )}
       </div>
     </div>
