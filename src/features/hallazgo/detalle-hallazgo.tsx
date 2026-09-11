@@ -39,7 +39,7 @@ export function DetalleHallazgo() {
   // varias. Se cargan de la tabla puente y se pueden añadir/quitar aquí.
   const [areas, setAreas] = useState<Area[]>([]);
   const [nota, setNota] = useState('');
-  const [ubicacionId, setUbicacionId] = useState<string>('');
+  const [zonaTexto, setZonaTexto] = useState('');
   const [fechaRelevante, setFechaRelevante] = useState('');
   const [tipoFechaRelevante, setTipoFechaRelevante] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -58,7 +58,7 @@ export function DetalleHallazgo() {
       const { data, error: err } = await supabase
         .from('hallazgo')
         .select(
-          'id, cliente_id, visita_id, comercial_autor_id, nota, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, cliente_id, visita_id, comercial_autor_id, nota, zona_texto, ubicacion_id, fecha_relevante, tipo_fecha_relevante, archivado_en, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', hallazgoId!)
         .single();
@@ -80,6 +80,13 @@ export function DetalleHallazgo() {
   ]
     .filter(Boolean)
     .join(' · ');
+  // Hallazgos de antes de la migración a "zona" (texto libre) llevaban una
+  // ubicación del catálogo (`ubicacion_id`). Esa pantalla de gestión ya no
+  // existe (no se pueden crear ubicaciones nuevas), así que aquí ya no se
+  // edita — solo se avisa de que el dato viejo se conserva (el informe lo
+  // sigue usando como último recurso si no hay zona) hasta que se escriba
+  // una zona nueva.
+  const hallazgoTieneUbicacionLegado = !!hallazgo?.ubicacion_id;
 
   // El formulario se rellena con lo que hay en el servidor UNA sola vez por
   // hallazgo. Sin estos guards, cualquier refetch de la query (foco de la
@@ -93,7 +100,7 @@ export function DetalleHallazgo() {
   useEffect(() => {
     if (!hallazgo || camposSembradosRef.current === hallazgoId) return;
     setNota(hallazgo.nota ?? '');
-    setUbicacionId(hallazgo.ubicacion_id ?? '');
+    setZonaTexto(hallazgo.zona_texto ?? '');
     setFechaRelevante(hallazgo.fecha_relevante ?? '');
     setTipoFechaRelevante(hallazgo.tipo_fecha_relevante ?? '');
     camposSembradosRef.current = hallazgoId ?? null;
@@ -104,19 +111,6 @@ export function DetalleHallazgo() {
     setAreas(areasCargadas);
     areasSembradasRef.current = hallazgoId ?? null;
   }, [areasCargadas, hallazgoId]);
-
-  const { data: ubicaciones } = useQuery({
-    queryKey: ['ubicaciones-cliente', hallazgo?.cliente_id],
-    enabled: !!hallazgo?.cliente_id,
-    queryFn: async () => {
-      const { data, error: err } = await supabase
-        .from('ubicacion')
-        .select('id, nombre')
-        .eq('cliente_id', hallazgo!.cliente_id);
-      if (err) throw err;
-      return data ?? [];
-    },
-  });
 
   async function guardar() {
     if (!hallazgoId) return;
@@ -140,7 +134,7 @@ export function DetalleHallazgo() {
       .update(
         {
           nota: nota.trim() || null,
-          ubicacion_id: ubicacionId || null,
+          zona_texto: zonaTexto.trim() || null,
           fecha_relevante: fechaRelevante || null,
           tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
         },
@@ -286,15 +280,19 @@ export function DetalleHallazgo() {
         placeholder="envejecido, cliente insatisfecho…"
       />
 
-      <div className="label">Ubicación</div>
-      <select className="field" value={ubicacionId} onChange={(e) => setUbicacionId(e.target.value)}>
-        <option value="">Sin ubicación</option>
-        {ubicaciones?.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.nombre}
-          </option>
-        ))}
-      </select>
+      <div className="label">Zona (opcional)</div>
+      <input
+        className="field"
+        value={zonaTexto}
+        onChange={(e) => setZonaTexto(e.target.value)}
+        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
+      />
+      {!zonaTexto.trim() && hallazgoTieneUbicacionLegado && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+          Tenía una ubicación del catálogo antiguo; se conserva en el informe hasta que escribas
+          aquí una zona.
+        </div>
+      )}
 
       <div className="label">Fecha relevante (opcional)</div>
       <div style={{ display: 'flex', gap: 8 }}>

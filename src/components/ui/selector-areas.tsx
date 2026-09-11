@@ -209,13 +209,40 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
             {categoriasArea.map((c) => {
               const abierta = categoriaAbiertaId === c.id;
               const area: Area = { tipo: 'categoria', id: c.id, nombre: c.nombre };
+              const marcada = estaSel(area);
               // Marca visible en el chip si la categoría entera está
-              // seleccionada; abrir/cerrar su árbol es un gesto aparte.
-              return (
+              // seleccionada; abrir/cerrar su árbol es un gesto aparte. Si ya
+              // está marcada, el chip lleva además su propia × (mismo patrón
+              // que la fila de arriba) para quitarla en un toque, sin tener
+              // que abrir el árbol y buscar "Toda la categoría «X»" —
+              // confundía ("no puedo quitar las que ya están").
+              return marcada ? (
+                <span
+                  key={c.id}
+                  className="chip chip--on"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, outline: abierta ? '2px solid var(--brand-600)' : undefined }}
+                >
+                  <button
+                    type="button"
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}
+                    onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
+                  >
+                    {c.nombre}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => alternar(area)}
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
+                    aria-label={`quitar ${c.nombre}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : (
                 <button
                   key={c.id}
                   type="button"
-                  className={`chip${estaSel(area) || abierta ? ' chip--on' : ''}`}
+                  className={`chip${abierta ? ' chip--on' : ''}`}
                   onClick={() => setCategoriaAbiertaId(abierta ? null : c.id)}
                 >
                   {c.nombre}
