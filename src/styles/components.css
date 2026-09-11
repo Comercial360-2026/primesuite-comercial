@@ -119,7 +119,13 @@ body {
 .capture-btn {
   height: var(--h-capture-button);
   border-radius: var(--radius-control);
-  border: 1px solid transparent;
+  /* El tinte solo (--brand-050 sobre --surface-0) apenas se distinguía del
+     fondo de la pantalla — se leía como gris/deshabilitado pese a ser lo
+     que más va a tocar el comercial. El borde de marca es lo que le da
+     peso real, no un tinte más oscuro (seguiría siendo solo color: regla
+     "forma, no color" del sistema — aquí la segunda pista es el propio
+     borde, siempre presente, no solo un matiz). */
+  border: 1.5px solid var(--brand-600);
   background: var(--brand-050);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
   font-size: var(--text-sm); font-weight: 600; color: var(--ink-900);

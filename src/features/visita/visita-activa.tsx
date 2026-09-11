@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta, haceRelativo, desdeHace } from '@/lib/fechas';
+import { fechaCorta, haceRelativo, desdeHace, hora } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
@@ -181,15 +181,12 @@ function CapturasPorUbicacion({
       })}
       {c.hz.map((h) => {
         const p = h.payload as { nota?: string };
-        // Igual que la vista "Tipo": solo se puede abrir en cuanto ha
-        // subido (su detalle lee de la BD, no de la cola local).
-        return itemFila(
-          h.id,
-          'hallazgo',
-          tituloHallazgo(p.nota),
-          undefined,
-          h.estado === 'completado' ? () => onAbrirHallazgo(h.id) : undefined
-        );
+        // Se abre igual que foto/audio/nota/oportunidad, aunque no haya
+        // subido todavía: la ficha (detalle-hallazgo.tsx) ya sabe mostrar
+        // "cargando"/error si aún no existe en el servidor. Antes se
+        // dejaba la fila sin ningún toque enganchado hasta sincronizar —
+        // clase de bug encontrada en vivo: parecía simplemente rota.
+        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota), undefined, () => onAbrirHallazgo(h.id));
       })}
     </>
   );
@@ -1333,6 +1330,14 @@ export function VisitaActiva() {
   // `zonaParaCaptura` es `zonaActual.trim() || undefined`.
   const enZona = (z: string | null | undefined) => !zonaParaCaptura || (z ?? '') === zonaParaCaptura;
   const zTexto = (op: { payload: unknown }) => (op.payload as { zonaTexto?: string }).zonaTexto;
+  // Coletilla "zona · hora" para una fila propia sin sub todavía (audio,
+  // nota, hallazgo): antes no enseñaban ni dónde ni cuándo se capturó. Zona
+  // real (BD) si ya se subió y se conoce — mismo criterio que
+  // CapturasPorUbicacion — si no, la de la cola local.
+  const subZonaHora = (op: OperacionPendiente) => {
+    const zona = misZonasReales?.[op.id] ?? zTexto(op);
+    return [zona, op.creadoEn ? hora(op.creadoEn) : undefined].filter(Boolean).join(' · ') || undefined;
+  };
   const fotosOwnV = fotosOwn.filter((c) => enZona(zTexto(c)));
   const audiosOwnV = audiosOwn.filter((c) => enZona(zTexto(c)));
   const notasOwnV = notasOwn.filter((c) => enZona(zTexto(c)));
@@ -2094,7 +2099,7 @@ export function VisitaActiva() {
                     a.id,
                     'audio',
                     capitalizarFrase((a.payload as { titulo?: string }).titulo || 'sin título'),
-                    undefined,
+                    subZonaHora(a),
                     () => navigate(`/capturas/${a.id}`)
                   )
                 )}
@@ -2113,7 +2118,7 @@ export function VisitaActiva() {
                     n.id,
                     'nota',
                     capitalizarFrase(p.titulo || p.contenidoTexto || '(nota vacía)'),
-                    undefined,
+                    subZonaHora(n),
                     () => navigate(`/capturas/${n.id}`)
                   );
                 })}
@@ -2128,16 +2133,11 @@ export function VisitaActiva() {
                 )}
                 {hallazgosV.map((h) => {
                   const p = h.payload as { nota?: string };
-                  // Se puede abrir para revisar/editar/borrar en cuanto ha
-                  // subido (su detalle lee de la BD, no de la cola local).
-                  return filaEnVisita(
-                    h.id,
-                    'hallazgo',
-                    tituloHallazgo(p.nota),
-                    undefined,
-                    h.estado === 'completado'
-                      ? () => navigate(`/hallazgos/${h.id}`, { state: origen })
-                      : undefined
+                  // Se abre igual que foto/audio/nota/oportunidad, aunque no
+                  // haya subido todavía — ver el mismo comentario en
+                  // CapturasPorUbicacion (itemFila) más arriba en el fichero.
+                  return filaEnVisita(h.id, 'hallazgo', tituloHallazgo(p.nota), subZonaHora(h), () =>
+                    navigate(`/hallazgos/${h.id}`, { state: origen })
                   );
                 })}
                 {hallazgosCompanerosV.map((h) =>
@@ -2171,14 +2171,10 @@ export function VisitaActiva() {
                 {pasosV.map((p) => {
                   const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                   const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
-                  return filaEnVisita(
-                    p.id,
-                    'paso',
-                    capitalizarFrase(payload.descripcion),
-                    fecha,
-                    p.estado === 'completado'
-                      ? () => navigate(`/proximos-pasos/${p.id}`, { state: origen })
-                      : undefined
+                  // Misma clase de bug que hallazgo (ver más arriba): se abre
+                  // igual que sus hermanos, aunque no haya subido todavía.
+                  return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha, () =>
+                    navigate(`/proximos-pasos/${p.id}`, { state: origen })
                   );
                 })}
                 {pasosCompanerosV.map((p) =>
