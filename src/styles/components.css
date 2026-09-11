@@ -132,6 +132,14 @@ body {
   cursor: pointer;
 }
 .capture-btn > svg { color: var(--brand-600); }
+/* Identidad de tipo — el icono (forma) ya distingue cada botón; el color
+   es la segunda mitad del par forma+color, nunca sustituye al icono.
+   "Anotar" (nota) se queda con el brand-600 de arriba: es la acción por
+   defecto, sin tono propio. El borde del grupo se queda uniforme en
+   brand-600 — identidad de tipo va en el icono, no en 4 bordes distintos. */
+.capture-btn--foto > svg { color: var(--tipo-foto); }
+.capture-btn--audio > svg { color: var(--tipo-audio); }
+.capture-btn--paso > svg { color: var(--tipo-paso); }
 .capture-btn:active:not(:disabled) { transform: scale(0.97); }
 .capture-btn:disabled {
   background: var(--surface-1); border-color: var(--ink-100);

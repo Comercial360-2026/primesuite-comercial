@@ -51,6 +51,18 @@ function tituloHallazgo(nota: string | undefined | null): string {
   return nota?.trim() || 'Hallazgo';
 }
 
+// Identidad de tipo de "En esta visita" — el icono (forma) ya distingue
+// cada fila; esto tiñe SOLO el icono, nunca el texto (un texto de color en
+// una lista se lee como alarma). Nota se queda sin tono propio (acción por
+// defecto); Oportunidad reutiliza --signal-600, ya reservado para ella.
+const COLOR_TIPO_ITEM: Partial<Record<NombreIcono, string>> = {
+  foto: 'var(--tipo-foto)',
+  audio: 'var(--tipo-audio)',
+  hallazgo: 'var(--tipo-hallazgo)',
+  paso: 'var(--tipo-paso)',
+  oportunidad: 'var(--signal-600)',
+};
+
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
@@ -109,7 +121,9 @@ function CapturasPorUbicacion({
   const itemFila = (key: string, icono: NombreIcono, texto: string, sub?: string, onClick?: () => void) => {
     const contenido = (
       <>
-        <Icono nombre={icono} size={16} />
+        <span style={{ display: 'inline-flex', color: COLOR_TIPO_ITEM[icono] }}>
+          <Icono nombre={icono} size={16} />
+        </span>
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </>
@@ -1442,20 +1456,26 @@ export function VisitaActiva() {
     texto: string,
     sub?: string,
     onClick?: () => void
-  ) =>
-    onClick ? (
-      <button key={key} type="button" className="va-item" onClick={onClick}>
+  ) => {
+    const iconoConTono = (
+      <span style={{ display: 'inline-flex', color: COLOR_TIPO_ITEM[icono] }}>
         <Icono nombre={icono} size={16} />
+      </span>
+    );
+    return onClick ? (
+      <button key={key} type="button" className="va-item" onClick={onClick}>
+        {iconoConTono}
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </button>
     ) : (
       <div key={key} className="va-item">
-        <Icono nombre={icono} size={16} />
+        {iconoConTono}
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
       </div>
     );
+  };
 
   return (
     <div className="screen screen--split">
@@ -1907,7 +1927,7 @@ export function VisitaActiva() {
             después. */}
         <div className="capture-grid" style={{ rowGap: 'var(--space-4)' }}>
           <button
-            className="capture-btn"
+            className="capture-btn capture-btn--foto"
             disabled={capturaFoto.cargando || espacioBloqueado}
             onClick={() => inputFotoRef.current?.click()}
           >
@@ -1915,7 +1935,7 @@ export function VisitaActiva() {
             {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
           </button>
           <button
-            className={`capture-btn${grabando ? ' capture-btn--rec' : ''}`}
+            className={`capture-btn capture-btn--audio${grabando ? ' capture-btn--rec' : ''}`}
             disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
             onClick={iniciarODetenerAudio}
           >
@@ -1938,7 +1958,7 @@ export function VisitaActiva() {
           </button>
           <button
             type="button"
-            className="capture-btn"
+            className="capture-btn capture-btn--paso"
             onClick={() => setPasoAbierto(true)}
             disabled={!visitaLocal?.clienteId}
           >

@@ -28,6 +28,19 @@
   /* Acento funcional — Oportunidad */
   --signal-600: #EF4136;
 
+  /* Identidad de tipo — Foto / Audio / Hallazgo / Próximo paso (Visita
+     activa: botones de captura + filas de "En esta visita"). Cada tipo YA
+     se distingue por su icono (forma); esto es la segunda mitad del par
+     forma+color que pide 08_sistema_diseno.md "Color y accesibilidad" —
+     el color nunca va solo, nunca sustituye al icono. Tiñe SOLO el icono
+     (nunca el texto de la fila: un texto de color se lee como alarma).
+     Nota no lleva tono propio — es la acción "por defecto" sin marcar
+     nada; Oportunidad reutiliza --signal-600, ya reservado para ella. */
+  --tipo-foto: #2F7B6B;
+  --tipo-audio: #4A5FA5;
+  --tipo-hallazgo: #9C5B3C;
+  --tipo-paso: #6B4FA0;
+
   /* ÚNICO rojo de "acción destructiva" en toda la app (borrar / anular /
      dar de baja). Ver 08_sistema_diseno.md §"Botones". */
   --risk-600: #6E2430;       /* borgoña, separado de Oportunidad */
