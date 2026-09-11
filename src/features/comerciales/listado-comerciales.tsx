@@ -145,7 +145,7 @@ export function ListadoComerciales() {
                 {lista.map((c) => (
                   <FilaNavegable
                     key={c.id}
-                    icono="clientes"
+                    avatar={c.nombre}
                     titulo={c.nombre}
                     subtitulo={`${ETIQUETA_ROL[c.rol] ?? c.rol}${c.zona_cartera ? ` · ${c.zona_cartera}` : ''}`}
                     tono={c.activo ? 'neutral' : 'riesgo'}

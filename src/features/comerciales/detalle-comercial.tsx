@@ -254,6 +254,7 @@ export function DetalleComercial() {
         titulo={data.nombre}
         ayuda="detalle-comercial"
         subtitulo={data.activo ? undefined : `De baja${data.fecha_baja ? ` desde el ${fechaCorta(data.fecha_baja)}` : ''}`}
+        avatar={data.nombre}
         onVolver={() => navigate('/comerciales')}
       />
 

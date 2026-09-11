@@ -624,6 +624,7 @@ function PorComercial() {
               const fila = seleccionando ? (
                 <FilaAccion
                   key={c.comercial_id}
+                  avatar={c.nombre}
                   titulo={c.nombre}
                   subtitulo={`${cuotaBytes ? `${cifra} de su parte` : cifra}${nota ? ` · ${nota}` : ''}`}
                   tono={tono}
@@ -642,6 +643,7 @@ function PorComercial() {
                   key={c.comercial_id}
                   etiqueta={c.nombre}
                   icono={tono === 'neutral' ? undefined : 'atencion'}
+                  avatar={c.nombre}
                   tono={tono}
                   valor={
                     <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>

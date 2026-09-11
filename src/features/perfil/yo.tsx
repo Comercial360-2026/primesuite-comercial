@@ -16,6 +16,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Avatar } from '@/components/ui/avatar';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
 
@@ -337,9 +338,12 @@ export function Yo() {
       <CabeceraSeccion titulo="Yo" icono="yo" ayuda="yo" />
 
       <div className="lista-agrupada">
-        <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{comercial?.nombre ?? '—'}</div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 2 }}>{etiquetaRol}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingInline: 'var(--fila-pad-x)' }}>
+          {comercial?.nombre && <Avatar nombre={comercial.nombre} size="md" />}
+          <div>
+            <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700, letterSpacing: '-0.008em' }}>{comercial?.nombre ?? '—'}</div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 2 }}>{etiquetaRol}</div>
+          </div>
         </div>
 
         {numErrores > 0 && (

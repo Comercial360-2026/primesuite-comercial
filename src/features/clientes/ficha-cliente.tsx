@@ -352,6 +352,7 @@ export function FichaCliente() {
         titulo={cliente?.nombre ?? '…'}
         ayuda="ficha-cliente"
         subtitulo={cliente?.sector || undefined}
+        avatar={cliente?.nombre}
         volverA={volver}
         derecha={
           <>

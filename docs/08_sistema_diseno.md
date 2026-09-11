@@ -567,6 +567,31 @@ semáforo con forma+palabra en Clientes) que la distinga de una fila neutral.
 </div>
 ```
 
+## Identidad de persona
+
+Una fila que representa a un COMERCIAL o un CLIENTE (nunca una
+visita/tarea/hallazgo) lleva `Avatar` (`src/components/ui/avatar.tsx`) en
+vez de un icono genérico: iniciales sobre un círculo de color por hash del
+nombre — determinista, nunca a mano ni aleatorio, así el mismo nombre cae
+siempre en el mismo tono en cualquier pantalla. Las iniciales (texto) son
+la segunda pista de accesibilidad sobre el color (§"Color y
+accesibilidad" de siempre) — el círculo nunca es la única señal.
+
+- **`FilaNavegable` / `FilaDato` / `FilaAccion`** aceptan `avatar={nombre}`
+  además de `icono`: si se pasan los dos, `icono` gana (es una señal de
+  estado real, p. ej. ⚠ "de baja" o "atención" — pesa más que la
+  identidad). `Avatar` ocupa la misma ranura que `.fila__icono`.
+- **`CabeceraDetalle`** acepta `avatar={nombre}` para la ficha de un
+  comercial o un cliente — un `Avatar` más grande (`size="md"`) junto al
+  título.
+- **Cuándo NO se usa**: filas cuyo sujeto es un evento (una visita, un
+  hallazgo, un próximo paso) — esas ya tienen su propio idioma de icono
+  (hoy/agenda/check/atención, tipo de captura…) y un avatar competiría con
+  esa señal. El nombre del cliente/comercial dentro de esas filas se queda
+  en texto, como hasta ahora.
+- Dos tamaños únicos: `sm` (28px, dentro de una fila) y `md` (40px, junto
+  a un título de cabecera). Ningún otro tamaño suelto.
+
 ## Iconos — cuándo sí y cuándo no
 
 Una sola regla para toda la app: el icono depende de **qué hace** el

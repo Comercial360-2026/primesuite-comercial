@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icono } from './iconos';
+import { Avatar } from './avatar';
 import { BotonAyuda } from './boton-ayuda';
 import type { PantallaAyudaId } from '@/lib/ayuda';
 
@@ -28,6 +29,9 @@ type Props = {
   subtitulo?: string;
   /** Si se pasa, añade el "?" de ayuda junto al título. Id de `ayuda.ts`. */
   ayuda?: PantallaAyudaId;
+  /** Ficha de una PERSONA (comercial/cliente): `Avatar` grande junto al
+   *  título, con el nombre completo (decide iniciales y color). */
+  avatar?: string;
   /** Ranura a la derecha: chip de estado, botón de acción… */
   derecha?: ReactNode;
 } & (
@@ -35,7 +39,7 @@ type Props = {
   | { volverA: string; onVolver?: () => void }
 );
 
-export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, derecha }: Props) {
+export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, avatar, derecha }: Props) {
   const navigate = useNavigate();
   const volver = onVolver ?? (() => navigate(volverA!));
 
@@ -49,6 +53,7 @@ export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, d
       >
         <Icono nombre="atras" size={22} />
       </button>
+      {avatar && <Avatar nombre={avatar} size="md" />}
       <div className="cabecera-detalle__texto">
         <h1 className="cabecera-detalle__titulo">{titulo}</h1>
         {subtitulo && <p className="cabecera-detalle__subtitulo">{subtitulo}</p>}

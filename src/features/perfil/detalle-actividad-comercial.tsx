@@ -73,7 +73,12 @@ export function DetalleActividadComercial() {
       {/* Regla #14: el origen real lo estampa quien navega aquí (la lista o
           la ficha del comercial), conservando su `?dias=`; el fallback es la
           lista. */}
-      <CabeceraDetalle titulo={comercial?.nombre ?? 'Comercial'} subtitulo="Actividad por proyecto" volverA={volver} />
+      <CabeceraDetalle
+        titulo={comercial?.nombre ?? 'Comercial'}
+        subtitulo="Actividad por proyecto"
+        avatar={comercial?.nombre}
+        volverA={volver}
+      />
 
       <Segmentado
         opciones={[

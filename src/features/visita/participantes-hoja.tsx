@@ -5,6 +5,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { FilaToggle } from '@/components/ui/fila-toggle';
+import { Avatar } from '@/components/ui/avatar';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 
 interface ParticipantesHojaProps {
@@ -340,7 +341,10 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                 key={p.comercial_id}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
               >
-                <span style={{ fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <Avatar nombre={p.nombre} />
+                  <span style={{ fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
+                </span>
                 {confirmandoQuitar === p.comercial_id ? (
                   <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
@@ -424,10 +428,13 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                   return (
                     <div
                       key={c.id}
-                      style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', padding: '4px 0' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-400)', padding: '4px 0' }}
                     >
-                      {c.nombre}
-                      {nota && <span style={{ fontSize: 'var(--text-xs)' }}> · {nota}</span>}
+                      <Avatar nombre={c.nombre} />
+                      <span style={{ fontSize: 'var(--text-sm)' }}>
+                        {c.nombre}
+                        {nota && <span style={{ fontSize: 'var(--text-xs)' }}> · {nota}</span>}
+                      </span>
                     </div>
                   );
                 }
@@ -442,6 +449,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                     onClick={() => alternarSeleccion(c.id)}
                   >
                     <FilaToggle marcada={marcado} />
+                    <Avatar nombre={c.nombre} />
                     <span className="interlocutor-fila__datos">
                       <span className="interlocutor-fila__nombre">{c.nombre}</span>
                       {nota && <span className="interlocutor-fila__sub">{nota}</span>}

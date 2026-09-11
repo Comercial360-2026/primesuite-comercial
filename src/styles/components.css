@@ -239,6 +239,28 @@ button.interlocutor-fila__cuerpo--presente:hover {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* Avatar de persona (comercial o cliente) — iniciales sobre un círculo de
+   color por hash del nombre. Ver `src/components/ui/avatar.tsx` y
+   08_sistema_diseno.md §"Identidad de persona". Ocupa la ranura de
+   `.fila__icono` cuando una fila representa a alguien (en vez del icono
+   genérico), o va suelto en una cabecera de ficha (`--md`). */
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; border-radius: 50%;
+  font-family: var(--font-sans); font-weight: 700; color: #fff;
+  line-height: 1; letter-spacing: 0;
+}
+.avatar--sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar--md { width: 40px; height: 40px; font-size: 15px; }
+.avatar--1 { background: var(--avatar-1); }
+.avatar--2 { background: var(--avatar-2); }
+.avatar--3 { background: var(--avatar-3); }
+.avatar--4 { background: var(--avatar-4); }
+.avatar--5 { background: var(--avatar-5); }
+.avatar--6 { background: var(--avatar-6); }
+.avatar--7 { background: var(--avatar-7); }
+.avatar--8 { background: var(--avatar-8); }
+
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
   height: 32px; padding: 0 var(--space-3);

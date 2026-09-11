@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icono, type NombreIcono } from './iconos';
+import { Avatar } from './avatar';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 import { useSwipeFila } from '@/hooks/use-swipe-fila';
 
@@ -34,6 +35,11 @@ type Tono = 'neutral' | 'aviso' | 'riesgo' | 'ok' | 'alerta';
 
 interface PropsBase {
   icono?: NombreIcono;
+  /** La fila representa a una PERSONA (comercial/cliente): pinta su
+   *  `Avatar` (iniciales + color por hash del nombre) en vez de `icono`.
+   *  Si se pasan los dos, `icono` gana — es una señal de estado real
+   *  (p. ej. ⚠ "de baja") y pesa más que la identidad. */
+  avatar?: string;
   /** Normalmente un string. Acepta ReactNode para casos como el nombre de
    *  cliente + una etiqueta "Heredado" al lado. El recorte a 2 líneas
    *  (`.fila__titulo`) sigue aplicando sobre el conjunto. */
@@ -70,6 +76,7 @@ type Props = PropsBase &
 
 export function FilaNavegable({
   icono,
+  avatar,
   titulo,
   subtitulo,
   valor,
@@ -104,10 +111,12 @@ export function FilaNavegable({
   const contenido = (
     <>
       {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
-      {icono && (
+      {icono ? (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
         </span>
+      ) : (
+        avatar && <Avatar nombre={avatar} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>

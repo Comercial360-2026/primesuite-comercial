@@ -212,6 +212,7 @@ export function ListadoClientes() {
               return (
                 <FilaNavegable
                   key={c.cliente_id}
+                  avatar={c.cliente_nombre}
                   titulo={
                     heredado ? (
                       <>

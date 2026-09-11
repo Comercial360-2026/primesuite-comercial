@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { FilaToggle } from '@/components/ui/fila-toggle';
+import { Avatar } from '@/components/ui/avatar';
 
 interface Interlocutor {
   id: string;
@@ -391,6 +392,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                 onClick={() => alternarMarcado(i.id)}
               >
                 <FilaToggle marcada={marcado} />
+                <Avatar nombre={i.nombre} />
                 {datos}
               </button>
             );
@@ -405,6 +407,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                   onClick={() => presencia.onTogglePresencia(i.id, presente)}
                   aria-pressed={presente}
                 >
+                  <Avatar nombre={i.nombre} />
                   {datos}
                 </button>
               ) : (
@@ -414,6 +417,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                   onClick={() => abrirEdicion(i)}
                   aria-label={`Editar ${i.nombre}`}
                 >
+                  <Avatar nombre={i.nombre} />
                   {datos}
                 </button>
               )}

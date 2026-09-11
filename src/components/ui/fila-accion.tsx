@@ -1,4 +1,5 @@
 import { Icono, type NombreIcono } from './iconos';
+import { Avatar } from './avatar';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 
 // Fila de una lista agrupada (dentro de SeccionLista) con un cuerpo
@@ -35,6 +36,9 @@ export interface AccionFila {
 
 interface Props {
   icono?: NombreIcono;
+  /** La fila es de una PERSONA (comercial/cliente): `Avatar` en vez de
+   *  icono. Si se pasan los dos, `icono` gana (es una señal de estado). */
+  avatar?: string;
   titulo: string;
   subtitulo?: string;
   /** Si falta, el cuerpo es inerte (sin hover, sin cursor de puntero). */
@@ -55,6 +59,7 @@ interface Props {
 
 export function FilaAccion({
   icono,
+  avatar,
   titulo,
   subtitulo,
   onClick,
@@ -82,10 +87,12 @@ export function FilaAccion({
   const cuerpo = (
     <>
       {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
-      {icono && (
+      {icono ? (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
         </span>
+      ) : (
+        avatar && <Avatar nombre={avatar} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>

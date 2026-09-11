@@ -40,6 +40,23 @@
   --tipo-hallazgo: #9C5B3C;
   --tipo-paso: #6B4FA0;
 
+  /* Identidad de PERSONA — fondo del `Avatar` de un comercial o cliente
+     (iniciales en blanco encima). Color por hash del nombre (determinista,
+     no aleatorio — el mismo nombre siempre cae en el mismo tono), NUNCA
+     asignado a mano. No son colores de estado: no se leen en ninguna otra
+     parte de la app, así que no compiten con semáforo/tipo/riesgo. Las
+     iniciales (texto) son la segunda pista sobre el color — regla de
+     accesibilidad de siempre, ver "Color y accesibilidad". 8 tonos, cada
+     uno con contraste suficiente para texto blanco encima. */
+  --avatar-1: #4A5578;
+  --avatar-2: #3E7CA6;
+  --avatar-3: #4F8F6B;
+  --avatar-4: #A6763E;
+  --avatar-5: #8B5A8F;
+  --avatar-6: #5A8296;
+  --avatar-7: #B0555F;
+  --avatar-8: #6B6F8C;
+
   /* ÚNICO rojo de "acción destructiva" en toda la app (borrar / anular /
      dar de baja). Ver 08_sistema_diseno.md §"Botones". */
   --risk-600: #6E2430;       /* borgoña, separado de Oportunidad */

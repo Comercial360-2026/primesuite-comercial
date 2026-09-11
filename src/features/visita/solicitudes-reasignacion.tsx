@@ -6,6 +6,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Avatar } from '@/components/ui/avatar';
 
 interface SolicitudPendiente {
   id: string;
@@ -166,10 +167,11 @@ export function SolicitudesReasignacion() {
                             key={c.id}
                             type="button"
                             className="chip"
-                            style={{ textAlign: 'left' }}
+                            style={{ textAlign: 'left', gap: 6 }}
                             disabled={procesando === s.id}
                             onClick={() => asignar(s, c.id)}
                           >
+                            <Avatar nombre={c.nombre} />
                             {c.nombre}
                           </button>
                         ))}

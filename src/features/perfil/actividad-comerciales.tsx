@@ -89,6 +89,7 @@ export function ActividadComerciales() {
             {actividad?.map((c) => (
               <FilaNavegable
                 key={c.comercial_id}
+                avatar={c.nombre}
                 titulo={c.nombre}
                 subtitulo={resumen(c)}
                 to={`/actividad-comerciales/${c.comercial_id}${location.search}`}
