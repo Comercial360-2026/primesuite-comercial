@@ -2,8 +2,12 @@
   Design System v1 — PrimeNotes
   Fuente única de verdad de todos los valores visuales.
   Ver 08_sistema_diseno.md — cualquier cambio de marca se hace SOLO aquí.
-  Regla no negociable: sin box-shadow, sin blur, sin degradados,
-  sin opacity sobre color salvo el estado deshabilitado ya definido.
+  Regla no negociable: sin blur, sin degradados, sin opacity sobre color
+  salvo el estado deshabilitado ya definido. Sin box-shadow DECORATIVO —
+  la única sombra permitida es la que marca el estado activo/seleccionado
+  de un control (p. ej. la pastilla activa de `Segmentado`), nunca una
+  sombra "porque queda bien" en botones, tarjetas o filas. Ver
+  08_sistema_diseno.md §"Sombras".
 */
 
 :root {

@@ -36,7 +36,12 @@ export function BloqueAhora({ enCurso, proxima, proximaEsHoy, onAbrir }: Props) 
         {v.objetivo && <div className="bloque-ahora__obj">{v.objetivo}</div>}
         {/* Si hay más de una en curso, el resto se listan (y se abren/descartan)
             en la sección "También en curso" de Hoy, justo debajo. */}
-        <button type="button" className="bloque-ahora__cta" onClick={() => onAbrir(v)}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ marginTop: 'var(--space-3)' }}
+          onClick={() => onAbrir(v)}
+        >
           Continuar visita
           <Icono nombre="chevron" size={16} />
         </button>
@@ -56,7 +61,12 @@ export function BloqueAhora({ enCurso, proxima, proximaEsHoy, onAbrir }: Props) 
         <div className="bloque-ahora__cli">{proxima.cliente?.nombre ?? 'Cliente'}</div>
         {proxima.objetivo && <div className="bloque-ahora__obj">{proxima.objetivo}</div>}
         <div className="bloque-ahora__meta">{cuando}</div>
-        <button type="button" className="bloque-ahora__cta" onClick={() => onAbrir(proxima)}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ marginTop: 'var(--space-3)' }}
+          onClick={() => onAbrir(proxima)}
+        >
           Ver preparación
           <Icono nombre="chevron" size={16} />
         </button>

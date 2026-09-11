@@ -11,7 +11,7 @@ está **implementado en código** y a lo que apuntan los comentarios de
 | Qué | Dónde | Regla |
 |---|---|---|
 | Colores, tipografía, espaciado, radios, alturas | `src/styles/tokens.css` (`:root`) | Cualquier cambio de marca se hace **solo aquí**. |
-| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `box-shadow`, sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. |
+| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. Sin `box-shadow` decorativo — ver §"Sombras". |
 | Iconos | `src/components/ui/iconos.tsx` | Registro único. Las pantallas piden el icono por nombre; cambiar de set = editar ese archivo. |
 
 ## Prueba de usuario — requisito de toda pantalla
@@ -117,6 +117,27 @@ propaga a toda la app):
       reversible va SIEMPRE en palabras, nunca en un matiz de color.
     - Nunca `style={{ color/borderColor/background: 'var(--risk-600)' }}`
       en línea sobre un `.btn`: para eso están las clases.
+
+---
+
+## Sombras
+
+Sin sombra decorativa en ningún sitio: ni botones, ni tarjetas, ni filas,
+ni cabeceras. Una sombra se pone SOLO para decir una cosa muy concreta —
+"esto está por encima, seleccionado/activo" — nunca porque "queda bien".
+
+- **Único uso permitido hoy:** la pastilla activa de `Segmentado`
+  (`.segmentado__btn--on`, `box-shadow: 0 1px 2px rgba(0,0,0,0.12)`) — la
+  opción elegida se lee como "levantada" sobre la cápsula gris del fondo,
+  igual que el control de pestañas de iOS. Es la única señal de
+  selección de ese componente además del peso de la letra (Regla #11 de
+  jerarquía).
+- **Un botón normal (`Guardar`, `Cancelar`, cualquier `.btn`) no lleva
+  sombra.** No está "por encima" de nada — va plano, relleno de color,
+  igual que el resto de la pantalla.
+- Antes de añadir una sombra nueva en cualquier sitio: ¿marca de verdad un
+  estado activo/seleccionado que no se lea ya de otra forma (peso, color,
+  icono)? Si no, no se pone.
 
 ---
 

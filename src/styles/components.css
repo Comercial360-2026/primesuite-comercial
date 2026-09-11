@@ -303,7 +303,9 @@ button.interlocutor-fila__cuerpo--presente:hover {
   color: var(--ink-700); cursor: pointer;
 }
 /* Regla #11: el activo se lee por la PASTILLA elevada + el peso, no por el
-   color. Antes el texto iba en color de marca (única señal fuerte). */
+   color. Antes el texto iba en color de marca (única señal fuerte).
+   Esta sombra es la ÚNICA permitida en toda la app — ver
+   08_sistema_diseno.md §"Sombras" antes de copiarla a otro sitio. */
 .segmentado__btn--on {
   background: var(--surface-1); color: var(--ink-900); font-weight: 700;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
@@ -744,20 +746,14 @@ textarea.field {
 .bloque-ahora__cli { font-size: var(--text-lg); font-weight: 600; margin: 6px 0 2px; }
 .bloque-ahora__obj { font-size: var(--text-sm); color: var(--ink-700); }
 .bloque-ahora__meta { font-size: var(--text-xs); color: var(--ink-400); margin-top: 2px; }
-.bloque-ahora__cta {
-  margin-top: var(--space-3); width: 100%; height: var(--h-button);
-  border: none; border-radius: var(--radius-control);
-  background: var(--brand-600); color: #fff;
-  font-family: var(--font-sans); font-size: var(--text-base); font-weight: 500;
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
-  cursor: pointer;
-}
-.bloque-ahora__cta:active { transform: scale(0.98); }
 /* "Ver preparación" / "Continuar visita" son la acción principal de la
-   pantalla Hoy — las dos van rellenas en azul. Antes la de "próxima visita"
-   iba en borde gris y un usuario daltónico no la distinguía de un botón
-   secundario. La urgencia la marca el borde de la tarjeta (1.5px azul en
-   curso vs 1px gris próxima), no el botón. */
+   pantalla Hoy — las dos van con el mismo .btn.btn-primary que cualquier
+   otro botón principal de la app (antes tenían su propia clase con menos
+   redondeo — única excepción a la píldora estándar, corregida). Las dos
+   van rellenas en azul. Antes la de "próxima visita" iba en borde gris y
+   un usuario daltónico no la distinguía de un botón secundario. La
+   urgencia la marca el borde de la tarjeta (1.5px azul en curso vs 1px
+   gris próxima), no el botón. */
 
 /* Cabecera de la sección "Atrasadas" en Hoy — señal de atención (forma +
    palabra, no solo color: el usuario es daltónico). */
