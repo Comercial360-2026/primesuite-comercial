@@ -32,6 +32,7 @@ export function DetalleProximoPaso() {
 
   const [descripcion, setDescripcion] = useState('');
   const [fechaObjetivo, setFechaObjetivo] = useState('');
+  const [zonaTexto, setZonaTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function DetalleProximoPaso() {
       const { data, error: err } = await supabase
         .from('proximo_paso')
         .select(
-          'id, descripcion, fecha_objetivo, estado, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
+          'id, descripcion, fecha_objetivo, estado, zona_texto, proyecto_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
         )
         .eq('id', pasoId!)
         .single();
@@ -62,6 +63,7 @@ export function DetalleProximoPaso() {
     if (!paso) return;
     setDescripcion(paso.descripcion);
     setFechaObjetivo(paso.fecha_objetivo ?? '');
+    setZonaTexto(paso.zona_texto ?? '');
   }, [paso]);
 
   async function guardar() {
@@ -79,6 +81,7 @@ export function DetalleProximoPaso() {
         {
           descripcion: descripcion.trim(),
           fecha_objetivo: fechaObjetivo || null,
+          zona_texto: zonaTexto.trim() || null,
         },
         { count: 'exact' }
       )
@@ -252,6 +255,14 @@ export function DetalleProximoPaso() {
         type="date"
         value={fechaObjetivo}
         onChange={(e) => setFechaObjetivo(e.target.value)}
+      />
+
+      <div className="label">Zona (opcional)</div>
+      <input
+        className="field"
+        value={zonaTexto}
+        onChange={(e) => setZonaTexto(e.target.value)}
+        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
       />
 
       {error && <div className="field-error-text">{error}</div>}

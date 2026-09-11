@@ -53,6 +53,7 @@ export function DetalleOportunidad() {
   const [prioridad, setPrioridad] = useState<string>('media');
   const [horizonte, setHorizonte] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [zonaTexto, setZonaTexto] = useState('');
   const [motivoCierre, setMotivoCierre] = useState('');
   const [comentarioCierre, setComentarioCierre] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -81,7 +82,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, motivo_cierre, comentario_cierre, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, zona_texto, motivo_cierre, comentario_cierre, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -100,6 +101,7 @@ export function DetalleOportunidad() {
           prioridad: p.prioridad,
           horizonte_decision: p.horizonteDecision ?? null,
           descripcion: p.descripcion ?? null,
+          zona_texto: p.zonaTexto ?? null,
           motivo_cierre: p.motivoCierre ?? null,
           comentario_cierre: p.comentarioCierre ?? null,
           creado_en: null as string | null,
@@ -165,6 +167,7 @@ export function DetalleOportunidad() {
     setPrioridad(oportunidad.prioridad);
     setHorizonte(oportunidad.horizonte_decision ?? '');
     setDescripcion(oportunidad.descripcion ?? '');
+    setZonaTexto(oportunidad.zona_texto ?? '');
     setMotivoCierre(oportunidad.motivo_cierre ?? '');
     setComentarioCierre(oportunidad.comentario_cierre ?? '');
   }, [oportunidad]);
@@ -188,6 +191,7 @@ export function DetalleOportunidad() {
       prioridad !== oportunidad.prioridad ||
       horizonte !== (oportunidad.horizonte_decision ?? '') ||
       descripcion !== (oportunidad.descripcion ?? '') ||
+      zonaTexto !== (oportunidad.zona_texto ?? '') ||
       motivoCierre !== (oportunidad.motivo_cierre ?? '') ||
       comentarioCierre !== (oportunidad.comentario_cierre ?? ''));
 
@@ -233,6 +237,7 @@ export function DetalleOportunidad() {
             etapa,
             horizonteDecision: horizonte || undefined,
             descripcion: descripcion.trim() || undefined,
+            zonaTexto: zonaTexto.trim() || undefined,
             motivoCierre: esCierreNegativo ? motivoCierre : undefined,
             comentarioCierre: esCierreNegativo ? comentarioCierre.trim() || undefined : undefined,
           },
@@ -258,6 +263,7 @@ export function DetalleOportunidad() {
           prioridad,
           horizonte_decision: horizonte || null,
           descripcion: descripcion.trim() || null,
+          zona_texto: zonaTexto.trim() || null,
           motivo_cierre: esCierreNegativo ? motivoCierre : null,
           comentario_cierre: esCierreNegativo ? comentarioCierre.trim() || null : null,
         },
@@ -559,6 +565,14 @@ export function DetalleOportunidad() {
         rows={2}
         value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)}
+      />
+
+      <div className="label">Zona (opcional)</div>
+      <input
+        className="field"
+        value={zonaTexto}
+        onChange={(e) => setZonaTexto(e.target.value)}
+        placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
       />
 
       {esCierreNegativo && (

@@ -215,7 +215,7 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Foto, audio o nota',
     queEs:
-      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
+      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título. La zona en la que estaba se puede añadir o cambiar aquí en cualquier momento. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
     cuando:
       'Para revisar o retocar algo que capturaste, marcar una nota como hallazgo u oportunidad, o borrarlo si te has equivocado. Editar y borrar sigue disponible con la visita cerrada; el informe se rehace con lo último al descargarlo.',
     ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial.',
@@ -233,7 +233,7 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Oportunidad',
     queEs:
-      'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, y qué tiene ya el cliente y qué solución le proponemos.',
+      'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, en qué zona surgió y qué tiene ya el cliente y qué solución le proponemos.',
     cuando:
       'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla como ganada, perdida o descartada (al marcarla perdida o descartada se confirma y se pide un motivo). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin términos asociados).',
     ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
@@ -242,7 +242,7 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Próximo paso',
     queEs:
-      'Algo que quedó pendiente de una visita: qué hay que hacer y, si quieres, para cuándo. Aparece en «Próximos pasos».',
+      'Algo que quedó pendiente de una visita: qué hay que hacer, si quieres para cuándo, y en qué zona. Aparece en «Próximos pasos».',
     cuando:
       'Para editarlo, marcarlo como hecho, o —si en realidad es volver a ver al cliente— convertirlo en una visita planificada para su fecha.',
   },

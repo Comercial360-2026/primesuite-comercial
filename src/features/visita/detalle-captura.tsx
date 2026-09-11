@@ -36,6 +36,7 @@ interface CapturaVista {
   tipo: 'foto' | 'audio' | 'nota';
   titulo: string;
   contenidoTexto: string;
+  zonaTexto: string;
   visitaId: string | undefined;
   autorId: string | undefined;
   creadoEn: string;
@@ -60,6 +61,7 @@ export function DetalleCaptura() {
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [tituloEdit, setTituloEdit] = useState('');
   const [textoEdit, setTextoEdit] = useState('');
+  const [zonaEdit, setZonaEdit] = useState('');
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
   const guardado = useAccionAsync();
   const borrado = useAccionAsync();
@@ -79,6 +81,7 @@ export function DetalleCaptura() {
           tipo: p.tipo,
           titulo: p.titulo ?? '',
           contenidoTexto: p.contenidoTexto ?? '',
+          zonaTexto: p.zonaTexto ?? '',
           visitaId: p.visitaId,
           autorId: p.comercialAutorId,
           creadoEn: op.creadoEn,
@@ -90,6 +93,7 @@ export function DetalleCaptura() {
         });
         setTituloEdit(p.titulo ?? '');
         setTextoEdit(p.contenidoTexto ?? '');
+        setZonaEdit(p.zonaTexto ?? '');
         setCargandoInicial(false);
         return;
       }
@@ -100,7 +104,7 @@ export function DetalleCaptura() {
       const { data, error } = await supabase
         .from('captura_libre')
         .select(
-          'id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en'
+          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en'
         )
         .eq('id', capturaId)
         .maybeSingle();
@@ -111,6 +115,7 @@ export function DetalleCaptura() {
           tipo: data.tipo as CapturaVista['tipo'],
           titulo: data.titulo ?? '',
           contenidoTexto: data.contenido_texto ?? '',
+          zonaTexto: data.zona_texto ?? '',
           visitaId: data.visita_id ?? undefined,
           autorId: data.comercial_autor_id ?? undefined,
           creadoEn: data.creado_en,
@@ -122,6 +127,7 @@ export function DetalleCaptura() {
         });
         setTituloEdit(data.titulo ?? '');
         setTextoEdit(data.contenido_texto ?? '');
+        setZonaEdit(data.zona_texto ?? '');
       }
       setCargandoInicial(false);
     })();
@@ -187,6 +193,7 @@ export function DetalleCaptura() {
       async () => {
         const tituloNuevo = tituloEdit.trim() || undefined;
         const textoNuevo = textoEdit.trim();
+        const zonaNueva = zonaEdit.trim() || undefined;
         const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
         if (enServidor) {
@@ -197,7 +204,10 @@ export function DetalleCaptura() {
           // única forma de no decir "guardado" sin haber tocado nada.
           const { error, count } = await supabase
             .from('captura_libre')
-            .update({ contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null }, { count: 'exact' })
+            .update(
+              { contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null, zona_texto: zonaNueva ?? null },
+              { count: 'exact' }
+            )
             .eq('id', captura.id);
           if (error) throw new Error(error.message);
           if (!count) {
@@ -213,7 +223,12 @@ export function DetalleCaptura() {
           const op = await obtenerOperacion(captura.id);
           if (op) {
             await actualizarOperacion(captura.id, {
-              payload: { ...(op.payload as CapturaLibrePayload), titulo: tituloNuevo, contenidoTexto: textoNuevo },
+              payload: {
+                ...(op.payload as CapturaLibrePayload),
+                titulo: tituloNuevo,
+                contenidoTexto: textoNuevo,
+                zonaTexto: zonaNueva,
+              },
             });
           }
         }
@@ -224,7 +239,9 @@ export function DetalleCaptura() {
       {
         onExito: () => {
           setCaptura((prev) =>
-            prev ? { ...prev, titulo: tituloEdit.trim(), contenidoTexto: textoEdit.trim() } : prev
+            prev
+              ? { ...prev, titulo: tituloEdit.trim(), contenidoTexto: textoEdit.trim(), zonaTexto: zonaEdit.trim() }
+              : prev
           );
           setGuardadoConExito(true);
           if (captura.visitaId) {
@@ -374,6 +391,13 @@ export function DetalleCaptura() {
             onChange={(e) => setTituloEdit(e.target.value)}
             placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
           />
+          <div className="label">Zona (opcional)</div>
+          <input
+            className="field"
+            value={zonaEdit}
+            onChange={(e) => setZonaEdit(e.target.value)}
+            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
+          />
           <button
             className="btn btn-primary"
             disabled={guardado.cargando || guardadoConExito}
@@ -408,6 +432,13 @@ export function DetalleCaptura() {
             autoFocus
             value={textoEdit}
             onChange={(e) => setTextoEdit(e.target.value)}
+          />
+          <div className="label">Zona (opcional)</div>
+          <input
+            className="field"
+            value={zonaEdit}
+            onChange={(e) => setZonaEdit(e.target.value)}
+            placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
           />
           <button
             className="btn btn-primary"
