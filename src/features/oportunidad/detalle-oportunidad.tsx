@@ -6,6 +6,7 @@ import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorTermino } from '@/components/ui/selector-termino';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -424,6 +425,10 @@ export function DetalleOportunidad() {
       <div className="label" style={{ marginTop: 0 }}>Título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
 
+      {/* Antes de elegir, no después: son tres campos con nombre poco obvio
+          (recorrido de revisión). */}
+      <AyudaNota concepto="etapa-oportunidad" />
+
       <div className="label">Etapa</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {ETAPAS.map((e) => (
@@ -489,10 +494,6 @@ export function DetalleOportunidad() {
           </option>
         ))}
       </select>
-
-      {/* Una sola nota para los tres campos de arriba (antes eran tres
-          «ⓘ Qué es…» seguidos — recorrido de revisión). */}
-      <AyudaNota concepto="etapa-oportunidad" />
 
       {/* Dos listas con papel distinto — resuelve el caso "el cliente tiene
           terminales de otra marca (tecnología motivadora) y quiere integrar
@@ -562,16 +563,19 @@ export function DetalleOportunidad() {
           Podrás asociar términos cuando la oportunidad termine de guardarse (unos segundos con conexión).
         </div>
       )}
-      {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
       </SeccionColapsable>
 
-      {/* Hoja de búsqueda: overlay, va fuera de la sección plegable. */}
+      {/* Hoja de búsqueda: baja de arriba (regla de hojas), va fuera de la
+          sección plegable — pegada en la página se notaba poco que se
+          había abierto. */}
       {buscandoRol && (
-        <SelectorTermino
+        <HojaSuperior
           titulo={`buscar término ${buscandoRol === 'solucion_propuesta' ? '(solución)' : '(lo que ya tiene)'}`}
-          onSeleccionar={(t) => asociarTermino(t.id)}
           onCerrar={() => setBuscandoRol(null)}
-        />
+        >
+          <SelectorTermino onSeleccionar={(t) => asociarTermino(t.id)} />
+          {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
+        </HojaSuperior>
       )}
 
       <div className="label">Descripción</div>

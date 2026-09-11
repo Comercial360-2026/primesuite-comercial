@@ -362,7 +362,7 @@ const _CONCEPTOS = {
     grupo: 'oportunidad',
     titulo: 'Etapa, prioridad y horizonte de una oportunidad',
     queEs:
-      'Las tres cosas que sitúan una oportunidad. Etapa: por dónde va la venta —latente (todavía es una idea), cualificada (hay interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada—. Prioridad: cuánto foco merece (baja, media, alta o estratégica); ordena tu lista y ayuda a Dirección a ver dónde está lo importante. Horizonte de decisión: cuándo crees que decidirá el cliente (0-3 meses, 3-6, 6-12, más de 12, o sin fecha); no es un compromiso, sirve para no dejar enfriar lo que está caliente.',
+      'Las tres cosas que sitúan una oportunidad. Etapa: por dónde va la venta —idea (primer indicio, sin confirmar), interés (ya has visto interés real y encaja), en propuesta (ya le has pasado oferta) y, al cerrar, ganada, perdida o descartada—. Prioridad: cuánto foco merece (baja, media, alta o estratégica); ordena tu lista y ayuda a Dirección a ver dónde está lo importante. Horizonte de decisión: cuándo crees que decidirá el cliente (0-3 meses, 3-6, 6-12, más de 12, o sin fecha); no es un compromiso, sirve para no dejar enfriar lo que está caliente.',
     ejemplo:
       'El cliente quiere cerrar antes de fin de trimestre → horizonte 0-3 meses. Le has mandado oferta → etapa «en propuesta».',
   },

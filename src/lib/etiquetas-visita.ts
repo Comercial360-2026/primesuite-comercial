@@ -4,8 +4,8 @@
 // (runtime distinto, no puede importar de src/), pero deben coincidir.
 
 export const ETAPA_LABEL: Record<string, string> = {
-  latente: 'Latente',
-  cualificada: 'Cualificada',
+  latente: 'Idea',
+  cualificada: 'Interés',
   en_propuesta: 'En propuesta',
   ganada: 'Ganada',
   perdida: 'Perdida',
