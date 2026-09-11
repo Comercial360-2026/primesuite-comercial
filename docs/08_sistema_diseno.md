@@ -11,7 +11,7 @@ está **implementado en código** y a lo que apuntan los comentarios de
 | Qué | Dónde | Regla |
 |---|---|---|
 | Colores, tipografía, espaciado, radios, alturas | `src/styles/tokens.css` (`:root`) | Cualquier cambio de marca se hace **solo aquí**. |
-| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. Sin `box-shadow` decorativo — ver §"Sombras". |
+| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. Sombra solo de elevación (`--shadow-card` / `--shadow-elevated`) — ver §"Elevación". |
 | Iconos | `src/components/ui/iconos.tsx` | Registro único. Las pantallas piden el icono por nombre; cambiar de set = editar ese archivo. |
 
 ## Prueba de usuario — requisito de toda pantalla
@@ -120,24 +120,55 @@ propaga a toda la app):
 
 ---
 
-## Sombras
+## Elevación
 
-Sin sombra decorativa en ningún sitio: ni botones, ni tarjetas, ni filas,
-ni cabeceras. Una sombra se pone SOLO para decir una cosa muy concreta —
-"esto está por encima, seleccionado/activo" — nunca porque "queda bien".
+Desde el rediseño "gran empresa" (2026-09-11) la sombra tiene un trabajo
+real: decir qué superficie **flota** sobre el fondo gris (`--surface-0`).
+Antes la regla era "cero sombra en ningún sitio"; el problema que resolvía
+—nada decorativo "porque queda bien"— se mantiene, pero la prohibición
+total hacía que tarjeta, hoja y fondo se confundieran entre sí. Dos
+tokens, dos únicos niveles, nunca un valor de sombra suelto en un
+componente:
 
-- **Único uso permitido hoy:** la pastilla activa de `Segmentado`
-  (`.segmentado__btn--on`, `box-shadow: 0 1px 2px rgba(0,0,0,0.12)`) — la
-  opción elegida se lee como "levantada" sobre la cápsula gris del fondo,
-  igual que el control de pestañas de iOS. Es la única señal de
-  selección de ese componente además del peso de la letra (Regla #11 de
-  jerarquía).
+- **`--shadow-card`** — superficies que reposan EN la pantalla: `.card`,
+  `.seccion-lista__grupo`, `.tarjeta-accion`, `.medidor`, `.bloque-ahora`,
+  `.dvc-bloque`, `.aviso`, `.barra-seleccion`. Sutil: separa del fondo sin
+  gritar.
+- **`--shadow-elevated`** — superficies que se abren ENCIMA de la
+  pantalla y tienen que despegarse más: `.modal-caja`, `.hoja-sup-caja`.
+- **Una fila individual (`.fila`) NUNCA lleva sombra propia.** Vive dentro
+  del grupo que ya la tiene (`.seccion-lista__grupo`); una sombra por fila
+  se leería como una pila de tarjetas sueltas, no como una lista.
 - **Un botón normal (`Guardar`, `Cancelar`, cualquier `.btn`) no lleva
-  sombra.** No está "por encima" de nada — va plano, relleno de color,
-  igual que el resto de la pantalla.
-- Antes de añadir una sombra nueva en cualquier sitio: ¿marca de verdad un
-  estado activo/seleccionado que no se lea ya de otra forma (peso, color,
-  icono)? Si no, no se pone.
+  sombra.** Va plano, relleno de color, parte del flujo de la pantalla —
+  no es una superficie flotante.
+- **Excepción histórica, sin cambios:** la pastilla activa de `Segmentado`
+  (`.segmentado__btn--on`, `box-shadow: 0 1px 2px rgba(0,0,0,0.12)`) sigue
+  con su sombra propia, más pequeña que `--shadow-card` — marca selección
+  dentro de una cápsula, no elevación de página.
+- Antes de añadir una sombra nueva en cualquier sitio: ¿es una de estas
+  dos superficies (tarjeta/grupo en pantalla, o panel que se abre encima)?
+  Si no, no se pone — y si lo es, se usa el token, nunca un valor propio.
+
+---
+
+## Movimiento
+
+Toda la app comparte una única duración/curva (`--motion-fast` 150ms para
+reacciones al tacto, `--motion-base` 220ms para algo que se desplaza o
+aparece, `--motion-ease` con deceleración tipo iOS) — ver `tokens.css`.
+Un componente nuevo con estado (fondo al pulsar, apertura, marcar un chip)
+usa estos tokens en su `transition`/`animation`, nunca una duración propia
+inventada. Todo movimiento respeta `prefers-reduced-motion` — hay una
+guarda global en `components.css` que no hace falta repetir componente a
+componente.
+
+- **Reacción al tacto** (`.btn`, `.fila`, `.chip`, `.chip-accion`,
+  `.boton-icono`, `.capture-btn`, `.marca-opcion`, `.segmentado__btn`):
+  transición de color/fondo/transform en `--motion-fast`.
+- **Entrada de Modal y HojaSuperior**: animación de aparición en
+  `--motion-base` (fundido + un pequeño desplazamiento/escala) al montar.
+  No hay animación de salida — se desmontan al instante, igual que antes.
 
 ---
 

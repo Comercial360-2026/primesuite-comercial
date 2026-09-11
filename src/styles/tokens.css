@@ -3,11 +3,10 @@
   Fuente única de verdad de todos los valores visuales.
   Ver 08_sistema_diseno.md — cualquier cambio de marca se hace SOLO aquí.
   Regla no negociable: sin blur, sin degradados, sin opacity sobre color
-  salvo el estado deshabilitado ya definido. Sin box-shadow DECORATIVO —
-  la única sombra permitida es la que marca el estado activo/seleccionado
-  de un control (p. ej. la pastilla activa de `Segmentado`), nunca una
-  sombra "porque queda bien" en botones, tarjetas o filas. Ver
-  08_sistema_diseno.md §"Sombras".
+  salvo el estado deshabilitado ya definido. La sombra SÍ tiene un uso
+  real desde el rediseño "gran empresa" (2026-09-11): marca elevación —
+  qué superficie flota sobre el fondo gris — nunca decoración porque
+  "queda bien". Ver 08_sistema_diseno.md §"Elevación".
 */
 
 :root {
@@ -91,6 +90,26 @@
   --h-field: 48px;
   --h-bignav: 56px;
   --h-capture-button: 64px;
+
+  /* Elevación — qué superficie flota sobre el fondo gris (--surface-0).
+     Dos niveles, nunca más: "card" para lo que reposa en la pantalla
+     (tarjeta, grupo de filas, medidor…) y "elevated" para lo que se abre
+     ENCIMA de la pantalla (Modal, HojaSuperior) y necesita despegarse más.
+     Una fila individual NUNCA lleva sombra propia — vive dentro del grupo
+     que ya la tiene. Ver 08_sistema_diseno.md §"Elevación". */
+  --shadow-card: 0 1px 2px rgba(22, 26, 30, 0.06), 0 1px 1px rgba(22, 26, 30, 0.04);
+  --shadow-elevated: 0 12px 28px rgba(22, 26, 30, 0.16), 0 4px 10px rgba(22, 26, 30, 0.08);
+
+  /* Movimiento — duración/curva únicas para toda la app (cambios de fondo
+     al tocar, apertura de hoja/modal, un chip que se marca). "fast" para
+     reacciones al tacto (botón, fila, chip); "base" para algo que se
+     desplaza (hoja que baja, modal que aparece). Curva de deceleración
+     (empieza rápido, frena) — la misma sensación en iOS/Android/web. Toda
+     animación respeta `prefers-reduced-motion` (ver `.rec-dot` como
+     ejemplo ya existente). */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 
   /* Filas — sistema de listas agrupadas (SeccionLista + FilaNavegable /
      FilaDato / FilaAccion).
