@@ -129,18 +129,32 @@ export function DetalleHallazgo() {
     }
     setGuardando(true);
     setError(null);
-    const { error: err } = await supabase
+    // Mismo encargo técnico que el borrado (punto 2/3, ver
+    // adenda_punto1_delete_silencioso.md): sin permiso, Supabase no da
+    // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
+    // `count` es la única forma de no decir "guardado ✓" cuando en
+    // realidad no se ha tocado nada (visto en vivo: Borja editando un
+    // hallazgo de Comercial Prueba).
+    const { error: err, count } = await supabase
       .from('hallazgo')
-      .update({
-        nota: nota.trim() || null,
-        ubicacion_id: ubicacionId || null,
-        fecha_relevante: fechaRelevante || null,
-        tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
-      })
+      .update(
+        {
+          nota: nota.trim() || null,
+          ubicacion_id: ubicacionId || null,
+          fecha_relevante: fechaRelevante || null,
+          tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
+        },
+        { count: 'exact' }
+      )
       .eq('id', hallazgoId!);
     if (err) {
       setGuardando(false);
       setError(err.message);
+      return;
+    }
+    if (!count) {
+      setGuardando(false);
+      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar un hallazgo.');
       return;
     }
     try {

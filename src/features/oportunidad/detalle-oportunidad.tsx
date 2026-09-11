@@ -244,21 +244,33 @@ export function DetalleOportunidad() {
       return;
     }
 
-    const { error: err } = await supabase
+    // Mismo encargo técnico que el borrado (punto 2/3, ver
+    // adenda_punto1_delete_silencioso.md): sin permiso, Supabase no da
+    // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
+    // `count` es la única forma de no decir "guardado ✓" sin haber
+    // tocado nada.
+    const { error: err, count } = await supabase
       .from('oportunidad')
-      .update({
-        titulo: titulo.trim(),
-        etapa,
-        prioridad,
-        horizonte_decision: horizonte || null,
-        descripcion: descripcion.trim() || null,
-        motivo_cierre: esCierreNegativo ? motivoCierre : null,
-        comentario_cierre: esCierreNegativo ? comentarioCierre.trim() || null : null,
-      })
+      .update(
+        {
+          titulo: titulo.trim(),
+          etapa,
+          prioridad,
+          horizonte_decision: horizonte || null,
+          descripcion: descripcion.trim() || null,
+          motivo_cierre: esCierreNegativo ? motivoCierre : null,
+          comentario_cierre: esCierreNegativo ? comentarioCierre.trim() || null : null,
+        },
+        { count: 'exact' }
+      )
       .eq('id', oportunidadId!);
     setGuardando(false);
     if (err) {
       setError(err.message);
+      return;
+    }
+    if (!count) {
+      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor, preventa o Dirección Comercial pueden editar una oportunidad.');
       return;
     }
     // Si la visita de origen está cerrada y su resumen es automático, se

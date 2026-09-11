@@ -190,13 +190,21 @@ export function DetalleCaptura() {
         const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
         if (enServidor) {
-          // Ya sincronizada: UPDATE directo contra la tabla. Si la RLS no lo
-          // permite, el error se muestra tal cual, sin fallo silencioso.
-          const { error } = await supabase
+          // Ya sincronizada: UPDATE directo contra la tabla. Sin permiso,
+          // Supabase NO da error — el UPDATE "tiene éxito" afectando a 0
+          // filas (mismo encargo técnico que el borrado, ver
+          // adenda_punto1_delete_silencioso.md); comprobar `count` es la
+          // única forma de no decir "guardado" sin haber tocado nada.
+          const { error, count } = await supabase
             .from('captura_libre')
-            .update({ contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null })
+            .update({ contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null }, { count: 'exact' })
             .eq('id', captura.id);
           if (error) throw new Error(error.message);
+          if (!count) {
+            throw new Error(
+              'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar una nota.'
+            );
+          }
         }
 
         if (captura.fuente === 'cola') {

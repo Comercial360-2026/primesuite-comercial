@@ -68,16 +68,28 @@ export function DetalleProximoPaso() {
     if (!pasoId || !descripcion.trim()) return;
     setGuardando(true);
     setError(null);
-    const { error: err } = await supabase
+    // Mismo encargo técnico que el borrado (punto 2/3, ver
+    // adenda_punto1_delete_silencioso.md): sin permiso, Supabase no da
+    // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
+    // `count` es la única forma de no decir "guardado ✓" sin haber
+    // tocado nada.
+    const { error: err, count } = await supabase
       .from('proximo_paso')
-      .update({
-        descripcion: descripcion.trim(),
-        fecha_objetivo: fechaObjetivo || null,
-      })
+      .update(
+        {
+          descripcion: descripcion.trim(),
+          fecha_objetivo: fechaObjetivo || null,
+        },
+        { count: 'exact' }
+      )
       .eq('id', pasoId);
     setGuardando(false);
     if (err) {
       setError(err.message);
+      return;
+    }
+    if (!count) {
+      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden editar un próximo paso.');
       return;
     }
     setGuardadoConExito(true);
@@ -167,7 +179,21 @@ export function DetalleProximoPaso() {
 
   async function marcarHecho() {
     if (!pasoId) return;
-    await supabase.from('proximo_paso').update({ estado: 'completado' }).eq('id', pasoId);
+    // Mismo encargo técnico que `guardar()`: sin permiso, Supabase no da
+    // error — comprobar `count` es la única forma de no navegar como si
+    // se hubiera marcado, sin haber tocado nada.
+    const { error: err, count } = await supabase
+      .from('proximo_paso')
+      .update({ estado: 'completado' }, { count: 'exact' })
+      .eq('id', pasoId);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (!count) {
+      setError('No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.');
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
     navigate(volver);
   }
