@@ -1606,24 +1606,29 @@ export function VisitaActiva() {
           />
         )}
 
-        {/* Objetivo — el encabezado de sentido de la visita: primero de
-            todo, una línea tenue. Tocar para matizarlo (ya lo escribiste al
-            arrancar). Delante, "N.ª visita / última hace…" si aporta.
-            Mientras la visita no ha sincronizado no es editable: se muestra
-            sin lápiz y sin ruido, se vuelve tocable al sincronizar. */}
+        {/* Objetivo — el motivo real de la visita: es contenido principal
+            (no metadato), así que va en tarjeta blanca con el texto en
+            oscuro, como cualquier dato importante — antes flotaba suelto en
+            gris sobre el fondo gris de la pantalla y se leía como algo
+            secundario u oculto. Tocar para matizarlo (ya lo escribiste al
+            arrancar). Delante, "N.ª visita / última hace…" si aporta, ese sí
+            en gris (metadato de verdad). Mientras la visita no ha
+            sincronizado no es editable: se muestra sin lápiz y sin ruido, se
+            vuelve tocable al sincronizar. */}
         {!objetivoAbierto ? (
           <button
             type="button"
             onClick={() => objetivoEditable && setObjetivoAbierto(true)}
             title={objetivoEditable ? 'Editar a qué vienes' : undefined}
             style={{
-              display: 'flex', gap: 6, alignItems: 'baseline', width: '100%', textAlign: 'left',
-              background: 'none', border: 'none', padding: '0 2px 12px', font: 'inherit',
-              borderBottom: '1px solid var(--ink-100)', marginBottom: 14,
+              display: 'flex', gap: 6, alignItems: 'center', width: '100%', textAlign: 'left',
+              background: 'var(--surface-1)', border: '1px solid var(--ink-100)',
+              borderRadius: 'var(--radius-field)', padding: 10, font: 'inherit',
+              marginBottom: 14,
               cursor: objetivoEditable ? 'pointer' : 'default',
             }}
           >
-            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', color: 'var(--ink-900)' }}>
               {contextoVisitaTexto && (
                 <span style={{ color: 'var(--ink-400)' }}>{contextoVisitaTexto} · </span>
               )}
