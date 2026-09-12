@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
@@ -205,6 +205,7 @@ export function DetalleOportunidad() {
       await actualizarOperacion(oportunidadId, {
         payload: { ...opLocal.payload, zonaTexto: zona.trim() || undefined },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     if (oportunidad?.visita_origen_id) {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
@@ -297,6 +298,7 @@ export function DetalleOportunidad() {
           zonaTexto: zonaTexto.trim() || undefined,
         },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     queryClient.invalidateQueries({ queryKey: ['oportunidad-areas', oportunidadId] });
     // Si la visita de origen está cerrada y su resumen es automático, se

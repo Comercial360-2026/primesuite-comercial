@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { obtenerOperacion, actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
+import { obtenerOperacion, actualizarOperacion, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -222,6 +222,10 @@ export function DetalleCaptura() {
         await actualizarOperacion(captura.id, {
           payload: { ...(op.payload as CapturaLibrePayload), zonaTexto: zonaNueva },
         });
+        // Si «En esta visita» ya está montada (no siempre se vuelve a
+        // montar al navegar), esta señal es lo único que la fuerza a releer
+        // la cola sin esperar a su próximo evento propio.
+        window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
       }
     }
   }
@@ -270,6 +274,7 @@ export function DetalleCaptura() {
                 zonaTexto: zonaNueva,
               },
             });
+            window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
           }
         }
 

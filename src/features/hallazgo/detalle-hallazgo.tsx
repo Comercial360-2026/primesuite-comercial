@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import type { HallazgoPayload } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
@@ -184,6 +184,7 @@ export function DetalleHallazgo() {
           tipoFechaRelevante: fechaRelevante ? tipoFechaRelevante : undefined,
         },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
     if (hallazgo?.visita_id) {
@@ -221,6 +222,7 @@ export function DetalleHallazgo() {
       await actualizarOperacion(hallazgoId, {
         payload: { ...(opLocalZona.payload as HallazgoPayload), zonaTexto: zona.trim() || undefined },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     if (hallazgo?.visita_id) {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador

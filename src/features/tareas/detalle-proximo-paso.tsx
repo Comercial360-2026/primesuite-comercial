@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import type { ProximoPasoPayload } from '@/lib/offline-queue';
 import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
@@ -91,6 +91,7 @@ export function DetalleProximoPaso() {
       await actualizarOperacion(pasoId, {
         payload: { ...(opLocal.payload as ProximoPasoPayload), zonaTexto: zona.trim() || undefined },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     if (paso?.visita_id) {
       // Se espera a que termine el refetch: si no, «cambiar» podía reabrir
@@ -141,6 +142,7 @@ export function DetalleProximoPaso() {
           zonaTexto: zonaTexto.trim() || undefined,
         },
       });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     setGuardadoConExito(true);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
