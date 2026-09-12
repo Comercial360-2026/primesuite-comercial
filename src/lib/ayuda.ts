@@ -126,7 +126,7 @@ const _PANTALLAS = {
       'Cuánto ocupan tus visitas y cuánto le queda al equipo del espacio común. Debajo, tus visitas ordenadas por lo que pesan (sobre todo fotos y audios).',
     cuando:
       'Cuando el equipo va justo de espacio o te piden liberar. Marcas las visitas viejas que ya no necesites en la app, descargas las que quieras conservar y las borras.',
-    ojo: 'Borrar una visita aquí se la lleva con sus fotos y audios y no se puede deshacer. Descárgala antes si te importa. Una visita con una oportunidad abierta o con cambios de este dispositivo sin subir no se puede marcar para borrar en lote — ciérrala o espera a que sincronice, o ábrela y bórrala desde su ficha.',
+    ojo: 'Borrar una visita aquí se la lleva con sus fotos y audios y no se puede deshacer. Descárgala antes si te importa. Una visita con una oportunidad abierta o con cambios de este dispositivo sin subir no se puede marcar para borrar en lote — ciérrala o espera a que sincronice. No hay atajo: tampoco se puede borrar abriendo su ficha mientras tenga una oportunidad abierta.',
   },
 
   // — Un cliente —
@@ -207,7 +207,7 @@ const _PANTALLAS = {
       'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
     cuando:
       'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas.',
-    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer.',
+    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero.',
   },
 
   // — Lo que registras en una visita —

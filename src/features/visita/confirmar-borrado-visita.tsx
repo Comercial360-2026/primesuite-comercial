@@ -1,5 +1,6 @@
 import type { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { Aviso } from '@/components/ui/aviso';
 import { plural } from '@/lib/texto';
 
 // Tarjeta de confirmación del borrado de una visita — el "paso 2" de
@@ -23,6 +24,27 @@ export function ConfirmarBorradoVisita({
             {previsualizando.error}
           </div>
         )}
+      </div>
+    );
+  }
+
+  // INCIDENTE 2026-09-12: "Borrar esta visita" dejaba pasar el borrado con
+  // oportunidades abiertas colgando (SAPA, 2 oportunidades) — el texto de
+  // abajo las mencionaba, pero era solo informativo, no un bloqueo real.
+  // El servidor (eliminar_visita_completa) ya lo rechaza siempre, pero aquí
+  // se corta ANTES de intentarlo: nada de botón "Sí, borrar" si hay alguna
+  // abierta — hay que cerrarla primero, no hay atajo.
+  if (previsualizacion.num_oportunidades_abiertas > 0) {
+    return (
+      <div className="card card--riesgo">
+        <Aviso tipo="error">
+          No se puede borrar: tiene{' '}
+          {plural(previsualizacion.num_oportunidades_abiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin
+          cerrar. Ciérrala{previsualizacion.num_oportunidades_abiertas > 1 ? 's' : ''} antes de borrar la visita.
+        </Aviso>
+        <button className="btn btn-secondary" style={{ marginTop: 10, width: '100%' }} onClick={cancelar}>
+          Entendido
+        </button>
       </div>
     );
   }

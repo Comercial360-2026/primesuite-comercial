@@ -2327,6 +2327,7 @@ export type Database = {
           num_hallazgos: number
           num_notas: number
           num_oportunidades: number
+          num_oportunidades_abiertas: number
           num_proximos_pasos: number
           rutas_storage: string[]
         }[]

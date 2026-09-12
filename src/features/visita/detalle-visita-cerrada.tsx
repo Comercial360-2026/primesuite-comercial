@@ -778,15 +778,21 @@ export function DetalleVisitaCerrada() {
               </SeccionLista>
             ))}
           {/* "Descargar y liberar espacio" es un borrado estrictamente más
-              seguro que este (obliga a descargar antes y comprueba
-              oportunidad abierta/cola sin subir) — se retira este atajo
-              SOLO cuando esa alternativa está realmente disponible. Si
-              está bloqueada (oportunidad abierta, cola sin subir, o la
-              visita ni siquiera está cerrada), este sigue siendo el único
-              camino para borrar — quitarlo también habría dejado visitas
-              bloqueadas sin ninguna forma de borrarse (visto en vivo:
-              CAPSA, cerrada con una oportunidad abierta, se quedaba sin
-              ningún botón de borrado). */}
+              seguro que este (obliga a descargar antes) — se retira este
+              atajo SOLO cuando esa alternativa está realmente disponible.
+              Si está bloqueada por cola sin subir o por que la visita ni
+              siquiera está cerrada, este sigue siendo el único camino para
+              borrar — quitarlo también habría dejado visitas bloqueadas
+              sin ninguna forma de borrarse (visto en vivo: CAPSA, cerrada
+              con una oportunidad abierta, se quedaba sin ningún botón).
+              OJO — esto YA NO es un atajo sin red de seguridad: desde el
+              incidente 2026-09-12 (SAPA borrada con 2 oportunidades
+              abiertas por este mismo botón), ConfirmarBorradoVisita corta
+              en seco si hay alguna oportunidad abierta (no deja ni
+              confirmar) y eliminar_visita_completa lo rechaza también en
+              el servidor pase lo que pase en el cliente. Este botón sigue
+              siendo el único camino cuando lo que bloquea es la cola sin
+              subir, pero no es un bypass del candado de oportunidades. */}
           {!puedeLiberarEspacio &&
             (borrar.visitaBorrarId === visitaId ? (
               <ConfirmarBorradoVisita ctrl={borrar} />

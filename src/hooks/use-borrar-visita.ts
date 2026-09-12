@@ -9,6 +9,13 @@ export interface PrevisualizacionBorrado {
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
+  // INCIDENTE 2026-09-12 (SAPA borrada con 2 oportunidades abiertas por
+  // "Borrar esta visita"): num_oportunidades cuenta TODAS, no distingue
+  // abiertas de cerradas — no servía para bloquear nada. eliminar_visita_
+  // completa() ahora rechaza el borrado en el propio servidor si esto es
+  // > 0 (candado real, no solo de cliente); este campo es para avisar
+  // ANTES de que el usuario confirme y la llamada de verdad falle.
+  num_oportunidades_abiertas: number;
   num_proximos_pasos: number;
   rutas_storage: string[] | null;
 }
