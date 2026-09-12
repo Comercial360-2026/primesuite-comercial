@@ -356,7 +356,7 @@ button.interlocutor-fila__cuerpo--presente:hover {
 .boton-icono__badge {
   position: absolute; top: -5px; right: -5px;
   min-width: 16px; height: 16px; padding: 0 3px; box-sizing: border-box;
-  border-radius: 8px; background: var(--brand-600); color: #fff;
+  border-radius: 8px; background: var(--ink-900); color: #fff;
   font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
   border: 1.5px solid var(--surface-0);
 }
@@ -401,11 +401,10 @@ button.interlocutor-fila__cuerpo--presente:hover {
    acción de su pantalla. Mismo lenguaje que voc-cat__ic. */
 .boton-icono {
   width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  border: none; background: var(--brand-050); color: var(--brand-600); border-radius: 10px; cursor: pointer;
-  transition: background-color var(--motion-fast) var(--motion-ease),
-    color var(--motion-fast) var(--motion-ease);
+  border: none; background: var(--brand-600); color: #fff; border-radius: 50%; cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-ease);
 }
-.boton-icono:active { background: var(--brand-600); color: #fff; }
+.boton-icono:active { background: var(--brand-700); }
 .boton-icono:disabled { opacity: 0.45; cursor: default; }
 
 .contador { font-size: var(--text-xs); color: var(--ink-400); padding: 0 2px; }
