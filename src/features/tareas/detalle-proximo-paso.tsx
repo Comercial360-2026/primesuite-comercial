@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import type { ProximoPasoPayload } from '@/lib/offline-queue';
 import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -79,6 +80,18 @@ export function DetalleProximoPaso() {
     if (!count) {
       throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
     }
+    // Mismo bug ya corregido para el borrado más abajo (confirmarBorrado) y
+    // en detalle-captura.tsx / detalle-oportunidad.tsx / detalle-hallazgo.tsx:
+    // si este paso se creó desde la visita en curso, sigue existiendo una
+    // copia local en IndexedDB (misma id) aunque ya haya sincronizado. Solo
+    // tocar la fila de Supabase la dejaba desactualizada — "En esta visita"
+    // lee esa copia, no el servidor.
+    const opLocal = await obtenerOperacion(pasoId);
+    if (opLocal?.entidad === 'proximo_paso') {
+      await actualizarOperacion(pasoId, {
+        payload: { ...(opLocal.payload as ProximoPasoPayload), zonaTexto: zona.trim() || undefined },
+      });
+    }
     if (paso?.visita_id) {
       // Se espera a que termine el refetch: si no, «cambiar» podía reabrir
       // el buscador con la lista de zonas todavía vieja (sin la recién
@@ -115,6 +128,19 @@ export function DetalleProximoPaso() {
     if (!count) {
       setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden editar un próximo paso.');
       return;
+    }
+    // Mismo bug que guardarZonaYa(): se actualiza también el rastro local si
+    // queda uno, aunque ya haya sincronizado.
+    const opLocalPaso = await obtenerOperacion(pasoId);
+    if (opLocalPaso?.entidad === 'proximo_paso') {
+      await actualizarOperacion(pasoId, {
+        payload: {
+          ...(opLocalPaso.payload as ProximoPasoPayload),
+          descripcion: descripcion.trim(),
+          fechaObjetivo: fechaObjetivo || undefined,
+          zonaTexto: zonaTexto.trim() || undefined,
+        },
+      });
     }
     setGuardadoConExito(true);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });

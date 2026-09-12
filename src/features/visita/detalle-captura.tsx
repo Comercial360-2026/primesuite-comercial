@@ -208,7 +208,15 @@ export function DetalleCaptura() {
         // invalidar/repintar).
         await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
       }
-    } else {
+    }
+    // BUG: si la captura ya estaba sincronizada (fuente 'cola' +
+    // estadoSync 'completado'), el bloque de arriba escribía en el
+    // servidor pero no aquí — «En esta visita» de Visita activa lee la
+    // cola local, no Supabase, así que la foto seguía viéndose en la zona
+    // vieja aunque el servidor ya tuviera la nueva. La copia local se
+    // actualiza siempre que exista, esté ya sincronizada o no (igual que
+    // ya hace guardarEdicion() más abajo).
+    if (captura.fuente === 'cola') {
       const op = await obtenerOperacion(captura.id);
       if (op) {
         await actualizarOperacion(captura.id, {

@@ -193,6 +193,19 @@ export function DetalleOportunidad() {
     if (!count) {
       throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
     }
+    // BUG: si la oportunidad se creó hace un momento vía Oportunidad rápida
+    // y ya sincronizó (`enCola` es false), el UPDATE de arriba dejaba el
+    // servidor bien pero no tocaba la copia que sigue en IndexedDB — «En
+    // esta visita» de Visita activa lee esa copia, no Supabase, así que
+    // seguía enseñando la zona vieja. Mismo bug ya corregido para el
+    // borrado más abajo (ver comentario en confirmarBorrado): se actualiza
+    // también si queda un rastro local, exista o no ya en el servidor.
+    const opLocal = await obtenerOperacion(oportunidadId);
+    if (opLocal?.entidad === 'oportunidad') {
+      await actualizarOperacion(oportunidadId, {
+        payload: { ...opLocal.payload, zonaTexto: zona.trim() || undefined },
+      });
+    }
     if (oportunidad?.visita_origen_id) {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
       // con la lista de zonas todavía vieja (carrera invalidar/repintar).
@@ -266,6 +279,24 @@ export function DetalleOportunidad() {
     } catch (errAreas) {
       setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
       return;
+    }
+    // Mismo bug que guardarZonaYa(): si queda un rastro local (se creó por
+    // Oportunidad rápida y ya sincronizó), se actualiza también — si no, la
+    // tarjeta de «En esta visita» sigue enseñando los datos de antes de
+    // editar hasta que la pantalla se vuelve a montar.
+    const opLocal = await obtenerOperacion(oportunidadId!);
+    if (opLocal?.entidad === 'oportunidad') {
+      await actualizarOperacion(oportunidadId!, {
+        payload: {
+          ...opLocal.payload,
+          titulo: titulo.trim(),
+          prioridad: prioridad as OportunidadPayload['prioridad'],
+          etapa,
+          horizonteDecision: horizonte || undefined,
+          descripcion: descripcion.trim() || undefined,
+          zonaTexto: zonaTexto.trim() || undefined,
+        },
+      });
     }
     queryClient.invalidateQueries({ queryKey: ['oportunidad-areas', oportunidadId] });
     // Si la visita de origen está cerrada y su resumen es automático, se

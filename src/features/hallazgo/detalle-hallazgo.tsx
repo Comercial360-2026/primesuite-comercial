@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { eliminarOperacion } from '@/lib/offline-queue';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
+import type { HallazgoPayload } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
@@ -165,6 +166,25 @@ export function DetalleHallazgo() {
       setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
       return;
     }
+    // Mismo bug ya corregido para el borrado más abajo (confirmarBorrado) y
+    // en detalle-captura.tsx / detalle-oportunidad.tsx: si este hallazgo se
+    // creó desde "Anotar" en la visita en curso, sigue existiendo una copia
+    // local en IndexedDB (misma id) aunque ya haya sincronizado. Editar solo
+    // la fila de Supabase la dejaba desactualizada — "En esta visita" lee
+    // esa copia, no el servidor, así que seguía enseñando la nota/zona de
+    // antes de editar.
+    const opLocal = await obtenerOperacion(hallazgoId);
+    if (opLocal?.entidad === 'hallazgo') {
+      await actualizarOperacion(hallazgoId, {
+        payload: {
+          ...(opLocal.payload as HallazgoPayload),
+          nota: nota.trim() || undefined,
+          zonaTexto: zonaTexto.trim() || undefined,
+          fechaRelevante: fechaRelevante || undefined,
+          tipoFechaRelevante: fechaRelevante ? tipoFechaRelevante : undefined,
+        },
+      });
+    }
     queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
     if (hallazgo?.visita_id) {
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', hallazgo.visita_id] });
@@ -193,6 +213,14 @@ export function DetalleHallazgo() {
     if (err) throw new Error(err.message);
     if (!count) {
       throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+    }
+    // Mismo bug que en guardar(): si queda un rastro local, se actualiza
+    // también — si no, «En esta visita» seguía enseñando la zona vieja.
+    const opLocalZona = await obtenerOperacion(hallazgoId);
+    if (opLocalZona?.entidad === 'hallazgo') {
+      await actualizarOperacion(hallazgoId, {
+        payload: { ...(opLocalZona.payload as HallazgoPayload), zonaTexto: zona.trim() || undefined },
+      });
     }
     if (hallazgo?.visita_id) {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
