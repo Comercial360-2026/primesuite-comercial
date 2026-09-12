@@ -1432,11 +1432,6 @@ export function VisitaActiva() {
           : pasosEnVisita === 0
             ? 'No has apuntado ningún próximo paso. Si queda algo pendiente, apúntalo antes de cerrar.'
             : null;
-  // El conmutador "por zona" (D1) solo aparece si se han anotado zonas en
-  // esta visita.
-  const zonaUsada = [...capturas, ...hallazgos, ...oportunidades].some(
-    (op) => !!(op.payload as { zonaTexto?: string }).zonaTexto
-  );
   // Zonas ya anotadas en ESTA visita: cola local (lo mío, capturado en este
   // dispositivo) + servidor (lo mío ya editado desde otra pantalla, y lo de
   // cualquier compañero) — sin el servidor, una zona creada o cambiada desde
@@ -1447,6 +1442,11 @@ export function VisitaActiva() {
     ),
     ...(zonasServidor ?? []),
   ]);
+  // El conmutador "por zona" (D1) solo aparece si se han anotado zonas en
+  // esta visita — mismo criterio que zonasUsadas (cola local + servidor),
+  // no solo la cola local: si no, el conmutador se escondía cuando la zona
+  // se había puesto desde la ficha de un hallazgo en vez de al capturar.
+  const zonaUsada = zonasUsadas.length > 0;
   const hayZonaActiva = !!zonaActual.trim();
 
   // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.

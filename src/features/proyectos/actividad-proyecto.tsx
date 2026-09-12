@@ -25,12 +25,14 @@ interface OportunidadActiva {
   prioridad: string;
   etapa: string;
   valor_estimado: number | null;
+  zona_texto: string | null;
 }
 
 interface ProximoPasoPendiente {
   id: string;
   descripcion: string;
   fecha_objetivo: string | null;
+  zona_texto: string | null;
 }
 
 interface NotaProyecto {
@@ -38,12 +40,14 @@ interface NotaProyecto {
   titulo: string | null;
   contenido_texto: string | null;
   creado_en: string;
+  zona_texto: string | null;
 }
 
 interface HallazgoAbierto {
   id: string;
   nota: string | null;
   fecha_relevante: string | null;
+  zona_texto: string | null;
   // Áreas del catálogo (prompt maestro 11, Fase 2) — categorías y/o
   // términos, se resuelven aparte desde la tabla puente.
   areas: Area[];
@@ -77,7 +81,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<OportunidadActiva[]> => {
       const { data, error } = await supabase
         .from('oportunidad')
-        .select('id, titulo, prioridad, etapa, valor_estimado')
+        .select('id, titulo, prioridad, etapa, valor_estimado, zona_texto')
         .eq('proyecto_id', proyectoId)
         .neq('etapa', 'cerrada')
         .order('creado_en', { ascending: false })
@@ -92,7 +96,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<ProximoPasoPendiente[]> => {
       const { data, error } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo')
+        .select('id, descripcion, fecha_objetivo, zona_texto')
         .eq('proyecto_id', proyectoId)
         .eq('estado', 'pendiente')
         .order('fecha_objetivo', { ascending: true })
@@ -111,13 +115,13 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, nota, fecha_relevante')
+        .select('id, nota, fecha_relevante, zona_texto')
         .eq('proyecto_id', proyectoId)
         .is('archivado_en', null)
         .order('creado_en', { ascending: false })
         .limit(5);
       if (error) throw error;
-      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null }[];
+      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null; zona_texto: string | null }[];
       const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
       return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
     },
@@ -143,13 +147,13 @@ export function ActividadProyecto({
     queryFn: async (): Promise<HallazgoAbierto[]> => {
       const { data, error } = await supabase
         .from('hallazgo')
-        .select('id, nota, fecha_relevante')
+        .select('id, nota, fecha_relevante, zona_texto')
         .eq('proyecto_id', proyectoId)
         .not('archivado_en', 'is', null)
         .order('archivado_en', { ascending: false })
         .limit(20);
       if (error) throw error;
-      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null }[];
+      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null; zona_texto: string | null }[];
       const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
       return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
     },
@@ -163,7 +167,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<NotaProyecto[]> => {
       const { data, error } = await supabase
         .from('captura_libre')
-        .select('id, titulo, contenido_texto, creado_en, visita:visita_id!inner(proyecto_id)')
+        .select('id, titulo, contenido_texto, creado_en, zona_texto, visita:visita_id!inner(proyecto_id)')
         .eq('visita.proyecto_id', proyectoId)
         .eq('tipo', 'nota')
         .order('creado_en', { ascending: false })
@@ -223,6 +227,7 @@ export function ActividadProyecto({
                 [
                   o.etapa ? etiqueta(ETAPA_LABEL, o.etapa) : null,
                   o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : null,
+                  o.zona_texto?.trim() || null,
                 ]
                   .filter(Boolean)
                   .join(' · ') || undefined
@@ -243,6 +248,7 @@ export function ActividadProyecto({
               <FilaNavegable
                 key={p.id}
                 titulo={p.descripcion}
+                subtitulo={p.zona_texto?.trim() || undefined}
                 tono={vencido ? 'riesgo' : 'neutral'}
                 valor={
                   p.fecha_objetivo
@@ -266,6 +272,7 @@ export function ActividadProyecto({
             <FilaNavegable
               key={h.id}
               titulo={h.nota?.trim() || 'Hallazgo'}
+              subtitulo={h.zona_texto?.trim() || undefined}
               valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
               valorTenue
               to={`/hallazgos/${h.id}`}
@@ -285,6 +292,7 @@ export function ActividadProyecto({
               <FilaNavegable
                 key={h.id}
                 titulo={h.nota?.trim() || 'Hallazgo'}
+                subtitulo={h.zona_texto?.trim() || undefined}
                 valor="archivado"
                 valorTenue
                 to={`/hallazgos/${h.id}`}
@@ -300,7 +308,14 @@ export function ActividadProyecto({
             <FilaNavegable
               key={n.id}
               titulo={n.titulo?.trim() || n.contenido_texto?.trim() || 'Nota'}
-              subtitulo={n.titulo?.trim() ? n.contenido_texto?.trim() || undefined : undefined}
+              subtitulo={
+                [
+                  n.titulo?.trim() ? n.contenido_texto?.trim() || null : null,
+                  n.zona_texto?.trim() || null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined
+              }
               valor={fechaCorta(n.creado_en)}
               valorTenue
               to={`/capturas/${n.id}`}
