@@ -2,7 +2,34 @@ import { useMemo, useState } from 'react';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { PANTALLAS, CONCEPTOS, GRUPOS_PANTALLA, GRUPOS_CONCEPTO } from '@/lib/ayuda';
+import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
+import {
+  PANTALLAS,
+  CONCEPTOS,
+  GRUPOS_PANTALLA,
+  GRUPOS_CONCEPTO,
+  type GrupoPantalla,
+  type GrupoConcepto,
+} from '@/lib/ayuda';
+
+// Un icono por grupo — ayuda a escanear el índice sin leer cada etiqueta.
+// Reutiliza los mismos iconos que ya representan ese flujo en el resto de
+// la app (bottom nav, cabeceras), no unos nuevos solo para /ayuda.
+const ICONO_GRUPO_PANTALLA: Record<GrupoPantalla, NombreIcono> = {
+  dia: 'hoy',
+  tu: 'yo',
+  cliente: 'clientes',
+  visita: 'ubicacion',
+  registro: 'nota',
+  direccion: 'equipo',
+};
+const ICONO_GRUPO_CONCEPTO: Record<GrupoConcepto, NombreIcono> = {
+  visita: 'reproducir',
+  oportunidad: 'oportunidad',
+  planificar: 'paso',
+  app: 'info',
+};
 
 // Pantalla /ayuda — "Cómo funciona PrimeNotes". No se escribe a mano:
 // recorre los mapas de `ayuda.ts`, así que cada entrada nueva aparece aquí
@@ -26,29 +53,44 @@ function normaliza(s: string) {
 
 function ItemAyuda({
   titulo,
-  cuerpo,
+  respuesta,
+  bloques,
+  ojo,
   abierto,
   onToggle,
 }: {
   titulo: string;
-  cuerpo: { lb?: string; texto: string }[];
+  /** La respuesta directa (`queEs`) — lo primero que se lee, sin etiqueta. */
+  respuesta: string;
+  /** Detalles secundarios ("Cuándo", "Ejemplo…"), cada uno en su propio
+   *  bloque con su etiqueta encima — nunca pegados en el mismo párrafo. */
+  bloques: { lb: string; texto: string }[];
+  /** El aviso de la entrada, si tiene — mismo componente que cualquier
+   *  aviso de la app, no un color de texto suelto. */
+  ojo?: string;
   abierto: boolean;
   onToggle: () => void;
 }) {
   return (
-    <div className="ayuda-item">
+    <div className={`ayuda-item${abierto ? ' ayuda-item--abierto' : ''}`}>
       <button type="button" className="ayuda-item__tit" aria-expanded={abierto} onClick={onToggle}>
         <span>{titulo}</span>
-        <span className="ayuda-item__chevron" aria-hidden="true">{abierto ? '⌄' : '›'}</span>
+        <span className="ayuda-item__chevron" aria-hidden="true">›</span>
       </button>
       {abierto && (
         <div className="ayuda-item__cuerpo">
-          {cuerpo.map((l, i) => (
-            <p key={i} className={l.lb ? 'ayuda-item__meta' : undefined}>
-              {l.lb && <strong>{l.lb}: </strong>}
-              {l.texto}
-            </p>
+          <p className="ayuda-respuesta">{respuesta}</p>
+          {bloques.map((b) => (
+            <div className="ayuda-bloque" key={b.lb}>
+              <span className="ayuda-bloque__lb">{b.lb}</span>
+              <p className="ayuda-bloque__texto">{b.texto}</p>
+            </div>
           ))}
+          {ojo && (
+            <Aviso tipo="atencion" titulo="Ojo">
+              {ojo}
+            </Aviso>
+          )}
         </div>
       )}
     </div>
@@ -123,19 +165,20 @@ export function AyudaManual() {
               if (items.length === 0) return null;
               return (
                 <div key={g.id} className="ayuda-manual__bloque">
-                  <h3 className="ayuda-manual__subgrupo">{g.titulo}</h3>
-                  <div className="ayuda-manual__grupo">
+                  <h3 className="ayuda-manual__subgrupo">
+                    <Icono nombre={ICONO_GRUPO_PANTALLA[g.id]} size={13} />
+                    {g.titulo}
+                  </h3>
+                  <div className="ayuda-manual__grupo seccion-lista__grupo">
                     {items.map((e) => (
                       <ItemAyuda
                         key={e.titulo}
                         titulo={e.titulo}
                         abierto={estaAbierto(e.titulo)}
                         onToggle={() => alternar(e.titulo)}
-                        cuerpo={[
-                          { texto: e.queEs },
-                          { lb: 'Cuándo', texto: e.cuando },
-                          ...(e.ojo ? [{ lb: 'Ojo', texto: e.ojo }] : []),
-                        ]}
+                        respuesta={e.queEs}
+                        bloques={[{ lb: 'Cuándo', texto: e.cuando }]}
+                        ojo={e.ojo}
                       />
                     ))}
                   </div>
@@ -153,16 +196,19 @@ export function AyudaManual() {
               if (items.length === 0) return null;
               return (
                 <div key={g.id} className="ayuda-manual__bloque">
-                  <h3 className="ayuda-manual__subgrupo">{g.titulo}</h3>
-                  <div className="ayuda-manual__grupo">
+                  <h3 className="ayuda-manual__subgrupo">
+                    <Icono nombre={ICONO_GRUPO_CONCEPTO[g.id]} size={13} />
+                    {g.titulo}
+                  </h3>
+                  <div className="ayuda-manual__grupo seccion-lista__grupo">
                     {items.map((e) => (
                       <ItemAyuda
                         key={e.titulo}
                         titulo={e.titulo}
                         abierto={estaAbierto(e.titulo)}
                         onToggle={() => alternar(e.titulo)}
-                        cuerpo={[
-                          { texto: e.queEs },
+                        respuesta={e.queEs}
+                        bloques={[
                           ...(e.cuando ? [{ lb: 'Cuándo', texto: e.cuando }] : []),
                           ...(e.ejemplo ? [{ lb: 'Ejemplo', texto: e.ejemplo }] : []),
                         ]}

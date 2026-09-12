@@ -1464,41 +1464,59 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
   margin: 4px 0 0; font-size: var(--text-xs); color: var(--ink-400); line-height: 1.45;
 }
 
-.ayuda-modal { display: flex; flex-direction: column; gap: var(--space-2); }
-.ayuda-modal p { margin: 0; font-size: var(--text-sm); line-height: 1.4; }
-.ayuda-modal__bloque { color: var(--ink-700); }
-.ayuda-modal__lb {
-  display: block; font-size: var(--text-xs); font-weight: 600;
-  color: var(--ink-400); margin-bottom: 1px;
+.ayuda-modal { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* Cuerpo de una entrada de ayuda — compartido por el popover "?"
+   (boton-ayuda.tsx) y el índice /ayuda (ayuda-manual.tsx): antes cada uno
+   pintaba "Cuándo"/"Ojo" a su manera (uno como párrafo con un `<strong>`
+   inline, el otro igual pero sin color de aviso ni en "Ojo") — la misma
+   pregunta se leía distinto según por dónde se abriera. Un solo lenguaje:
+   respuesta directa, cada bloque secundario separado y con su etiqueta
+   encima, y "Ojo" es el aviso ámbar de siempre (`<Aviso tipo="atencion">`),
+   no un color de texto suelto. */
+.ayuda-respuesta { margin: 0; font-size: var(--text-sm); line-height: 1.55; color: var(--ink-900); }
+.ayuda-bloque { display: flex; flex-direction: column; gap: 3px; }
+.ayuda-bloque__lb {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-400);
 }
-.ayuda-modal__bloque--ojo .ayuda-modal__lb { color: var(--warning-600); }
+.ayuda-bloque__texto { margin: 0; font-size: var(--text-sm); line-height: 1.5; color: var(--ink-700); }
 
 .ayuda-manual__grupo { padding: 0; }
 
-/* Sub-cabecera de cada bloque del índice (por flujo de uso). Más discreta
-   que el `.lbl-seccion` de "Pantallas" / "Conceptos"; alineada con él. */
+/* Sub-cabecera de cada bloque del índice (por flujo de uso), con un icono
+   que ayuda a escanear la lista sin leer cada etiqueta — más discreta que
+   el `.lbl-seccion` de "Pantallas" / "Conceptos"; alineada con él. */
 .ayuda-manual__subgrupo {
-  padding: 0 var(--fila-pad-x); margin: var(--space-4) 0 4px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 var(--fila-pad-x); margin: var(--space-4) 0 6px;
   font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--ink-400);
 }
+.ayuda-manual__subgrupo svg { flex-shrink: 0; opacity: 0.85; }
 .ayuda-manual__bloque:first-child .ayuda-manual__subgrupo { margin-top: var(--space-2); }
 
-/* /ayuda como índice plegable: fila de título tocable + cuerpo desplegable. */
+/* /ayuda como índice plegable: fila de título tocable + cuerpo desplegable,
+   dentro de una tarjeta (mismo `.seccion-lista__grupo` que cualquier otra
+   lista) en vez de sueltos sobre el fondo. */
 .ayuda-item { border-top: 1px solid var(--ink-100); }
 .ayuda-item:first-child { border-top: none; }
 .ayuda-item__tit {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
-  width: 100%; padding: var(--space-3) 0;
+  width: 100%; padding: var(--space-3) var(--fila-pad-x);
   border: none; background: none; font-family: var(--font-sans);
   font-size: var(--text-base); font-weight: 600; color: var(--ink-900);
   text-align: left; cursor: pointer;
 }
-.ayuda-item__chevron { flex-shrink: 0; color: var(--ink-400); font-size: var(--text-md); }
-.ayuda-item__cuerpo { padding: 0 0 var(--space-3); }
-.ayuda-item__cuerpo p { margin: 3px 0 0; font-size: var(--text-sm); line-height: 1.4; }
-.ayuda-item__meta { color: var(--ink-400); }
-.ayuda-item__meta strong { color: var(--ink-700); font-weight: 600; }
+.ayuda-item__chevron {
+  flex-shrink: 0; color: var(--ink-400); font-size: var(--text-md);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.ayuda-item--abierto .ayuda-item__chevron { transform: rotate(90deg); }
+.ayuda-item__cuerpo {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: 0 var(--fila-pad-x) var(--space-4);
+}
 .ayuda-manual__vacio {
   padding: var(--space-5) var(--fila-pad-x); text-align: center;
   color: var(--ink-400); font-size: var(--text-sm);
