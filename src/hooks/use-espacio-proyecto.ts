@@ -82,6 +82,35 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     }
   }
 
+  // Solo respaldo, sin liberar nada: a diferencia de liberarSeleccionadas,
+  // no filtra por motivoBloqueo — descargar el backup no borra nada, así que
+  // una oportunidad abierta o cola local pendiente no tiene por qué impedirlo
+  // (ese candado solo protege el borrado, no la lectura).
+  async function descargarSeleccionadas(ids: string[]) {
+    if (corriendo || !proyectoId) return;
+    const candidatas = visitas.filter((v) => ids.includes(v.visita_id));
+    if (!candidatas.length) return;
+    if (!navigator.onLine) {
+      setResultado('Necesitas conexión para descargar.');
+      return;
+    }
+
+    setResultado(null);
+    setProgreso({ fase: 'descargando', hecho: 0, total: candidatas.length });
+    let hechas = 0;
+    for (let i = 0; i < candidatas.length; i++) {
+      const resultadoDescarga = await descargar('visita', candidatas[i].visita_id);
+      if (typeof resultadoDescarga === 'object') hechas++;
+      setProgreso({ fase: 'descargando', hecho: i + 1, total: candidatas.length });
+    }
+    setProgreso(null);
+    setResultado(
+      hechas === candidatas.length
+        ? null
+        : `Se descargaron ${hechas} de ${candidatas.length}. Las demás fallaron — inténtalo de nuevo.`
+    );
+  }
+
   async function liberarSeleccionadas(ids: string[]) {
     if (corriendo || !proyectoId) return;
     // Filtrado defensivo: entre marcar y confirmar la lista puede haberse
@@ -187,6 +216,7 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     corriendo,
     resultado,
     limpiarResultado: () => setResultado(null),
+    descargarSeleccionadas,
     liberarSeleccionadas,
   };
 }

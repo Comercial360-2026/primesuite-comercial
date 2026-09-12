@@ -161,7 +161,7 @@ const _PANTALLAS = {
     queEs:
       'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
     cuando:
-      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marcas las que quieras liberar y confirmas: se descarga el backup completo (fotos, audios y PDF) de cada una, una a una, y solo cuando una se ha descargado bien se borra de verdad.',
+      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae el backup completo (fotos, audios y PDF) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
     ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
   },
 

@@ -33,6 +33,7 @@ export function EspacioProyecto() {
     corriendo,
     resultado,
     limpiarResultado,
+    descargarSeleccionadas,
     liberarSeleccionadas,
   } = useEspacioProyecto(proyectoId);
 
@@ -93,6 +94,18 @@ export function EspacioProyecto() {
                 limpiarResultado();
               }}
               acciones={[
+                {
+                  // Solo respaldo, sin liberar nada — por eso no pasa por el
+                  // panel de confirmación de riesgo ni exige que la fila esté
+                  // "liberable" más allá de poder seleccionarse.
+                  etiqueta: corriendo
+                    ? `Descargando ${progreso!.hecho} de ${progreso!.total}…`
+                    : `Descargar (${marcadas.size})`,
+                  icono: 'descargar',
+                  tono: 'neutral',
+                  onClick: () => descargarSeleccionadas([...marcadas]),
+                  disabled: corriendo || marcadas.size === 0,
+                },
                 {
                   etiqueta: corriendo
                     ? progreso!.fase === 'descargando'
