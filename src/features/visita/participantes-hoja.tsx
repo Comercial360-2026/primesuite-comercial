@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
@@ -264,27 +265,30 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     // sin fila que matchee por RLS "tiene éxito" con 0 filas — comprobar
     // `count` es la única forma de no decir que se ha salido/expulsado sin
     // haberlo hecho de verdad.
-    const { error: err, count } = salgoYo
-      ? await supabase
-          .from('visita_participante')
-          .delete({ count: 'exact' })
-          .eq('visita_id', visitaId)
-          .eq('comercial_id', comercialId)
-      : await supabase
-          .from('visita_participante')
-          .update({ estado: 'expulsado', rechazo_visto: false }, { count: 'exact' })
-          .eq('visita_id', visitaId)
-          .eq('comercial_id', comercialId);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          salgoYo
+            ? supabase
+                .from('visita_participante')
+                .delete({ count: 'exact' })
+                .eq('visita_id', visitaId)
+                .eq('comercial_id', comercialId)
+            : supabase
+                .from('visita_participante')
+                .update({ estado: 'expulsado', rechazo_visto: false }, { count: 'exact' })
+                .eq('visita_id', visitaId)
+                .eq('comercial_id', comercialId),
+        'No se ha podido (0 filas afectadas). Puede que no tengas permiso.'
+      );
+    } catch (err) {
+      setQuitandoId(null);
+      setConfirmandoQuitar(null);
+      setError(err instanceof Error ? err.message : 'No se pudo completar la acción.');
+      return;
+    }
     setQuitandoId(null);
     setConfirmandoQuitar(null);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setError('No se ha podido (0 filas afectadas). Puede que no tengas permiso.');
-      return;
-    }
     for (const clave of [
       ['participantes-visita', visitaId],
       ['participantes-rechazados', visitaId],

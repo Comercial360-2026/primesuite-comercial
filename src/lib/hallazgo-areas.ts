@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { type Area, mismaArea } from '@/lib/vocabulario';
 
 // Lectura / escritura de las áreas de un hallazgo (tabla puente
@@ -80,15 +81,10 @@ export async function guardarAreasDeHallazgo(hallazgoId: string, deseadas: Area[
   // borrado de verdad, y reaparecería al recargar.
   for (const a of sobran) {
     const filtro = a.tipo === 'categoria' ? { categoria_id: a.id } : { termino_id: a.id };
-    const { error, count } = await supabase
-      .from('hallazgo_area')
-      .delete({ count: 'exact' })
-      .eq('hallazgo_id', hallazgoId)
-      .match(filtro);
-    if (error) throw error;
-    if (!count) {
-      throw new Error(`No se pudo quitar "${a.nombre}" (0 filas afectadas). Puede que no tengas permiso.`);
-    }
+    await conReintentoDeSesion(
+      () => supabase.from('hallazgo_area').delete({ count: 'exact' }).eq('hallazgo_id', hallazgoId).match(filtro),
+      `No se pudo quitar "${a.nombre}" (0 filas afectadas). Puede que no tengas permiso.`
+    );
   }
 
   if (faltan.length > 0) {

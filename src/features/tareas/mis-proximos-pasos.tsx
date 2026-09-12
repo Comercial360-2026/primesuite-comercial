@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -102,18 +103,17 @@ export function MisProximosPasos() {
     if (guardandoId) return;
     setGuardandoId(id);
     setErrorGuardado(null);
-    const { error, count } = await supabase
-      .from('proximo_paso')
-      .update({ estado: 'completado' }, { count: 'exact' })
-      .eq('id', id);
-    setGuardandoId(null);
-    // count 0 sin error explícito es el mismo patrón de guardado
-    // silenciosamente fallido ya detectado y corregido en el resto de la
-    // app (adenda_punto1_delete_silencioso.md) — se trata igual como fallo real.
-    if (error || count === 0) {
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').update({ estado: 'completado' }, { count: 'exact' }).eq('id', id),
+        'No se pudo marcar como completado. Inténtalo de nuevo.'
+      );
+    } catch {
+      setGuardandoId(null);
       setErrorGuardado('No se pudo marcar como completado. Inténtalo de nuevo.');
       return;
     }
+    setGuardandoId(null);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
   }
 

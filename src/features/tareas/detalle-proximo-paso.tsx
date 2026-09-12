@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import type { ProximoPasoPayload } from '@/lib/offline-queue';
 import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
@@ -72,14 +73,10 @@ export function DetalleProximoPaso() {
   // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
   async function guardarZonaYa(zona: string) {
     if (!pasoId) return;
-    const { error: err, count } = await supabase
-      .from('proximo_paso')
-      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
-      .eq('id', pasoId);
-    if (err) throw new Error(err.message);
-    if (!count) {
-      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
-    }
+    await conReintentoDeSesion(
+      () => supabase.from('proximo_paso').update({ zona_texto: zona.trim() || null }, { count: 'exact' }).eq('id', pasoId),
+      'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+    );
     // Mismo bug ya corregido para el borrado más abajo (confirmarBorrado) y
     // en detalle-captura.tsx / detalle-oportunidad.tsx / detalle-hallazgo.tsx:
     // si este paso se creó desde la visita en curso, sigue existiendo una
@@ -110,26 +107,28 @@ export function DetalleProximoPaso() {
     // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
     // `count` es la única forma de no decir "guardado ✓" sin haber
     // tocado nada.
-    const { error: err, count } = await supabase
-      .from('proximo_paso')
-      .update(
-        {
-          descripcion: descripcion.trim(),
-          fecha_objetivo: fechaObjetivo || null,
-          zona_texto: zonaTexto.trim() || null,
-        },
-        { count: 'exact' }
-      )
-      .eq('id', pasoId);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('proximo_paso')
+            .update(
+              {
+                descripcion: descripcion.trim(),
+                fecha_objetivo: fechaObjetivo || null,
+                zona_texto: zonaTexto.trim() || null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', pasoId),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden editar un próximo paso.'
+      );
+    } catch (errGuardar) {
+      setGuardando(false);
+      setError(errGuardar instanceof Error ? errGuardar.message : 'No se pudo guardar.');
+      return;
+    }
     setGuardando(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden editar un próximo paso.');
-      return;
-    }
     // Mismo bug que guardarZonaYa(): se actualiza también el rastro local si
     // queda uno, aunque ya haya sincronizado.
     const opLocalPaso = await obtenerOperacion(pasoId);
@@ -159,21 +158,17 @@ export function DetalleProximoPaso() {
     if (!pasoId) return;
     setBorrando(true);
     setErrorBorrado(null);
-    const { error: err, count } = await supabase
-      .from('proximo_paso')
-      .delete({ count: 'exact' })
-      .eq('id', pasoId);
-    setBorrando(false);
-    if (err) {
-      setErrorBorrado(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorBorrado(
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').delete({ count: 'exact' }).eq('id', pasoId),
         'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden borrar un próximo paso.'
       );
+    } catch (errBorrar) {
+      setBorrando(false);
+      setErrorBorrado(errBorrar instanceof Error ? errBorrar.message : 'No se pudo borrar.');
       return;
     }
+    setBorrando(false);
     // Mismo bug que ya se corrigió en nota (detalle-captura.tsx) y
     // oportunidad (detalle-oportunidad.tsx), y que faltaba también en
     // hallazgo (detalle-hallazgo.tsx): si este paso se creó desde la visita
@@ -211,12 +206,14 @@ export function DetalleProximoPaso() {
       if (err) throw new Error(err);
       // La visita hereda la descripción del paso como objetivo — "esto lo
       // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
-      const { error: errParche, count } = await supabase
-        .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim() }, { count: 'exact' })
-        .eq('id', nuevaId);
-      if (errParche) throw new Error(errParche.message);
-      if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('visita')
+            .update({ hora_definida: false, objetivo: descripcion.trim() }, { count: 'exact' })
+            .eq('id', nuevaId),
+        'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+      );
       setVisitaPlanificada(true);
       for (const k of [
         ['visitas-hoy'],
@@ -238,16 +235,13 @@ export function DetalleProximoPaso() {
     // Mismo encargo técnico que `guardar()`: sin permiso, Supabase no da
     // error — comprobar `count` es la única forma de no navegar como si
     // se hubiera marcado, sin haber tocado nada.
-    const { error: err, count } = await supabase
-      .from('proximo_paso')
-      .update({ estado: 'completado' }, { count: 'exact' })
-      .eq('id', pasoId);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setError('No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.');
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').update({ estado: 'completado' }, { count: 'exact' }).eq('id', pasoId),
+        'No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.'
+      );
+    } catch (errMarcar) {
+      setError(errMarcar instanceof Error ? errMarcar.message : 'No se pudo marcar.');
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });

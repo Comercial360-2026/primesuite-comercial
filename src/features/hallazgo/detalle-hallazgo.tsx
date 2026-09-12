@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import type { HallazgoPayload } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
@@ -137,26 +138,26 @@ export function DetalleHallazgo() {
     // `count` es la única forma de no decir "guardado ✓" cuando en
     // realidad no se ha tocado nada (visto en vivo: Borja editando un
     // hallazgo de Comercial Prueba).
-    const { error: err, count } = await supabase
-      .from('hallazgo')
-      .update(
-        {
-          nota: nota.trim() || null,
-          zona_texto: zonaTexto.trim() || null,
-          fecha_relevante: fechaRelevante || null,
-          tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
-        },
-        { count: 'exact' }
-      )
-      .eq('id', hallazgoId!);
-    if (err) {
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('hallazgo')
+            .update(
+              {
+                nota: nota.trim() || null,
+                zona_texto: zonaTexto.trim() || null,
+                fecha_relevante: fechaRelevante || null,
+                tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', hallazgoId!),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar un hallazgo.'
+      );
+    } catch (errGuardar) {
       setGuardando(false);
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setGuardando(false);
-      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar un hallazgo.');
+      setError(errGuardar instanceof Error ? errGuardar.message : 'No se pudo guardar.');
       return;
     }
     try {
@@ -207,14 +208,10 @@ export function DetalleHallazgo() {
   // pendiente hasta que se guarde el resto del formulario.
   async function guardarZonaYa(zona: string) {
     if (!hallazgoId) return;
-    const { error: err, count } = await supabase
-      .from('hallazgo')
-      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
-      .eq('id', hallazgoId);
-    if (err) throw new Error(err.message);
-    if (!count) {
-      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
-    }
+    await conReintentoDeSesion(
+      () => supabase.from('hallazgo').update({ zona_texto: zona.trim() || null }, { count: 'exact' }).eq('id', hallazgoId),
+      'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+    );
     // Mismo bug que en guardar(): si queda un rastro local, se actualiza
     // también — si no, «En esta visita» seguía enseñando la zona vieja.
     const opLocalZona = await obtenerOperacion(hallazgoId);
@@ -242,19 +239,17 @@ export function DetalleHallazgo() {
     if (!hallazgoId) return;
     setBorrando(true);
     setErrorBorrado(null);
-    const { error: err, count } = await supabase
-      .from('hallazgo')
-      .delete({ count: 'exact' })
-      .eq('id', hallazgoId);
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('hallazgo').delete({ count: 'exact' }).eq('id', hallazgoId),
+        'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.'
+      );
+    } catch (errBorrar) {
+      setBorrando(false);
+      setErrorBorrado(errBorrar instanceof Error ? errBorrar.message : 'No se pudo borrar.');
+      return;
+    }
     setBorrando(false);
-    if (err) {
-      setErrorBorrado(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorBorrado('No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar un hallazgo.');
-      return;
-    }
     // Mismo bug que ya se corrigió en nota (detalle-captura.tsx) y
     // oportunidad (detalle-oportunidad.tsx): si este hallazgo se creó desde
     // "Anotar" en la visita en curso, sigue existiendo una copia local en
@@ -277,19 +272,21 @@ export function DetalleHallazgo() {
     if (!hallazgoId || archivando) return;
     setArchivando(true);
     setErrorArchivado(null);
-    const { error: err, count } = await supabase
-      .from('hallazgo')
-      .update({ archivado_en: archivado ? null : new Date().toISOString() }, { count: 'exact' })
-      .eq('id', hallazgoId);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('hallazgo')
+            .update({ archivado_en: archivado ? null : new Date().toISOString() }, { count: 'exact' })
+            .eq('id', hallazgoId),
+        'No se ha podido (0 filas afectadas). Solo el autor o Dirección Comercial pueden archivar un hallazgo.'
+      );
+    } catch (errArchivar) {
+      setArchivando(false);
+      setErrorArchivado(errArchivar instanceof Error ? errArchivar.message : 'No se pudo archivar.');
+      return;
+    }
     setArchivando(false);
-    if (err) {
-      setErrorArchivado(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorArchivado('No se ha podido (0 filas afectadas). Solo el autor o Dirección Comercial pueden archivar un hallazgo.');
-      return;
-    }
     queryClient.invalidateQueries({ queryKey: ['hallazgo', hallazgoId] });
     queryClient.invalidateQueries({ queryKey: ['hallazgos-proyecto'] });
     queryClient.invalidateQueries({ queryKey: ['hallazgos-archivados-proyecto'] });

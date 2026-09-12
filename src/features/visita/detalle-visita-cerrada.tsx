@@ -17,6 +17,7 @@ import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useTamanoAdjuntosVisita } from '@/hooks/use-tamano-adjuntos-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -273,12 +274,14 @@ export function DetalleVisitaCerrada() {
     const texto = borradorResumen.trim();
     await guardadoResumen.ejecutar(
       async () => {
-        const { error, count } = await supabase
-          .from('visita')
-          .update({ resumen_texto: texto || null, resumen_origen: 'manual' }, { count: 'exact' })
-          .eq('id', visitaId);
-        if (error) throw new Error(error.message);
-        if (!count) throw new Error('No se ha podido guardar el resumen (0 filas afectadas). Puede que no tengas permiso.');
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update({ resumen_texto: texto || null, resumen_origen: 'manual' }, { count: 'exact' })
+              .eq('id', visitaId),
+          'No se ha podido guardar el resumen (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => {
@@ -773,19 +776,26 @@ export function DetalleVisitaCerrada() {
                 />
               </SeccionLista>
             ))}
-          {borrar.visitaBorrarId === visitaId ? (
-            <ConfirmarBorradoVisita ctrl={borrar} />
-          ) : (
-            <SeccionLista>
-              <FilaNavegable
-                icono="borrar"
-                titulo="Borrar esta visita"
-                tono="riesgo"
-                chevron={false}
-                onClick={() => void borrar.pedir(visitaId)}
-              />
-            </SeccionLista>
-          )}
+          {/* En una visita cerrada, "Descargar y liberar espacio" (arriba)
+              es un borrado estrictamente más seguro que este (obliga a
+              descargar antes y comprueba oportunidad abierta/cola sin
+              subir) — mantener los dos aquí dejaba un atajo que se saltaba
+              esas comprobaciones. Se retira solo para 'consolidada'; en
+              planificada/en curso sigue siendo la única forma de borrar. */}
+          {!visitaCerrada &&
+            (borrar.visitaBorrarId === visitaId ? (
+              <ConfirmarBorradoVisita ctrl={borrar} />
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="borrar"
+                  titulo="Borrar esta visita"
+                  tono="riesgo"
+                  chevron={false}
+                  onClick={() => void borrar.pedir(visitaId)}
+                />
+              </SeccionLista>
+            ))}
         </div>
       )}
 

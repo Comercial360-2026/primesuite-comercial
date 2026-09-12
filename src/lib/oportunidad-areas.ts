@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { type Area, mismaArea } from '@/lib/vocabulario';
 
 // Lectura / escritura de las áreas de una oportunidad (tabla puente
@@ -78,15 +79,10 @@ export async function guardarAreasDeOportunidad(oportunidadId: string, deseadas:
   // borrado de verdad.
   for (const a of sobran) {
     const filtro = a.tipo === 'categoria' ? { categoria_id: a.id } : { termino_id: a.id };
-    const { error, count } = await supabase
-      .from('oportunidad_area')
-      .delete({ count: 'exact' })
-      .eq('oportunidad_id', oportunidadId)
-      .match(filtro);
-    if (error) throw error;
-    if (!count) {
-      throw new Error(`No se pudo quitar "${a.nombre}" (0 filas afectadas). Puede que no tengas permiso.`);
-    }
+    await conReintentoDeSesion(
+      () => supabase.from('oportunidad_area').delete({ count: 'exact' }).eq('oportunidad_id', oportunidadId).match(filtro),
+      `No se pudo quitar "${a.nombre}" (0 filas afectadas). Puede que no tengas permiso.`
+    );
   }
 
   if (faltan.length > 0) {

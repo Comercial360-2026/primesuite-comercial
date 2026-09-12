@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -152,18 +153,18 @@ export function Deduplicacion() {
     // de bajo volumen. Si uno falla, los ya fusionados quedan bien y el
     // grupo se puede reintentar con lo que queda.
     for (const dup of duplicados) {
-      const { error: err, count } = await supabase
-        .from('cliente')
-        .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId }, { count: 'exact' })
-        .eq('id', dup.id);
-      if (err) {
+      try {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId }, { count: 'exact' })
+              .eq('id', dup.id),
+          `No se pudo fusionar «${dup.nombre}» (0 filas afectadas). Puede que no tengas permiso.`
+        );
+      } catch (err) {
         setProcesando(null);
-        setError(`No se pudo fusionar «${dup.nombre}»: ${err.message}`);
-        return;
-      }
-      if (!count) {
-        setProcesando(null);
-        setError(`No se pudo fusionar «${dup.nombre}» (0 filas afectadas). Puede que no tengas permiso.`);
+        setError(`No se pudo fusionar «${dup.nombre}»: ${err instanceof Error ? err.message : 'error desconocido'}`);
         return;
       }
     }

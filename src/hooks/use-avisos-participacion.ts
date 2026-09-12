@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 
 // Los avisos de "te han metido / te han sacado de una visita de equipo"
@@ -208,12 +209,10 @@ export function useAvisosParticipacion(): {
 
   const aceptar = useCallback(
     async (id: string) => {
-      const { error, count } = await supabase
-        .from('visita_participante')
-        .update({ estado: 'aceptado' }, { count: 'exact' })
-        .eq('id', id);
-      if (error) throw error;
-      if (!count) throw new Error('No se ha podido aceptar (0 filas afectadas).');
+      await conReintentoDeSesion(
+        () => supabase.from('visita_participante').update({ estado: 'aceptado' }, { count: 'exact' }).eq('id', id),
+        'No se ha podido aceptar (0 filas afectadas).'
+      );
       invalidar();
     },
     [invalidar]
@@ -224,12 +223,10 @@ export function useAvisosParticipacion(): {
       // No se borra la fila: se deja como 'rechazado' para que quien te
       // añadió reciba el aviso. Queda fuera de la visita porque todas las
       // listas de participantes filtran estado <> 'rechazado'.
-      const { error, count } = await supabase
-        .from('visita_participante')
-        .update({ estado: 'rechazado' }, { count: 'exact' })
-        .eq('id', id);
-      if (error) throw error;
-      if (!count) throw new Error('No se ha podido rechazar (0 filas afectadas).');
+      await conReintentoDeSesion(
+        () => supabase.from('visita_participante').update({ estado: 'rechazado' }, { count: 'exact' }).eq('id', id),
+        'No se ha podido rechazar (0 filas afectadas).'
+      );
       invalidar();
     },
     [invalidar]
@@ -239,12 +236,10 @@ export function useAvisosParticipacion(): {
   // el rechazo (lo ve quien añadió) y la expulsión (la ve el afectado).
   const marcarVisto = useCallback(
     async (id: string) => {
-      const { error, count } = await supabase
-        .from('visita_participante')
-        .update({ rechazo_visto: true }, { count: 'exact' })
-        .eq('id', id);
-      if (error) throw error;
-      if (!count) throw new Error('No se ha podido marcar como visto (0 filas afectadas).');
+      await conReintentoDeSesion(
+        () => supabase.from('visita_participante').update({ rechazo_visto: true }, { count: 'exact' }).eq('id', id),
+        'No se ha podido marcar como visto (0 filas afectadas).'
+      );
       invalidar();
     },
     [invalidar]

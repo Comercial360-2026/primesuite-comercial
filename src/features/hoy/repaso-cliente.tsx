@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -282,13 +283,15 @@ export function RepasoCliente() {
         // adenda_punto1_delete_silencioso.md). Comprobar `count` es la
         // única forma de no meter al comercial en una visita que en
         // realidad no se ha marcado "en curso".
-        const { error: errEstado, count } = await supabase
-          .from('visita')
-          .update({ estado_captura: 'en_curso' }, { count: 'exact' })
-          .eq('id', visitaIdAgendada)
-          .eq('estado_captura', 'agendada');
-        if (errEstado) throw new Error(errEstado.message);
-        if (!count) throw new Error('No se ha podido empezar la visita (puede que ya la haya empezado otro, o que no tengas permiso).');
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update({ estado_captura: 'en_curso' }, { count: 'exact' })
+              .eq('id', visitaIdAgendada)
+              .eq('estado_captura', 'agendada'),
+          'No se ha podido empezar la visita (puede que ya la haya empezado otro, o que no tengas permiso).'
+        );
         return { visitaId: visitaIdAgendada, clienteNombre: cliente.nombre };
       },
       {

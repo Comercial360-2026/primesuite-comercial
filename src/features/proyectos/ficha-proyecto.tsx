@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -209,12 +210,10 @@ export function FichaProyecto() {
     }
     await guardadoNombre.ejecutar(
       async () => {
-        const { error, count } = await supabase
-          .from('proyecto')
-          .update({ nombre: formNombre.trim() }, { count: 'exact' })
-          .eq('id', proyectoId);
-        if (error) throw new Error(error.message);
-        if (!count) throw new Error('No se ha podido renombrar (0 filas afectadas). Puede que no tengas permiso.');
+        await conReintentoDeSesion(
+          () => supabase.from('proyecto').update({ nombre: formNombre.trim() }, { count: 'exact' }).eq('id', proyectoId),
+          'No se ha podido renombrar (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => {
@@ -233,12 +232,10 @@ export function FichaProyecto() {
     }
     await cambioEstado.ejecutar(
       async () => {
-        const { error, count } = await supabase
-          .from('proyecto')
-          .update({ estado: nuevo }, { count: 'exact' })
-          .eq('id', proyectoId);
-        if (error) throw new Error(error.message);
-        if (!count) throw new Error('No se ha podido cambiar el estado (0 filas afectadas). Puede que no tengas permiso.');
+        await conReintentoDeSesion(
+          () => supabase.from('proyecto').update({ estado: nuevo }, { count: 'exact' }).eq('id', proyectoId),
+          'No se ha podido cambiar el estado (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] }),

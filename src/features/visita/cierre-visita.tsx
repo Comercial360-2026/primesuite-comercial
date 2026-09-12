@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useVolverA } from '@/lib/volver-a';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
 import { generarResumenReglas } from '@/lib/resumen-visita';
@@ -276,22 +277,14 @@ export function CierreVisita() {
     await consolidacion.ejecutar(
       async () => {
         if (navigator.onLine) {
-          const { error, count } = await supabase
-            .from('visita')
-            .update(parche, { count: 'exact' })
-            .eq('id', visitaId);
-          if (error) {
-            // Con conexión presente, un error de Supabase es un fallo real
-            // (RLS, validación, servidor) — no desconexión. Se lanza para
-            // que useAccionAsync lo trate como error recuperable visible,
-            // en vez de disfrazarlo de "pendiente de conexión".
-            throw error;
-          }
           // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría
           // éxito" con 0 filas: la pantalla pasaría a "resumen" como si la
           // visita se hubiera cerrado, cuando en el servidor seguiría
           // 'en_curso'. Mismo encargo técnico que el resto de guardados.
-          if (!count) throw new Error('No se ha podido cerrar la visita (0 filas afectadas). Puede que no tengas permiso.');
+          await conReintentoDeSesion(
+            () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', visitaId),
+            'No se ha podido cerrar la visita (0 filas afectadas). Puede que no tengas permiso.'
+          );
           return { sincronizada: true };
         } else {
           intentarConsolidarOffline(visitaId, parche);

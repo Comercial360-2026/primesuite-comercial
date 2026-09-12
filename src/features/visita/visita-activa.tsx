@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo, desdeHace, hora } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
@@ -837,16 +838,10 @@ export function VisitaActiva() {
         const nuevo = (objetivoBorrador ?? '').trim();
         // El objetivo es obligatorio: no se permite dejarlo en blanco.
         if (!nuevo) throw new Error('El objetivo de la visita no puede quedar vacío.');
-        const { error, count } = await supabase
-          .from('visita')
-          .update({ objetivo: nuevo }, { count: 'exact' })
-          .eq('id', visitaId!);
-        if (error) throw new Error(error.message);
-        if (!count) {
-          throw new Error(
-            'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
-          );
-        }
+        await conReintentoDeSesion(
+          () => supabase.from('visita').update({ objetivo: nuevo }, { count: 'exact' }).eq('id', visitaId!),
+          'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
+        );
       },
       {
         onExito: () => queryClient.invalidateQueries({ queryKey: objetivoQueryKey }),

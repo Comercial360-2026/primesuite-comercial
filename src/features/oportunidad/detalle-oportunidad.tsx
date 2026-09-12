@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
@@ -185,14 +186,10 @@ export function DetalleOportunidad() {
       }
       return;
     }
-    const { error: err, count } = await supabase
-      .from('oportunidad')
-      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
-      .eq('id', oportunidadId);
-    if (err) throw new Error(err.message);
-    if (!count) {
-      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
-    }
+    await conReintentoDeSesion(
+      () => supabase.from('oportunidad').update({ zona_texto: zona.trim() || null }, { count: 'exact' }).eq('id', oportunidadId),
+      'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+    );
     // BUG: si la oportunidad se creó hace un momento vía Oportunidad rápida
     // y ya sincronizó (`enCola` es false), el UPDATE de arriba dejaba el
     // servidor bien pero no tocaba la copia que sigue en IndexedDB — «En
@@ -252,29 +249,31 @@ export function DetalleOportunidad() {
     // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
     // `count` es la única forma de no decir "guardado ✓" sin haber
     // tocado nada.
-    const { error: err, count } = await supabase
-      .from('oportunidad')
-      .update(
-        {
-          titulo: titulo.trim(),
-          etapa,
-          prioridad,
-          horizonte_decision: horizonte || null,
-          descripcion: descripcion.trim() || null,
-          zona_texto: zonaTexto.trim() || null,
-        },
-        { count: 'exact' }
-      )
-      .eq('id', oportunidadId!);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('oportunidad')
+            .update(
+              {
+                titulo: titulo.trim(),
+                etapa,
+                prioridad,
+                horizonte_decision: horizonte || null,
+                descripcion: descripcion.trim() || null,
+                zona_texto: zonaTexto.trim() || null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', oportunidadId!),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor, preventa o Dirección Comercial pueden editar una oportunidad.'
+      );
+    } catch (errGuardar) {
+      setGuardando(false);
+      setError(errGuardar instanceof Error ? errGuardar.message : 'No se pudo guardar.');
+      return;
+    }
     setGuardando(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor, preventa o Dirección Comercial pueden editar una oportunidad.');
-      return;
-    }
     try {
       await guardarAreasDeOportunidad(oportunidadId!, areas);
     } catch (errAreas) {

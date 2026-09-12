@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { DirectorioInterlocutores } from '@/features/clientes/directorio-interlocutores';
@@ -37,17 +38,18 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
   async function alternarPresencia(interlocutorId: string, presente: boolean) {
     setError(null);
     if (presente) {
-      const { error: err, count } = await supabase
-        .from('visita_interlocutor')
-        .delete({ count: 'exact' })
-        .eq('visita_id', visitaId)
-        .eq('interlocutor_id', interlocutorId);
-      if (err) {
-        setError(err.message);
-        return;
-      }
-      if (!count) {
-        setError('No se ha podido quitar (0 filas afectadas). Puede que no tengas permiso.');
+      try {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita_interlocutor')
+              .delete({ count: 'exact' })
+              .eq('visita_id', visitaId)
+              .eq('interlocutor_id', interlocutorId),
+          'No se ha podido quitar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo quitar.');
         return;
       }
     } else {

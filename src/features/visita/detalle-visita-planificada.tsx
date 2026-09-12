@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -110,20 +111,22 @@ export function DetalleVisitaPlanificada() {
         // Supabase no da error en un UPDATE que no matchea ninguna fila por
         // RLS — comprobar `count` es la única forma de no decir
         // "reprogramada" sin haberlo hecho de verdad.
-        const { error, count } = await supabase
-          .from('visita')
-          .update(
-            {
-              fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
-              hora_definida: !!horaNueva,
-              franja: horaNueva ? null : franjaNueva || null,
-            },
-            { count: 'exact' }
-          )
-          .eq('id', visitaId!)
-          .eq('estado_captura', 'agendada');
-        if (error) throw new Error(error.message);
-        if (!count) throw new Error('No se ha podido reprogramar (0 filas afectadas). Puede que no tengas permiso.');
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update(
+                {
+                  fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
+                  hora_definida: !!horaNueva,
+                  franja: horaNueva ? null : franjaNueva || null,
+                },
+                { count: 'exact' }
+              )
+              .eq('id', visitaId!)
+              .eq('estado_captura', 'agendada'),
+          'No se ha podido reprogramar (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => {

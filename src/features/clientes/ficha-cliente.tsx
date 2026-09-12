@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { haceRelativo } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { plural } from '@/lib/texto';
@@ -116,20 +117,22 @@ export function FichaCliente() {
     }
     await guardadoDatos.ejecutar(
       async () => {
-        const { error, count } = await supabase
-          .from('cliente')
-          .update(
-            {
-              nombre: formNombre.trim(),
-              sector: formSector || null,
-              tamano_aprox: formTamano || null,
-              ubicacion_general: formUbicacion.trim() || null,
-            },
-            { count: 'exact' }
-          )
-          .eq('id', clienteId);
-        if (error) throw new Error(error.message);
-        if (!count) throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update(
+                {
+                  nombre: formNombre.trim(),
+                  sector: formSector || null,
+                  tamano_aprox: formTamano || null,
+                  ubicacion_general: formUbicacion.trim() || null,
+                },
+                { count: 'exact' }
+              )
+              .eq('id', clienteId),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => {

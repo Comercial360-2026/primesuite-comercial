@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -194,14 +195,14 @@ export function DetalleCaptura() {
     if (!captura) return;
     const zonaNueva = zona.trim() || undefined;
     if (captura.fuente === 'servidor' || captura.estadoSync === 'completado') {
-      const { error: err, count } = await supabase
-        .from('captura_libre')
-        .update({ zona_texto: zonaNueva ?? null }, { count: 'exact' })
-        .eq('id', captura.id);
-      if (err) throw new Error(err.message);
-      if (!count) {
-        throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
-      }
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('captura_libre')
+            .update({ zona_texto: zonaNueva ?? null }, { count: 'exact' })
+            .eq('id', captura.id),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+      );
       if (captura.visitaId) {
         // Se espera el refetch: sin esto, «cambiar» podía reabrir el
         // buscador con la lista de zonas todavía vieja (carrera
@@ -246,19 +247,17 @@ export function DetalleCaptura() {
           // filas (mismo encargo técnico que el borrado, ver
           // adenda_punto1_delete_silencioso.md); comprobar `count` es la
           // única forma de no decir "guardado" sin haber tocado nada.
-          const { error, count } = await supabase
-            .from('captura_libre')
-            .update(
-              { contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null, zona_texto: zonaNueva ?? null },
-              { count: 'exact' }
-            )
-            .eq('id', captura.id);
-          if (error) throw new Error(error.message);
-          if (!count) {
-            throw new Error(
-              'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar una nota.'
-            );
-          }
+          await conReintentoDeSesion(
+            () =>
+              supabase
+                .from('captura_libre')
+                .update(
+                  { contenido_texto: textoNuevo || null, titulo: tituloNuevo ?? null, zona_texto: zonaNueva ?? null },
+                  { count: 'exact' }
+                )
+                .eq('id', captura.id),
+            'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden editar una nota.'
+          );
         }
 
         if (captura.fuente === 'cola') {
@@ -339,16 +338,10 @@ export function DetalleCaptura() {
             }
           }
 
-          const { error: errDelete, count } = await supabase
-            .from('captura_libre')
-            .delete({ count: 'exact' })
-            .eq('id', captura.id);
-          if (errDelete) throw new Error(errDelete.message);
-          if (!count) {
-            throw new Error(
-              'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar una captura.'
-            );
-          }
+          await conReintentoDeSesion(
+            () => supabase.from('captura_libre').delete({ count: 'exact' }).eq('id', captura.id),
+            'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar una captura.'
+          );
         }
 
         if (captura.fuente === 'cola') {

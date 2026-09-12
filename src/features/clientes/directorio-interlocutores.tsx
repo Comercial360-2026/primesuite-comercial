@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { FilaToggle } from '@/components/ui/fila-toggle';
 import { Avatar } from '@/components/ui/avatar';
 import { Icono } from '@/components/ui/iconos';
@@ -216,17 +217,13 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
       // error en un UPDATE que no matchea ninguna fila por RLS — comprobar
       // `count` es la única forma de no decir "quitado" sin haberlo dado de
       // baja de verdad.
-      const { error: err, count } = await supabase
-        .from('interlocutor')
-        .update({ activo: false }, { count: 'exact' })
-        .eq('id', id);
-      if (err) {
-        setError(err.message);
-        setGuardando(false);
-        return;
-      }
-      if (!count) {
-        setError('No se ha podido quitar a alguno (0 filas afectadas). Puede que no tengas permiso.');
+      try {
+        await conReintentoDeSesion(
+          () => supabase.from('interlocutor').update({ activo: false }, { count: 'exact' }).eq('id', id),
+          'No se ha podido quitar a alguno (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'No se pudo quitar.');
         setGuardando(false);
         return;
       }

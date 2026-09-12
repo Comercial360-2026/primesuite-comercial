@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -433,11 +434,12 @@ export function ColaVocabulario() {
         // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría
         // éxito" con 0 filas — el término seguiría en "Sin clasificar" pero
         // la RPC de abajo lo marcaría igualmente como incorporado.
-        const { error: errMover, count } = await supabase
-          .from('termino')
-          .update({ categoria_id: destinoCategoriaId }, { count: 'exact' })
-          .eq('id', ids[i]);
-        if (errMover || !count) {
+        try {
+          await conReintentoDeSesion(
+            () => supabase.from('termino').update({ categoria_id: destinoCategoriaId }, { count: 'exact' }).eq('id', ids[i]),
+            'sin filas afectadas'
+          );
+        } catch {
           fallo++;
           continue;
         }
@@ -465,19 +467,21 @@ export function ColaVocabulario() {
   async function actualizarClasificacionDetallada(valor: boolean) {
     setErrorAjuste(null);
     setGuardandoAjuste(true);
-    const { error: err, count } = await supabase
-      .from('ajustes_app')
-      .update({ valor, actualizado_en: new Date().toISOString() }, { count: 'exact' })
-      .eq('clave', CLAVE_CLASIFICACION_DETALLADA);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('ajustes_app')
+            .update({ valor, actualizado_en: new Date().toISOString() }, { count: 'exact' })
+            .eq('clave', CLAVE_CLASIFICACION_DETALLADA),
+        'No se ha podido guardar (0 filas afectadas). Solo Dirección Comercial puede cambiar este ajuste.'
+      );
+    } catch (err) {
+      setGuardandoAjuste(false);
+      setErrorAjuste(err instanceof Error ? err.message : 'No se pudo guardar.');
+      return;
+    }
     setGuardandoAjuste(false);
-    if (err) {
-      setErrorAjuste(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorAjuste('No se ha podido guardar (0 filas afectadas). Solo Dirección Comercial puede cambiar este ajuste.');
-      return;
-    }
     queryClient.invalidateQueries({ queryKey: ['ajuste', CLAVE_CLASIFICACION_DETALLADA] });
   }
 
@@ -505,16 +509,13 @@ export function ColaVocabulario() {
     if (!textoRenombrarCategoria.trim()) return;
     setErrorCatalogo(null);
     setErrorPorCategoria(null);
-    const { error: err, count } = await supabase
-      .from('categoria_vocabulario')
-      .update({ nombre: textoRenombrarCategoria.trim() }, { count: 'exact' })
-      .eq('id', id);
-    if (err) {
-      setErrorCatalogo(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.');
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('categoria_vocabulario').update({ nombre: textoRenombrarCategoria.trim() }, { count: 'exact' }).eq('id', id),
+        'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
+      );
+    } catch (err) {
+      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
       return;
     }
     setRenombrandoCategoriaId(null);
@@ -541,19 +542,13 @@ export function ColaVocabulario() {
 
   async function borrarCategoriaVacia(id: string) {
     setErrorPorCategoria(null);
-    const { error: err, count } = await supabase
-      .from('categoria_vocabulario')
-      .delete({ count: 'exact' })
-      .eq('id', id);
-    if (err) {
-      setErrorPorCategoria({ id, msg: err.message });
-      return;
-    }
-    if (!count) {
-      setErrorPorCategoria({
-        id,
-        msg: 'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.',
-      });
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('categoria_vocabulario').delete({ count: 'exact' }).eq('id', id),
+        'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
+      );
+    } catch (err) {
+      setErrorPorCategoria({ id, msg: err instanceof Error ? err.message : 'No se pudo borrar.' });
       return;
     }
     cerrarPanelBorrarCat();
@@ -577,19 +572,21 @@ export function ColaVocabulario() {
       setErrorPorCategoria({ id, msg: `No se han podido mover los términos: ${errMover.message}` });
       return;
     }
-    const { error: errBorrar, count } = await supabase
-      .from('categoria_vocabulario')
-      .delete({ count: 'exact' })
-      .eq('id', id);
-    setCorriendoLote(false);
-    if (errBorrar || !count) {
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('categoria_vocabulario').delete({ count: 'exact' }).eq('id', id),
+        'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar las categorías.'
+      );
+    } catch (errBorrar) {
+      setCorriendoLote(false);
       setErrorPorCategoria({
         id,
-        msg: 'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar las categorías.',
+        msg: errBorrar instanceof Error ? errBorrar.message : 'No se pudo borrar la categoría.',
       });
       invalidarCatalogo();
       return;
     }
+    setCorriendoLote(false);
     cerrarPanelBorrarCat();
     setMarcadosCat((prev) => { const s = new Set(prev); s.delete(id); return s; });
     invalidarCatalogo();
@@ -669,16 +666,13 @@ export function ColaVocabulario() {
   async function renombrarTermino(id: string) {
     if (!textoRenombrarTermino.trim()) return;
     setErrorCatalogo(null);
-    const { error: err, count } = await supabase
-      .from('termino')
-      .update({ nombre: textoRenombrarTermino.trim() }, { count: 'exact' })
-      .eq('id', id);
-    if (err) {
-      setErrorCatalogo(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.');
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('termino').update({ nombre: textoRenombrarTermino.trim() }, { count: 'exact' }).eq('id', id),
+        'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
+      );
+    } catch (err) {
+      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
       return;
     }
     setRenombrandoTerminoId(null);
@@ -770,12 +764,15 @@ export function ColaVocabulario() {
     let fallo = 0;
     for (let i = 0; i < ids.length; i++) {
       setProgresoLote({ hecho: i, total: ids.length });
-      const { error: err, count } = await supabase
-        .from('termino')
-        .update(payload, { count: 'exact' })
-        .eq('id', ids[i]);
-      if (err || !count) fallo++;
-      else ok++;
+      try {
+        await conReintentoDeSesion(
+          () => supabase.from('termino').update(payload, { count: 'exact' }).eq('id', ids[i]),
+          'sin filas afectadas'
+        );
+        ok++;
+      } catch {
+        fallo++;
+      }
     }
     setProgresoLote(null);
     setCorriendoLote(false);

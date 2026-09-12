@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -97,12 +98,16 @@ export function GestionarSectores() {
     if (!nombre) return;
     await cambio.ejecutar(
       async () => {
-        const { error, count } = await supabase
-          .from('sector')
-          .update({ nombre }, { count: 'exact' })
-          .eq('id', id);
-        if (error) throw new Error(/duplicate|unique/i.test(error.message) ? 'Ya existe ese sector.' : error.message);
-        if (!count) throw new Error('No se ha podido renombrar (0 filas afectadas).');
+        try {
+          await conReintentoDeSesion(
+            () => supabase.from('sector').update({ nombre }, { count: 'exact' }).eq('id', id),
+            'No se ha podido renombrar (0 filas afectadas).'
+          );
+        } catch (error) {
+          throw new Error(
+            error instanceof Error && /duplicate|unique/i.test(error.message) ? 'Ya existe ese sector.' : (error as Error).message
+          );
+        }
       },
       { onExito: () => { cerrarRenombrado(); refrescar(); } }
     );
@@ -116,14 +121,11 @@ export function GestionarSectores() {
         // marcado) — comparar `count` contra `ids.length` detecta tanto el
         // fallo total (RLS) como uno parcial (alguno ya no existe o no es
         // tuyo).
-        const { error, count } = await supabase
-          .from('sector')
-          .update({ activo: activar }, { count: 'exact' })
-          .in('id', ids);
-        if (error) throw new Error(error.message);
-        if (count !== ids.length) {
-          throw new Error(`Solo se ha podido cambiar ${count ?? 0} de ${ids.length}. Puede que no tengas permiso sobre alguno.`);
-        }
+        await conReintentoDeSesion(
+          () => supabase.from('sector').update({ activo: activar }, { count: 'exact' }).in('id', ids),
+          (r) => `Solo se ha podido cambiar ${r.count ?? 0} de ${ids.length}. Puede que no tengas permiso sobre alguno.`,
+          (r) => r.count !== ids.length
+        );
       },
       { onExito: () => { salirSeleccion(); refrescar(); } }
     );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -87,22 +88,24 @@ export function SolicitudesReasignacion() {
       setError(errParticipante.message);
       return;
     }
-    const { error: errSolicitud, count } = await supabase
-      .from('solicitud_reasignacion')
-      .update(
-        { estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() },
-        { count: 'exact' }
-      )
-      .eq('id', solicitud.id);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('solicitud_reasignacion')
+            .update(
+              { estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() },
+              { count: 'exact' }
+            )
+            .eq('id', solicitud.id),
+        'El participante se añadió, pero no se ha podido marcar la solicitud como resuelta (0 filas afectadas).'
+      );
+    } catch (errSolicitud) {
+      setProcesando(null);
+      setError(errSolicitud instanceof Error ? errSolicitud.message : 'No se pudo resolver la solicitud.');
+      return;
+    }
     setProcesando(null);
-    if (errSolicitud) {
-      setError(errSolicitud.message);
-      return;
-    }
-    if (!count) {
-      setError('El participante se añadió, pero no se ha podido marcar la solicitud como resuelta (0 filas afectadas).');
-      return;
-    }
     setAsignandoId(null);
     setBusqueda('');
     invalidar();
@@ -111,19 +114,21 @@ export function SolicitudesReasignacion() {
   async function descartar(id: string) {
     setProcesando(id);
     setError(null);
-    const { error: err, count } = await supabase
-      .from('solicitud_reasignacion')
-      .update({ estado: 'descartada', resuelto_en: new Date().toISOString() }, { count: 'exact' })
-      .eq('id', id);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('solicitud_reasignacion')
+            .update({ estado: 'descartada', resuelto_en: new Date().toISOString() }, { count: 'exact' })
+            .eq('id', id),
+        'No se ha podido descartar (0 filas afectadas). Puede que no tengas permiso.'
+      );
+    } catch (err) {
+      setProcesando(null);
+      setError(err instanceof Error ? err.message : 'No se pudo descartar.');
+      return;
+    }
     setProcesando(null);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (!count) {
-      setError('No se ha podido descartar (0 filas afectadas). Puede que no tengas permiso.');
-      return;
-    }
     invalidar();
   }
 

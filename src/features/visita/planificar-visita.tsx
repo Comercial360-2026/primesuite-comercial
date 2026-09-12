@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
@@ -250,12 +251,10 @@ export function PlanificarVisita() {
         // Dirección planifica en nombre de otro comercial y esa RLS no lo
         // cubriera, "tendría éxito" con 0 filas sin dar error, y la visita
         // se quedaría sin objetivo en silencio.
-        const { error: errParche, count } = await supabase
-          .from('visita')
-          .update(parche, { count: 'exact' })
-          .eq('id', visitaId);
-        if (errParche) throw new Error(errParche.message);
-        if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
+        await conReintentoDeSesion(
+          () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', visitaId),
+          'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+        );
       },
       {
         onExito: () => {

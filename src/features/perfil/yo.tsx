@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
@@ -176,12 +177,14 @@ export function Yo() {
   });
 
   async function marcarReporteVisto(id: string) {
-    const { error: err, count } = await supabase
-      .from('reporte_problema')
-      .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id }, { count: 'exact' })
-      .eq('id', id);
-    if (err) throw new Error(err.message);
-    if (!count) throw new Error('No se ha podido marcar como visto (0 filas afectadas).');
+    await conReintentoDeSesion(
+      () =>
+        supabase
+          .from('reporte_problema')
+          .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id }, { count: 'exact' })
+          .eq('id', id),
+      'No se ha podido marcar como visto (0 filas afectadas).'
+    );
     queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
   }
 
