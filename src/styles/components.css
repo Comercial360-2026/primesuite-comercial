@@ -1337,14 +1337,17 @@ textarea.field {
 .fila--aviso .fila__icono,
 .fila--aviso .fila__valor { color: var(--fila-tono-aviso); }
 .fila--aviso .fila__badge { border-color: var(--fila-tono-aviso); color: var(--fila-tono-aviso); }
+.fila--aviso .fila__subtitulo--tono { color: var(--fila-tono-aviso); }
 .fila--ok .fila__icono,
 .fila--ok .fila__valor { color: var(--fila-tono-ok); }
 .fila--ok .fila__badge { border-color: var(--fila-tono-ok); color: var(--fila-tono-ok); }
+.fila--ok .fila__subtitulo--tono { color: var(--fila-tono-ok); }
 .fila--riesgo { box-shadow: inset 3px 0 0 var(--fila-tono-riesgo); }
 .fila--riesgo .fila__icono,
 .fila--riesgo .fila__valor,
 .fila--riesgo .fila__titulo { color: var(--fila-tono-riesgo); }
 .fila--riesgo .fila__badge { border-color: var(--fila-tono-riesgo); color: var(--fila-tono-riesgo); }
+.fila--riesgo .fila__subtitulo--tono { color: var(--fila-tono-riesgo); }
 
 /* Solo la barra de atención, sin teñir el título — para listas donde la
    fila "pide un vistazo" pero el título (nombre de cliente) debe leerse

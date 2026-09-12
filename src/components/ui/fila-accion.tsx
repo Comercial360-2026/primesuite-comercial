@@ -41,6 +41,12 @@ interface Props {
   avatar?: string;
   titulo: string;
   subtitulo?: string;
+  /** El subtítulo se queda en gris neutro aunque la fila tenga `tono`, para
+   *  no dar la falsa impresión de que un dato secundario (fecha, tamaño...)
+   *  es la señal de estado. Activarlo SOLO cuando el subtítulo ES la
+   *  explicación de ese tono (p. ej. "no se puede borrar: oportunidad
+   *  abierta") — entonces sí debe llevar el mismo color que icono/valor. */
+  subtituloConTono?: boolean;
   /** Si falta, el cuerpo es inerte (sin hover, sin cursor de puntero). */
   onClick?: () => void;
   tono?: Tono;
@@ -63,6 +69,7 @@ export function FilaAccion({
   avatar,
   titulo,
   subtitulo,
+  subtituloConTono,
   onClick,
   tono = 'neutral',
   densidad = 'normal',
@@ -97,7 +104,9 @@ export function FilaAccion({
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>
-        {subtitulo && <span className="fila__subtitulo">{subtitulo}</span>}
+        {subtitulo && (
+          <span className={`fila__subtitulo${subtituloConTono ? ' fila__subtitulo--tono' : ''}`}>{subtitulo}</span>
+        )}
       </span>
       {badge != null && <span className="fila__badge">{badge}</span>}
     </>

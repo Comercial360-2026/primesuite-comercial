@@ -188,9 +188,9 @@ function MisVisitas() {
   const pendientesLocal = useVisitasConColaPendiente();
   function motivoBloqueo(v: VisitaEspacio): string | null {
     if (v.oportunidades_abiertas > 0) {
-      return plural(v.oportunidades_abiertas, 'oportunidad abierta', 'oportunidades abiertas');
+      return `No se puede borrar: tiene ${plural(v.oportunidades_abiertas, 'oportunidad abierta', 'oportunidades abiertas')}`;
     }
-    if (pendientesLocal.has(v.visita_id)) return 'cambios sin subir';
+    if (pendientesLocal.has(v.visita_id)) return 'No se puede borrar: tiene cambios de este dispositivo sin subir';
     return null;
   }
 
@@ -400,12 +400,14 @@ function MisVisitas() {
           {visitasOrdenadas.map((v) => {
             const motivo = motivoBloqueo(v);
             if (seleccionando) {
-              const fila = (
+              return (
                 <FilaAccion
                   key={v.visita_id}
                   densidad="compacta"
+                  icono={motivo ? 'atencion' : undefined}
                   titulo={v.cliente_nombre}
-                  subtitulo={`${fechaCorta(v.creado_en)} · ${formatearMB(v.bytes)} MB${motivo ? ` · ${motivo}` : ''}`}
+                  subtitulo={motivo ?? `${fechaCorta(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
+                  subtituloConTono={!!motivo}
                   tono={motivo ? 'aviso' : 'neutral'}
                   seleccion={
                     motivo
@@ -417,13 +419,6 @@ function MisVisitas() {
                         }
                   }
                 />
-              );
-              return motivo ? (
-                <div key={v.visita_id} style={{ opacity: 0.6 }}>
-                  {fila}
-                </div>
-              ) : (
-                fila
               );
             }
             return (
