@@ -1067,10 +1067,15 @@ textarea.field {
   min-height: 44px; padding-top: var(--space-2); padding-bottom: var(--space-2);
 }
 /* ── Vocabulario: árbol categoría › término › modelo ───────────────────
-   Tres pesos que el ojo separa sin esfuerzo:
-     1) categoría → BANDA gris (.voc-cat), no una fila de contenido más
-     2) término   → fila blanca normal (FilaAccion) + insignia si tiene modelos
-     3) modelo    → cuelga de un RAÍL vertical, sangrado y en gris (.voc-rama) */
+   Tres niveles, cada uno más sangrado y con letra más pequeña que su
+   padre — así se lee la jerarquía sin badges ni bandas de color:
+     1) categoría → fila blanca normal (16px/600), como cualquier fila
+     2) término   → un peldaño de sangría, 14px/500, cuelga de un raíl
+                    continuo (.voc-terminos)
+     3) modelo    → un peldaño más, 12.5px/400, raíl DISCONTINUO
+                    (.voc-rama, ahora anidado dentro de .voc-terminos) —
+                    se diferencia del término en tamaño, peso, color Y
+                    estilo de línea, no solo en el sangrado. */
 
 /* fila de acciones de la pantalla: chips homogéneos, con wrap en móvil */
 .voc-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -1082,14 +1087,13 @@ textarea.field {
    categoría vacía quedaba pegado a la cabecera de la siguiente). */
 .voc-catalogo { display: flex; flex-direction: column; gap: var(--space-3); }
 
-/* Cabecera de categoría: fondo propio (se lee como "estante", no como una
-   fila más) y tipografía con peso real — antes era MÁS pequeña que el
-   término que contiene (14px/400 vs 16px/400 de la fila hija), invirtiendo
-   la jerarquía visual. Ahora pesa claramente más que su contenido. */
+/* Cabecera de categoría: fila blanca normal (misma familia que cualquier
+   fila de la lista), con más peso que el término que contiene para que
+   la jerarquía se lea de arriba abajo — antes era MÁS pequeña que su
+   propio término (14px/400 vs 16px/400), invirtiéndola. */
 .voc-cat-label-row {
   display: flex; align-items: center; gap: var(--space-1);
   padding: var(--space-3) var(--fila-pad-x);
-  background: var(--surface-0);
 }
 .voc-cat-label {
   flex: 1; min-width: 0;
@@ -1121,21 +1125,41 @@ textarea.field {
   border: none; background: none; padding: 0; cursor: pointer;
 }
 
-/* 3 — rama de modelos: raíl vertical continuo bajo el término padre */
-.voc-rama {
+/* 2 — término: primer peldaño de sangría bajo la categoría, raíl continuo */
+.voc-terminos {
   margin-left: calc(var(--fila-pad-x) + 5px);
   border-left: 1.5px solid var(--ink-200);
   background: var(--surface-1);
 }
-.voc-rama .fila { border-top: none; }
-.voc-rama .fila__cuerpo-accion { padding-left: var(--space-3); }
-.voc-rama .fila__titulo { font-size: var(--text-sm); color: var(--ink-700); }
-/* la "L" que sale del raíl hacia cada modelo */
-.voc-rama .fila__cuerpo-accion::before {
+.voc-terminos > .fila:first-child { border-top: none; }
+.voc-terminos > .fila > .fila__cuerpo-accion { padding-left: var(--space-3); }
+.voc-terminos > .fila .fila__titulo { font-size: 14px; font-weight: 500; color: var(--ink-700); }
+/* la "L" que sale del raíl hacia cada término */
+.voc-terminos > .fila > .fila__cuerpo-accion::before {
   content: ""; flex-shrink: 0; align-self: center;
   width: 12px; height: 8px; margin-top: -7px; margin-right: 2px;
   border-left: 1.5px solid var(--ink-200);
   border-bottom: 1.5px solid var(--ink-200);
+  border-bottom-left-radius: 6px;
+}
+
+/* 3 — modelo: segundo peldaño, dentro de .voc-terminos — raíl DISCONTINUO
+   y letra más pequeña que el término, para que no se confundan aun
+   estando los dos sangrados. */
+.voc-rama {
+  margin-left: calc(var(--fila-pad-x) + 2px);
+  border-left: 1.5px dashed var(--ink-200);
+  background: var(--surface-1);
+}
+.voc-rama .fila:not(:first-child) { border-top: var(--fila-separador); }
+.voc-rama .fila__cuerpo-accion { padding-left: var(--space-3); }
+.voc-rama .fila__titulo { font-size: 12.5px; font-weight: 400; color: var(--ink-500); }
+/* la "L" discontinua que sale del raíl hacia cada modelo */
+.voc-rama .fila__cuerpo-accion::before {
+  content: ""; flex-shrink: 0; align-self: center;
+  width: 12px; height: 8px; margin-top: -7px; margin-right: 2px;
+  border-left: 1.5px dashed var(--ink-200);
+  border-bottom: 1.5px dashed var(--ink-200);
   border-bottom-left-radius: 6px;
 }
 

@@ -1697,8 +1697,15 @@ export function ColaVocabulario() {
                   <>
                     {/* Sin fila "Sin términos": la sub-cabecera de la categoría
                         ya dice "0 términos" — repetirlo aquí sería el mismo
-                        dato dos veces. */}
-                    {cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
+                        dato dos veces. Los términos van en su propio peldaño
+                        de sangría (.voc-terminos), un nivel por debajo de la
+                        categoría — igual que los modelos ya colgaban de su
+                        término (.voc-rama), ahora anidado un nivel más. */}
+                    {cat.terminos.length > 0 && (
+                      <div className="voc-terminos">
+                        {cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
+                      </div>
+                    )}
 
                     {/* "+ Añadir término" siempre a la vista, al pie de la
                         categoría — mismo patrón que "+ Añadir modelo" bajo un
