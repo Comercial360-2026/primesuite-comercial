@@ -32,6 +32,11 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
   // El buscador se reabre al tocar «cambiar» o al quitar la zona actual;
   // mientras haya una zona y no se haya tocado «cambiar», se ve la pastilla.
   const [buscando, setBuscando] = useState(false);
+  // Zona que había AL ABRIR el buscador — solo para el aviso «Zona
+  // actual», nunca para filtrar: si se usara `texto` para eso, escribir la
+  // zona actual ahí (para que no pareciera perdida) filtraba la lista de
+  // chips y se comía todas las demás zonas salvo la que coincidía.
+  const [zonaAlAbrir, setZonaAlAbrir] = useState('');
   const [guardandoZona, setGuardandoZona] = useState(false);
   const [guardadoOk, setGuardadoOk] = useState(false);
   const [errorZona, setErrorZona] = useState<string | null>(null);
@@ -39,6 +44,7 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
   async function confirmar(zona: string) {
     onChange(zona);
     setTexto('');
+    setZonaAlAbrir('');
     setBuscando(false);
     setGuardadoOk(false);
     if (!onGuardar) return;
@@ -75,9 +81,8 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
             disabled={guardandoZona}
             style={{ borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             onClick={() => {
-              // Se abre con el texto actual ya puesto (no vacío): tocar
-              // «cambiar» no debe parecer que la zona ha desaparecido.
-              setTexto(value.trim());
+              setTexto('');
+              setZonaAlAbrir(value.trim());
               setBuscando(true);
             }}
           >
@@ -121,6 +126,11 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
 
   return (
     <div>
+      {zonaAlAbrir && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 4 }}>
+          Zona actual: <strong>{zonaAlAbrir}</strong> — elige otra o escribe una nueva.
+        </div>
+      )}
       <input
         className="field"
         autoFocus={buscando}

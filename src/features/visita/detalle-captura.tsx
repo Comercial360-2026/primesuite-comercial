@@ -203,7 +203,10 @@ export function DetalleCaptura() {
         throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
       }
       if (captura.visitaId) {
-        queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+        // Se espera el refetch: sin esto, «cambiar» podía reabrir el
+        // buscador con la lista de zonas todavía vieja (carrera
+        // invalidar/repintar).
+        await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
       }
     } else {
       const op = await obtenerOperacion(captura.id);
@@ -266,7 +269,7 @@ export function DetalleCaptura() {
         if (enServidor) await regenerarResumenSiAuto(captura.visitaId);
       },
       {
-        onExito: () => {
+        onExito: async () => {
           setCaptura((prev) =>
             prev
               ? { ...prev, titulo: tituloEdit.trim(), contenidoTexto: textoEdit.trim(), zonaTexto: zonaEdit.trim() }
@@ -275,7 +278,7 @@ export function DetalleCaptura() {
           setGuardadoConExito(true);
           if (captura.visitaId) {
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
-            queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+            await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
           }
           // Breve pausa para que "guardado ✓" sea visible antes de volver.
           setTimeout(() => navigate(volver), 700);

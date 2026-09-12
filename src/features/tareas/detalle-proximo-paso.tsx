@@ -80,7 +80,10 @@ export function DetalleProximoPaso() {
       throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
     }
     if (paso?.visita_id) {
-      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      // Se espera a que termine el refetch: si no, «cambiar» podía reabrir
+      // el buscador con la lista de zonas todavía vieja (sin la recién
+      // creada) por una carrera entre invalidar y repintar.
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
     }
   }
 
@@ -117,7 +120,7 @@ export function DetalleProximoPaso() {
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
     queryClient.invalidateQueries({ queryKey: ['proximo-paso', pasoId] });
     if (paso?.visita_id) {
-      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
     }
     // Misma pausa de 700ms que el resto de pantallas de detalle, para que
     // "guardado ✓" sea visible antes de volver.

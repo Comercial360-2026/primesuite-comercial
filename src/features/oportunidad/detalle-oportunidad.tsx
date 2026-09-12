@@ -227,7 +227,9 @@ export function DetalleOportunidad() {
       throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
     }
     if (oportunidad?.visita_origen_id) {
-      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+      // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
+      // con la lista de zonas todavía vieja (carrera invalidar/repintar).
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
     }
   }
 
@@ -258,7 +260,7 @@ export function DetalleOportunidad() {
       setGuardando(false);
       setGuardadoConExito(true);
       if (oportunidad?.visita_origen_id) {
-        queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+        await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
       }
       setTimeout(() => navigate(volver), 700);
       return;
@@ -296,7 +298,7 @@ export function DetalleOportunidad() {
     // rehace con el título nuevo de la oportunidad.
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     if (oportunidad?.visita_origen_id) {
-      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
     }
     setGuardadoConExito(true);
     setTimeout(() => navigate(volver), 700);
