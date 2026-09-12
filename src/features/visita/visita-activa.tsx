@@ -239,14 +239,8 @@ function CapturasPorUbicacion({
   const general = claves.has('sin-ubicacion') ? contenidoDe('sin-ubicacion') : null;
 
   // Estado de plegado que el comercial ha tocado a mano: `tocadas` son las
-  // secciones ABIERTas a mano; por defecto solo "General" y la zona más
-  // reciente están abiertas.
-  const [tocadas, setTocadas] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    s.add('sin-ubicacion'); // "General" abierta
-    if (zonas[0]) s.add(zonas[0]); // zona más reciente abierta
-    return s;
-  });
+  // secciones ABIERTas a mano; al entrar, todas plegadas.
+  const [tocadas, setTocadas] = useState<Set<string>>(() => new Set());
   const estaAbierta = (k: string) => tocadas.has(k);
   const alternar = (k: string) => {
     setTocadas((prev) => {
