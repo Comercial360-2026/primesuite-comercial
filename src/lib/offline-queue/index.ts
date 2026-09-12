@@ -5,6 +5,7 @@ export {
   obtenerPendientes,
   obtenerOperacionesConError,
   obtenerPorVisita,
+  obtenerVisitasConPendientes,
   obtenerUbicacionesPorCliente,
   contarPendientesPorEntidad,
   eliminarOperacion,

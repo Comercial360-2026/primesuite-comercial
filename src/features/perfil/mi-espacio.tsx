@@ -7,7 +7,9 @@ import { desde } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVisitasConColaPendiente } from '@/hooks/use-sync-queue';
 import { formatearMB, type NivelEspacio } from '@/lib/espacio';
+import { plural } from '@/lib/texto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -25,6 +27,7 @@ type VisitaEspacio = {
   cliente_nombre: string;
   creado_en: string;
   bytes: number;
+  oportunidades_abiertas: number;
 };
 
 interface PrevisualizacionBorrado {
@@ -176,6 +179,21 @@ function MisVisitas() {
     });
   }
 
+  // Mismo candado que "Descargar y liberar espacio" en detalle-visita-cerrada
+  // (oportunidad abierta / cola local sin subir), pero sin la alternativa
+  // insegura de allí ("Borrar esta visita" sin comprobar nada): en el lote no
+  // hay pantalla de confirmación por visita donde ofrecerla, así que una
+  // visita bloqueada simplemente no se puede marcar aquí — se borra abriendo
+  // su ficha, donde si aun así se quiere forzar existe ese otro camino.
+  const pendientesLocal = useVisitasConColaPendiente();
+  function motivoBloqueo(v: VisitaEspacio): string | null {
+    if (v.oportunidades_abiertas > 0) {
+      return plural(v.oportunidades_abiertas, 'oportunidad abierta', 'oportunidades abiertas');
+    }
+    if (pendientesLocal.has(v.visita_id)) return 'cambios sin subir';
+    return null;
+  }
+
   function entrarSeleccion() {
     setResultadoLote(null);
     setConfirmandoLote(false);
@@ -193,7 +211,12 @@ function MisVisitas() {
 
   async function borrarLote() {
     if (corriendoLote) return;
-    const ids = (visitas ?? []).map((v) => v.visita_id).filter((id) => marcadas.has(id));
+    // Filtrado defensivo: las bloqueadas no ofrecen forma de marcarse (ver
+    // motivoBloqueo), pero si `visitas` cambiase entre marcar y confirmar
+    // (refetch de fondo) no debe colarse una que ahora sí lo esté.
+    const ids = (visitas ?? [])
+      .filter((v) => marcadas.has(v.visita_id) && !motivoBloqueo(v))
+      .map((v) => v.visita_id);
     if (!ids.length) return;
     if (!navigator.onLine) {
       setResultadoLote('Necesitas conexión para borrar visitas.');
@@ -374,20 +397,36 @@ function MisVisitas() {
 
       {!!visitas?.length && (
         <SeccionLista titulo={visitas.length === 1 ? '1 visita' : `${visitas.length} visitas`}>
-          {visitasOrdenadas.map((v) =>
-            seleccionando ? (
-              <FilaAccion
-                key={v.visita_id}
-                densidad="compacta"
-                titulo={v.cliente_nombre}
-                subtitulo={`${fechaCorta(v.creado_en)} · ${formatearMB(v.bytes)} MB`}
-                seleccion={{
-                  activa: true,
-                  marcada: marcadas.has(v.visita_id),
-                  onToggle: () => alternarMarca(v.visita_id),
-                }}
-              />
-            ) : (
+          {visitasOrdenadas.map((v) => {
+            const motivo = motivoBloqueo(v);
+            if (seleccionando) {
+              const fila = (
+                <FilaAccion
+                  key={v.visita_id}
+                  densidad="compacta"
+                  titulo={v.cliente_nombre}
+                  subtitulo={`${fechaCorta(v.creado_en)} · ${formatearMB(v.bytes)} MB${motivo ? ` · ${motivo}` : ''}`}
+                  tono={motivo ? 'aviso' : 'neutral'}
+                  seleccion={
+                    motivo
+                      ? undefined
+                      : {
+                          activa: true,
+                          marcada: marcadas.has(v.visita_id),
+                          onToggle: () => alternarMarca(v.visita_id),
+                        }
+                  }
+                />
+              );
+              return motivo ? (
+                <div key={v.visita_id} style={{ opacity: 0.6 }}>
+                  {fila}
+                </div>
+              ) : (
+                fila
+              );
+            }
+            return (
               <FilaNavegable
                 key={v.visita_id}
                 densidad="compacta"
@@ -397,8 +436,8 @@ function MisVisitas() {
                 onClick={() => navigate(`/visita/${v.visita_id}/detalle`, { state: desde(location) })}
                 chevron
               />
-            )
-          )}
+            );
+          })}
         </SeccionLista>
       )}
     </>

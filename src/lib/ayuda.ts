@@ -126,7 +126,7 @@ const _PANTALLAS = {
       'Cuánto ocupan tus visitas y cuánto le queda al equipo del espacio común. Debajo, tus visitas ordenadas por lo que pesan (sobre todo fotos y audios).',
     cuando:
       'Cuando el equipo va justo de espacio o te piden liberar. Marcas las visitas viejas que ya no necesites en la app, descargas las que quieras conservar y las borras.',
-    ojo: 'Borrar una visita aquí se la lleva con sus fotos y audios y no se puede deshacer. Descárgala antes si te importa.',
+    ojo: 'Borrar una visita aquí se la lleva con sus fotos y audios y no se puede deshacer. Descárgala antes si te importa. Una visita con una oportunidad abierta o con cambios de este dispositivo sin subir no se puede marcar para borrar en lote — ciérrala o espera a que sincronice, o ábrela y bórrala desde su ficha.',
   },
 
   // — Un cliente —

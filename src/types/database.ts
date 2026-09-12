@@ -2266,6 +2266,7 @@ export type Database = {
           bytes: number
           cliente_nombre: string
           creado_en: string
+          oportunidades_abiertas: number
           visita_id: string
         }[]
       }

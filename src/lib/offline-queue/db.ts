@@ -159,6 +159,29 @@ export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendi
   });
 }
 
+// Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —
+// evita recorrer la cola local una vez por visita marcada en el borrado por
+// lotes de Mi espacio (candado "cola sin subir" del punto 6 del backlog).
+export async function obtenerVisitasConPendientes(): Promise<Set<string>> {
+  const todas = await conDb((db) => db.getAll('operaciones'));
+  const ids = new Set<string>();
+  for (const op of todas) {
+    if (op.estado === 'completado') continue;
+    if (op.entidad === 'visita') {
+      ids.add(op.id);
+      continue;
+    }
+    if (op.entidad === 'oportunidad') {
+      const payload = op.payload as { visitaOrigenId?: string };
+      if (payload.visitaOrigenId) ids.add(payload.visitaOrigenId);
+      continue;
+    }
+    const payload = op.payload as { visitaId?: string };
+    if (payload.visitaId) ids.add(payload.visitaId);
+  }
+  return ids;
+}
+
 // `ubicacion` es la única entidad que vive a nivel de CLIENTE, no de visita
 // (se reutiliza en todas las visitas futuras a ese cliente) — por eso no
 // encaja en obtenerPorVisita y necesita su propio filtro, usando el índice

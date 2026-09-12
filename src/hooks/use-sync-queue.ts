@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   encolarOperacion,
   obtenerPorVisita,
+  obtenerVisitasConPendientes,
   procesarCola,
   EVENTO_COLA_PROCESADA,
 } from '@/lib/offline-queue';
@@ -70,4 +71,31 @@ export function useSyncQueue(visitaId: string | undefined) {
   );
 
   return { operaciones, encolar, recargar };
+}
+
+// Variante para listas de varias visitas a la vez (borrado por lotes de Mi
+// espacio): un solo Set con los ids de visita que tienen algo sin subir, en
+// vez de un useSyncQueue por fila (no se pueden llamar hooks en bucle).
+export function useVisitasConColaPendiente() {
+  const [ids, setIds] = useState<Set<string>>(new Set());
+
+  const recargar = useCallback(async () => {
+    setIds(await obtenerVisitasConPendientes());
+  }, []);
+
+  useEffect(() => {
+    void recargar();
+  }, [recargar]);
+
+  useEffect(() => {
+    const refrescar = () => void recargar();
+    window.addEventListener(EVENTO_COLA_PROCESADA, refrescar);
+    window.addEventListener('online', refrescar);
+    return () => {
+      window.removeEventListener(EVENTO_COLA_PROCESADA, refrescar);
+      window.removeEventListener('online', refrescar);
+    };
+  }, [recargar]);
+
+  return ids;
 }
