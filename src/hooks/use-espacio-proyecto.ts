@@ -104,17 +104,24 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
       const v = candidatas[i];
       const resultadoDescarga = await descargar('visita', v.visita_id);
       if (typeof resultadoDescarga !== 'object') {
-        setProgreso(null);
-        setResultado(
+        // BUG encontrado en verificación en vivo (forzando el fallo de la 2ª
+        // descarga de un lote de 2): este aviso se perdía porque
+        // liberarEnServidor ponía `resultado` a null al terminar sin fallos
+        // de RPC, pisando el mensaje de "se paró a mitad de camino" justo
+        // cuando más falta hacía verlo. Ahora se le pasa como base y
+        // liberarEnServidor lo conserva/combina en vez de descartarlo.
+        const avisoDescarga =
           descargadas.length === 0
             ? 'No se pudo generar el primer respaldo. Comprueba tu conexión e inténtalo de nuevo.'
-            : `Se respaldaron ${descargadas.length} de ${candidatas.length} y se liberaron esas. Se paró al fallar una descarga — el resto sigue intacto, inténtalo de nuevo cuando quieras.`
-        );
+            : `Se respaldaron ${descargadas.length} de ${candidatas.length} y se liberaron esas. Se paró al fallar una descarga — el resto sigue intacto, inténtalo de nuevo cuando quieras.`;
         // Lo ya respaldado con éxito SÍ se libera, para no repetir descargas
         // innecesarias en el siguiente intento — mismo espíritu que "lo que
         // se pudo, se hace" del lote de Mi espacio.
-        if (descargadas.length) await liberarEnServidor(descargadas);
-        else setProgreso(null);
+        if (descargadas.length) await liberarEnServidor(descargadas, avisoDescarga);
+        else {
+          setProgreso(null);
+          setResultado(avisoDescarga);
+        }
         return;
       }
       descargadas.push(v);
@@ -124,7 +131,7 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     await liberarEnServidor(descargadas);
   }
 
-  async function liberarEnServidor(descargadas: VisitaEspacioProyecto[]) {
+  async function liberarEnServidor(descargadas: VisitaEspacioProyecto[], avisoDescarga?: string) {
     setProgreso({ fase: 'liberando', hecho: 0, total: descargadas.length });
     const { data, error } = await supabase.rpc('liberar_visitas_proyecto', {
       p_proyecto_id: proyectoId!,
@@ -158,10 +165,11 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     invalidarTodo();
     setProgreso(null);
     if (fallidas.length === 0) {
-      setResultado(null);
+      setResultado(avisoDescarga ?? null);
     } else {
       const motivos = fallidas.map((f) => f.motivo).filter(Boolean).join(' · ');
-      setResultado(`Se liberaron ${liberadas.length} de ${filas.length}. ${fallidas.length} no se pudieron liberar${motivos ? `: ${motivos}` : '.'}`);
+      const mensajeRpc = `Se liberaron ${liberadas.length} de ${filas.length}. ${fallidas.length} no se pudieron liberar${motivos ? `: ${motivos}` : '.'}`;
+      setResultado(avisoDescarga ? `${avisoDescarga} ${mensajeRpc}` : mensajeRpc);
     }
   }
 
