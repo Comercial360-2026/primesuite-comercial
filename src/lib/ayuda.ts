@@ -226,17 +226,17 @@ const _PANTALLAS = {
     queEs:
       'Algo que has observado en el cliente y quieres dejar registrado: su texto, una o varias categorías del catálogo (Hardware, Software…), en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las categorías del catálogo son opcionales (puedes marcar varias) y las puedes cambiar aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; las categorías se guardan y vuelven si lo marcas otra vez como hallazgo—. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las categorías del catálogo son opcionales (puedes marcar varias) y las puedes cambiar aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; las categorías pasan directamente a ser la Categoría de la oportunidad, o se guardan en la sombra y vuelven si lo marcas otra vez como hallazgo—. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
     ojo: 'Archivar, borrar y cambiar de tipo solo los puede hacer el autor del hallazgo o Dirección Comercial. Editar y borrar sigue disponible con la visita cerrada.',
   },
   'detalle-oportunidad': {
     grupo: 'registro',
     titulo: 'Oportunidad',
     queEs:
-      'Una venta posible con el cliente: su título, en qué etapa está, su prioridad, el horizonte de decisión, en qué zona surgió y qué tiene ya el cliente y qué solución le proponemos.',
+      'Una venta posible con el cliente: una o varias categorías del catálogo (Hardware, Software…), una descripción, su título, en qué etapa está, su prioridad, el horizonte de decisión y en qué zona surgió.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla (se confirma antes; si ganó o perdió y por qué lo llevas en tu CRM, aquí no se pregunta). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin términos asociados).',
-    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. Los términos que asocias sí quedan al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla (se confirma antes; si ganó o perdió y por qué lo llevas en tu CRM, aquí no se pregunta). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin seguimiento ni próximos pasos); su Categoría se conserva en el destino.',
+    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. La Categoría que asocias sí queda al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
   },
   'proximo-paso': {
     grupo: 'registro',

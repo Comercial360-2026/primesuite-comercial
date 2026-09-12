@@ -277,10 +277,11 @@ export function ColaVocabulario() {
           .neq('estado_gobierno', 'descartado')
           .order('orden')
           .order('nombre'),
-        // Uso en hallazgos: por la tabla puente `hallazgo_area` (prompt
-        // maestro 11, Fase 2); solo cuentan las filas de tipo término.
+        // Uso en hallazgos y oportunidades: por las tablas puente
+        // `hallazgo_area` / `oportunidad_area` (mismo mecanismo desde la
+        // migración 111); solo cuentan las filas de tipo término.
         supabase.from('hallazgo_area').select('termino_id').not('termino_id', 'is', null),
-        supabase.from('oportunidad_termino').select('termino_id'),
+        supabase.from('oportunidad_area').select('termino_id').not('termino_id', 'is', null),
       ]);
       if (cats.error) throw cats.error;
       if (terms.error) throw terms.error;

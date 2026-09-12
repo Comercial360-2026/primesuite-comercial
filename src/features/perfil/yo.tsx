@@ -38,7 +38,7 @@ const TABLAS_BACKUP = [
   'captura_libre',
   'oportunidad',
   'oportunidad_visita_seguimiento',
-  'oportunidad_termino',
+  'oportunidad_area',
   'proximo_paso',
   'termino',
   'ubicacion',
