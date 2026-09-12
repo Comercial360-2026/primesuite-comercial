@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -128,7 +128,7 @@ function CapturasPorUbicacion({
     const contenido = (
       <>
         <span style={{ display: 'inline-flex', color: tono }}>
-          <Icono nombre={icono} size={16} />
+          <Icono nombre={icono} size={16} weight="duotone" />
         </span>
         <span className="va-item__texto">{texto}</span>
         {sub && <span className="va-item__sub">{sub}</span>}
@@ -166,48 +166,70 @@ function CapturasPorUbicacion({
     return { fotos, audios, notas, hz, total, resumen, reciente };
   };
 
+  // Dentro de cada zona, subcabecera por tipo (Fotos/Audios/Notas/
+  // Hallazgos) — mismo criterio que la vista "por tipo": una zona con
+  // varios tipos mezclados se leía como un bloque único, solo el color del
+  // borde los distinguía.
   const renderItems = (c: ReturnType<typeof contenidoDe>) => (
     <>
       {c.fotos.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-          {[...c.fotos].reverse().map((f) => {
-            const blob = f.archivoLocal as Blob | undefined;
-            const titulo = (f.payload as { titulo?: string }).titulo;
-            const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
-            return blob ? (
-              <img
-                key={f.id}
-                src={URL.createObjectURL(blob)}
-                alt={titulo ?? 'foto'}
-                onClick={abrir}
-                style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-              />
-            ) : (
-              <div
-                key={f.id}
-                onClick={abrir}
-                style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-              />
-            );
+        <>
+          <div className="seccion-lista__subcabecera">Fotos</div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
+            {[...c.fotos].reverse().map((f) => {
+              const blob = f.archivoLocal as Blob | undefined;
+              const titulo = (f.payload as { titulo?: string }).titulo;
+              const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
+              return blob ? (
+                <img
+                  key={f.id}
+                  src={URL.createObjectURL(blob)}
+                  alt={titulo ?? 'foto'}
+                  onClick={abrir}
+                  style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+                />
+              ) : (
+                <div
+                  key={f.id}
+                  onClick={abrir}
+                  style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+      {c.audios.length > 0 && (
+        <>
+          <div className="seccion-lista__subcabecera">Audios</div>
+          {c.audios.map((a) =>
+            itemFila(a.id, 'audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))
+          )}
+        </>
+      )}
+      {c.notas.length > 0 && (
+        <>
+          <div className="seccion-lista__subcabecera">Notas</div>
+          {c.notas.map((n) => {
+            const p = n.payload as { titulo?: string; contenidoTexto?: string };
+            return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
           })}
-        </div>
+        </>
       )}
-      {c.audios.map((a) =>
-        itemFila(a.id, 'audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))
+      {c.hz.length > 0 && (
+        <>
+          <div className="seccion-lista__subcabecera">Hallazgos</div>
+          {c.hz.map((h) => {
+            const p = h.payload as { nota?: string };
+            // Se abre igual que foto/audio/nota/oportunidad, aunque no haya
+            // subido todavía: la ficha (detalle-hallazgo.tsx) ya sabe mostrar
+            // "cargando"/error si aún no existe en el servidor. Antes se
+            // dejaba la fila sin ningún toque enganchado hasta sincronizar —
+            // clase de bug encontrada en vivo: parecía simplemente rota.
+            return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota), undefined, () => onAbrirHallazgo(h.id));
+          })}
+        </>
       )}
-      {c.notas.map((n) => {
-        const p = n.payload as { titulo?: string; contenidoTexto?: string };
-        return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
-      })}
-      {c.hz.map((h) => {
-        const p = h.payload as { nota?: string };
-        // Se abre igual que foto/audio/nota/oportunidad, aunque no haya
-        // subido todavía: la ficha (detalle-hallazgo.tsx) ya sabe mostrar
-        // "cargando"/error si aún no existe en el servidor. Antes se
-        // dejaba la fila sin ningún toque enganchado hasta sincronizar —
-        // clase de bug encontrada en vivo: parecía simplemente rota.
-        return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota), undefined, () => onAbrirHallazgo(h.id));
-      })}
     </>
   );
 
@@ -237,61 +259,38 @@ function CapturasPorUbicacion({
 
   if (claves.size === 0) return null;
 
-  const seccion = (clave: string, opts: { nombre: string; general?: boolean }) => {
+  // Cabecera de zona — mismo lenguaje que la cabecera de categoría en
+  // Categorías (`.voc-cat-label-row seccion-lista__subcabecera` +
+  // `.voc-cat-label`): nivel PRINCIPAL de agrupación (zona), en negro y
+  // negrita, no una etiqueta demota como las subcabeceras de tipo de
+  // dentro. El chevron es el mismo icono que despliega/pliega en cualquier
+  // otro sitio de la app, no un «›» suelto.
+  const seccion = (clave: string, opts: { nombre: string }) => {
     const c = contenidoDe(clave);
     if (c.total === 0) return null;
     const abierta = estaAbierta(clave);
     return (
-      <div
-        key={clave}
-        style={{
-          borderLeft: '2px solid transparent',
-          paddingLeft: 8,
-          ...(opts.general ? { borderTop: '1px solid var(--ink-200)', paddingTop: 10 } : {}),
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => alternar(clave)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            border: 'none',
-            background: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            width: '100%',
-            textAlign: 'left',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 18,
-              lineHeight: 1,
-              color: 'var(--ink-400)',
-              display: 'inline-block',
-              transform: abierta ? 'rotate(90deg)' : 'none',
-              transition: 'transform 120ms ease',
-              flexShrink: 0,
-            }}
-          >
-            ›
-          </span>
-          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{opts.nombre}</span>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>{c.resumen}</span>
-        </button>
-        {abierta && <div style={{ marginTop: 6 }}>{renderItems(c)}</div>}
-      </div>
+      <Fragment key={clave}>
+        <div className="voc-cat-label-row seccion-lista__subcabecera">
+          <button type="button" className="voc-cat-label" onClick={() => alternar(clave)} aria-expanded={abierta}>
+            <span className="fila__icono">
+              <Icono nombre={abierta ? 'bajar' : 'chevron'} size={16} />
+            </span>
+            <span>{opts.nombre}</span>
+            <span className="voc-cat-label__cuenta">{c.resumen}</span>
+          </button>
+        </div>
+        {abierta && renderItems(c)}
+      </Fragment>
     );
   };
 
   const bloqueZonas = zonas.map((clave) => seccion(clave, { nombre: nombresUbicaciones[clave] ?? clave }));
   const bloqueGeneral =
-    general && general.total > 0 ? seccion('sin-ubicacion', { nombre: 'General de la visita', general: true }) : null;
+    general && general.total > 0 ? seccion('sin-ubicacion', { nombre: 'General de la visita' }) : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="seccion-lista__grupo">
       {bloqueGeneral}
       {bloqueZonas}
     </div>
@@ -1501,7 +1500,7 @@ export function VisitaActiva() {
     const estiloBarra = tono ? { boxShadow: `inset 3px 0 0 ${tono}` } : undefined;
     const iconoConTono = (
       <span style={{ display: 'inline-flex', color: tono }}>
-        <Icono nombre={icono} size={16} />
+        <Icono nombre={icono} size={16} weight="duotone" />
       </span>
     );
     return onClick ? (
@@ -1973,7 +1972,7 @@ export function VisitaActiva() {
             disabled={capturaFoto.cargando || espacioBloqueado}
             onClick={() => inputFotoRef.current?.click()}
           >
-            <Icono nombre="foto" size={22} />
+            <Icono nombre="foto" size={22} weight="duotone" />
             {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
           </button>
           <button
@@ -1989,13 +1988,13 @@ export function VisitaActiva() {
               </>
             ) : (
               <>
-                <Icono nombre="audio" size={22} />
+                <Icono nombre="audio" size={22} weight="duotone" />
                 {capturaAudio.cargando ? 'Guardando…' : 'Audio'}
               </>
             )}
           </button>
           <button type="button" className="capture-btn" onClick={() => setAnotarAbierto(true)}>
-            <Icono nombre="nota" size={22} />
+            <Icono nombre="nota" size={22} weight="duotone" />
             Anotar
           </button>
           <button
@@ -2004,7 +2003,7 @@ export function VisitaActiva() {
             onClick={() => setPasoAbierto(true)}
             disabled={!visitaLocal?.clienteId}
           >
-            <Icono nombre="paso" size={22} />
+            <Icono nombre="paso" size={22} weight="duotone" />
             Próximo paso
           </button>
         </div>
@@ -2120,139 +2119,166 @@ export function VisitaActiva() {
                 zonasReales={misZonasReales ?? {}}
               />
             ) : (
-              <>
-                {fotosOwnV.length > 0 && (
-                  <div
-                    style={{
-                      display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 0',
-                      borderTop: '1px solid var(--ink-100)',
-                      borderBottom: '1px solid var(--ink-100)',
-                    }}
-                  >
-                    {[...fotosOwnV].reverse().map((f) => {
-                      const blob = f.archivoLocal as Blob | undefined;
-                      const titulo = (f.payload as { titulo?: string }).titulo;
-                      return blob ? (
-                        <img
-                          key={f.id}
-                          src={URL.createObjectURL(blob)}
-                          alt={titulo ?? 'foto'}
-                          onClick={() => setFotoVisorId(f.id)}
-                          style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-                        />
-                      ) : (
-                        <div
-                          key={f.id}
-                          onClick={() => setFotoVisorId(f.id)}
-                          style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-                        />
+              // Una sola lista fundida con subcabecera por tipo — antes eran
+              // 7+ filas seguidas sin más pista que el color del borde, se
+              // leía como un bloque único en vez de una lista.
+              <div className="seccion-lista__grupo">
+                {(fotosOwnV.length > 0 || fotosCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Fotos</div>
+                    {fotosOwnV.length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
+                        {[...fotosOwnV].reverse().map((f) => {
+                          const blob = f.archivoLocal as Blob | undefined;
+                          const titulo = (f.payload as { titulo?: string }).titulo;
+                          return blob ? (
+                            <img
+                              key={f.id}
+                              src={URL.createObjectURL(blob)}
+                              alt={titulo ?? 'foto'}
+                              onClick={() => setFotoVisorId(f.id)}
+                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
+                            />
+                          ) : (
+                            <div
+                              key={f.id}
+                              onClick={() => setFotoVisorId(f.id)}
+                              style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* B4 · Fotos de compañeros: fila de texto (el binario está
+                        en Storage, no en la cola local). */}
+                    {fotosCompanerosV.map((c) =>
+                      filaEnVisita(
+                        c.id,
+                        'foto',
+                        capitalizarFrase(c.titulo || 'foto'),
+                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/capturas/${c.id}`)
+                      )
+                    )}
+                  </>
+                )}
+                {(audiosOwnV.length > 0 || audiosCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Audios</div>
+                    {audiosOwnV.map((a) =>
+                      filaEnVisita(
+                        a.id,
+                        'audio',
+                        capitalizarFrase((a.payload as { titulo?: string }).titulo || 'sin título'),
+                        subZonaHora(a),
+                        () => navigate(`/capturas/${a.id}`)
+                      )
+                    )}
+                    {audiosCompanerosV.map((c) =>
+                      filaEnVisita(
+                        c.id,
+                        'audio',
+                        capitalizarFrase(c.titulo || 'sin título'),
+                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/capturas/${c.id}`)
+                      )
+                    )}
+                  </>
+                )}
+                {(notasOwnV.length > 0 || notasCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Notas</div>
+                    {notasOwnV.map((n) => {
+                      const p = n.payload as { titulo?: string; contenidoTexto?: string };
+                      return filaEnVisita(
+                        n.id,
+                        'nota',
+                        capitalizarFrase(p.titulo || p.contenidoTexto || '(nota vacía)'),
+                        subZonaHora(n),
+                        () => navigate(`/capturas/${n.id}`)
                       );
                     })}
-                  </div>
+                    {notasCompanerosV.map((c) =>
+                      filaEnVisita(
+                        c.id,
+                        'nota',
+                        capitalizarFrase(c.titulo || c.contenido_texto || '(nota vacía)'),
+                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/capturas/${c.id}`)
+                      )
+                    )}
+                  </>
                 )}
-                {/* B4 · Fotos de compañeros: fila de texto (el binario está
-                    en Storage, no en la cola local). */}
-                {fotosCompanerosV.map((c) =>
-                  filaEnVisita(
-                    c.id,
-                    'foto',
-                    capitalizarFrase(c.titulo || 'foto'),
-                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/capturas/${c.id}`)
-                  )
+                {(hallazgosV.length > 0 || hallazgosCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Hallazgos</div>
+                    {hallazgosV.map((h) => {
+                      const p = h.payload as { nota?: string };
+                      // Se abre igual que foto/audio/nota/oportunidad, aunque no
+                      // haya subido todavía — ver el mismo comentario en
+                      // CapturasPorUbicacion (itemFila) más arriba en el fichero.
+                      return filaEnVisita(h.id, 'hallazgo', tituloHallazgo(p.nota), subZonaHora(h), () =>
+                        navigate(`/hallazgos/${h.id}`, { state: origen })
+                      );
+                    })}
+                    {hallazgosCompanerosV.map((h) =>
+                      filaEnVisita(
+                        h.id,
+                        'hallazgo',
+                        tituloHallazgo(h.nota),
+                        `de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/hallazgos/${h.id}`, { state: origen })
+                      )
+                    )}
+                  </>
                 )}
-                {audiosOwnV.map((a) =>
-                  filaEnVisita(
-                    a.id,
-                    'audio',
-                    capitalizarFrase((a.payload as { titulo?: string }).titulo || 'sin título'),
-                    subZonaHora(a),
-                    () => navigate(`/capturas/${a.id}`)
-                  )
+                {(oportunidadesV.length > 0 || oportunidadesCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Oportunidades</div>
+                    {oportunidadesV.map((o) => {
+                      const p = o.payload as { titulo: string; prioridad?: string };
+                      return filaEnVisita(
+                        o.id,
+                        'oportunidad',
+                        capitalizarFrase(p.titulo),
+                        p.prioridad,
+                        () => navigate(`/oportunidades/${o.id}`, { state: origen })
+                      );
+                    })}
+                    {oportunidadesCompanerosV.map((o) =>
+                      filaEnVisita(
+                        o.id,
+                        'oportunidad',
+                        capitalizarFrase(o.titulo),
+                        `de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/oportunidades/${o.id}`, { state: origen })
+                      )
+                    )}
+                  </>
                 )}
-                {audiosCompanerosV.map((c) =>
-                  filaEnVisita(
-                    c.id,
-                    'audio',
-                    capitalizarFrase(c.titulo || 'sin título'),
-                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/capturas/${c.id}`)
-                  )
+                {(pasosV.length > 0 || pasosCompanerosV.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Próximos pasos</div>
+                    {pasosV.map((p) => {
+                      const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
+                      const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
+                      // Misma clase de bug que hallazgo (ver más arriba): se abre
+                      // igual que sus hermanos, aunque no haya subido todavía.
+                      return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha, () =>
+                        navigate(`/proximos-pasos/${p.id}`, { state: origen })
+                      );
+                    })}
+                    {pasosCompanerosV.map((p) =>
+                      filaEnVisita(
+                        p.id,
+                        'paso',
+                        capitalizarFrase(p.descripcion),
+                        `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`
+                      )
+                    )}
+                  </>
                 )}
-                {notasOwnV.map((n) => {
-                  const p = n.payload as { titulo?: string; contenidoTexto?: string };
-                  return filaEnVisita(
-                    n.id,
-                    'nota',
-                    capitalizarFrase(p.titulo || p.contenidoTexto || '(nota vacía)'),
-                    subZonaHora(n),
-                    () => navigate(`/capturas/${n.id}`)
-                  );
-                })}
-                {notasCompanerosV.map((c) =>
-                  filaEnVisita(
-                    c.id,
-                    'nota',
-                    capitalizarFrase(c.titulo || c.contenido_texto || '(nota vacía)'),
-                    `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/capturas/${c.id}`)
-                  )
-                )}
-                {hallazgosV.map((h) => {
-                  const p = h.payload as { nota?: string };
-                  // Se abre igual que foto/audio/nota/oportunidad, aunque no
-                  // haya subido todavía — ver el mismo comentario en
-                  // CapturasPorUbicacion (itemFila) más arriba en el fichero.
-                  return filaEnVisita(h.id, 'hallazgo', tituloHallazgo(p.nota), subZonaHora(h), () =>
-                    navigate(`/hallazgos/${h.id}`, { state: origen })
-                  );
-                })}
-                {hallazgosCompanerosV.map((h) =>
-                  filaEnVisita(
-                    h.id,
-                    'hallazgo',
-                    tituloHallazgo(h.nota),
-                    `de ${nombresComerciales?.[h.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/hallazgos/${h.id}`, { state: origen })
-                  )
-                )}
-                {oportunidadesV.map((o) => {
-                  const p = o.payload as { titulo: string; prioridad?: string };
-                  return filaEnVisita(
-                    o.id,
-                    'oportunidad',
-                    capitalizarFrase(p.titulo),
-                    p.prioridad,
-                    () => navigate(`/oportunidades/${o.id}`, { state: origen })
-                  );
-                })}
-                {oportunidadesCompanerosV.map((o) =>
-                  filaEnVisita(
-                    o.id,
-                    'oportunidad',
-                    capitalizarFrase(o.titulo),
-                    `de ${nombresComerciales?.[o.comercial_autor_id] ?? '…'}`,
-                    () => navigate(`/oportunidades/${o.id}`, { state: origen })
-                  )
-                )}
-                {pasosV.map((p) => {
-                  const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
-                  const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
-                  // Misma clase de bug que hallazgo (ver más arriba): se abre
-                  // igual que sus hermanos, aunque no haya subido todavía.
-                  return filaEnVisita(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha, () =>
-                    navigate(`/proximos-pasos/${p.id}`, { state: origen })
-                  );
-                })}
-                {pasosCompanerosV.map((p) =>
-                  filaEnVisita(
-                    p.id,
-                    'paso',
-                    capitalizarFrase(p.descripcion),
-                    `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`
-                  )
-                )}
-              </>
+              </div>
             )}
           </div>
         )}

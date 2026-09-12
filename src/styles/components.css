@@ -1053,6 +1053,12 @@ textarea.field {
   font-size: var(--text-xs); color: var(--seccion-cabecera);
 }
 .seccion-lista__subcabecera:first-child { border-top: none; }
+/* Justo debajo de una subcabecera no hace falta otro separador — ya lo puso
+   ella (mismo criterio que `.voc-terminos > .fila:first-child`, pero como
+   subcabecera y filas son hermanas sueltas, no hijas de un wrapper común,
+   va por hermano adyacente). */
+.seccion-lista__subcabecera + .fila,
+.seccion-lista__subcabecera + .va-item { border-top: none; }
 
 .fila {
   display: flex; align-items: center; gap: var(--space-3);
