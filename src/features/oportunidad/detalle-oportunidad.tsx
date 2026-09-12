@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -17,6 +18,8 @@ import { useVolverA } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
+import { mismaArea, type Area } from '@/lib/vocabulario';
+import { leerAreasDeOportunidad, guardarAreasDeOportunidad } from '@/lib/oportunidad-areas';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -35,6 +38,7 @@ export function DetalleOportunidad() {
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
 
+  const [areas, setAreas] = useState<Area[]>([]);
   const [titulo, setTitulo] = useState('');
   const [etapa, setEtapa] = useState<string>('latente');
   const [prioridad, setPrioridad] = useState<string>('media');
@@ -115,8 +119,28 @@ export function DetalleOportunidad() {
     setZonaTexto(oportunidad.zona_texto ?? '');
   }, [oportunidad]);
 
+  // Áreas (categoría/término) — igual que Hallazgo: se cargan aparte y se
+  // siembran UNA sola vez por oportunidad (guard con ref), para no borrar
+  // una selección sin guardar si la query se refresca en segundo plano.
+  // Sin sentido mientras esté en cola: `oportunidad_area` referencia una
+  // fila que todavía no existe en el servidor.
+  const { data: areasCargadas } = useQuery({
+    queryKey: ['oportunidad-areas', oportunidadId],
+    enabled: !!oportunidadId && !enCola,
+    queryFn: () => leerAreasDeOportunidad(oportunidadId!),
+  });
+  const areasSembradasRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!areasCargadas || areasSembradasRef.current === oportunidadId) return;
+    setAreas(areasCargadas);
+    areasSembradasRef.current = oportunidadId ?? null;
+  }, [areasCargadas, oportunidadId]);
+
   // ¿Hay cambios en el formulario que aún no se han guardado? Sirve para
   // avisar antes de salir.
+  const areasBase = areasCargadas ?? [];
+  const areasDistintas =
+    areas.length !== areasBase.length || areas.some((a) => !areasBase.some((b) => mismaArea(a, b)));
   const sucio =
     !!oportunidad &&
     (titulo !== oportunidad.titulo ||
@@ -124,7 +148,8 @@ export function DetalleOportunidad() {
       prioridad !== oportunidad.prioridad ||
       horizonte !== (oportunidad.horizonte_decision ?? '') ||
       descripcion !== (oportunidad.descripcion ?? '') ||
-      zonaTexto !== (oportunidad.zona_texto ?? ''));
+      zonaTexto !== (oportunidad.zona_texto ?? '') ||
+      areasDistintas);
 
   function alVolver() {
     if (confirmandoBorrado) {
@@ -233,6 +258,13 @@ export function DetalleOportunidad() {
       setError('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el autor, preventa o Dirección Comercial pueden editar una oportunidad.');
       return;
     }
+    try {
+      await guardarAreasDeOportunidad(oportunidadId!, areas);
+    } catch (errAreas) {
+      setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['oportunidad-areas', oportunidadId] });
     // Si la visita de origen está cerrada y su resumen es automático, se
     // rehace con el título nuevo de la oportunidad.
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
@@ -335,7 +367,19 @@ export function DetalleOportunidad() {
         motivoBloqueo={motivoBloqueoRecat}
       />
 
-      <div className="label" style={{ marginTop: 0 }}>Título</div>
+      <div className="label" style={{ marginTop: 0 }}>Categoría (opcional)</div>
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+        Del catálogo (Hardware, Software…). Puedes marcar varias.
+      </div>
+      {enCola ? (
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
+          Podrás clasificarla cuando termine de guardarse (unos segundos con conexión).
+        </div>
+      ) : (
+        <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+      )}
+
+      <div className="label">Título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
 
       {/* Antes de elegir, no después: son tres campos con nombre poco obvio

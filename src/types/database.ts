@@ -830,6 +830,73 @@ export type Database = {
           },
         ]
       }
+      oportunidad_area: {
+        Row: {
+          categoria_id: string | null
+          creado_en: string
+          id: string
+          oportunidad_id: string
+          termino_id: string | null
+        }
+        Insert: {
+          categoria_id?: string | null
+          creado_en?: string
+          id?: string
+          oportunidad_id: string
+          termino_id?: string | null
+        }
+        Update: {
+          categoria_id?: string | null
+          creado_en?: string
+          id?: string
+          oportunidad_id?: string
+          termino_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oportunidad_area_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categoria_vocabulario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oportunidad_area_oportunidad_id_fkey"
+            columns: ["oportunidad_id"]
+            isOneToOne: false
+            referencedRelation: "oportunidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oportunidad_area_oportunidad_id_fkey"
+            columns: ["oportunidad_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["oportunidad_id"]
+          },
+          {
+            foreignKeyName: "oportunidad_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "termino"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oportunidad_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "vw_termino_resuelto"
+            referencedColumns: ["termino_id"]
+          },
+          {
+            foreignKeyName: "oportunidad_area_termino_id_fkey"
+            columns: ["termino_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vocabulario_pendiente_revision"
+            referencedColumns: ["termino_id"]
+          },
+        ]
+      }
       oportunidad_termino: {
         Row: {
           oportunidad_id: string
