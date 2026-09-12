@@ -1543,13 +1543,14 @@ export function ColaVocabulario() {
             const fija = (nombre: string) => esCategoriaSinClasificar(nombre);
             return (
           <div className="voc-catalogo">
+          <div className="seccion-lista__grupo">
             {catsMostradas?.map((cat, idxCat) => {
               // Plegada por defecto; se despliega si el usuario la abrió
               // (también en "seleccionar"/"ordenar", que entran con todo
               // abierto). Buscando, siempre abierta.
               const colapsada = !buscando && !expandidas.has(cat.categoria_id);
               return (
-              <div className="seccion-lista__grupo" key={cat.categoria_id}>
+              <Fragment key={cat.categoria_id}>
                 {renombrandoCategoriaId === cat.categoria_id ? (
                   <div className="fila-confirmacion">
                     <input
@@ -1764,9 +1765,10 @@ export function ColaVocabulario() {
                     )}
                   </>
                 )}
-              </div>
+              </Fragment>
               );
             })}
+          </div>
           </div>
             );
           })()}

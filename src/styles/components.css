@@ -1080,12 +1080,12 @@ textarea.field {
 /* fila de acciones de la pantalla: chips homogéneos, con wrap en móvil */
 .voc-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-/* Cada categoría es su propia tarjeta (`.seccion-lista__grupo`), separadas
-   por aire — no una lista fundida. Con 3 niveles de jerarquía (Categoría ›
-   Término › Modelo) fundirlo todo en un único bloque blanco borraba dónde
-   empieza y acaba cada categoría (p. ej. el "+ Añadir término" de una
-   categoría vacía quedaba pegado a la cabecera de la siguiente). */
-.voc-catalogo { display: flex; flex-direction: column; gap: var(--space-3); }
+/* Catálogo entero = UNA lista fundida (mismo `.seccion-lista__grupo` que
+   cualquier otra lista de la app): un solo borde, un solo fondo blanco,
+   categorías seguidas sin huecos entre ellas. Lo que diferencia cada nivel
+   (categoría/término/modelo) es la tipografía y el sangrado, no una
+   tarjeta aparte por categoría. */
+.voc-catalogo { display: flex; flex-direction: column; }
 
 /* Cabecera de categoría: fila blanca normal (misma familia que cualquier
    fila de la lista), con más peso que el término que contiene para que
