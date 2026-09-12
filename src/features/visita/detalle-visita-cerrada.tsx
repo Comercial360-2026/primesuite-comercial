@@ -751,8 +751,8 @@ export function DetalleVisitaCerrada() {
                   confirmar="Sí, liberar espacio"
                   cargandoTexto="Liberando…"
                 >
-                  Guarda este archivo donde lo necesites antes de seguir. Al confirmar, esta visita desaparece de
-                  PrimeNotes para siempre.
+                  El archivo ha ido a donde tu dispositivo guarda las descargas — muévelo donde lo necesites
+                  antes de seguir. Al confirmar, esta visita desaparece de PrimeNotes para siempre.
                 </ConfirmacionBorrado>
               </div>
             ) : (
