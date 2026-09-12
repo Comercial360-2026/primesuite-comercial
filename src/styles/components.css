@@ -192,10 +192,14 @@ body {
 }
 
 /* Fila de "En esta visita" (Visita activa, Zona 3) — icono + texto + sub
-   gris opcional, separador fino entre filas salvo la primera. */
+   gris opcional, separador entre filas salvo la primera. Mismo aire y
+   separador que el resto de listas de la app (`.fila`): antes tenía menos
+   padding y sin alto mínimo, así que con varios tipos seguidos (nota,
+   audio, hallazgo…) se leía como un bloque pegado en vez de una lista. */
 .va-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 4px 8px 8px; border: none; border-top: 1px solid var(--ink-100);
+  min-height: var(--fila-min-h); box-sizing: border-box;
+  padding: var(--fila-pad-y) var(--space-3); border: none; border-top: var(--fila-separador);
   background: none; font-size: var(--text-sm); text-align: left;
   font-family: var(--font-sans); color: var(--ink-900);
 }

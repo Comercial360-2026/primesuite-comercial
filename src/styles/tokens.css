@@ -137,7 +137,7 @@
   --fila-min-h: 52px;                       /* alto táctil mínimo de una fila */
   --fila-pad-x: var(--space-4);             /* 16px — margen lateral del contenido */
   --fila-pad-y: var(--space-3);             /* 12px — aire arriba/abajo cuando hay subtítulo */
-  --fila-separador: 1px solid var(--ink-100); /* línea fina entre filas de una sección */
+  --fila-separador: 1px solid var(--ink-200); /* línea entre filas de una sección — ink-200, no ink-100: con ink-100 (#E8EAED sobre blanco) el contraste es tan bajo que en móvil real no se ve */
   --fila-activa-bg: var(--surface-0);       /* fondo al pulsar / al pasar el ratón */
   --fila-icono: var(--ink-400);             /* color del icono de la izquierda */
   --fila-chevron: var(--ink-200);           /* color de la flecha ">" de la derecha */
