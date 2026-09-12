@@ -95,6 +95,10 @@ export function DetalleProximoPaso() {
       // el buscador con la lista de zonas todavía vieja (sin la recién
       // creada) por una carrera entre invalidar y repintar.
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      // Ver comentario gemelo en detalle-captura.tsx: `mis-zonas-reales-visita`
+      // (vista "por zona" de Visita activa) no se invalidaba nunca — solo se
+      // refrescaba sola cada 20s.
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', paso.visita_id] });
     }
   }
 
@@ -148,6 +152,7 @@ export function DetalleProximoPaso() {
     queryClient.invalidateQueries({ queryKey: ['proximo-paso', pasoId] });
     if (paso?.visita_id) {
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', paso.visita_id] });
     }
     // Misma pausa de 700ms que el resto de pantallas de detalle, para que
     // "guardado ✓" sea visible antes de volver.

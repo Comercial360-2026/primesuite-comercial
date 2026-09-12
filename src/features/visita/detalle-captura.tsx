@@ -208,6 +208,13 @@ export function DetalleCaptura() {
         // buscador con la lista de zonas todavía vieja (carrera
         // invalidar/repintar).
         await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+        // `mis-zonas-reales-visita` (Visita activa, vista "por zona") no se
+        // invalidaba nunca — solo se refrescaba sola cada 20s
+        // (`refetchInterval`). La foto/nota editada aquí se quedaba
+        // agrupada con la zona vieja en esa vista hasta que tocara el
+        // refresco automático: parecía que el guardado no había hecho
+        // nada durante ese rato (bug real reportado en vivo).
+        queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
       }
     }
     // BUG: si la captura ya estaba sincronizada (fuente 'cola' +
@@ -291,6 +298,7 @@ export function DetalleCaptura() {
           if (captura.visitaId) {
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
             await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+            queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
           }
           // Breve pausa para que "guardado ✓" sea visible antes de volver.
           setTimeout(() => navigate(volver), 700);

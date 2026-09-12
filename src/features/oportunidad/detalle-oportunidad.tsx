@@ -208,6 +208,10 @@ export function DetalleOportunidad() {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
       // con la lista de zonas todavía vieja (carrera invalidar/repintar).
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+      // Ver comentario gemelo en detalle-captura.tsx: `mis-zonas-reales-visita`
+      // (vista "por zona" de Visita activa) no se invalidaba nunca — solo se
+      // refrescaba sola cada 20s.
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', oportunidad.visita_origen_id] });
     }
   }
 
@@ -239,6 +243,7 @@ export function DetalleOportunidad() {
       setGuardadoConExito(true);
       if (oportunidad?.visita_origen_id) {
         await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+        queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', oportunidad.visita_origen_id] });
       }
       setTimeout(() => navigate(volver), 700);
       return;
@@ -305,6 +310,7 @@ export function DetalleOportunidad() {
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     if (oportunidad?.visita_origen_id) {
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', oportunidad.visita_origen_id] });
     }
     setGuardadoConExito(true);
     setTimeout(() => navigate(volver), 700);

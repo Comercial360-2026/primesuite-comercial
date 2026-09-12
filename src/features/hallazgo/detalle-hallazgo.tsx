@@ -190,6 +190,11 @@ export function DetalleHallazgo() {
     queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
     if (hallazgo?.visita_id) {
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', hallazgo.visita_id] });
+      // Ver comentario gemelo en detalle-captura.tsx: `mis-zonas-reales-visita`
+      // (vista "por zona" de Visita activa) no se invalidaba nunca — solo se
+      // refrescaba sola cada 20s, así que un cambio de zona tardaba hasta
+      // ese rato en verse ahí.
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', hallazgo.visita_id] });
     }
     // Si la visita está cerrada y su resumen es automático, se rehace con
     // el texto nuevo del hallazgo.
@@ -225,6 +230,7 @@ export function DetalleHallazgo() {
       // Se espera el refetch: sin esto, «cambiar» podía reabrir el buscador
       // con la lista de zonas todavía vieja (carrera invalidar/repintar).
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', hallazgo.visita_id] });
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', hallazgo.visita_id] });
     }
     await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
   }
