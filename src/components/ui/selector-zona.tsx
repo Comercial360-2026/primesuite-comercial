@@ -140,11 +140,21 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
       />
       {coincidencias.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-          {coincidencias.map((z) => (
-            <button key={z} type="button" className="chip" onClick={() => confirmar(z)}>
-              {z}
-            </button>
-          ))}
+          {coincidencias.map((z) => {
+            // Marca con el check la que ya tenías puesta al abrir «cambiar»
+            // — para que se distinga de las demás, no todas iguales.
+            const esLaActual = z.toLocaleLowerCase('es') === zonaAlAbrir.toLocaleLowerCase('es');
+            return (
+              <button
+                key={z}
+                type="button"
+                className={`chip${esLaActual ? ' chip--on' : ''}`}
+                onClick={() => confirmar(z)}
+              >
+                {z}
+              </button>
+            );
+          })}
         </div>
       )}
       {q && !existeExacta && (
