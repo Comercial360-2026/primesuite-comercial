@@ -14,6 +14,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
 import { esCategoriaSinClasificar } from '@/lib/vocabulario';
+import { useClasificacionDetallada, CLAVE_CLASIFICACION_DETALLADA } from '@/hooks/use-ajustes';
 
 interface TerminoPropuesto {
   id: string;
@@ -163,6 +164,13 @@ export function ColaVocabulario() {
   // categorías de una vez (upsert). Al salir el orden ya está guardado.
   const [ordenLocal, setOrdenLocal] = useState<{ id: string; nombre: string }[] | null>(null);
   const [guardandoOrden, setGuardandoOrden] = useState(false);
+
+  // --- ajuste global "clasificación detallada" (interruptor único, no por
+  // pantalla): activa SelectorAreas (categoría/término/modelo) en Hallazgo,
+  // Oportunidad y Anotar en vez de SelectorCategorias (solo categoría).
+  const clasificacionDetallada = useClasificacionDetallada();
+  const [guardandoAjuste, setGuardandoAjuste] = useState(false);
+  const [errorAjuste, setErrorAjuste] = useState<string | null>(null);
 
   const { data: propuestos, isLoading, isError, isPaused, refetch } = useQuery({
     queryKey: ['terminos-propuestos'],
@@ -450,6 +458,27 @@ export function ColaVocabulario() {
     } else {
       salirSeleccionPend();
     }
+  }
+
+  // ---- ajuste global "clasificación detallada" ----
+
+  async function actualizarClasificacionDetallada(valor: boolean) {
+    setErrorAjuste(null);
+    setGuardandoAjuste(true);
+    const { error: err, count } = await supabase
+      .from('ajustes_app')
+      .update({ valor, actualizado_en: new Date().toISOString() }, { count: 'exact' })
+      .eq('clave', CLAVE_CLASIFICACION_DETALLADA);
+    setGuardandoAjuste(false);
+    if (err) {
+      setErrorAjuste(err.message);
+      return;
+    }
+    if (!count) {
+      setErrorAjuste('No se ha podido guardar (0 filas afectadas). Solo Dirección Comercial puede cambiar este ajuste.');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['ajuste', CLAVE_CLASIFICACION_DETALLADA] });
   }
 
   // ---- gestión de categorías ----
@@ -1286,6 +1315,34 @@ export function ColaVocabulario() {
         </>
       ) : (
         <>
+          {!editando && !creandoCategoria && (
+            <div className="card">
+              <div className="label" style={{ marginTop: 0 }}>Clasificación en las fichas</div>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                Cómo etiquetan los comerciales un hallazgo, una oportunidad o una nota con este
+                catálogo.
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Segmentado
+                  opciones={
+                    [
+                      { valor: 'simple', etiqueta: 'Solo categoría' },
+                      { valor: 'detallado', etiqueta: 'Categoría, término y modelo' },
+                    ] as const
+                  }
+                  valor={clasificacionDetallada ? 'detallado' : 'simple'}
+                  onCambio={(v) => actualizarClasificacionDetallada(v === 'detallado')}
+                />
+              </div>
+              {guardandoAjuste && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+                  Guardando…
+                </div>
+              )}
+              {errorAjuste && <div className="field-error-text" style={{ marginTop: 6 }}>{errorAjuste}</div>}
+            </div>
+          )}
+
           {errorCatalogo && <div className="field-error-text">{errorCatalogo}</div>}
           {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
 

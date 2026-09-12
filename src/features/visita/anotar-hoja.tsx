@@ -3,9 +3,12 @@ import { uuid } from '@/lib/uuid';
 import type { HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 import type { Area } from '@/lib/vocabulario';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
+import { SelectorAreas } from '@/components/ui/selector-areas';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
 import { useDictado } from '@/hooks/use-dictado';
+import { useClasificacionDetallada } from '@/hooks/use-ajustes';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
 interface AnotarHojaProps {
@@ -62,6 +65,7 @@ export function AnotarHoja({
   onCompletarOportunidad,
   onCerrar,
 }: AnotarHojaProps) {
+  const clasificacionDetallada = useClasificacionDetallada();
   const [oportunidadId] = useState(() => uuid());
   const [texto, setTexto] = useState('');
   const [marca, setMarca] = useState<Marca>('nada');
@@ -264,7 +268,14 @@ export function AnotarHoja({
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
             Marca las que apliquen.
           </div>
-          <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+          {clasificacionDetallada ? (
+            <>
+              <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
+              <AyudaNota concepto="termino-modelo" />
+            </>
+          ) : (
+            <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+          )}
         </>
       )}
 

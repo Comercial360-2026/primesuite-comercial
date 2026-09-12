@@ -15,10 +15,12 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
+import { SelectorAreas } from '@/components/ui/selector-areas';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import type { Area } from '@/lib/vocabulario';
 import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
 import { Icono } from '@/components/ui/iconos';
+import { useClasificacionDetallada } from '@/hooks/use-ajustes';
 
 const TIPOS_FECHA = Object.keys(TIPO_FECHA_RELEVANTE_LABEL);
 
@@ -32,6 +34,7 @@ export function DetalleHallazgo() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
+  const clasificacionDetallada = useClasificacionDetallada();
   // Se llega desde Visita activa, desde una visita cerrada o desde la
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
@@ -310,7 +313,14 @@ export function DetalleHallazgo() {
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
         Del catálogo (Hardware, Software…). Puedes marcar varias.
       </div>
-      <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+      {clasificacionDetallada ? (
+        <>
+          <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
+          <AyudaNota concepto="termino-modelo" />
+        </>
+      ) : (
+        <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
+      )}
 
       <div className="label">Nota</div>
       <textarea

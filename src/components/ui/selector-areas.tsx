@@ -98,8 +98,11 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
   }
 
   // Fila de opción dentro del árbol de una categoría — misma pinta que
-  // `.selector-term`, con un ✓ delante cuando está marcada.
-  const filaOpcion = (marcada: boolean, etiqueta: string, onClick: () => void, badge?: number) => (
+  // `.selector-term`, con un ✓ delante cuando está marcada. Sin badge de "N
+  // modelos": es el mismo antipatrón ya quitado del catálogo (Categorías,
+  // prompt maestro 12) — la rama de modelos se pinta justo debajo, así que
+  // el número no aporta nada que no se vea ya.
+  const filaOpcion = (marcada: boolean, etiqueta: string, onClick: () => void) => (
     <button
       type="button"
       className="selector-term"
@@ -108,7 +111,6 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
     >
       {marcada && <Icono nombre="check" size={14} />}
       <span className="selector-term__n">{etiqueta}</span>
-      {badge !== undefined && badge > 0 && <span className="fila__badge">{badge}</span>}
     </button>
   );
 
@@ -289,11 +291,10 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
                 );
               })()}
               {primerNivelDe(categoriaAbierta.id).map((t) => {
-                const hijos = hijosPorPadre.get(t.id) ?? [];
                 const area: Area = { tipo: 'termino', id: t.id, nombre: t.nombre };
                 return (
                   <Fragment key={t.id}>
-                    {filaOpcion(estaSel(area), t.nombre, () => alternar(area), hijos.length)}
+                    {filaOpcion(estaSel(area), t.nombre, () => alternar(area))}
                     {ramaModelos(t)}
                   </Fragment>
                 );

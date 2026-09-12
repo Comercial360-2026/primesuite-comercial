@@ -224,19 +224,19 @@ const _PANTALLAS = {
     grupo: 'registro',
     titulo: 'Hallazgo',
     queEs:
-      'Algo que has observado en el cliente y quieres dejar registrado: su texto, una o varias categorías del catálogo (Hardware, Software…), en qué zona estaba y, si aplica, una fecha relevante.',
+      'Algo que has observado en el cliente y quieres dejar registrado: su texto, una o varias categorías del catálogo (Hardware, Software…, o si Dirección ha activado la clasificación detallada, también un término o modelo concreto), en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
-      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; las categorías del catálogo son opcionales (puedes marcar varias) y las puedes cambiar aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; las categorías pasan directamente a ser la Categoría de la oportunidad, o se guardan en la sombra y vuelven si lo marcas otra vez como hallazgo—. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
+      'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; la clasificación del catálogo es opcional (puedes marcar varias) y la puedes cambiar aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; la clasificación pasa directamente a ser la de la oportunidad, o se guarda en la sombra y vuelve si lo marcas otra vez como hallazgo—. «Archivar» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede desarchivar.',
     ojo: 'Archivar, borrar y cambiar de tipo solo los puede hacer el autor del hallazgo o Dirección Comercial. Editar y borrar sigue disponible con la visita cerrada.',
   },
   'detalle-oportunidad': {
     grupo: 'registro',
     titulo: 'Oportunidad',
     queEs:
-      'Una venta posible con el cliente: una o varias categorías del catálogo (Hardware, Software…), una descripción, su título, en qué etapa está, su prioridad, el horizonte de decisión y en qué zona surgió.',
+      'Una venta posible con el cliente: una o varias categorías del catálogo (Hardware, Software…, o si Dirección ha activado la clasificación detallada, también un término o modelo concreto), una descripción, su título, en qué etapa está, su prioridad, el horizonte de decisión y en qué zona surgió.',
     cuando:
-      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla (se confirma antes; si ganó o perdió y por qué lo llevas en tu CRM, aquí no se pregunta). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin seguimiento ni próximos pasos); su Categoría se conserva en el destino.',
-    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. La Categoría que asocias sí queda al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
+      'Para mover la oportunidad de etapa según avanza, ajustar su prioridad u horizonte, o cerrarla (se confirma antes; si ganó o perdió y por qué lo llevas en tu CRM, aquí no se pregunta). Cuando la creas desde «Anotar» en la visita (marcándola como «Oportunidad de venta») puedes venir aquí al momento a completarla («Completar ahora») o hacerlo luego desde el cliente. Con «Esto es» puedes devolverla a nota o pasarla a hallazgo, siempre que siga intacta (etapa «latente», sin seguimiento ni próximos pasos); su clasificación se conserva en el destino.',
+    ojo: 'Los cambios de esta pantalla no se aplican solos: se guardan con «Guardar». Si sales con algo sin guardar, la app te avisa. La clasificación que asocias sí queda al momento. Cambiar de tipo solo lo puede hacer el autor o Dirección Comercial.',
   },
   'proximo-paso': {
     grupo: 'registro',
@@ -282,9 +282,9 @@ const _PANTALLAS = {
     queEs:
       'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
     cuando:
-      'En «Pendientes» tocas un término propuesto para ver su contexto y ahí mismo lo apruebas, lo fusionas con uno del catálogo o lo descartas; con «Seleccionar» haces lo mismo en lote. Lo que los comerciales proponen sobre la marcha aparece en la categoría «Sin clasificar»; al aprobarlo eliges en qué categoría queda. En «Catálogo completo» creas categorías con el «+» de arriba, y términos y modelos con el botón «+ Añadir…» que aparece al pie de cada categoría o término desplegado (p. ej. «MIFARE» con «DESFire EV2» dentro). Con el chip «Editar» activas a la vez el checkbox de cada fila y sus flechas subir/bajar — marca una o varias para Renombrar, Mover a… o Quitar (con confirmación); marcando una categoría, para Renombrar o Borrar. El subtítulo de cada término resume cuántos modelos tiene y en cuántas fichas se usa ya. Busca cualquiera con la caja de arriba («Desplegar todo» abre el árbol entero de una vez).',
+      'En «Pendientes» tocas un término propuesto para ver su contexto y ahí mismo lo apruebas, lo fusionas con uno del catálogo o lo descartas; con «Seleccionar» haces lo mismo en lote. Lo que los comerciales proponen sobre la marcha aparece en la categoría «Sin clasificar»; al aprobarlo eliges en qué categoría queda. En «Catálogo completo» creas categorías con el «+» de arriba, y términos y modelos con el botón «+ Añadir…» que aparece al pie de cada categoría o término desplegado (p. ej. «MIFARE» con «DESFire EV2» dentro). Con el chip «Editar» activas a la vez el checkbox de cada fila y sus flechas subir/bajar — marca una o varias para Renombrar, Mover a… o Quitar (con confirmación); marcando una categoría, para Renombrar o Borrar. El subtítulo de cada término resume cuántos modelos tiene y en cuántas fichas se usa ya. Busca cualquiera con la caja de arriba («Desplegar todo» abre el árbol entero de una vez). Arriba del todo, «Clasificación en las fichas» es un interruptor único para toda la app: «Solo categoría» deja a los comerciales marcar solo la categoría entera en Hallazgo, Oportunidad y Anotar; «Categoría, término y modelo» les deja además elegir el término o modelo concreto.',
     ojo:
-      'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas.',
+      'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas. El interruptor de clasificación es global: afecta a todos los comerciales a la vez, no se elige por pantalla.',
     soloDireccion: true,
   },
   'gestionar-sectores': {
@@ -376,7 +376,7 @@ const _CONCEPTOS = {
     grupo: 'oportunidad',
     titulo: 'Términos y modelos del catálogo',
     queEs:
-      'Un término es cómo el equipo nombra una tecnología, una solución o un fabricante (biometría, control de accesos, MIFARE…). Algunos tienen modelos dentro: «MIFARE» agrupa «DESFire EV2», «EV1»… Al etiquetar una oportunidad puedes elegir el término a secas si no sabes el modelo, o el modelo concreto. Si no encuentras el tuyo, proponlo y Dirección lo revisa y lo coloca.',
+      'Un término es cómo el equipo nombra una tecnología, una solución o un fabricante (biometría, control de accesos, MIFARE…). Algunos tienen modelos dentro: «MIFARE» agrupa «DESFire EV2», «EV1»… Al clasificar un hallazgo, una oportunidad o una nota puedes elegir la categoría entera, el término a secas si no sabes el modelo, o el modelo concreto. Si no encuentras el tuyo, proponlo y Dirección lo revisa y lo coloca.',
     ejemplo:
       'Ves lectores MIFARE pero no sabes la versión → etiquetas «MIFARE». Lo confirmas como DESFire EV2 → etiquetas ese modelo.',
   },

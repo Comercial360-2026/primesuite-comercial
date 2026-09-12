@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      ajustes_app: {
+        Row: {
+          actualizado_en: string
+          clave: string
+          valor: boolean
+        }
+        Insert: {
+          actualizado_en?: string
+          clave: string
+          valor: boolean
+        }
+        Update: {
+          actualizado_en?: string
+          clave?: string
+          valor?: boolean
+        }
+        Relationships: []
+      }
       aviso_liberar_espacio: {
         Row: {
           atendido_en: string | null

@@ -6,6 +6,7 @@ import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
+import { SelectorAreas } from '@/components/ui/selector-areas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -20,6 +21,7 @@ import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { mismaArea, type Area } from '@/lib/vocabulario';
 import { leerAreasDeOportunidad, guardarAreasDeOportunidad } from '@/lib/oportunidad-areas';
+import { useClasificacionDetallada } from '@/hooks/use-ajustes';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -34,6 +36,7 @@ export function DetalleOportunidad() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
+  const clasificacionDetallada = useClasificacionDetallada();
   // Se llega desde Visita activa, desde una visita cerrada o desde la
   // actividad del proyecto. El ← vuelve al origen real; si no consta, a Hoy.
   const volver = useVolverA('/');
@@ -375,6 +378,11 @@ export function DetalleOportunidad() {
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
           Podrás clasificarla cuando termine de guardarse (unos segundos con conexión).
         </div>
+      ) : clasificacionDetallada ? (
+        <>
+          <SelectorAreas seleccionadas={areas} onCambio={setAreas} />
+          <AyudaNota concepto="termino-modelo" />
+        </>
       ) : (
         <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
       )}
