@@ -544,7 +544,13 @@ export function VisitaActiva() {
     refetchOnMount: 'always',
     refetchInterval: 20000,
     queryFn: async (): Promise<
-      { id: string; clienteNombre: string; proyectoNombre: string | null; desde: string | null }[]
+      {
+        id: string;
+        clienteNombre: string;
+        proyectoNombre: string | null;
+        desde: string | null;
+        oportunidadesAbiertas: number;
+      }[]
     > => {
       const { data, error } = await supabase
         .from('visita_participante')
@@ -556,21 +562,37 @@ export function VisitaActiva() {
         .eq('visita.estado_captura', 'en_curso')
         .neq('visita_id', visitaId!);
       if (error) throw error;
-      return (data ?? []).map((r) => {
-        const v = r.visita as unknown as {
-          id: string;
-          fecha: string | null;
-          en_curso_desde: string | null;
-          proyecto: { nombre: string } | null;
-          cliente: { nombre: string } | null;
-        };
-        return {
-          id: v.id,
-          clienteNombre: v.cliente?.nombre ?? 'un cliente',
-          proyectoNombre: v.proyecto?.nombre ?? null,
-          desde: v.en_curso_desde ?? v.fecha,
-        };
+      const filas = (data ?? []).map((r) => r.visita as unknown as {
+        id: string;
+        fecha: string | null;
+        en_curso_desde: string | null;
+        proyecto: { nombre: string } | null;
+        cliente: { nombre: string } | null;
       });
+      // Oportunidades abiertas por visita — eliminar_visita_completa rechaza
+      // el borrado si hay alguna (incidente 2026-09-12, ver migración 115);
+      // aquí es solo para no dejar marcar de antemano lo que va a fallar.
+      const ids = filas.map((f) => f.id);
+      let oportunidadesAbiertasPorVisita: Record<string, number> = {};
+      if (ids.length) {
+        const { data: ops } = await supabase
+          .from('oportunidad')
+          .select('visita_origen_id')
+          .in('visita_origen_id', ids)
+          .neq('etapa', 'cerrada');
+        oportunidadesAbiertasPorVisita = (ops ?? []).reduce<Record<string, number>>((acc, o) => {
+          const id = (o as { visita_origen_id: string }).visita_origen_id;
+          acc[id] = (acc[id] ?? 0) + 1;
+          return acc;
+        }, {});
+      }
+      return filas.map((v) => ({
+        id: v.id,
+        clienteNombre: v.cliente?.nombre ?? 'un cliente',
+        proyectoNombre: v.proyecto?.nombre ?? null,
+        desde: v.en_curso_desde ?? v.fecha,
+        oportunidadesAbiertas: oportunidadesAbiertasPorVisita[v.id] ?? 0,
+      }));
     },
   });
   // Objetivo efectivo: el del servidor si ya está, si no el que viajó en la
@@ -1601,6 +1623,7 @@ export function VisitaActiva() {
               proyectoNombre: v.proyectoNombre,
               desde: v.desde,
               esMia: true,
+              oportunidadesAbiertas: v.oportunidadesAbiertas,
             }))}
             onCerrar={() => setPanelAbiertasVisible(false)}
           />

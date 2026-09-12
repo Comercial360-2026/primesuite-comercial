@@ -35,6 +35,11 @@ interface VisitaAgenda {
   /** Solo lo trae la consulta de visitas EN CURSO (para el tono y "abierta hace…"). */
   en_curso_desde?: string | null;
   proyecto?: { nombre: string } | null;
+  /** Solo lo trae la consulta de visitas EN CURSO — oportunidades con etapa
+   *  <> 'cerrada' colgando de la visita (incidente 2026-09-12, migración
+   *  115: eliminar_visita_completa las rechaza en el servidor; esto es
+   *  para no dejar marcar de antemano lo que va a fallar). */
+  oportunidades_abiertas?: number;
 }
 
 // Rango del día en curso, hora local del dispositivo — suficiente para v1
@@ -169,7 +174,22 @@ export function AgendaDelDia() {
         .eq('visita.estado_captura', 'en_curso')
         .order('visita(fecha)', { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
+      const filas = (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
+      const ids = filas.map((f) => f.id);
+      let oportunidadesAbiertasPorVisita: Record<string, number> = {};
+      if (ids.length) {
+        const { data: ops } = await supabase
+          .from('oportunidad')
+          .select('visita_origen_id')
+          .in('visita_origen_id', ids)
+          .neq('etapa', 'cerrada');
+        oportunidadesAbiertasPorVisita = (ops ?? []).reduce<Record<string, number>>((acc, o) => {
+          const id = (o as { visita_origen_id: string }).visita_origen_id;
+          acc[id] = (acc[id] ?? 0) + 1;
+          return acc;
+        }, {});
+      }
+      return filas.map((f) => ({ ...f, oportunidades_abiertas: oportunidadesAbiertasPorVisita[f.id] ?? 0 }));
     },
   });
 
@@ -573,6 +593,7 @@ export function AgendaDelDia() {
                         proyectoNombre: v.proyecto?.nombre ?? null,
                         desde: v.en_curso_desde ?? v.fecha,
                         esMia: true,
+                        oportunidadesAbiertas: v.oportunidades_abiertas,
                       }}
                       onAbrir={() => abrirVisita(v)}
                       seleccion={

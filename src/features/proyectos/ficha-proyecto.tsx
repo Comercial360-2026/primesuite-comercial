@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { plural } from '@/lib/texto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -126,6 +127,26 @@ export function FichaProyecto() {
       const { data, error } = await supabase.from('comercial').select('id, nombre');
       if (error) throw error;
       return Object.fromEntries((data ?? []).map((c) => [c.id, c.nombre]));
+    },
+  });
+  // Oportunidades abiertas POR visita viva — eliminar_visita_completa
+  // rechaza "cancelar" una visita con alguna (incidente 2026-09-12,
+  // migración 115); esto es para no dejar pulsar "Sí, cancelar" en algo
+  // que se sabe de antemano que va a fallar.
+  const { data: oportunidadesAbiertasVivas } = useQuery({
+    queryKey: ['oportunidades-abiertas-visitas-vivas', idsVivas.join(',')],
+    enabled: idsVivas.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from('oportunidad')
+        .select('visita_origen_id')
+        .in('visita_origen_id', idsVivas)
+        .neq('etapa', 'cerrada');
+      if (error) throw error;
+      return (data ?? []).reduce<Record<string, number>>((acc, o) => {
+        acc[o.visita_origen_id] = (acc[o.visita_origen_id] ?? 0) + 1;
+        return acc;
+      }, {});
     },
   });
 
@@ -402,6 +423,7 @@ export function FichaProyecto() {
           <PuertaTerminarProyecto
             visitas={visitasVivas ?? []}
             responsables={responsablesVivas ?? {}}
+            oportunidadesAbiertasVivas={oportunidadesAbiertasVivas ?? {}}
             nombresComerciales={nombresComerciales ?? {}}
             visitaBloqueante={visitaBloqueante}
             oportunidadesAbiertas={oportunidadesAbiertas ?? 0}
@@ -555,6 +577,7 @@ interface VisitaViva {
 function PuertaTerminarProyecto({
   visitas,
   responsables,
+  oportunidadesAbiertasVivas,
   nombresComerciales,
   visitaBloqueante,
   oportunidadesAbiertas,
@@ -567,6 +590,9 @@ function PuertaTerminarProyecto({
 }: {
   visitas: VisitaViva[];
   responsables: Record<string, string>;
+  /** Oportunidades abiertas POR visita — eliminar_visita_completa rechaza
+   *  "cancelar" una visita con alguna colgando (migración 115). */
+  oportunidadesAbiertasVivas: Record<string, number>;
   nombresComerciales: Record<string, string>;
   visitaBloqueante?: VisitaViva;
   oportunidadesAbiertas: number;
@@ -612,6 +638,7 @@ function PuertaTerminarProyecto({
                     key={v.id}
                     visita={v}
                     destinos={destinos}
+                    oportunidadesAbiertas={oportunidadesAbiertasVivas[v.id] ?? 0}
                     onResuelta={onMovida}
                   />
                 ))}
@@ -665,10 +692,12 @@ function PuertaTerminarProyecto({
 function FilaVisitaViva({
   visita,
   destinos,
+  oportunidadesAbiertas,
   onResuelta,
 }: {
   visita: VisitaViva;
   destinos: Array<{ id: string; nombre: string }>;
+  oportunidadesAbiertas: number;
   onResuelta: () => void;
 }) {
   const [destino, setDestino] = useState(destinos[0]?.id ?? '');
@@ -721,11 +750,19 @@ function FilaVisitaViva({
 
       {confirmandoCancelar ? (
         <div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-700)', marginBottom: 6 }}>
-            {enCurso
-              ? 'Se borra la visita en curso y todo lo capturado en ella. No se puede deshacer.'
-              : 'Se borra la visita planificada. No se puede deshacer.'}
-          </div>
+          {oportunidadesAbiertas > 0 ? (
+            <div className="field-error-text" style={{ marginBottom: 6 }}>
+              No se puede cancelar: tiene{' '}
+              {plural(oportunidadesAbiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin cerrar.
+              Ciérrala{oportunidadesAbiertas > 1 ? 's' : ''} antes.
+            </div>
+          ) : (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-700)', marginBottom: 6 }}>
+              {enCurso
+                ? 'Se borra la visita en curso y todo lo capturado en ella. No se puede deshacer.'
+                : 'Se borra la visita planificada. No se puede deshacer.'}
+            </div>
+          )}
           {cancelar.error && <div className="field-error-text">{cancelar.error}</div>}
           <div className="fila-btns">
             <button
@@ -739,7 +776,7 @@ function FilaVisitaViva({
             <button
               type="button"
               className="btn btn-peligro"
-              disabled={ocupado}
+              disabled={ocupado || oportunidadesAbiertas > 0}
               onClick={hacerCancelar}
             >
               {cancelar.cargando ? 'Cancelando…' : 'Sí, cancelar la visita'}

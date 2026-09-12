@@ -49,12 +49,24 @@ export function useVisitasSinCerrar(args: {
       // Responsables de esas visitas (rol 'responsable' en visita_participante).
       const ids = filas.map((f) => f.id);
       let responsables: Record<string, { id: string; nombre: string }> = {};
+      // Oportunidades abiertas por visita — eliminar_visita_completa rechaza
+      // el borrado si hay alguna (incidente 2026-09-12, ver migración 115);
+      // aquí es solo para no dejar marcar de antemano lo que se sabe que va
+      // a fallar.
+      let oportunidadesAbiertasPorVisita: Record<string, number> = {};
       if (ids.length) {
-        const { data: resp } = await supabase
-          .from('visita_participante')
-          .select('visita_id, comercial_id, comercial:comercial_id(nombre)')
-          .eq('rol', 'responsable')
-          .in('visita_id', ids);
+        const [{ data: resp }, { data: ops }] = await Promise.all([
+          supabase
+            .from('visita_participante')
+            .select('visita_id, comercial_id, comercial:comercial_id(nombre)')
+            .eq('rol', 'responsable')
+            .in('visita_id', ids),
+          supabase
+            .from('oportunidad')
+            .select('visita_origen_id')
+            .in('visita_origen_id', ids)
+            .neq('etapa', 'cerrada'),
+        ]);
         responsables = Object.fromEntries(
           (resp ?? []).map((r) => [
             (r as { visita_id: string }).visita_id,
@@ -64,6 +76,11 @@ export function useVisitasSinCerrar(args: {
             },
           ])
         );
+        oportunidadesAbiertasPorVisita = (ops ?? []).reduce<Record<string, number>>((acc, o) => {
+          const id = (o as { visita_origen_id: string }).visita_origen_id;
+          acc[id] = (acc[id] ?? 0) + 1;
+          return acc;
+        }, {});
       }
 
       const lista: VisitaAbierta[] = filas.map((f) => {
@@ -75,6 +92,7 @@ export function useVisitasSinCerrar(args: {
           desde: f.en_curso_desde,
           esMia: !r || !comercialId || r.id === comercialId,
           responsableNombre: r?.nombre || null,
+          oportunidadesAbiertas: oportunidadesAbiertasPorVisita[f.id] ?? 0,
         };
       });
 

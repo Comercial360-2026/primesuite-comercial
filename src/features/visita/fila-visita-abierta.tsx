@@ -1,5 +1,6 @@
 import { desdeHace } from '@/lib/fechas';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
+import { plural } from '@/lib/texto';
 import { FilaToggle, type EstadoSeleccion } from '@/components/ui/fila-toggle';
 
 export interface VisitaAbierta {
@@ -13,6 +14,11 @@ export interface VisitaAbierta {
   esMia?: boolean;
   /** Nombre del responsable, para "en curso de …" cuando no es mía. */
   responsableNombre?: string | null;
+  /** Oportunidades con etapa <> 'cerrada' colgando de esta visita. > 0 =
+   *  no se puede marcar para descartar (eliminar_visita_completa lo
+   *  rechaza en el servidor de todas formas — esto es solo para no
+   *  dejar marcar algo que se sabe de antemano que va a fallar). */
+  oportunidadesAbiertas?: number;
 }
 
 const COLOR_TONO: Record<string, string> = {
@@ -41,6 +47,7 @@ export function FilaVisitaAbierta({
 }) {
   const tono = tonoPorAntiguedad(visita.desde);
   const esMia = visita.esMia ?? true;
+  const bloqueadaPorOportunidad = esMia && (visita.oportunidadesAbiertas ?? 0) > 0;
   const meta = [
     visita.proyectoNombre || null,
     visita.desde ? `abierta ${desdeHace(visita.desde)}` : null,
@@ -48,7 +55,7 @@ export function FilaVisitaAbierta({
     .filter(Boolean)
     .join(' · ');
 
-  const seleccionando = !!seleccion?.activa && esMia;
+  const seleccionando = !!seleccion?.activa && esMia && !bloqueadaPorOportunidad;
   const marcada = !!seleccion?.marcada;
 
   return (
@@ -84,6 +91,12 @@ export function FilaVisitaAbierta({
         {!esMia && (
           <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
             en curso de {visita.responsableNombre || 'otro comercial'} · no puedes cerrarla
+          </span>
+        )}
+        {bloqueadaPorOportunidad && (
+          <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginTop: 2 }}>
+            {plural(visita.oportunidadesAbiertas ?? 0, 'oportunidad abierta', 'oportunidades abiertas')} · ciérrala
+            {(visita.oportunidadesAbiertas ?? 0) > 1 ? 's' : ''} para poder descartarla
           </span>
         )}
       </span>
