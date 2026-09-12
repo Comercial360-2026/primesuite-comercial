@@ -1075,26 +1075,28 @@ textarea.field {
 /* fila de acciones de la pantalla: chips homogéneos, con wrap en móvil */
 .voc-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-/* Catálogo entero = UNA lista fundida (mismo `.seccion-lista__grupo` que
-   cualquier otra lista de la app, p. ej. "Por comercial" en Consumo por
-   comercial): un solo borde, un solo fondo blanco, filas seguidas sin
-   huecos entre categorías. Cada categoría es una sub-cabecera dentro de
-   ese grupo (mismo patrón ya usado en Agenda para "Mañana"/"Tarde"), no
-   una banda ni una tarjeta aparte. */
-.voc-catalogo { display: flex; flex-direction: column; }
+/* Cada categoría es su propia tarjeta (`.seccion-lista__grupo`), separadas
+   por aire — no una lista fundida. Con 3 niveles de jerarquía (Categoría ›
+   Término › Modelo) fundirlo todo en un único bloque blanco borraba dónde
+   empieza y acaba cada categoría (p. ej. el "+ Añadir término" de una
+   categoría vacía quedaba pegado a la cabecera de la siguiente). */
+.voc-catalogo { display: flex; flex-direction: column; gap: var(--space-3); }
 
-/* La sub-cabecera de categoría reutiliza `.seccion-lista__subcabecera`
-   (borde superior, fondo, padding) para el ritmo; aquí solo se resuelve el
-   layout interno (icono + nombre + contador + iconos de orden) y se
-   anula su tamaño de letra pequeño — el nombre de categoría pesa más que
-   un simple "Mañana/Tarde". Sin negrita: peso normal, como cualquier fila. */
-.voc-cat-label-row { display: flex; align-items: center; gap: var(--space-1); }
+/* Cabecera de categoría: fondo propio (se lee como "estante", no como una
+   fila más) y tipografía con peso real — antes era MÁS pequeña que el
+   término que contiene (14px/400 vs 16px/400 de la fila hija), invirtiendo
+   la jerarquía visual. Ahora pesa claramente más que su contenido. */
+.voc-cat-label-row {
+  display: flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-3) var(--fila-pad-x);
+  background: var(--surface-0);
+}
 .voc-cat-label {
   flex: 1; min-width: 0;
   display: flex; align-items: center; gap: var(--space-2);
   padding: 0; margin: 0;
   background: none; border: none; font-family: var(--font-sans);
-  font-size: var(--text-sm); font-weight: 400; color: var(--ink-900);
+  font-size: var(--text-base); font-weight: 600; color: var(--ink-900);
   text-align: left; cursor: pointer;
 }
 .voc-cat-label .fila__icono { color: var(--ink-400); flex-shrink: 0; }
