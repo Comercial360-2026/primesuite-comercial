@@ -362,7 +362,7 @@ export function DetalleOportunidad() {
   if (isLoading || (!oportunidad && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Oportunidad" volverA={volver} />
+        <CabeceraDetalle titulo="Oportunidad" ayuda="detalle-oportunidad" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -371,7 +371,7 @@ export function DetalleOportunidad() {
   if (isError || !oportunidad) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Oportunidad" volverA={volver} />
+        <CabeceraDetalle titulo="Oportunidad" ayuda="detalle-oportunidad" volverA={volver} />
         <EstadoLista
           estado="error"
           mensaje="No se pudo cargar la oportunidad. Puede que no tengas permiso."

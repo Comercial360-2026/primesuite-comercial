@@ -153,7 +153,7 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos, notas y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre. Las oportunidades abiertas solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
   },
 
   // — Una visita, paso a paso —
@@ -188,7 +188,7 @@ const _PANTALLAS = {
     queEs:
       'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso—. «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas y se guarda como nota; si además es un hallazgo («algo que tienen») o una oportunidad («algo para venderles»), lo marcas ahí mismo. Un hallazgo puede llevar una o varias categorías del catálogo (Hardware, Software…), opcional. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y dos botones para interlocutores y equipo. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
     cuando:
-      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» puedes dictar en vez de escribir. Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
+      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» y en el resto de campos de texto largo puedes dictar en vez de escribir (icono de micro dentro del propio campo). Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
     ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada. Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar.',
   },
   'cierre-visita': {
@@ -331,6 +331,15 @@ const _PANTALLAS = {
     cuando: 'Para ver quién se está moviendo (la lista se ordena por actividad), cómo se reparte el trabajo del equipo, o en qué está centrado alguien en concreto.',
     soloDireccion: true,
   },
+  'detalle-actividad-comercial': {
+    grupo: 'direccion',
+    titulo: 'Actividad de un comercial, por proyecto',
+    queEs:
+      'La actividad de un comercial concreto (visitas, hallazgos, capturas, oportunidades activas), desglosada proyecto a proyecto en vez de en un solo total. Mismo periodo que la lista: últimos 30 días o «Todo».',
+    cuando:
+      'Para ver en qué clientes y proyectos se está centrando esa persona, no solo cuánto en total. Toca un proyecto para entrar en su ficha.',
+    soloDireccion: true,
+  },
 } satisfies Record<string, EntradaPantalla>;
 
 const _CONCEPTOS = {
@@ -407,6 +416,14 @@ const _CONCEPTOS = {
       'PrimeNotes se puede usar entera sin cobertura: haces la visita con normalidad y todo sube al recuperar señal, sin pulsar nada. En «Yo» es donde compruebas si queda algo pendiente. Si un elemento sigue marcado como «sin sincronizar» teniendo ya conexión, no es un problema de cobertura: el motivo real sale escrito debajo de cada uno, y ahí mismo puedes reintentarlo o descartarlo.',
     ejemplo:
       'Visitas un polígono sin cobertura, capturas 12 fotos y 3 hallazgos y cierras la visita. Al volver al coche y recuperar señal, todo sube solo en segundo plano.',
+  },
+  dictado: {
+    grupo: 'app',
+    titulo: 'Dictar en vez de escribir',
+    queEs:
+      'Cualquier campo de texto largo (Anotar, la nota de un hallazgo, la descripción de una oportunidad, un próximo paso, el objetivo de una visita, el resumen al cerrarla, el título de una foto o audio, reportar un problema…) tiene un icono de micro dentro del propio campo — abajo a la derecha en un texto de varias líneas, a la derecha en uno de una línea. Tócalo para dictar; se ve un punto rojo mientras escucha y se para tocando otra vez. No está en campos de un valor exacto y corto (nombre de cliente, zona, categoría nueva, buscadores): ahí escribir es más fiable que dictar.',
+    cuando:
+      'Cuando escribir en el móvil es incómodo —delante del cliente, con las manos ocupadas mirando un equipo—. Si el navegador deniega el permiso de micrófono, el propio campo lo avisa.',
   },
   'instalar-app': {
     grupo: 'app',

@@ -380,7 +380,7 @@ export function DetalleCaptura() {
   if (!captura) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Captura" volverA={volver} />
+        <CabeceraDetalle titulo="Captura" ayuda="detalle-captura" volverA={volver} />
         <p style={{ color: 'var(--ink-400)' }}>No se ha encontrado esta captura.</p>
       </div>
     );

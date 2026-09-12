@@ -305,7 +305,7 @@ export function DetalleHallazgo() {
   if (isLoading || (!hallazgo && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Hallazgo" volverA={volver} />
+        <CabeceraDetalle titulo="Hallazgo" ayuda="detalle-hallazgo" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -314,7 +314,7 @@ export function DetalleHallazgo() {
   if (isError || !hallazgo) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Hallazgo" volverA={volver} />
+        <CabeceraDetalle titulo="Hallazgo" ayuda="detalle-hallazgo" volverA={volver} />
         <EstadoLista
           estado="error"
           mensaje="No se pudo cargar el hallazgo. Puede que no tengas permiso."

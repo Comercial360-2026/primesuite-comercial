@@ -260,7 +260,7 @@ export function DetalleProximoPaso() {
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" volverA={volver} />
+        <CabeceraDetalle titulo="Próximo paso" ayuda="proximo-paso" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -269,7 +269,7 @@ export function DetalleProximoPaso() {
   if (isError || !paso) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" volverA={volver} />
+        <CabeceraDetalle titulo="Próximo paso" ayuda="proximo-paso" volverA={volver} />
         <EstadoLista estado="error" mensaje="No se pudo cargar este próximo paso." onReintentar={() => refetch()} />
       </div>
     );

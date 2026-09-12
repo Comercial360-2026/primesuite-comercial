@@ -115,7 +115,7 @@ export function AltaComercial() {
     return (
       <div className="screen screen--split">
         {/* Ya creado: volver a la lista, no al formulario vacío. */}
-        <CabeceraDetalle titulo="Comercial creado" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial creado" ayuda="alta-comercial" volverA="/comerciales" />
         <div className="screen__scroll">
          <div className="lista-agrupada">
           <Aviso tipo="exito" titulo={`${nombre.trim()} está dada de alta`}>

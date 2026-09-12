@@ -76,6 +76,7 @@ export function DetalleActividadComercial() {
       <CabeceraDetalle
         titulo={comercial?.nombre ?? 'Comercial'}
         subtitulo="Actividad por proyecto"
+        ayuda="detalle-actividad-comercial"
         avatar={comercial?.nombre}
         volverA={volver}
       />

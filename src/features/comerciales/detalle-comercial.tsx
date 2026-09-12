@@ -170,7 +170,7 @@ export function DetalleComercial() {
   if (isLoading || (!data && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -178,7 +178,7 @@ export function DetalleComercial() {
   if (isError || !data) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
         <EstadoLista estado="error" mensaje="No se pudo cargar este comercial." onReintentar={() => refetch()} />
       </div>
     );

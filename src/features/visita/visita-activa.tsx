@@ -1323,6 +1323,7 @@ export function VisitaActiva() {
         <CabeceraDetalle
           titulo={cliente?.nombre ?? '…'}
           subtitulo="Visita cerrada"
+          ayuda="visita-activa"
           onVolver={() => navigate(volver)}
         />
         <div className="screen__scroll">
