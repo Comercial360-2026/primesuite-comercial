@@ -57,7 +57,12 @@ async function guardarArchivoEnDisco(url: string) {
 export function useDescargarInforme() {
   const [estados, setEstados] = useState<Record<string, EstadoDescarga>>({});
 
-  async function descargar(tipo: TipoInforme, id: string) {
+  // Devuelve el resultado además de guardarlo en `estados`: quien encadena
+  // varias descargas en secuencia (liberar espacio de un proyecto entero)
+  // necesita saber el resultado de ESTA llamada al terminar el `await`, sin
+  // depender de releer `estadoDe` — ese closure no se actualiza a mitad de
+  // una función async ya en marcha, solo en el siguiente render.
+  async function descargar(tipo: TipoInforme, id: string): Promise<EstadoDescarga> {
     setEstados((prev) => ({ ...prev, [id]: 'generando' }));
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -76,7 +81,8 @@ export function useDescargarInforme() {
       const { data, error } = await Promise.race([invocacion, limite]);
       if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
-      setEstados((prev) => ({ ...prev, [id]: { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 } }));
+      const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 };
+      setEstados((prev) => ({ ...prev, [id]: listo }));
       // Un solo toque: en cuanto está listo, el archivo se guarda solo. Si esto
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace
       // <a href> de reserva para bajarlo a mano.
@@ -85,9 +91,12 @@ export function useDescargarInforme() {
       } catch {
         /* enlace de reserva visible en la propia fila/botón */
       }
+      return listo;
     } catch (e) {
       const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
-      setEstados((prev) => ({ ...prev, [id]: sinRed ? 'sin-red' : 'error' }));
+      const resultado: EstadoDescarga = sinRed ? 'sin-red' : 'error';
+      setEstados((prev) => ({ ...prev, [id]: resultado }));
+      return resultado;
     } finally {
       clearTimeout(temporizador);
     }

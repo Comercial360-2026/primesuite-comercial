@@ -2291,6 +2291,25 @@ export type Database = {
         Args: { p_visita_id: string }
         Returns: boolean
       }
+      fn_visitas_liberables_proyecto: {
+        Args: { p_proyecto_id: string }
+        Returns: {
+          bytes: number
+          fecha: string
+          oportunidades_abiertas: number
+          puede_liberarla: boolean
+          rutas_storage: string[]
+          visita_id: string
+        }[]
+      }
+      liberar_visitas_proyecto: {
+        Args: { p_proyecto_id: string; p_visita_ids: string[] }
+        Returns: {
+          liberada: boolean
+          motivo: string
+          visita_id: string
+        }[]
+      }
       mover_visita_de_proyecto: {
         Args: { p_proyecto_id: string; p_visita_id: string }
         Returns: undefined

@@ -25,6 +25,7 @@ import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
 import { FichaProyecto } from '@/features/proyectos/ficha-proyecto';
+import { EspacioProyecto } from '@/features/proyectos/espacio-proyecto';
 import { Deduplicacion } from '@/features/clientes/deduplicacion';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
@@ -95,6 +96,7 @@ export function AppRoutes() {
           {/* Proyecto — anidado bajo su cliente (P13): mantiene
               Cliente › Proyecto siempre en la URL y en la cabecera. */}
           <Route path="/clientes/:clienteId/proyectos/:proyectoId" element={<FichaProyecto />} />
+          <Route path="/clientes/:clienteId/proyectos/:proyectoId/espacio" element={<EspacioProyecto />} />
 
           {/* Nivel 2 — Detalle, múltiples puntos de entrada, misma pantalla */}
           <Route path="/hallazgos/:hallazgoId" element={<DetalleHallazgo />} />

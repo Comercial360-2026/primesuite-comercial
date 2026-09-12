@@ -234,16 +234,20 @@ function MisVisitas() {
           .single();
         if (error) throw new Error(error.message);
         const rutas = (data as PrevisualizacionBorrado).rutas_storage ?? [];
-        // Mismo orden obligatorio que el borrado individual: Storage antes
-        // que el RPC (que borra la fila de participante de la cascada).
+        // BUG corregido: el orden estaba invertido (Storage antes que el
+        // RPC). Si el RPC fallaba después (p. ej. una oportunidad se abrió
+        // justo entre previsualizar y confirmar), se perdían fotos/audios de
+        // una visita que seguía existiendo. Mismo orden que el borrado
+        // individual (use-borrar-visita.ts): RPC primero, Storage solo si
+        // tuvo éxito.
+        const { error: errDel } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
+        if (errDel) throw new Error(errDel.message);
         if (rutas.length) {
           await Promise.all([
             supabase.storage.from('fotos-visita').remove(rutas),
             supabase.storage.from('audios-visita').remove(rutas),
           ]);
         }
-        const { error: errDel } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
-        if (errDel) throw new Error(errDel.message);
       } catch {
         fallos.push(id);
       }
@@ -251,6 +255,12 @@ function MisVisitas() {
     }
     queryClient.invalidateQueries({ queryKey: espacioQueryKey });
     queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+    // Hueco corregido: faltaba refrescar el medidor de espacio del equipo,
+    // que se quedaba con la cifra vieja hasta que expiraba su staleTime
+    // de 60s (o un remount) aunque el borrado ya hubiera liberado bytes.
+    queryClient.invalidateQueries({ queryKey: ['mi-espacio-total'] });
+    queryClient.invalidateQueries({ queryKey: ['cuota-comercial-bytes'] });
+    queryClient.invalidateQueries({ queryKey: ['espacio-equipo'] });
     setProgresoLote(null);
     if (fallos.length === 0) {
       setSeleccionando(false);

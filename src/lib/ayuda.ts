@@ -153,7 +153,16 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos, notas y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver archivados» muestra los que se dieron por pasados. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe.',
+  },
+  'espacio-proyecto': {
+    grupo: 'cliente',
+    titulo: 'Liberar espacio (proyecto)',
+    queEs:
+      'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
+    cuando:
+      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marcas las que quieras liberar y confirmas: se descarga el backup completo (fotos, audios y PDF) de cada una, una a una, y solo cuando una se ha descargado bien se borra de verdad.',
+    ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
   },
 
   // — Una visita, paso a paso —
