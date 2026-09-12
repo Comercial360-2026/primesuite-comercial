@@ -51,10 +51,10 @@ interface DetalleVisita {
   cliente_nombre: string;
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
-  notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
-  hallazgos: Array<{ id: string; nota: string | null; areas: Area[] }>;
-  oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null }>;
-  proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string }>;
+  notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
+  hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
+  oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
+  proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string; zona_texto: string | null }>;
 }
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
@@ -135,16 +135,16 @@ export function DetalleVisitaCerrada() {
           .order('creado_en', { ascending: true }),
         supabase
           .from('hallazgo')
-          .select('id, nota')
+          .select('id, nota, zona_texto')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
           .from('oportunidad')
-          .select('id, titulo, etapa, prioridad, valor_estimado')
+          .select('id, titulo, etapa, prioridad, valor_estimado, zona_texto')
           .eq('visita_origen_id', visitaId!),
         supabase
           .from('proximo_paso')
-          .select('id, descripcion, fecha_objetivo, estado')
+          .select('id, descripcion, fecha_objetivo, estado, zona_texto')
           .eq('visita_id', visitaId!)
           .order('fecha_objetivo', { ascending: true }),
       ]);
@@ -196,10 +196,16 @@ export function DetalleVisitaCerrada() {
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
         audios,
-        notas: notas.map((n) => ({ id: n.id, titulo: n.titulo, contenido_texto: n.contenido_texto })),
+        notas: notas.map((n) => ({
+          id: n.id,
+          titulo: n.titulo,
+          contenido_texto: n.contenido_texto,
+          zona_texto: (n as { zona_texto?: string | null }).zona_texto ?? null,
+        })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
           nota: h.nota,
+          zona_texto: h.zona_texto,
           areas: mapaAreasHz.get(h.id) ?? [],
         })),
         oportunidades: (oportunidades ?? []) as DetalleVisita['oportunidades'],
@@ -420,7 +426,12 @@ export function DetalleVisitaCerrada() {
                 <FilaNavegable
                   key={o.id}
                   titulo={o.titulo}
-                  subtitulo={`${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`}
+                  subtitulo={[
+                    `${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`,
+                    o.zona_texto?.trim() || null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                   valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
                   to={`/oportunidades/${o.id}`}
                   state={origen}
@@ -436,6 +447,7 @@ export function DetalleVisitaCerrada() {
                 <FilaNavegable
                   key={h.id}
                   titulo={h.nota?.trim() || 'Hallazgo'}
+                  subtitulo={h.zona_texto?.trim() || undefined}
                   valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
                   valorTenue
                   to={`/hallazgos/${h.id}`}
@@ -453,6 +465,7 @@ export function DetalleVisitaCerrada() {
                   <FilaNavegable
                     key={p.id}
                     titulo={p.descripcion}
+                    subtitulo={p.zona_texto?.trim() || undefined}
                     tono={vencido ? 'riesgo' : 'neutral'}
                     valor={
                       vencido ? (
@@ -488,6 +501,11 @@ export function DetalleVisitaCerrada() {
                     <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>
                       {n.contenido_texto}
                     </div>
+                    {n.zona_texto?.trim() && (
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                        {n.zona_texto}
+                      </div>
+                    )}
                     <span aria-hidden className="dvc-bloque__editar">
                       <Icono nombre="editar" size={14} />
                     </span>

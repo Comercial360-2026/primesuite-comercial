@@ -18,6 +18,7 @@ interface ProximoPaso {
   fecha_objetivo: string | null;
   estado: string;
   oportunidad_id: string | null;
+  zona_texto: string | null;
   visita: { cliente: { id: string; nombre: string } | null } | null;
 }
 
@@ -46,7 +47,7 @@ export function MisProximosPasos() {
     queryFn: async (): Promise<ProximoPaso[]> => {
       const { data, error } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, visita:visita_id(cliente:cliente_id(id, nombre))')
+        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, zona_texto, visita:visita_id(cliente:cliente_id(id, nombre))')
         .eq('comercial_responsable_id', comercial!.id)
         .eq('estado', filtro)
         .order('fecha_objetivo', { ascending: true });
@@ -151,7 +152,8 @@ export function MisProximosPasos() {
       ? ` · ${vencido ? `vencido ${haceRelativo(p.fecha_objetivo)}` : fechaCorta(p.fecha_objetivo)}`
       : '';
     const notaRevisita = revisita ? ` · revisita ${fechaCorta(revisita)}` : '';
-    const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
+    const zona = p.zona_texto?.trim() ? ` · ${p.zona_texto.trim()}` : '';
+    const subtitulo = `${cliente}${cuando}${notaRevisita}${zona}${guardandoEsta ? ' · guardando…' : ''}`;
 
     if (filtro === 'completado') {
       return (
