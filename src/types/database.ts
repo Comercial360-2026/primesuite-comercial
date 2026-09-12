@@ -62,13 +62,6 @@ export type Database = {
             foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
             columns: ["comercial_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "aviso_liberar_espacio_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -91,13 +84,6 @@ export type Database = {
             columns: ["pedido_por"]
             isOneToOne: false
             referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "aviso_liberar_espacio_pedido_por_fkey"
-            columns: ["pedido_por"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
             referencedColumns: ["comercial_id"]
           },
           {
@@ -161,11 +147,9 @@ export type Database = {
           creado_en?: string
           estado_subida?: string
           estado_validacion?: string
-          hallazgo_id?: string | null
           id?: string
           latitud?: number | null
           longitud?: number | null
-          oportunidad_id?: string | null
           origen?: string
           storage_path?: string | null
           storage_path_thumbnail?: string | null
@@ -215,13 +199,6 @@ export type Database = {
             foreignKeyName: "captura_libre_comercial_autor_id_fkey"
             columns: ["comercial_autor_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "captura_libre_comercial_autor_id_fkey"
-            columns: ["comercial_autor_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -233,25 +210,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "captura_libre_ubicacion_id_fkey"
-            columns: ["ubicacion_id"]
-            isOneToOne: false
-            referencedRelation: "vw_mapa_hallazgos_ubicacion"
-            referencedColumns: ["ubicacion_id"]
-          },
-          {
             foreignKeyName: "captura_libre_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "captura_libre_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -353,13 +316,6 @@ export type Database = {
             columns: ["responsable_id"]
             isOneToOne: false
             referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "cliente_responsable_id_fkey"
-            columns: ["responsable_id"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
             referencedColumns: ["comercial_id"]
           },
           {
@@ -496,13 +452,6 @@ export type Database = {
             foreignKeyName: "hallazgo_comercial_autor_id_fkey"
             columns: ["comercial_autor_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "hallazgo_comercial_autor_id_fkey"
-            columns: ["comercial_autor_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -531,13 +480,6 @@ export type Database = {
             foreignKeyName: "hallazgo_comercial_validador_id_fkey"
             columns: ["comercial_validador_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "hallazgo_comercial_validador_id_fkey"
-            columns: ["comercial_validador_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -556,25 +498,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "hallazgo_ubicacion_id_fkey"
-            columns: ["ubicacion_id"]
-            isOneToOne: false
-            referencedRelation: "vw_mapa_hallazgos_ubicacion"
-            referencedColumns: ["ubicacion_id"]
-          },
-          {
             foreignKeyName: "hallazgo_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hallazgo_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -614,13 +542,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hallazgo"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hallazgo_area_hallazgo_id_fkey"
-            columns: ["hallazgo_id"]
-            isOneToOne: false
-            referencedRelation: "vw_ecosistema_actual_cliente"
-            referencedColumns: ["hallazgo_id"]
           },
           {
             foreignKeyName: "hallazgo_area_termino_id_fkey"
@@ -699,6 +620,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_cliente_resuelto"
             referencedColumns: ["cliente_id"]
+          },
+        ]
+      }
+      item_hallazgo_hibernado: {
+        Row: {
+          areas: Json
+          comercial_id: string
+          congelado_en: string
+          item_id: string
+        }
+        Insert: {
+          areas?: Json
+          comercial_id: string
+          congelado_en?: string
+          item_id: string
+        }
+        Update: {
+          areas?: Json
+          comercial_id?: string
+          congelado_en?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_hallazgo_hibernado_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_hallazgo_hibernado_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "item_hallazgo_hibernado_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "item_hallazgo_hibernado_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
           },
         ]
       }
@@ -812,13 +783,6 @@ export type Database = {
             foreignKeyName: "oportunidad_comercial_autor_id_fkey"
             columns: ["comercial_autor_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "oportunidad_comercial_autor_id_fkey"
-            columns: ["comercial_autor_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -828,13 +792,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hallazgo"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "oportunidad_hallazgo_origen_id_fkey"
-            columns: ["hallazgo_origen_id"]
-            isOneToOne: false
-            referencedRelation: "vw_ecosistema_actual_cliente"
-            referencedColumns: ["hallazgo_id"]
           },
           {
             foreignKeyName: "oportunidad_oportunidad_antecedente_id_fkey"
@@ -865,25 +822,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "oportunidad_ubicacion_id_fkey"
-            columns: ["ubicacion_id"]
-            isOneToOne: false
-            referencedRelation: "vw_mapa_hallazgos_ubicacion"
-            referencedColumns: ["ubicacion_id"]
-          },
-          {
             foreignKeyName: "oportunidad_visita_origen_id_fkey"
             columns: ["visita_origen_id"]
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "oportunidad_visita_origen_id_fkey"
-            columns: ["visita_origen_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -995,13 +938,6 @@ export type Database = {
             foreignKeyName: "oportunidad_visita_seguimiento_comercial_id_fkey"
             columns: ["comercial_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "oportunidad_visita_seguimiento_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1025,13 +961,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "oportunidad_visita_seguimiento_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -1107,13 +1036,6 @@ export type Database = {
             foreignKeyName: "proximo_paso_comercial_responsable_id_fkey"
             columns: ["comercial_responsable_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "proximo_paso_comercial_responsable_id_fkey"
-            columns: ["comercial_responsable_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1144,13 +1066,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "proximo_paso_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -1260,11 +1175,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reporte_problema_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_comercial_id_fkey"
+            columns: ["comercial_id"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
             foreignKeyName: "reporte_problema_resuelto_por_fkey"
             columns: ["resuelto_por"]
             isOneToOne: false
             referencedRelation: "comercial"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "reporte_problema_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
           },
         ]
       }
@@ -1346,13 +1303,6 @@ export type Database = {
             foreignKeyName: "solicitud_acceso_comercial_id_fkey"
             columns: ["comercial_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "solicitud_acceso_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1375,13 +1325,6 @@ export type Database = {
             columns: ["resuelto_por"]
             isOneToOne: false
             referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "solicitud_acceso_resuelto_por_fkey"
-            columns: ["resuelto_por"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
             referencedColumns: ["comercial_id"]
           },
           {
@@ -1450,13 +1393,6 @@ export type Database = {
             foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
             columns: ["comercial_asignado_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "solicitud_reasignacion_comercial_asignado_id_fkey"
-            columns: ["comercial_asignado_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1485,13 +1421,6 @@ export type Database = {
             foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
             columns: ["comercial_solicitante_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "solicitud_reasignacion_comercial_solicitante_id_fkey"
-            columns: ["comercial_solicitante_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1501,13 +1430,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "solicitud_reasignacion_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
         ]
       }
@@ -1570,13 +1492,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "visita"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_termino_visita_origen"
-            columns: ["visita_origen_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
           },
           {
             foreignKeyName: "termino_categoria_id_fkey"
@@ -1652,13 +1567,6 @@ export type Database = {
             foreignKeyName: "termino_propuesto_por_id_fkey"
             columns: ["propuesto_por_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "termino_propuesto_por_id_fkey"
-            columns: ["propuesto_por_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1681,13 +1589,6 @@ export type Database = {
             columns: ["resuelto_por_id"]
             isOneToOne: false
             referencedRelation: "vw_comercial_resuelto"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "termino_resuelto_por_id_fkey"
-            columns: ["resuelto_por_id"]
-            isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
             referencedColumns: ["comercial_id"]
           },
           {
@@ -1842,13 +1743,6 @@ export type Database = {
             referencedRelation: "visita"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "visita_interlocutor_visita_id_fkey"
-            columns: ["visita_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
-          },
         ]
       }
       visita_participante: {
@@ -1908,13 +1802,6 @@ export type Database = {
             foreignKeyName: "visita_participante_anadido_por_fkey"
             columns: ["anadido_por"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "visita_participante_anadido_por_fkey"
-            columns: ["anadido_por"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1943,13 +1830,6 @@ export type Database = {
             foreignKeyName: "visita_participante_comercial_id_fkey"
             columns: ["comercial_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "visita_participante_comercial_id_fkey"
-            columns: ["comercial_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -1960,12 +1840,34 @@ export type Database = {
             referencedRelation: "visita"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      zona_visita: {
+        Row: {
+          creado_en: string
+          visita_id: string
+          zona_clave: string
+          zona_texto: string
+        }
+        Insert: {
+          creado_en?: string
+          visita_id: string
+          zona_clave: string
+          zona_texto: string
+        }
+        Update: {
+          creado_en?: string
+          visita_id?: string
+          zona_clave?: string
+          zona_texto?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "visita_participante_visita_id_fkey"
+            foreignKeyName: "zona_visita_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
+            referencedRelation: "visita"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2037,24 +1939,6 @@ export type Database = {
           termino_id: string | null
           ubicacion_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "hallazgo_ubicacion_id_fkey"
-            columns: ["ubicacion_id"]
-            isOneToOne: false
-            referencedRelation: "ubicacion"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      vw_motivos_perdida: {
-        Row: {
-          cliente_id: string | null
-          comercial_id: string | null
-          motivo_cierre: string | null
-          num_oportunidades: number | null
-          solucion: string | null
-        }
         Relationships: []
       }
       vw_pipeline_oportunidades: {
@@ -2122,13 +2006,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_termino_visita_origen"
-            columns: ["visita_origen_id"]
-            isOneToOne: false
-            referencedRelation: "vw_resumen_visita"
-            referencedColumns: ["visita_id"]
-          },
-          {
             foreignKeyName: "termino_propuesto_por_id_fkey"
             columns: ["propuesto_por_id"]
             isOneToOne: false
@@ -2153,13 +2030,6 @@ export type Database = {
             foreignKeyName: "termino_propuesto_por_id_fkey"
             columns: ["propuesto_por_id"]
             isOneToOne: false
-            referencedRelation: "vw_motivos_perdida"
-            referencedColumns: ["comercial_id"]
-          },
-          {
-            foreignKeyName: "termino_propuesto_por_id_fkey"
-            columns: ["propuesto_por_id"]
-            isOneToOne: false
             referencedRelation: "vw_pipeline_oportunidades"
             referencedColumns: ["comercial_id"]
           },
@@ -2167,6 +2037,19 @@ export type Database = {
       }
     }
     Functions: {
+      crear_cliente_con_proyecto: {
+        Args: {
+          p_cliente_id: string
+          p_creado_por: string
+          p_nombre_cliente: string
+          p_nombre_proyecto: string
+          p_responsable_id: string
+        }
+        Returns: {
+          cliente_id: string
+          proyecto_id: string
+        }[]
+      }
       crear_visita_con_responsable: {
         Args: {
           p_cliente_id: string
@@ -2181,6 +2064,7 @@ export type Database = {
           actualizado_en: string
           cliente_id: string
           creado_en: string
+          en_curso_desde: string | null
           estado_captura: string
           fecha: string
           franja: string | null
@@ -2208,18 +2092,8 @@ export type Database = {
         Args: { p_oportunidad_id: string }
         Returns: undefined
       }
-      crear_cliente_con_proyecto: {
-        Args: {
-          p_cliente_id: string
-          p_nombre_cliente: string
-          p_nombre_proyecto: string
-          p_creado_por: string
-          p_responsable_id: string
-        }
-        Returns: { cliente_id: string; proyecto_id: string }[]
-      }
       eliminar_proyecto: {
-        Args: { p_proyecto_id: string; p_destino_id: string }
+        Args: { p_destino_id: string; p_proyecto_id: string }
         Returns: undefined
       }
       eliminar_ubicacion: {
@@ -2231,7 +2105,7 @@ export type Database = {
         Returns: undefined
       }
       fn_actividad_comercial_por_proyecto: {
-        Args: { p_comercial_id: string; p_desde?: string | null }
+        Args: { p_comercial_id: string; p_desde?: string }
         Returns: {
           cliente_id: string
           cliente_nombre: string
@@ -2247,7 +2121,7 @@ export type Database = {
         }[]
       }
       fn_actividad_por_comercial: {
-        Args: { p_desde?: string | null }
+        Args: { p_desde?: string }
         Returns: {
           comercial_id: string
           nombre: string
@@ -2372,7 +2246,7 @@ export type Database = {
         }[]
       }
       recategorizar_item: {
-        Args: { p_id: string; p_desde: string; p_hacia: string }
+        Args: { p_desde: string; p_hacia: string; p_id: string }
         Returns: string
       }
       resolver_termino_propuesto: {

@@ -54,7 +54,7 @@ export function DetalleActividadComercial() {
     queryFn: async (): Promise<ActividadProyecto[]> => {
       const { data, error } = await supabase.rpc('fn_actividad_comercial_por_proyecto', {
         p_comercial_id: comercialId!,
-        p_desde: desdeDePeriodo(periodo),
+        p_desde: desdeDePeriodo(periodo) ?? undefined,
       });
       if (error) throw error;
       return (data ?? []) as ActividadProyecto[];

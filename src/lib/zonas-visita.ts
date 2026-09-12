@@ -16,28 +16,19 @@ export function deduplicarZonas(valores: (string | null | undefined)[]): string[
   return [...vistas.values()].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
-// Zonas ya escritas en ESTA visita (en cualquier nota, hallazgo,
-// oportunidad o próximo paso), para poder ELEGIR una en vez de
-// reescribirla cada vez — mismo criterio que "zonas usadas" en Anotar
-// (visita-activa.tsx), pero leído del servidor: aquí se edita un ítem que
-// ya existe, con la visita en curso o ya cerrada, así que no basta con
-// mirar la cola offline en memoria.
+// Zonas ya vistas en ESTA visita, para poder ELEGIR una en vez de
+// reescribirla cada vez. Lee del catálogo `zona_visita` (migración 100),
+// no de un escaneo en caliente de captura_libre/hallazgo/oportunidad/
+// proximo_paso: un escaneo en caliente "olvida" una zona en cuanto el
+// único registro que la usaba cambia a otra — un comercial que reasigna
+// SU hallazgo le borraba la zona a los demás. El catálogo es un apéndice
+// (lo rellena un trigger, ver migración 100): una zona, una vez vista, se
+// queda en la lista aunque el registro que la introdujo ya no la use.
 export async function listarZonasUsadasEnVisita(visitaId: string): Promise<string[]> {
-  const [capturas, hallazgos, oportunidades, pasos] = await Promise.all([
-    supabase.from('captura_libre').select('zona_texto').eq('visita_id', visitaId),
-    supabase.from('hallazgo').select('zona_texto').eq('visita_id', visitaId),
-    // La oportunidad no lleva `visita_id` — se cuelga de la visita en la
-    // que se detectó vía `visita_origen_id`.
-    supabase.from('oportunidad').select('zona_texto').eq('visita_origen_id', visitaId),
-    supabase.from('proximo_paso').select('zona_texto').eq('visita_id', visitaId),
-  ]);
+  const { data } = await supabase
+    .from('zona_visita')
+    .select('zona_texto')
+    .eq('visita_id', visitaId);
 
-  const filas = [
-    ...(capturas.data ?? []),
-    ...(hallazgos.data ?? []),
-    ...(oportunidades.data ?? []),
-    ...(pasos.data ?? []),
-  ] as { zona_texto: string | null }[];
-
-  return deduplicarZonas(filas.map((f) => f.zona_texto));
+  return deduplicarZonas((data ?? []).map((f) => f.zona_texto));
 }

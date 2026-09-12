@@ -51,7 +51,7 @@ export function ActividadComerciales() {
     queryKey,
     queryFn: async (): Promise<ActividadComercial[]> => {
       const { data, error } = await supabase.rpc('fn_actividad_por_comercial', {
-        p_desde: desdeDePeriodo(periodo),
+        p_desde: desdeDePeriodo(periodo) ?? undefined,
       });
       if (error) throw error;
       return (data ?? []) as ActividadComercial[];
