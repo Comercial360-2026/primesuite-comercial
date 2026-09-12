@@ -157,6 +157,15 @@ body {
   color: var(--ink-400); opacity: 0.7; cursor: default;
 }
 .capture-btn:disabled > svg { color: var(--ink-400); }
+/* Zona activa (Recorrido): mismo lenguaje que "grabando" de abajo — el
+   botón entero cambia para que se note sin depender de leer la banda de
+   arriba, sobre todo con el móvil en la mano y sin mirar fijo. Se apaga el
+   color de tipo mientras dura: la forma del icono sigue identificando el
+   botón (regla de "Color y accesibilidad"), el color aquí es solo refuerzo
+   de la zona, no de sustituir al tipo. Declarada ANTES de .capture-btn--rec
+   para que grabar gane si coinciden (más urgente/momentáneo). */
+.capture-btn--zona-activa { background: var(--brand-600); border-color: var(--brand-600); color: #fff; }
+.capture-btn--zona-activa > svg { color: #fff; }
 /* Grabando: el botón entero cambia (fondo, borde y color de rojo REC) y
    lleva un punto que late + el cronómetro mm:ss — se ve de un vistazo que
    está grabando, no solo por la palabra "Detener" (regla #11: forma +

@@ -1967,7 +1967,7 @@ export function VisitaActiva() {
             después. */}
         <div className="capture-grid" style={{ rowGap: 'var(--space-4)' }}>
           <button
-            className="capture-btn capture-btn--foto"
+            className={`capture-btn capture-btn--foto${hayZonaActiva ? ' capture-btn--zona-activa' : ''}`}
             disabled={capturaFoto.cargando || espacioBloqueado}
             onClick={() => inputFotoRef.current?.click()}
           >
@@ -1975,7 +1975,7 @@ export function VisitaActiva() {
             {capturaFoto.cargando ? 'Guardando…' : 'Foto'}
           </button>
           <button
-            className={`capture-btn capture-btn--audio${grabando ? ' capture-btn--rec' : ''}`}
+            className={`capture-btn capture-btn--audio${hayZonaActiva ? ' capture-btn--zona-activa' : ''}${grabando ? ' capture-btn--rec' : ''}`}
             disabled={(capturaAudio.cargando && !grabando) || (espacioBloqueado && !grabando)}
             onClick={iniciarODetenerAudio}
           >
@@ -1992,13 +1992,17 @@ export function VisitaActiva() {
               </>
             )}
           </button>
-          <button type="button" className="capture-btn" onClick={() => setAnotarAbierto(true)}>
+          <button
+            type="button"
+            className={`capture-btn${hayZonaActiva ? ' capture-btn--zona-activa' : ''}`}
+            onClick={() => setAnotarAbierto(true)}
+          >
             <Icono nombre="nota" size={22} weight="duotone" />
             Anotar
           </button>
           <button
             type="button"
-            className="capture-btn capture-btn--paso"
+            className={`capture-btn capture-btn--paso${hayZonaActiva ? ' capture-btn--zona-activa' : ''}`}
             onClick={() => setPasoAbierto(true)}
             disabled={!visitaLocal?.clienteId}
           >
