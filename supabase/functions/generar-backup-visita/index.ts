@@ -66,11 +66,16 @@ import {
   bloquesHallazgos as construirBloquesHallazgos,
   tablaPasos as construirTablaPasos,
   areasDeFilaHallazgo,
+  filasQuienes as construirFilasQuienes,
+  bloqueFotosConUbicacion,
+  notaResumenManual,
   generarPdfBytes,
   type Nombrado,
   type OportunidadRow,
   type PasoRow,
   type HallazgoRow,
+  type ParticipanteRow,
+  type InterlocutorRow,
 } from '../_shared/informe-pdf.ts';
 
 const URL_FIRMADA_SEGUNDOS = 60 * 60; // 1h de descarga — el zip vive ~2h en Storage antes de autoborrarse.
@@ -134,6 +139,7 @@ interface VisitaRow {
   tipo_visita: string | null;
   objetivo: string | null;
   resumen_texto: string | null;
+  resumen_origen: string | null;
   estado_captura: string;
   franja: string | null;
   hora_definida: boolean;
@@ -154,15 +160,6 @@ interface CapturaRow {
   zona_texto: string | null;
   ubicacion: Nombrado | null;
 }
-interface ParticipanteRow {
-  rol: string;
-  estado: string;
-  comercial: Nombrado | null;
-}
-interface InterlocutorRow {
-  interlocutor: { nombre: string; cargo: string | null } | null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS });
@@ -226,7 +223,7 @@ Deno.serve(async (req) => {
   const { data: visitaData, error: errorVisita } = await admin
     .from('visita')
     .select(
-      'id, fecha, tipo_visita, objetivo, resumen_texto, estado_captura, franja, hora_definida, ' +
+      'id, fecha, tipo_visita, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida, ' +
         'cliente:cliente_id(id, nombre, sector, ubicacion_general, tamano_aprox), proyecto:proyecto_id(nombre)'
     )
     .eq('id', visitaId)
@@ -331,21 +328,6 @@ Deno.serve(async (req) => {
 
   const visitaEnCurso = visita.estado_captura === 'en_curso';
 
-  const responsable = (participantesVisita ?? []).find((p) => p.rol === 'responsable');
-  // Solo acompañantes que aceptaron: los 'pendiente' (aún sin contestar) y
-  // los 'rechazado' (fuera de la visita) no van en el informe.
-  const acompanantes = (participantesVisita ?? [])
-    .filter((p) => p.rol !== 'responsable' && p.estado === 'aceptado')
-    .map((p) => (p.comercial as unknown as { nombre: string } | null)?.nombre)
-    .filter((n): n is string => !!n);
-  const interlocutoresTexto = (interlocutoresVisita ?? [])
-    .map((v) => {
-      const i = v.interlocutor as unknown as { nombre: string; cargo: string | null } | null;
-      if (!i) return null;
-      return i.cargo ? `${i.nombre} (${i.cargo})` : i.nombre;
-    })
-    .filter((t): t is string => !!t);
-
   const tipoLabel = visita.tipo_visita ? etiqueta(TIPO_VISITA_LABEL, visita.tipo_visita) : 'Visita';
   const frasesVisita = (visita.tipo_visita && TIPO_VISITA_FRASE[visita.tipo_visita]) || 'Visita';
 
@@ -362,15 +344,26 @@ Deno.serve(async (req) => {
   };
   const fotosParaPdf: FotoLista[] = [];
   const fotosNoIncluidas: { titulo: string; formato: string }[] = [];
+  // Antes de este cambio, un archivo huérfano/borrado se omitía en silencio:
+  // el comercial veía "5 fotos" en la app pero el PDF/zip solo traía 4, sin
+  // ninguna pista de por qué. Se cuenta y se avisa (portada + LEEME.txt).
+  let fotosFallidas = 0;
+  let audiosFallidos = 0;
 
   let indiceFoto = 0;
   for (const f of fotos) {
     indiceFoto += 1;
     const ubicacionNombre =
       f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
-    if (!f.storage_path) continue;
+    if (!f.storage_path) {
+      fotosFallidas += 1;
+      continue;
+    }
     const { data, error } = await admin.storage.from('fotos-visita').download(f.storage_path);
-    if (error || !data) continue; // fichero huérfano o ya borrado — se omite, no se aborta el backup entero.
+    if (error || !data) {
+      fotosFallidas += 1;
+      continue; // fichero huérfano o ya borrado — se omite, no se aborta el backup entero.
+    }
     const bytes = new Uint8Array(await data.arrayBuffer());
     const formato = detectarFormatoImagen(bytes);
     const extension = EXTENSION_POR_FORMATO[formato];
@@ -398,16 +391,27 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Solo los que sí se descargaron van al anexo del PDF — antes se listaban
+  // TODOS los de `audios` (incluidos los fallidos) diciendo "archivo en la
+  // carpeta audios/ del zip", una mentira si esa descarga en concreto falló.
+  const audiosDescargados: CapturaRow[] = [];
   let indiceAudio = 0;
   for (const a of audios) {
     indiceAudio += 1;
-    if (!a.storage_path) continue;
+    if (!a.storage_path) {
+      audiosFallidos += 1;
+      continue;
+    }
     const { data, error } = await admin.storage.from('audios-visita').download(a.storage_path);
-    if (error || !data) continue;
+    if (error || !data) {
+      audiosFallidos += 1;
+      continue;
+    }
     const bytes = new Uint8Array(await data.arrayBuffer());
     const extension = a.storage_path.split('.').pop() || 'm4a';
     const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
     carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
+    audiosDescargados.push(a);
   }
 
   const fotosPorUbicacion = new Map<string, FotoLista[]>();
@@ -453,26 +457,10 @@ Deno.serve(async (req) => {
   }
   const lineaHistorico = partesHistorico.length ? partesHistorico.join('  ·  ') : null;
 
-  // deno-lint-ignore no-explicit-any
-  const filasQuienes: any[] = [];
-  if (responsable) {
-    filasQuienes.push([
-      { text: 'Responsable', color: COLOR.ink400, fontSize: 9.5 },
-      { text: (responsable.comercial as unknown as { nombre: string } | null)?.nombre ?? '—', bold: true, fontSize: 9.5 },
-    ]);
-  }
-  if (acompanantes.length) {
-    filasQuienes.push([
-      { text: acompanantes.length === 1 ? 'Acompañante' : 'Acompañantes', color: COLOR.ink400, fontSize: 9.5 },
-      { text: acompanantes.join(' · '), fontSize: 9.5 },
-    ]);
-  }
-  if (interlocutoresTexto.length) {
-    filasQuienes.push([
-      { text: 'Interlocutores', color: COLOR.ink400, fontSize: 9.5 },
-      { text: interlocutoresTexto.join(' · '), fontSize: 9.5 },
-    ]);
-  }
+  // Responsable / Acompañantes / Interlocutores — compartido con
+  // generar-informe-proyecto (_shared/informe-pdf.ts), para que la
+  // cronología del proyecto muestre exactamente lo mismo por cada visita.
+  const filasQuienes = construirFilasQuienes(participantesVisita ?? [], interlocutoresVisita ?? []);
 
   const ahora = new Date().toISOString();
 
@@ -608,53 +596,39 @@ Deno.serve(async (req) => {
         bloquesFotos.push({ text: `•  ${nf.titulo} (${nf.formato})`, fontSize: 9, color: COLOR.ink700, margin: [8, 2, 0, 0] });
       }
     }
-  }
-
-  // --- Fotos con ubicación: coordenadas GPS + enlace a Google Maps ---
-  // Las coordenadas las guarda la app al hacer la foto (best-effort); si
-  // nadie tiene, este bloque no aparece. No se dibuja un mapa (eso pediría
-  // un proveedor de mapa estático de pago); solo el dato y el enlace.
-  // deno-lint-ignore no-explicit-any
-  const bloquesFotosUbicacion: any[] = [];
-  const fotosSituadas = fotos.filter((f) => f.latitud != null && f.longitud != null);
-  if (fotosSituadas.length) {
-    bloquesFotosUbicacion.push({
-      text: 'Fotos con ubicación',
-      bold: true,
-      fontSize: 9.5,
-      color: COLOR.ink700,
-      margin: [0, 14, 0, 4],
-    });
-    let idxSituada = 0;
-    for (const f of fotosSituadas) {
-      idxSituada += 1;
-      const lat = f.latitud as number;
-      const lng = f.longitud as number;
-      bloquesFotosUbicacion.push({
-        margin: [8, 2, 0, 0],
+    if (fotosFallidas > 0) {
+      bloquesFotos.push({
+        margin: [0, 6, 0, 0],
+        text: `${fotosFallidas} ${fotosFallidas === 1 ? 'foto no se pudo recuperar' : 'fotos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${fotosFallidas === 1 ? '' : 'n'} en este backup.`,
         fontSize: 9,
-        text: [
-          { text: `•  ${f.titulo || `Foto ${idxSituada}`}  ·  `, color: COLOR.ink700 },
-          { text: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, color: COLOR.ink400 },
-          {
-            text: '   Ver en el mapa',
-            color: COLOR.brand600,
-            link: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-          },
-        ],
+        color: COLOR.warning600,
       });
     }
   }
 
+  // --- Fotos con ubicación: coordenadas GPS + enlace a Google Maps ---
+  // Compartido con generar-informe-proyecto (_shared/informe-pdf.ts).
+  const bloquesFotosUbicacion = bloqueFotosConUbicacion(fotos);
+
   // --- Anexo de audios (se omite del todo si no hay ninguno) ---
   // deno-lint-ignore no-explicit-any
-  const bloquesAudios: any[] | null = audios.length
-    ? audios.map((a) => ({
-        text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  archivo en la carpeta audios/ del zip`,
-        fontSize: 9.5,
-        color: COLOR.ink700,
-        margin: [0, 0, 0, 4],
-      }))
+  const bloquesAudios: any[] | null = audiosDescargados.length || audiosFallidos > 0
+    ? [
+        ...audiosDescargados.map((a) => ({
+          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  archivo en la carpeta audios/ del zip`,
+          fontSize: 9.5,
+          color: COLOR.ink700,
+          margin: [0, 0, 0, 4],
+        })),
+        audiosFallidos > 0
+          ? {
+              text: `${audiosFallidos} ${audiosFallidos === 1 ? 'audio no se pudo recuperar' : 'audios no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${audiosFallidos === 1 ? '' : 'n'} en este backup.`,
+              fontSize: 9,
+              color: COLOR.warning600,
+              margin: [0, 6, 0, 0],
+            }
+          : null,
+      ].filter(Boolean)
     : null;
 
   // --- Ensamblado final ---
@@ -665,6 +639,7 @@ Deno.serve(async (req) => {
     visita.resumen_texto
       ? { text: visita.resumen_texto, fontSize: 10.5, color: COLOR.ink900, lineHeight: 1.3 }
       : estadoVacio('Sin resumen registrado para esta visita.'),
+    notaResumenManual(visita.resumen_origen),
     filaKPIs([
       { valor: totalOportunidades > 0 ? `${totalOportunidades.toLocaleString('es-ES')} €` : '—', etiqueta: 'Valor estimado en oportunidades' },
       { valor: String(hallazgosCount), etiqueta: hallazgosCount === 1 ? 'Hallazgo' : 'Hallazgos' },
@@ -694,7 +669,7 @@ Deno.serve(async (req) => {
     ...bloquesFotosUbicacion
   );
   if (bloquesAudios) {
-    contenido.push(tituloSeccion('Anexo de audios', `(${audios.length})`), ...bloquesAudios);
+    contenido.push(tituloSeccion('Anexo de audios', `(${audiosDescargados.length})`), ...bloquesAudios);
   }
 
   const docDefinition = {
@@ -762,8 +737,15 @@ Deno.serve(async (req) => {
     `  - El informe refleja el estado de la visita el día indicado; los\n` +
     `    cambios registrados después no aparecen aquí.\n` +
     (visitaEnCurso ? `  - Esta visita seguía en curso cuando se generó esta copia.\n` : '') +
+    (visita.resumen_origen === 'manual' ? `  - El resumen fue editado a mano por el comercial.\n` : '') +
     (fotosNoIncluidas.length
       ? `  - ${fotosNoIncluidas.length} foto(s) no se pudieron previsualizar en el PDF (formato no compatible); están igualmente en fotos/.\n`
+      : '') +
+    (fotosFallidas > 0
+      ? `  - ${fotosFallidas} foto(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
+      : '') +
+    (audiosFallidos > 0
+      ? `  - ${audiosFallidos} audio(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
       : '') +
     `\nGenerado automáticamente por PrimeNotes. No respondas a este\n` +
     `archivo; para dudas, contacta con tu responsable comercial.\n`;

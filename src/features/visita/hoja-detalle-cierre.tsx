@@ -84,7 +84,6 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
         {items.map((op) => {
           const pendiente = op.estado !== 'completado';
           const p = op.payload as {
-            categoriaFoto?: string;
             zonaTexto?: string;
             contenidoTexto?: string;
             titulo?: string;
@@ -100,9 +99,14 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
             <li key={op.id} className="detalle-cierre__fila">
               {grupo === 'fotos' && (
                 <>
-                  <span className="detalle-cierre__titulo">{p.categoriaFoto?.trim() || 'Foto'}</span>
+                  {/* BUG corregido: leía `categoriaFoto`, un campo que ningún
+                      flujo de captura rellena (la foto se guarda con
+                      `titulo`, ver visita-activa.tsx) — siempre caía en el
+                      genérico "Foto" en vez del título real puesto por el
+                      comercial. */}
+                  <span className="detalle-cierre__titulo">{p.titulo?.trim() || 'Foto'}</span>
                   {url ? (
-                    <img className="detalle-cierre__foto" src={url} alt={p.categoriaFoto || 'foto de la visita'} />
+                    <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} />
                   ) : (
                     <span className="detalle-cierre__meta">
                       {pendiente ? 'pendiente de subir — se verá al sincronizar' : 'no disponible'}

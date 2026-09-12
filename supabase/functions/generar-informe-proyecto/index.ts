@@ -35,10 +35,14 @@ import {
   tablaPasos,
   areasDeFilaHallazgo,
   generarPdfBytes,
-  type Nombrado,
+  filasQuienes as construirFilasQuienes,
+  bloqueFotosConUbicacion,
+  notaResumenManual,
   type OportunidadRow,
   type PasoRow,
   type HallazgoRow,
+  type ParticipanteRow,
+  type InterlocutorRow,
 } from '../_shared/informe-pdf.ts';
 
 const URL_FIRMADA_SEGUNDOS = 60 * 60;
@@ -65,9 +69,19 @@ interface VisitaRow {
   tipo_visita: string | null;
   objetivo: string | null;
   resumen_texto: string | null;
+  resumen_origen: string | null;
   estado_captura: string;
   franja: string | null;
   hora_definida: boolean;
+}
+interface CapturaProyectoRow {
+  visita_id: string;
+  tipo: string;
+  titulo: string | null;
+  contenido_texto: string | null;
+  creado_en: string;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 Deno.serve(async (req) => {
@@ -166,7 +180,7 @@ Deno.serve(async (req) => {
       .eq('estado_captura', 'en_curso'),
     admin
       .from('visita')
-      .select('id, fecha, tipo_visita, objetivo, resumen_texto, estado_captura, franja, hora_definida')
+      .select('id, fecha, tipo_visita, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida')
       .eq('proyecto_id', proyectoId)
       .in('estado_captura', ['consolidada', 'cerrada'])
       .order('fecha', { ascending: false })
@@ -190,9 +204,11 @@ Deno.serve(async (req) => {
   // deno-lint-ignore no-explicit-any
   let capturasData: any[] = [];
   // deno-lint-ignore no-explicit-any
-  let responsablesData: any[] = [];
+  let participantesData: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  let interlocutoresData: any[] = [];
   if (visitaIds.length) {
-    const [r1, r2, r3, r4, r5] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
       admin
         .from('oportunidad')
         .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision, visita_origen_id')
@@ -213,20 +229,31 @@ Deno.serve(async (req) => {
         .order('fecha_objetivo', { ascending: true }),
       admin
         .from('captura_libre')
-        .select('visita_id, tipo, titulo, contenido_texto, creado_en')
+        .select('visita_id, tipo, titulo, contenido_texto, creado_en, latitud, longitud')
         .in('visita_id', visitaIds)
         .order('creado_en', { ascending: true }),
+      // Todos los participantes, no solo el responsable (huecos detectados en
+      // auditoría del informe: antes no se decía quién más acompañó a cada
+      // visita). Mismo filtro de "aceptado" para acompañantes que aplica
+      // filasQuienes() — se pasa la fila completa, no solo el nombre.
       admin
         .from('visita_participante')
-        .select('visita_id, comercial:comercial_id(nombre)')
-        .in('visita_id', visitaIds)
-        .eq('rol', 'responsable'),
+        .select('visita_id, rol, estado, comercial:comercial_id(nombre)')
+        .in('visita_id', visitaIds),
+      // Interlocutores del cliente con quien se habló en cada visita — antes
+      // solo aparecían en el informe de visita individual, no en la
+      // cronología del proyecto.
+      admin
+        .from('visita_interlocutor')
+        .select('visita_id, interlocutor:interlocutor_id(nombre, cargo)')
+        .in('visita_id', visitaIds),
     ]);
     opsData = r1.data ?? [];
     hallData = r2.data ?? [];
     pasosData = r3.data ?? [];
     capturasData = r4.data ?? [];
-    responsablesData = r5.data ?? [];
+    participantesData = r5.data ?? [];
+    interlocutoresData = r6.data ?? [];
   }
 
   // deno-lint-ignore no-explicit-any
@@ -247,11 +274,12 @@ Deno.serve(async (req) => {
   const hallPorVisita = porVisita(hallData, 'visita_id');
   const pasosPorVisita = porVisita(pasosData, 'visita_id');
   const capturasPorVisita = porVisita(capturasData, 'visita_id');
-  const responsablePorVisita = new Map<string, string>();
-  for (const r of responsablesData) {
-    const nombre = (r.comercial as Nombrado | null)?.nombre;
-    if (r.visita_id && nombre) responsablePorVisita.set(r.visita_id, nombre);
-  }
+  // Participantes e interlocutores agrupados por visita — mismo helper
+  // filasQuienes() que usa generar-backup-visita, así que la cronología del
+  // proyecto muestra Responsable/Acompañantes/Interlocutores idéntico al
+  // informe de esa misma visita generado por separado.
+  const participantesPorVisita = porVisita(participantesData, 'visita_id') as Map<string, ParticipanteRow[]>;
+  const interlocutoresPorVisita = porVisita(interlocutoresData, 'visita_id') as Map<string, InterlocutorRow[]>;
 
   // --- Agregados del proyecto entero (no solo las <=25 del cuerpo) ---
   const [{ data: opsAbiertasData }, { count: opsCerradas }, { data: pasosPendientesData }] = await Promise.all([
@@ -388,12 +416,9 @@ Deno.serve(async (req) => {
         areas: areasDeFilaHallazgo(h.hallazgo_area),
       }));
       const pasos = (pasosPorVisita.get(v.id) ?? []) as unknown as PasoRow[];
-      const caps = (capturasPorVisita.get(v.id) ?? []) as {
-        tipo: string;
-        titulo: string | null;
-        contenido_texto: string | null;
-      }[];
-      const nFotos = caps.filter((c) => c.tipo === 'foto').length;
+      const caps = (capturasPorVisita.get(v.id) ?? []) as unknown as CapturaProyectoRow[];
+      const fotosVisita = caps.filter((c) => c.tipo === 'foto');
+      const nFotos = fotosVisita.length;
       const nAudios = caps.filter((c) => c.tipo === 'audio').length;
       const notasVisita = caps.filter((c) => c.tipo === 'nota');
 
@@ -401,7 +426,15 @@ Deno.serve(async (req) => {
       if (v.hora_definida) lineaHora = ` · ${horaDe(v.fecha)}`;
       else if (v.franja) lineaHora = ` · ${FRANJA_LABEL[v.franja] ?? v.franja}`;
       const frase = (v.tipo_visita && TIPO_VISITA_FRASE[v.tipo_visita]) || 'Visita';
-      const responsable = responsablePorVisita.get(v.id);
+      // Responsable / Acompañantes / Interlocutores — mismo bloque compartido
+      // que el informe de esta misma visita generada individualmente (ver
+      // huecos [PARCIAL]/[FALTA] de la auditoría del informe: antes esta
+      // cronología solo mostraba el responsable, y a los interlocutores no
+      // se les mencionaba en absoluto).
+      const filasQuienesVisita = construirFilasQuienes(
+        participantesPorVisita.get(v.id) ?? [],
+        interlocutoresPorVisita.get(v.id) ?? []
+      );
 
       const adjuntos: string[] = [];
       if (nFotos) adjuntos.push(`${nFotos} foto${nFotos === 1 ? '' : 's'}`);
@@ -418,7 +451,9 @@ Deno.serve(async (req) => {
                 { text: `   ${frase} · ${fechaLarga(v.fecha)}${lineaHora}`, fontSize: 10, color: COLOR.ink700 },
               ],
             },
-            responsable ? { text: `Responsable: ${responsable}`, fontSize: 8.5, color: COLOR.ink400, margin: [0, 2, 0, 0] } : null,
+            filasQuienesVisita.length
+              ? { margin: [0, 6, 0, 0], table: { widths: [80, '*'], body: filasQuienesVisita }, layout: 'noBorders' }
+              : null,
             { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 499, y2: 4, lineWidth: 0.5, lineColor: COLOR.ink200 }] },
           ].filter(Boolean),
         },
@@ -430,6 +465,8 @@ Deno.serve(async (req) => {
           ? { text: v.resumen_texto, fontSize: 9.5, color: COLOR.ink900, lineHeight: 1.3 }
           : estadoVacio('Sin resumen registrado.')
       );
+      const notaManual = notaResumenManual(v.resumen_origen);
+      if (notaManual) bloque.push(notaManual);
       if (v.objetivo) {
         bloque.push(subtitulo('Objetivo'));
         bloque.push({ text: v.objetivo, fontSize: 9.5, color: COLOR.ink700 });
@@ -465,6 +502,10 @@ Deno.serve(async (req) => {
         color: COLOR.ink400,
         margin: [0, 8, 0, 0],
       });
+      // Ubicación de fotos (hueco [FALTA] de la auditoría: la consulta ni
+      // siquiera traía lat/lng antes de este cambio) — mismo bloque
+      // compartido que el informe de visita individual.
+      bloque.push(...bloqueFotosConUbicacion(fotosVisita));
 
       bloquesCronologia.push({ stack: bloque });
     });

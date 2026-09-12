@@ -219,6 +219,24 @@ export interface HallazgoRow {
   ubicacion: Nombrado | null;
 }
 
+// Quién estuvo en la visita: el responsable (uno), los acompañantes que
+// aceptaron (los 'pendiente'/'rechazado' no cuentan) y los interlocutores del
+// cliente con quien se habló. Ambos informes (visita y proyecto) muestran lo
+// mismo con `filasQuienes`.
+export interface ParticipanteRow {
+  rol: string;
+  estado: string;
+  comercial: Nombrado | null;
+}
+export interface InterlocutorRow {
+  interlocutor: { nombre: string; cargo: string | null } | null;
+}
+export interface FotoUbicacionRow {
+  titulo: string | null;
+  latitud: number | null;
+  longitud: number | null;
+}
+
 // Convierte el recurso embebido `hallazgo_area(categoria(nombre),
 // termino(nombre, parent(nombre)))` de un select de supabase-js en la lista
 // `areas` de un HallazgoRow. Los dos informes lo usan igual.
@@ -434,6 +452,91 @@ export function tablaPasos(pasos: PasoRow[]): any {
     },
     layout: layoutTabla,
   };
+}
+
+// Bloque "Responsable / Acompañantes / Interlocutores" de una visita: antes
+// solo vivía en generar-backup-visita (portada de la visita individual);
+// generar-informe-proyecto lo necesita igual por cada visita de su
+// cronología, así que se extrae aquí para que ambos informes muestren
+// exactamente lo mismo, no una versión resumida en uno y completa en otro.
+// deno-lint-ignore no-explicit-any
+export function filasQuienes(participantes: ParticipanteRow[], interlocutores: InterlocutorRow[]): any[] {
+  const responsable = participantes.find((p) => p.rol === 'responsable');
+  const acompanantes = participantes
+    .filter((p) => p.rol !== 'responsable' && p.estado === 'aceptado')
+    .map((p) => (p.comercial as unknown as { nombre: string } | null)?.nombre)
+    .filter((n): n is string => !!n);
+  const interlocutoresTexto = interlocutores
+    .map((v) => {
+      const i = v.interlocutor as unknown as { nombre: string; cargo: string | null } | null;
+      if (!i) return null;
+      return i.cargo ? `${i.nombre} (${i.cargo})` : i.nombre;
+    })
+    .filter((t): t is string => !!t);
+
+  // deno-lint-ignore no-explicit-any
+  const filas: any[] = [];
+  if (responsable) {
+    filas.push([
+      { text: 'Responsable', color: COLOR.ink400, fontSize: 9.5 },
+      { text: (responsable.comercial as unknown as { nombre: string } | null)?.nombre ?? '—', bold: true, fontSize: 9.5 },
+    ]);
+  }
+  if (acompanantes.length) {
+    filas.push([
+      { text: acompanantes.length === 1 ? 'Acompañante' : 'Acompañantes', color: COLOR.ink400, fontSize: 9.5 },
+      { text: acompanantes.join(' · '), fontSize: 9.5 },
+    ]);
+  }
+  if (interlocutoresTexto.length) {
+    filas.push([
+      { text: 'Interlocutores', color: COLOR.ink400, fontSize: 9.5 },
+      { text: interlocutoresTexto.join(' · '), fontSize: 9.5 },
+    ]);
+  }
+  return filas;
+}
+
+// Coordenadas GPS de las fotos que las tienen (best-effort, la app las
+// guarda al hacer la foto) + enlace a Google Maps. No se dibuja un mapa
+// real (pediría un proveedor de pago); solo el dato y el enlace. Extraído
+// de generar-backup-visita para que generar-informe-proyecto lo use igual
+// por cada visita de su cronología.
+// deno-lint-ignore no-explicit-any
+export function bloqueFotosConUbicacion(fotos: FotoUbicacionRow[]): any[] {
+  const situadas = fotos.filter((f) => f.latitud != null && f.longitud != null);
+  if (!situadas.length) return [];
+  // deno-lint-ignore no-explicit-any
+  const bloques: any[] = [
+    { text: 'Fotos con ubicación', bold: true, fontSize: 9.5, color: COLOR.ink700, margin: [0, 14, 0, 4] },
+  ];
+  let idx = 0;
+  for (const f of situadas) {
+    idx += 1;
+    const lat = f.latitud as number;
+    const lng = f.longitud as number;
+    bloques.push({
+      margin: [8, 2, 0, 0],
+      fontSize: 9,
+      text: [
+        { text: `•  ${f.titulo || `Foto ${idx}`}  ·  `, color: COLOR.ink700 },
+        { text: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, color: COLOR.ink400 },
+        { text: '   Ver en el mapa', color: COLOR.brand600, link: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` },
+      ],
+    });
+  }
+  return bloques;
+}
+
+// Nota discreta cuando el comercial reescribió a mano el resumen que la app
+// genera sola al cerrar ("por reglas") — el lector del informe (Dirección,
+// el propio comercial más tarde) no tenía forma de saber si el resumen es
+// el automático o uno editado. Silenciosa en el caso normal (autogenerado
+// o sin resumen): solo aparece cuando de verdad aporta algo.
+// deno-lint-ignore no-explicit-any
+export function notaResumenManual(resumenOrigen: string | null | undefined): any | null {
+  if (resumenOrigen !== 'manual') return null;
+  return { text: 'Resumen editado a mano por el comercial.', fontSize: 8, italics: true, color: COLOR.ink400, margin: [0, 4, 0, 0] };
 }
 
 // Genera los bytes del PDF a partir de un docDefinition de pdfmake.

@@ -22,9 +22,14 @@ import {
   bloquesHallazgos,
   tablaPasos,
   filaKPIs,
+  filasQuienes,
+  bloqueFotosConUbicacion,
+  notaResumenManual,
   type OportunidadRow,
   type PasoRow,
   type HallazgoRow,
+  type ParticipanteRow,
+  type InterlocutorRow,
 } from './informe-pdf.ts';
 
 // ---------------------------------------------------------------------
@@ -246,6 +251,79 @@ function tablaPasosESPERADO(pasosOrdenados: PasoRow[]): any {
   };
 }
 
+// Copias verbatim de lo que tenía generar-backup-visita/index.ts inline
+// antes de extraer filasQuienes/bloqueFotosConUbicacion (para que
+// generar-informe-proyecto pudiera reutilizarlas) — mismo objetivo que el
+// resto del fichero: el informe de visita debe salir EXACTAMENTE igual.
+// deno-lint-ignore no-explicit-any
+function filasQuienesESPERADO(participantes: ParticipanteRow[], interlocutores: InterlocutorRow[]): any[] {
+  const responsable = participantes.find((p) => p.rol === 'responsable');
+  const acompanantes = participantes
+    .filter((p) => p.rol !== 'responsable' && p.estado === 'aceptado')
+    .map((p) => (p.comercial as unknown as { nombre: string } | null)?.nombre)
+    .filter((n): n is string => !!n);
+  const interlocutoresTexto = interlocutores
+    .map((v) => {
+      const i = v.interlocutor as unknown as { nombre: string; cargo: string | null } | null;
+      if (!i) return null;
+      return i.cargo ? `${i.nombre} (${i.cargo})` : i.nombre;
+    })
+    .filter((t): t is string => !!t);
+
+  // deno-lint-ignore no-explicit-any
+  const filas: any[] = [];
+  if (responsable) {
+    filas.push([
+      { text: 'Responsable', color: COLOR.ink400, fontSize: 9.5 },
+      { text: (responsable.comercial as unknown as { nombre: string } | null)?.nombre ?? '—', bold: true, fontSize: 9.5 },
+    ]);
+  }
+  if (acompanantes.length) {
+    filas.push([
+      { text: acompanantes.length === 1 ? 'Acompañante' : 'Acompañantes', color: COLOR.ink400, fontSize: 9.5 },
+      { text: acompanantes.join(' · '), fontSize: 9.5 },
+    ]);
+  }
+  if (interlocutoresTexto.length) {
+    filas.push([
+      { text: 'Interlocutores', color: COLOR.ink400, fontSize: 9.5 },
+      { text: interlocutoresTexto.join(' · '), fontSize: 9.5 },
+    ]);
+  }
+  return filas;
+}
+
+interface FotoUbicacionESPERADO {
+  titulo: string | null;
+  latitud: number | null;
+  longitud: number | null;
+}
+// deno-lint-ignore no-explicit-any
+function bloqueFotosConUbicacionESPERADO(fotos: FotoUbicacionESPERADO[]): any[] {
+  const situadas = fotos.filter((f) => f.latitud != null && f.longitud != null);
+  if (!situadas.length) return [];
+  // deno-lint-ignore no-explicit-any
+  const bloques: any[] = [
+    { text: 'Fotos con ubicación', bold: true, fontSize: 9.5, color: COLOR.ink700, margin: [0, 14, 0, 4] },
+  ];
+  let idx = 0;
+  for (const f of situadas) {
+    idx += 1;
+    const lat = f.latitud as number;
+    const lng = f.longitud as number;
+    bloques.push({
+      margin: [8, 2, 0, 0],
+      fontSize: 9,
+      text: [
+        { text: `•  ${f.titulo || `Foto ${idx}`}  ·  `, color: COLOR.ink700 },
+        { text: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, color: COLOR.ink400 },
+        { text: '   Ver en el mapa', color: COLOR.brand600, link: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` },
+      ],
+    });
+  }
+  return bloques;
+}
+
 // --- fixtures ---
 
 const OPS: OportunidadRow[] = [
@@ -291,4 +369,49 @@ Deno.test('filaKPIs — igual que el inline anterior', () => {
     { valor: '2', etiqueta: 'Pasos vencidos', alerta: true },
   ];
   assertEquals(j(filaKPIs(kpis)), j(filaKPIsESPERADO(kpis)));
+});
+
+// --- filasQuienes / bloqueFotosConUbicacion / notaResumenManual — nuevas en
+// esta sesión (auditoría del informe: proyecto no mostraba acompañantes,
+// interlocutores ni ubicación de fotos, solo el de visita individual). ---
+
+const PARTICIPANTES: ParticipanteRow[] = [
+  { rol: 'responsable', estado: 'aceptado', comercial: { nombre: 'Cesar Borrego' } },
+  { rol: 'acompanante', estado: 'aceptado', comercial: { nombre: 'Borja Senra' } },
+  { rol: 'acompanante', estado: 'aceptado', comercial: { nombre: 'Comercial Prueba' } },
+  { rol: 'acompanante', estado: 'pendiente', comercial: { nombre: 'No debe salir' } },
+  { rol: 'acompanante', estado: 'rechazado', comercial: { nombre: 'Tampoco este' } },
+];
+const INTERLOCUTORES: InterlocutorRow[] = [
+  { interlocutor: { nombre: 'Juanito', cargo: 'Ceo' } },
+  { interlocutor: { nombre: 'Sin cargo', cargo: null } },
+];
+
+Deno.test('filasQuienes — igual que el inline anterior de generar-backup-visita', () => {
+  assertEquals(j(filasQuienes(PARTICIPANTES, INTERLOCUTORES)), j(filasQuienesESPERADO(PARTICIPANTES, INTERLOCUTORES)));
+  // Sin nadie: no revienta, devuelve lista vacía (el llamador decide si pinta la tabla).
+  assertEquals(j(filasQuienes([], [])), j(filasQuienesESPERADO([], [])));
+  // Solo responsable, sin acompañantes aceptados ni interlocutores.
+  const soloResponsable = [PARTICIPANTES[0]];
+  assertEquals(j(filasQuienes(soloResponsable, [])), j(filasQuienesESPERADO(soloResponsable, [])));
+});
+
+const FOTOS_UBICACION = [
+  { titulo: 'Entrada', latitud: 40.4168, longitud: -3.7038 },
+  { titulo: null, latitud: 40.42, longitud: -3.71 },
+  { titulo: 'Sin GPS', latitud: null, longitud: null },
+];
+
+Deno.test('bloqueFotosConUbicacion — igual que el inline anterior de generar-backup-visita', () => {
+  assertEquals(j(bloqueFotosConUbicacion(FOTOS_UBICACION)), j(bloqueFotosConUbicacionESPERADO(FOTOS_UBICACION)));
+  // Ninguna con coordenadas: el bloque entero desaparece (no un título "Fotos con ubicación" vacío).
+  assertEquals(j(bloqueFotosConUbicacion([{ titulo: 'x', latitud: null, longitud: null }])), '[]');
+});
+
+Deno.test('notaResumenManual — solo aparece cuando el origen es "manual"', () => {
+  assertEquals(notaResumenManual('manual') !== null, true);
+  assertEquals(notaResumenManual('reglas'), null);
+  assertEquals(notaResumenManual('ia'), null);
+  assertEquals(notaResumenManual(null), null);
+  assertEquals(notaResumenManual(undefined), null);
 });
