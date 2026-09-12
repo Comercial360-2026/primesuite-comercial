@@ -216,7 +216,7 @@ body {
    lápiz fuera de la hoja. */
 .interlocutor-fila {
   display: flex; align-items: center; gap: 6px;
-  border-top: 1px solid var(--ink-100);
+  border-top: var(--fila-separador);
 }
 .interlocutor-fila:first-child { border-top: 0; }
 .interlocutor-fila__cuerpo {
@@ -1503,7 +1503,7 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 /* /ayuda como índice plegable: fila de título tocable + cuerpo desplegable,
    dentro de una tarjeta (mismo `.seccion-lista__grupo` que cualquier otra
    lista) en vez de sueltos sobre el fondo. */
-.ayuda-item { border-top: 1px solid var(--ink-100); }
+.ayuda-item { border-top: var(--fila-separador); }
 .ayuda-item:first-child { border-top: none; }
 .ayuda-item__tit {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
