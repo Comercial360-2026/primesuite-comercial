@@ -776,13 +776,17 @@ export function DetalleVisitaCerrada() {
                 />
               </SeccionLista>
             ))}
-          {/* En una visita cerrada, "Descargar y liberar espacio" (arriba)
-              es un borrado estrictamente más seguro que este (obliga a
-              descargar antes y comprueba oportunidad abierta/cola sin
-              subir) — mantener los dos aquí dejaba un atajo que se saltaba
-              esas comprobaciones. Se retira solo para 'consolidada'; en
-              planificada/en curso sigue siendo la única forma de borrar. */}
-          {!visitaCerrada &&
+          {/* "Descargar y liberar espacio" es un borrado estrictamente más
+              seguro que este (obliga a descargar antes y comprueba
+              oportunidad abierta/cola sin subir) — se retira este atajo
+              SOLO cuando esa alternativa está realmente disponible. Si
+              está bloqueada (oportunidad abierta, cola sin subir, o la
+              visita ni siquiera está cerrada), este sigue siendo el único
+              camino para borrar — quitarlo también habría dejado visitas
+              bloqueadas sin ninguna forma de borrarse (visto en vivo:
+              CAPSA, cerrada con una oportunidad abierta, se quedaba sin
+              ningún botón de borrado). */}
+          {!puedeLiberarEspacio &&
             (borrar.visitaBorrarId === visitaId ? (
               <ConfirmarBorradoVisita ctrl={borrar} />
             ) : (
