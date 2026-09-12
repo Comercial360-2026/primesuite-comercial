@@ -24,9 +24,13 @@ interface Props {
   /** Normalmente una ("Borrar (N)"). El contador lo pone la pantalla en la
    *  etiqueta si lo quiere. */
   acciones: AccionSeleccion[];
+  /** Línea de aviso opcional bajo el contador — p. ej. cuando el lote
+   *  marcado mezcla dos tipos de fila y conviene explicarlo en el momento
+   *  (catálogo de vocabulario). */
+  aviso?: string;
 }
 
-export function BarraSeleccion({ n, onCancelar, acciones }: Props) {
+export function BarraSeleccion({ n, onCancelar, acciones, aviso }: Props) {
   return (
     <div className="barra-seleccion">
       <span className="barra-seleccion__cuenta">
@@ -49,6 +53,7 @@ export function BarraSeleccion({ n, onCancelar, acciones }: Props) {
           Cancelar
         </button>
       </div>
+      {aviso && <span className="barra-seleccion__aviso">{aviso}</span>}
     </div>
   );
 }

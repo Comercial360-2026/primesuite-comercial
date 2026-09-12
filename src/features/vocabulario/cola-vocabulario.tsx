@@ -8,7 +8,8 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { Segmentado } from '@/components/ui/segmentado';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
-import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { FilaToggle } from '@/components/ui/fila-toggle';
+import { BarraSeleccion, type AccionSeleccion } from '@/components/ui/barra-seleccion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
@@ -110,11 +111,6 @@ export function ColaVocabulario() {
   // la vez. Se cierra sola al plegar/cambiar de vista (efectos más abajo).
   const [categoriaAnadiendoTermino, setCategoriaAnadiendoTermino] = useState<string | null>(null);
   const [terminoAnadiendoModelo, setTerminoAnadiendoModelo] = useState<string | null>(null);
-  // Menú "⋯" de una categoría (Añadir término / Editar / Borrar): un solo
-  // icono genérico, igual en todas las categorías — nada de enlaces de
-  // texto repetidos fila a fila, que con muchas categorías ensucian la
-  // vista. Una sola categoría con el menú abierto a la vez.
-  const [menuCategoriaId, setMenuCategoriaId] = useState<string | null>(null);
   // Buscador del catálogo: filtra términos/modelos y abre las ramas que casan.
   const [busqueda, setBusqueda] = useState('');
   const buscador = useBuscador(!!busqueda);
@@ -148,19 +144,23 @@ export function ColaVocabulario() {
     ];
   }
 
-  // --- modo seleccionar (catálogo): mover / quitar TÉRMINOS en lote ---
-  const [seleccionandoCat, setSeleccionandoCat] = useState(false);
+  // --- modo único "Editar" (catálogo): checkbox + flechas a la vez, en
+  // categorías, términos y modelos por igual (prompt maestro 12). Sustituye
+  // los antiguos "Ordenar" + "Seleccionar" + menú "⋯" de categoría.
+  const [editando, setEditando] = useState(false);
+  const [marcadosCat, setMarcadosCat] = useState<Set<string>>(new Set());
   const [marcadosTerm, setMarcadosTerm] = useState<Set<string>>(new Set());
   const [moverLoteAbierto, setMoverLoteAbierto] = useState(false);
+  // Confirmación antes de "Quitar" en lote — el único tono="riesgo" de la
+  // pantalla que no pasaba por ConfirmacionBorrado (regla ya fijada en
+  // primesuite-boton-destructivo).
+  const [confirmandoQuitar, setConfirmandoQuitar] = useState(false);
   const [corriendoLote, setCorriendoLote] = useState(false);
   const [progresoLote, setProgresoLote] = useState<{ hecho: number; total: number } | null>(null);
   const [resultadoLote, setResultadoLote] = useState<string | null>(null);
-
-  // --- modo ordenar (catálogo): reordenar las CATEGORÍAS a mano ---
-  // `ordenLocal` es la lista de trabajo: las flechas la reordenan al
-  // instante y cada movimiento persiste `orden` de todas las categorías de
-  // una vez (upsert). Al salir el orden ya está guardado.
-  const [ordenandoCat, setOrdenandoCat] = useState(false);
+  // `ordenLocal` es la lista de trabajo de categorías: las flechas la
+  // reordenan al instante y cada movimiento persiste `orden` de todas las
+  // categorías de una vez (upsert). Al salir el orden ya está guardado.
   const [ordenLocal, setOrdenLocal] = useState<{ id: string; nombre: string }[] | null>(null);
   const [guardandoOrden, setGuardandoOrden] = useState(false);
 
@@ -528,6 +528,7 @@ export function ColaVocabulario() {
       return;
     }
     cerrarPanelBorrarCat();
+    setMarcadosCat((prev) => { const s = new Set(prev); s.delete(id); return s; });
     invalidarCatalogo();
   }
 
@@ -561,33 +562,49 @@ export function ColaVocabulario() {
       return;
     }
     cerrarPanelBorrarCat();
+    setMarcadosCat((prev) => { const s = new Set(prev); s.delete(id); return s; });
     invalidarCatalogo();
   }
 
-  // ---- modo ordenar categorías ----
+  // ---- modo único "Editar" ----
 
-  function entrarOrden() {
-    setOrdenandoCat(true);
+  function entrarEditar() {
+    setEditando(true);
     setOrdenLocal((categorias ?? []).map((c) => ({ id: c.id, nombre: c.nombre })));
+    setMarcadosCat(new Set());
+    setMarcadosTerm(new Set());
+    setResultadoLote(null);
     setErrorCatalogo(null);
-    setSeleccionandoCat(false);
+    setErrorPorCategoria(null);
     setRenombrandoCategoriaId(null);
     setRenombrandoTerminoId(null);
     setCreandoCategoria(false);
     setCategoriaAnadiendoTermino(null);
-    setMenuCategoriaId(null);
     setTerminoAnadiendoModelo(null);
     setBusqueda('');
     cerrarPanelBorrarCat();
-    // Con todo desplegado se ven las flechas de términos y modelos.
+    // Con todo desplegado se ven las flechas y checkboxes de términos y modelos.
     setExpandidas(new Set(idsDesplegables()));
   }
 
-  function salirOrden() {
-    setOrdenandoCat(false);
+  function salirEditar() {
+    setEditando(false);
     setOrdenLocal(null);
+    setMarcadosCat(new Set());
+    setMarcadosTerm(new Set());
+    setMoverLoteAbierto(false);
+    setConfirmandoQuitar(false);
     setExpandidas(new Set());
     invalidarCatalogo();
+  }
+
+  function alternarCat(id: string) {
+    setMarcadosCat((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
   }
 
   // Sube (dir=-1) o baja (dir=+1) la categoría de la posición `idx`. Mueve
@@ -639,50 +656,22 @@ export function ColaVocabulario() {
     invalidarCatalogo();
   }
 
-  // --- modo seleccionar: mover / quitar términos en lote ---
-
-  function entrarSeleccionCat() {
-    setSeleccionandoCat(true);
-    setMarcadosTerm(new Set());
-    setResultadoLote(null);
-    setErrorCatalogo(null);
-    setErrorPorCategoria(null);
-    setRenombrandoTerminoId(null);
-    setRenombrandoCategoriaId(null);
-    setCategoriaAnadiendoTermino(null);
-    setMenuCategoriaId(null);
-    setTerminoAnadiendoModelo(null);
-    setBusqueda('');
-    // Se entra con todo desplegado (categorías y términos con modelos) para
-    // poder marcar; se puede plegar lo que no interese.
-    setExpandidas(new Set(idsDesplegables()));
-  }
-
-  function salirSeleccionCat() {
-    setSeleccionandoCat(false);
-    setMarcadosTerm(new Set());
-    setMoverLoteAbierto(false);
-    // Al salir, todo vuelve a plegado (en "seleccionar" se enseñan todos
-    // los términos; si no se resetea, las categorías se quedan abiertas).
-    setExpandidas(new Set());
-  }
-
   // Cambiar de pestaña deja SIEMPRE la pantalla limpia: sin modos activos
   // y con las categorías plegadas.
   function cambiarVista(v: 'pendientes' | 'catalogo') {
     setVista(v);
-    setSeleccionandoCat(false);
-    setSeleccionandoPend(false);
-    setOrdenandoCat(false);
+    setEditando(false);
     setOrdenLocal(null);
+    setMarcadosCat(new Set());
     setMarcadosTerm(new Set());
+    setSeleccionandoPend(false);
     setMarcadosPend(new Set());
     setContextoAbiertoId(null);
     setExpandidas(new Set());
     setAprobarEnAbierto(false);
     setCategoriaAnadiendoTermino(null);
-    setMenuCategoriaId(null);
     setTerminoAnadiendoModelo(null);
+    setConfirmandoQuitar(false);
   }
 
   function alternarTerm(id: string) {
@@ -696,7 +685,8 @@ export function ColaVocabulario() {
 
   // El lote = N × la operación individual, en bucle, con progreso y parte de
   // fallos parciales (08_sistema_diseno.md §"Modo seleccionar"). No hay RPC
-  // de lote.
+  // de lote. Se dispara desde el botón "Sí, quitar" de la confirmación —
+  // ver `confirmandoQuitar` más abajo (regla primesuite-boton-destructivo).
   async function quitarLote() {
     // Descartar un término padre arrastra sus modelos.
     const marcados = new Set(marcadosTerm);
@@ -707,6 +697,7 @@ export function ColaVocabulario() {
     }
     const ids = [...marcados];
     if (!ids.length) return;
+    setConfirmandoQuitar(false);
     setCorriendoLote(true);
     setResultadoLote(null);
     setErrorCatalogo(null);
@@ -728,7 +719,7 @@ export function ColaVocabulario() {
       setResultadoLote(`Quitados ${ok} · ${fallo} con error.`);
       setMarcadosTerm(new Set());
     } else {
-      salirSeleccionCat();
+      salirEditar();
     }
   }
 
@@ -765,7 +756,7 @@ export function ColaVocabulario() {
       setResultadoLote(`Movidos ${ok} · ${fallo} con error (revisa que no anides un término que ya tiene modelos).`);
       setMarcadosTerm(new Set());
     } else {
-      salirSeleccionCat();
+      salirEditar();
     }
   }
 
@@ -894,16 +885,20 @@ export function ColaVocabulario() {
     const desplegable = !esModelo;
     const plegado = desplegable && !buscando && !expandidas.has(t.id);
     const idx = grupo.findIndex((x) => x.id === t.id);
+    // Un solo lugar para todo lo secundario del término: "N modelos" viaja
+    // aquí (antes era un badge aparte que se confundía con "en N fichas" —
+    // prompt maestro 12, punto 4).
     const sub =
       [
         t.estado_gobierno === 'propuesto' ? 'pendiente de revisar' : null,
+        !esModelo && tieneModelos ? `${t.hijos.length} ${t.hijos.length === 1 ? 'modelo' : 'modelos'}` : null,
         t.usos > 0 ? `en ${t.usos} ${t.usos === 1 ? 'ficha' : 'fichas'}` : null,
       ]
         .filter(Boolean)
         .join(' · ') || undefined;
     const avisoModelo = desplegable ? nombreDuplicado(nuevoModeloPorPadre[t.id] ?? '') : null;
-    // El campo "+ modelo dentro de X…" solo cuando no estás en un modo.
-    const modoEdicionModelos = !seleccionandoCat && !ordenandoCat && !buscando;
+    // El campo "+ modelo dentro de X…" solo cuando no estás en modo Editar.
+    const modoEdicionModelos = !editando && !buscando;
     // Al buscar, un modelo se muestra con su ruta para no quedar suelto.
     const titulo = esModelo && buscando && padreNombre ? `${padreNombre} › ${t.nombre}` : t.nombre;
 
@@ -914,16 +909,15 @@ export function ColaVocabulario() {
           icono={desplegable ? (plegado ? 'chevron' : 'bajar') : undefined}
           titulo={titulo}
           subtitulo={sub}
-          badge={!esModelo && tieneModelos ? String(t.hijos.length) : undefined}
           tono={t.estado_gobierno === 'propuesto' ? 'aviso' : 'neutral'}
-          onClick={desplegable && !seleccionandoCat && !buscando ? () => alternarColapso(t.id) : undefined}
+          onClick={desplegable && !editando && !buscando ? () => alternarColapso(t.id) : undefined}
           seleccion={
-            seleccionandoCat
+            editando
               ? { activa: true, marcada: marcadosTerm.has(t.id), onToggle: () => alternarTerm(t.id) }
               : undefined
           }
           acciones={
-            ordenandoCat && !buscando
+            editando && !buscando
               ? ([
                   {
                     icono: 'subir',
@@ -942,8 +936,8 @@ export function ColaVocabulario() {
           }
         />
         {/* La rama solo se pinta si hay algo dentro: modelos, o el campo para
-            añadir el primero. Sin esto, un término vacío en modo
-            Seleccionar/Ordenar/búsqueda dejaría un raíl huérfano. */}
+            añadir el primero. Sin esto, un término vacío en modo Editar o
+            en plena búsqueda dejaría un raíl huérfano. */}
         {desplegable && !plegado && (tieneModelos || modoEdicionModelos) && (
           <div className="voc-rama">
             {t.hijos.map((h) => filaTermino(h, t.hijos, true, t.nombre))}
@@ -1010,7 +1004,7 @@ export function ColaVocabulario() {
         derecha={
           vista === 'catalogo' && !creandoCategoria ? (
             <>
-              {!buscador.abierto && !ordenandoCat && !seleccionandoCat && !!catalogoAgrupado?.length && (
+              {!buscador.abierto && !editando && !!catalogoAgrupado?.length && (
                 <BotonBuscar etiqueta="buscar término o modelo…" onClick={buscador.abrir} />
               )}
               <button
@@ -1295,22 +1289,55 @@ export function ColaVocabulario() {
           {errorCatalogo && <div className="field-error-text">{errorCatalogo}</div>}
           {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
 
-          {ordenandoCat ? (
-            <div className="barra-seleccion">
-              <span className="barra-seleccion__cuenta">
-                {guardandoOrden ? 'Guardando…' : 'Ordena con las flechas (categorías, términos y modelos)'}
-              </span>
-              <div className="barra-seleccion__acciones">
-                <button type="button" className="barra-seleccion__cancelar" onClick={salirOrden}>
-                  Hecho
-                </button>
-              </div>
-            </div>
-          ) : seleccionandoCat ? (
-            <BarraSeleccion
-              n={marcadosTerm.size}
-              onCancelar={salirSeleccionCat}
-              acciones={[
+          {editando ? (() => {
+            // Las acciones dependen del TIPO de fila marcada: categorías por
+            // un lado, términos/modelos por otro. Mezclar los dos tipos no
+            // tiene una acción común — se explica y se deshabilita todo
+            // hasta que la marca sea de un solo tipo (prompt maestro 12).
+            const hayCatMarcadas = marcadosCat.size > 0;
+            const hayTermMarcados = marcadosTerm.size > 0;
+            const soloIdCat = marcadosCat.size === 1 ? [...marcadosCat][0] : null;
+            const catMarcada = soloIdCat
+              ? catalogoAgrupado?.find((c) => c.categoria_id === soloIdCat)
+              : null;
+            const catEsFija = catMarcada ? esCategoriaSinClasificar(catMarcada.categoria_nombre) : false;
+            const mezclaTerminoConModelo = (catalogoAgrupado ?? [])
+              .flatMap((c) => c.terminos)
+              .some((t) => marcadosTerm.has(t.id) && t.hijos.some((h) => marcadosTerm.has(h.id)));
+
+            let acciones: AccionSeleccion[] = [];
+            let aviso: string | undefined;
+
+            if (hayCatMarcadas && hayTermMarcados) {
+              aviso = 'Marca solo categorías, o solo términos y modelos, para ver las acciones.';
+            } else if (hayCatMarcadas) {
+              acciones = [
+                {
+                  etiqueta: 'Renombrar',
+                  icono: 'editar',
+                  onClick: () => {
+                    if (!catMarcada) return;
+                    setErrorPorCategoria(null);
+                    setRenombrandoCategoriaId(catMarcada.categoria_id);
+                    setTextoRenombrarCategoria(catMarcada.categoria_nombre);
+                  },
+                  disabled: !catMarcada || catEsFija,
+                },
+                {
+                  etiqueta: 'Borrar',
+                  icono: 'borrar',
+                  tono: 'riesgo',
+                  onClick: () => {
+                    if (!catMarcada) return;
+                    setErrorPorCategoria(null);
+                    void abrirPanelBorrarCat(catMarcada.categoria_id);
+                  },
+                  disabled: !catMarcada || catEsFija,
+                },
+              ];
+            } else if (hayTermMarcados) {
+              if (mezclaTerminoConModelo) aviso = 'Este término se mueve con sus modelos.';
+              acciones = [
                 {
                   etiqueta: 'Renombrar',
                   icono: 'editar',
@@ -1339,25 +1366,28 @@ export function ColaVocabulario() {
                   etiqueta: corriendoLote ? 'Quitando…' : `Quitar (${marcadosTerm.size})`,
                   icono: 'borrar',
                   tono: 'riesgo',
-                  onClick: quitarLote,
+                  onClick: () => setConfirmandoQuitar(true),
                   disabled: corriendoLote || marcadosTerm.size === 0,
                 },
-              ]}
-            />
-          ) : !creandoCategoria ? (
+              ];
+            }
+
+            return (
+              <BarraSeleccion
+                n={marcadosCat.size + marcadosTerm.size}
+                onCancelar={salirEditar}
+                acciones={acciones}
+                aviso={aviso}
+              />
+            );
+          })() : !creandoCategoria ? (
             // "+ Categoría" vive en el "+" de la cabecera (mismo lenguaje que
             // Clientes/Comerciales): es la acción de crear, no un ajuste de
-            // vista como las de aquí abajo. Estas sí son puramente
-            // esporádicas y del mismo peso entre sí — un chip cada una.
+            // vista como las de aquí abajo.
             <div className="voc-acciones">
-              {(categorias?.length ?? 0) >= 2 && (
-                <button type="button" className="chip" onClick={entrarOrden}>
-                  Ordenar
-                </button>
-              )}
-              {!!catalogoAgrupado?.some((c) => c.terminos.length > 0) && (
-                <button type="button" className="chip" onClick={entrarSeleccionCat}>
-                  Seleccionar
+              {!!catalogoAgrupado?.length && (
+                <button type="button" className="chip" onClick={entrarEditar}>
+                  Editar
                 </button>
               )}
               {!buscando && !!catalogoAgrupado?.length && (() => {
@@ -1399,13 +1429,12 @@ export function ColaVocabulario() {
             </div>
           )}
 
-          {buscador.abierto && !ordenandoCat && !seleccionandoCat && !creandoCategoria && !!catalogoAgrupado?.length && (
+          {buscador.abierto && !editando && !creandoCategoria && !!catalogoAgrupado?.length && (
             <CampoBuscar
               value={busqueda}
               onChange={(v) => {
                 setBusqueda(v);
                 setCategoriaAnadiendoTermino(null);
-                setMenuCategoriaId(null);
                 setTerminoAnadiendoModelo(null);
               }}
               placeholder="buscar término o modelo…"
@@ -1480,6 +1509,19 @@ export function ColaVocabulario() {
             );
           })()}
 
+          {confirmandoQuitar && (
+            <ConfirmacionBorrado
+              onCancelar={() => setConfirmandoQuitar(false)}
+              onConfirmar={quitarLote}
+              cargando={corriendoLote}
+              confirmar={`Sí, quitar (${marcadosTerm.size})`}
+              cargandoTexto="Quitando…"
+              reversible="Las fichas que ya lo usan no se borran; solo queda fuera del catálogo."
+            >
+              Vas a quitar {marcadosTerm.size} elemento{marcadosTerm.size === 1 ? '' : 's'} del catálogo.
+            </ConfirmacionBorrado>
+          )}
+
           <div className="screen__scroll">
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
@@ -1488,11 +1530,11 @@ export function ColaVocabulario() {
           )}
 
           {(() => {
-            // En modo ordenar manda `ordenLocal` (movimiento al instante);
+            // En modo Editar manda `ordenLocal` (movimiento al instante);
             // fuera de él, el orden que trae la consulta. El buscador filtra
             // el árbol y fuerza que se vea todo lo que casa.
             const base =
-              ordenandoCat && ordenLocal
+              editando && ordenLocal
                 ? ordenLocal
                     .map((o) => catalogoAgrupado?.find((c) => c.categoria_id === o.id))
                     .filter((c): c is CategoriaConTerminos => Boolean(c))
@@ -1528,6 +1570,17 @@ export function ColaVocabulario() {
                   </div>
                 ) : (
                   <div className="voc-cat-label-row seccion-lista__subcabecera">
+                    {editando && (
+                      <button
+                        type="button"
+                        className="voc-cat__check"
+                        aria-pressed={marcadosCat.has(cat.categoria_id)}
+                        aria-label={marcadosCat.has(cat.categoria_id) ? 'Desmarcar categoría' : 'Marcar categoría'}
+                        onClick={() => alternarCat(cat.categoria_id)}
+                      >
+                        <FilaToggle marcada={marcadosCat.has(cat.categoria_id)} />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="voc-cat-label"
@@ -1545,10 +1598,10 @@ export function ColaVocabulario() {
                         <span className="voc-cat-label__fija">fija</span>
                       )}
                     </button>
-                    {/* Ordenar categorías es un modo explícito y temporal (se
-                        entra por "Ordenar"), no el estado normal de la
-                        pantalla — aquí sí tienen sitio los iconos. */}
-                    {ordenandoCat && (
+                    {/* Modo "Editar" es explícito y temporal (se entra por el
+                        chip "Editar"), no el estado normal de la pantalla —
+                        aquí sí tienen sitio los iconos. */}
+                    {editando && (
                       <div className="voc-cat__acciones">
                         <button
                           type="button"
@@ -1571,69 +1624,6 @@ export function ColaVocabulario() {
                           <Icono nombre="bajar" size={18} />
                         </button>
                       </div>
-                    )}
-                    {/* Un solo icono, igual en todas las categorías: abre/cierra
-                        el mismo menú de chips que ya usa esta pantalla arriba
-                        (Ordenar/Seleccionar/Desplegar todo) — nada de enlaces
-                        de texto repetidos categoría a categoría. */}
-                    {!ordenandoCat && !seleccionandoCat && !buscando && (
-                      <button
-                        type="button"
-                        className={`voc-cat__ic${menuCategoriaId === cat.categoria_id ? ' voc-cat__ic--abierto' : ''}`}
-                        aria-label="Más acciones de esta categoría"
-                        title="Más acciones"
-                        aria-expanded={menuCategoriaId === cat.categoria_id}
-                        onClick={() =>
-                          setMenuCategoriaId((id) => (id === cat.categoria_id ? null : cat.categoria_id))
-                        }
-                      >
-                        <Icono nombre="opciones" size={18} />
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Mismo chip que "Ordenar"/"Seleccionar" arriba — un solo
-                    lenguaje, igual en todas las categorías. */}
-                {menuCategoriaId === cat.categoria_id && (
-                  <div className="voc-cat-menu">
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() => {
-                        setMenuCategoriaId(null);
-                        setExpandidas((prev) => new Set(prev).add(cat.categoria_id));
-                        setCategoriaAnadiendoTermino(cat.categoria_id);
-                      }}
-                    >
-                      + Añadir término
-                    </button>
-                    {!fija(cat.categoria_nombre) && (
-                      <>
-                        <button
-                          type="button"
-                          className="chip"
-                          onClick={() => {
-                            setMenuCategoriaId(null);
-                            setErrorPorCategoria(null);
-                            setRenombrandoCategoriaId(cat.categoria_id);
-                            setTextoRenombrarCategoria(cat.categoria_nombre);
-                          }}
-                        >
-                          Editar categoría
-                        </button>
-                        <button
-                          type="button"
-                          className="chip"
-                          onClick={() => {
-                            setMenuCategoriaId(null);
-                            setErrorPorCategoria(null);
-                            void abrirPanelBorrarCat(cat.categoria_id);
-                          }}
-                        >
-                          Borrar categoría
-                        </button>
-                      </>
                     )}
                   </div>
                 )}
@@ -1711,8 +1701,12 @@ export function ColaVocabulario() {
                         dato dos veces. */}
                     {cat.terminos.map((t) => filaTermino(t, cat.terminos, false))}
 
-                    {!seleccionandoCat && !ordenandoCat && !buscando &&
-                      categoriaAnadiendoTermino === cat.categoria_id && (
+                    {/* "+ Añadir término" siempre a la vista, al pie de la
+                        categoría — mismo patrón que "+ Añadir modelo" bajo un
+                        término (prompt maestro 12, punto 2): un término y un
+                        modelo se crean igual, viendo a su padre ya abierto. */}
+                    {!editando && !buscando && (
+                      categoriaAnadiendoTermino === cat.categoria_id ? (
                         <>
                           <div className="voc-fila-input">
                             <input
@@ -1752,6 +1746,15 @@ export function ColaVocabulario() {
                             </div>
                           )}
                         </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="voc-fila-add"
+                          onClick={() => setCategoriaAnadiendoTermino(cat.categoria_id)}
+                        >
+                          <Icono nombre="mas" size={14} /> Añadir término
+                        </button>
+                      )
                     )}
                   </>
                 )}

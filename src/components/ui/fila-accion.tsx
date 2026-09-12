@@ -48,12 +48,13 @@ interface Props {
   /** Desactiva el `onClick` del cuerpo (no las acciones). */
   disabled?: boolean;
   acciones?: AccionFila[];
-  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones
-   *  (p. ej. el nº de modelos de un término en el catálogo de vocabulario). */
+  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones. */
   badge?: string;
   /** Modo seleccionar. Con `activa`, el cuerpo marca/desmarca en vez de su
-   *  `onClick`, y los botones de acción se ocultan. Sin esta prop, o con
-   *  `activa:false`, la fila es exactamente la de hoy. */
+   *  `onClick` (que se ignora); `acciones` se sigue pintando igual — un modo
+   *  "Editar" puede combinar checkbox + flechas de orden en la misma fila
+   *  (catálogo de vocabulario). Sin esta prop, o con `activa:false`, la fila
+   *  es exactamente la de hoy. */
   seleccion?: EstadoSeleccion;
 }
 
@@ -122,7 +123,7 @@ export function FilaAccion({
         <div className="fila__cuerpo-accion">{cuerpo}</div>
       )}
 
-      {!seleccionando && acciones.length > 0 && (
+      {acciones.length > 0 && (
         <div className="fila__acciones">
           {acciones.map((a, i) => {
             const claseBtn = [

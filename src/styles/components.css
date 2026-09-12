@@ -1112,20 +1112,11 @@ textarea.field {
 }
 .voc-cat__ic:hover:not(:disabled) { background: var(--surface-0); }
 .voc-cat__ic:disabled { opacity: 0.4; cursor: default; }
-.voc-cat__ic--del { color: var(--risk-600); }
-/* Regla #13: el "⋯" se ve PULSADO mientras su menú está abierto — caja
-   sólida de marca (forma + relleno, no un tinte suave: regla #11), como un
-   boton-icono al pulsarlo. Si no, "toco y no cambia nada". */
-.voc-cat__ic--abierto,
-.voc-cat__ic--abierto:hover:not(:disabled) { background: var(--brand-600); color: #fff; }
-
-/* Menú "⋯" de una categoría: los mismos chips que ya usa la pantalla
-   (Ordenar/Seleccionar/Desplegar todo), no un estilo propio — se abre bajo
-   la cabecera de ESA categoría y se cierra al elegir una opción. */
-.voc-cat-menu {
-  display: flex; flex-wrap: wrap; gap: var(--space-2);
-  padding: var(--space-2) var(--fila-pad-x) var(--space-3);
-  border-top: var(--fila-separador); background: var(--surface-1);
+/* Checkbox de categoría en modo "Editar" — mismo tamaño de toque que las
+   flechas de orden (.voc-cat__ic), FilaToggle dibuja el círculo. */
+.voc-cat__check {
+  flex-shrink: 0; width: 34px; height: 34px; display: grid; place-items: center;
+  border: none; background: none; padding: 0; cursor: pointer;
 }
 
 /* 3 — rama de modelos: raíl vertical continuo bajo el término padre */
@@ -1579,3 +1570,4 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
   font-size: var(--text-sm); color: var(--ink-400); cursor: pointer;
 }
 .barra-seleccion__cancelar:hover { color: var(--ink-900); }
+.barra-seleccion__aviso { flex-basis: 100%; font-size: var(--text-xs); color: var(--ink-400); }
