@@ -33,7 +33,7 @@ export const GRUPOS_PANTALLA: { id: GrupoPantalla; titulo: string }[] = [
 ];
 export const GRUPOS_CONCEPTO: { id: GrupoConcepto; titulo: string }[] = [
   { id: 'visita', titulo: 'Durante la visita' },
-  { id: 'oportunidad', titulo: 'Oportunidades y vocabulario' },
+  { id: 'oportunidad', titulo: 'Oportunidades y categorías' },
   { id: 'planificar', titulo: 'Planificar y hacer seguimiento' },
   { id: 'app', titulo: 'La app por dentro' },
 ];
@@ -278,7 +278,7 @@ const _PANTALLAS = {
   },
   'cola-vocabulario': {
     grupo: 'direccion',
-    titulo: 'Vocabulario',
+    titulo: 'Categorías',
     queEs:
       'El catálogo de términos que los comerciales eligen al registrar hallazgos y oportunidades. «Pendientes» son los propuestos sobre la marcha y sin revisar; «Catálogo completo» es todo lo aprobado, por categorías.',
     cuando:
@@ -363,7 +363,7 @@ const _CONCEPTOS = {
       'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera y quien lo añadió lo ve; se le puede volver a invitar (sale marcado «reinvitar»), lo mismo Dirección que el responsable. Quien puede añadir también puede «quitar» a un participante —a esa persona le llega un aviso y, si hace falta, también se la puede reinvitar—, y cualquiera puede «salir» de una visita en la que no es responsable. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
   },
 
-  // — Oportunidades y vocabulario —
+  // — Oportunidades y categorías —
   'etapa-oportunidad': {
     grupo: 'oportunidad',
     titulo: 'Etapa, prioridad y horizonte de una oportunidad',
@@ -374,7 +374,7 @@ const _CONCEPTOS = {
   },
   'termino-modelo': {
     grupo: 'oportunidad',
-    titulo: 'Términos y modelos del vocabulario',
+    titulo: 'Términos y modelos del catálogo',
     queEs:
       'Un término es cómo el equipo nombra una tecnología, una solución o un fabricante (biometría, control de accesos, MIFARE…). Algunos tienen modelos dentro: «MIFARE» agrupa «DESFire EV2», «EV1»… Al etiquetar una oportunidad puedes elegir el término a secas si no sabes el modelo, o el modelo concreto. Si no encuentras el tuyo, proponlo y Dirección lo revisa y lo coloca.',
     ejemplo:

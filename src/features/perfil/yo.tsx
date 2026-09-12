@@ -596,7 +596,7 @@ export function Yo() {
             />
             <FilaNavegable
               icono="vocabulario"
-              titulo="Vocabulario"
+              titulo="Categorías"
               subtitulo="Revisar propuestas y organizar el catálogo"
               to="/vocabulario"
             />

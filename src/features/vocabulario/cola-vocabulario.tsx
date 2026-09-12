@@ -485,7 +485,7 @@ export function ColaVocabulario() {
       return;
     }
     if (!count) {
-      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
+      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.');
       return;
     }
     setRenombrandoCategoriaId(null);
@@ -523,7 +523,7 @@ export function ColaVocabulario() {
     if (!count) {
       setErrorPorCategoria({
         id,
-        msg: 'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.',
+        msg: 'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.',
       });
       return;
     }
@@ -555,7 +555,7 @@ export function ColaVocabulario() {
     if (errBorrar || !count) {
       setErrorPorCategoria({
         id,
-        msg: 'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar el vocabulario.',
+        msg: 'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar las categorías.',
       });
       invalidarCatalogo();
       return;
@@ -611,7 +611,7 @@ export function ColaVocabulario() {
     setGuardandoOrden(false);
     if (err) {
       setErrorCatalogo(
-        `No se ha podido guardar el orden: ${err.message}. Solo Dirección Comercial puede editar el vocabulario.`
+        `No se ha podido guardar el orden: ${err.message}. Solo Dirección Comercial puede editar las categorías.`
       );
       return;
     }
@@ -632,7 +632,7 @@ export function ColaVocabulario() {
       return;
     }
     if (!count) {
-      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar el vocabulario.');
+      setErrorCatalogo('No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.');
       return;
     }
     setRenombrandoTerminoId(null);
@@ -1004,7 +1004,7 @@ export function ColaVocabulario() {
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
-        titulo="Vocabulario"
+        titulo="Categorías"
         volverA="/yo"
         ayuda="cola-vocabulario"
         derecha={
