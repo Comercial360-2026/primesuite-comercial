@@ -241,8 +241,12 @@ export function DetalleVisitaCerrada() {
   // con el del borrado simple).
   const [quiereLiberar, setQuiereLiberar] = useState(false);
   const [visitaLiberada, setVisitaLiberada] = useState(false);
-  const tamanoAdjuntos = useTamanoAdjuntosVisita(visitaId);
-  const { operaciones: colaLocalVisita } = useSyncQueue(visitaId);
+  // Esta misma ruta también la usa Mi espacio para visitas 'agendada'
+  // (planificada, aún no ha pasado) — sin nada que liberar en ese caso, así
+  // que ni se listan los buckets ni la cola local hasta saber que ya cerró.
+  const idParaLiberar = data?.estado_captura === 'consolidada' ? visitaId : undefined;
+  const tamanoAdjuntos = useTamanoAdjuntosVisita(idParaLiberar);
+  const { operaciones: colaLocalVisita } = useSyncQueue(idParaLiberar);
   const liberar = useBorrarVisita({
     onBorrada: () => {
       setVisitaLiberada(true);
@@ -321,9 +325,14 @@ export function DetalleVisitaCerrada() {
   // llevaría por delante sin avisar) y sin nada de esta visita pendiente de
   // subir en la cola local de este dispositivo (la cola no se purga tras
   // sincronizar — queda 'completado' para siempre, ver sync-engine.ts).
+  // Esta misma ruta (/visita/:id/detalle) la usa también Mi espacio para
+  // visitas todavía 'agendada' (planificada, aún no ha pasado) — comprobado
+  // en vivo: sin este candado el botón salía activo en una visita futura sin
+  // nada que liberar. "Visita cerrada" es la condición 1 del diseño.
+  const visitaCerrada = data?.estado_captura === 'consolidada';
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
-  const puedeLiberarEspacio = oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
+  const puedeLiberarEspacio = visitaCerrada && oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
   const liberarListo = quiereLiberar && !!descargaLista && !!liberar.previsualizacion;
   const tamanoMB = tamanoAdjuntos.bytes != null ? formatearMB(tamanoAdjuntos.bytes) : null;
 
@@ -699,7 +708,7 @@ export function DetalleVisitaCerrada() {
 
       {data && visitaId && puedeBorrarVisita && (
         <div style={{ marginTop: 4 }}>
-          {oportunidadesAbiertas.length > 0 && (
+          {visitaCerrada && oportunidadesAbiertas.length > 0 && (
             <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
               <Aviso tipo="atencion">
                 Tiene {plural(oportunidadesAbiertas.length, 'oportunidad abierta', 'oportunidades abiertas')} sin
@@ -716,7 +725,7 @@ export function DetalleVisitaCerrada() {
               </Aviso>
             </div>
           )}
-          {haySinSubirLocal && (
+          {visitaCerrada && haySinSubirLocal && (
             <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
               <Aviso tipo="atencion">
                 Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
@@ -724,45 +733,46 @@ export function DetalleVisitaCerrada() {
               </Aviso>
             </div>
           )}
-          {visitaLiberada ? (
-            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
-              <Aviso tipo="exito">Visita liberada.</Aviso>
-            </div>
-          ) : liberarListo ? (
-            <div style={{ marginBottom: 8 }}>
-              <ConfirmacionBorrado
-                onCancelar={cancelarLiberarEspacio}
-                onConfirmar={() => void liberar.confirmar()}
-                cargando={liberar.borrando.cargando}
-                error={liberar.borrando.error}
-                confirmar="Sí, liberar espacio"
-                cargandoTexto="Liberando…"
-              >
-                Guarda este archivo donde lo necesites antes de seguir. Al confirmar, esta visita desaparece de
-                PrimeNotes para siempre.
-              </ConfirmacionBorrado>
-            </div>
-          ) : (
-            <SeccionLista>
-              <FilaAccion
-                densidad="compacta"
-                titulo="Descargar y liberar espacio"
-                subtitulo={subtituloLiberar}
-                acciones={[
-                  {
-                    icono: 'almacenamiento',
-                    etiqueta: 'Descargar y liberar espacio',
-                    onClick:
-                      puedeLiberarEspacio && estadoDescarga !== 'generando'
-                        ? iniciarLiberarEspacio
-                        : undefined,
-                    disabled: !puedeLiberarEspacio || estadoDescarga === 'generando',
-                    tono: 'riesgo',
-                  },
-                ]}
-              />
-            </SeccionLista>
-          )}
+          {visitaCerrada &&
+            (visitaLiberada ? (
+              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+                <Aviso tipo="exito">Visita liberada.</Aviso>
+              </div>
+            ) : liberarListo ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={cancelarLiberarEspacio}
+                  onConfirmar={() => void liberar.confirmar()}
+                  cargando={liberar.borrando.cargando}
+                  error={liberar.borrando.error}
+                  confirmar="Sí, liberar espacio"
+                  cargandoTexto="Liberando…"
+                >
+                  Guarda este archivo donde lo necesites antes de seguir. Al confirmar, esta visita desaparece de
+                  PrimeNotes para siempre.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaAccion
+                  densidad="compacta"
+                  titulo="Descargar y liberar espacio"
+                  subtitulo={subtituloLiberar}
+                  acciones={[
+                    {
+                      icono: 'almacenamiento',
+                      etiqueta: 'Descargar y liberar espacio',
+                      onClick:
+                        puedeLiberarEspacio && estadoDescarga !== 'generando'
+                          ? iniciarLiberarEspacio
+                          : undefined,
+                      disabled: !puedeLiberarEspacio || estadoDescarga === 'generando',
+                      tono: 'riesgo',
+                    },
+                  ]}
+                />
+              </SeccionLista>
+            ))}
           {borrar.visitaBorrarId === visitaId ? (
             <ConfirmarBorradoVisita ctrl={borrar} />
           ) : (
