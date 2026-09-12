@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
-import { obtenerOperacionesConError, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
@@ -19,6 +19,8 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Avatar } from '@/components/ui/avatar';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { Icono } from '@/components/ui/iconos';
 
 const DIAS_AVISO_BACKUP = 7;
 
@@ -209,6 +211,35 @@ export function Yo() {
     };
   }, [queryClient]);
 
+  // "N sin sincronizar" son operaciones que YA agotaron sus 5 reintentos —
+  // no es un problema de conexión (el motor las reintenta solas cada 60s o
+  // al reconectar y sigue fallando), así que el mensaje no puede decir "se
+  // sube solo en cuanto haya conexión": eso no explica nada y confunde
+  // (Cesar lo reportó: "por qué aparece si tengo conexión"). Cada una
+  // enseña su `ultimoError` real y deja reintentar ya mismo o descartarla.
+  const [reintentandoCola, setReintentandoCola] = useState(false);
+  const [descartandoOpId, setDescartandoOpId] = useState<string | null>(null);
+  const [errorDescarte, setErrorDescarte] = useState<string | null>(null);
+
+  async function reintentarAhora() {
+    setReintentandoCola(true);
+    await procesarCola();
+    queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+    setReintentandoCola(false);
+  }
+
+  async function descartarOperacion(id: string) {
+    setErrorDescarte(null);
+    try {
+      await eliminarOperacion(id);
+    } catch (err) {
+      setErrorDescarte(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    setDescartandoOpId(null);
+    queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+  }
+
   const ETIQUETA_ENTIDAD: Record<string, string> = {
     visita: 'visita',
     hallazgo: 'hallazgo',
@@ -349,16 +380,62 @@ export function Yo() {
         {numErrores > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <Aviso tipo="error" titulo={`${numErrores} elemento${numErrores > 1 ? 's' : ''} sin sincronizar`}>
-              {Object.entries(
-                operacionesConError!.reduce<Record<string, number>>((acc, op) => {
-                  acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
-                  return acc;
-                }, {})
-              )
-                .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
-                .join(', ')}
-              {' — se sube solo en cuanto haya conexión.'}
+              No se han podido guardar en el servidor tras varios intentos — el motivo va debajo de cada uno, no siempre es falta de conexión.
             </Aviso>
+
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {operacionesConError!.map((op, i) => (
+                <div
+                  key={op.id}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                    padding: '10px 0', borderTop: i === 0 ? undefined : '1px solid var(--ink-100)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+                        {ETIQUETA_ENTIDAD[op.entidad] ?? op.entidad}
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                        {op.ultimoError ?? 'Sin detalle del error.'}
+                        {' · '}{op.intentos} intento{op.intentos === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="boton-icono"
+                      aria-label="Descartar"
+                      title="Descartar"
+                      onClick={() => { setErrorDescarte(null); setDescartandoOpId(op.id); }}
+                    >
+                      <Icono nombre="borrar" size={18} />
+                    </button>
+                  </div>
+                  {descartandoOpId === op.id && (
+                    <ConfirmacionBorrado
+                      onCancelar={() => setDescartandoOpId(null)}
+                      onConfirmar={() => descartarOperacion(op.id)}
+                      error={errorDescarte}
+                      confirmar="Sí, descartar"
+                      reversible="No podrás recuperarlo: descarta este cambio guardado sin subir, no lo reintenta más."
+                    >
+                      Vas a descartar este {ETIQUETA_ENTIDAD[op.entidad] ?? op.entidad}.
+                    </ConfirmacionBorrado>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ marginTop: 8 }}
+                disabled={reintentandoCola}
+                onClick={reintentarAhora}
+              >
+                {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
+              </button>
+            </div>
+
             <AyudaNota concepto="sincronizacion" />
           </div>
         )}

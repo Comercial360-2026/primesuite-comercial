@@ -402,9 +402,9 @@ const _CONCEPTOS = {
     grupo: 'app',
     titulo: 'Trabajar sin conexión',
     queEs:
-      'Lo que capturas se guarda primero en el móvil y se sube al servidor en cuanto hay conexión, reintentándolo solo. Mientras algo siga sin subir, comprueba tu conexión y no reinstales la app en ese teléfono.',
+      'Lo que capturas se guarda primero en el móvil y se sube al servidor en cuanto hay conexión, reintentándolo solo. No reinstales la app en ese teléfono mientras algo siga sin subir: perderías lo que aún no ha llegado al servidor.',
     cuando:
-      'PrimeNotes se puede usar entera sin cobertura: haces la visita con normalidad y todo sube al recuperar señal, sin pulsar nada. En «Yo» es donde compruebas si queda algo pendiente.',
+      'PrimeNotes se puede usar entera sin cobertura: haces la visita con normalidad y todo sube al recuperar señal, sin pulsar nada. En «Yo» es donde compruebas si queda algo pendiente. Si un elemento sigue marcado como «sin sincronizar» teniendo ya conexión, no es un problema de cobertura: el motivo real sale escrito debajo de cada uno, y ahí mismo puedes reintentarlo o descartarlo.',
     ejemplo:
       'Visitas un polígono sin cobertura, capturas 12 fotos y 3 hallazgos y cierras la visita. Al volver al coche y recuperar señal, todo sube solo en segundo plano.',
   },
