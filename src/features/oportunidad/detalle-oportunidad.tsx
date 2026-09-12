@@ -379,6 +379,15 @@ export function DetalleOportunidad() {
         <SelectorCategorias seleccionadas={areas} onCambio={setAreas} />
       )}
 
+      <div className="label">Descripción</div>
+      <textarea
+        className="field"
+        style={{ height: 'auto', padding: 8 }}
+        rows={2}
+        value={descripcion}
+        onChange={(e) => setDescripcion(e.target.value)}
+      />
+
       <div className="label">Título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
 
@@ -448,15 +457,6 @@ export function DetalleOportunidad() {
           </option>
         ))}
       </select>
-
-      <div className="label">Descripción</div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
-        rows={2}
-        value={descripcion}
-        onChange={(e) => setDescripcion(e.target.value)}
-      />
 
       <div className="label">Zona (opcional)</div>
       <SelectorZona
