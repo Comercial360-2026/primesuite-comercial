@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
@@ -16,7 +16,10 @@ import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe'
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useTamanoAdjuntosVisita } from '@/hooks/use-tamano-adjuntos-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -24,8 +27,10 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
+import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -229,6 +234,24 @@ export function DetalleVisitaCerrada() {
       navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true }),
   });
 
+  // "Descargar y liberar espacio": descarga el zip completo (mismo botón de
+  // informe, mismo useDescargarInforme de arriba) y, solo tras confirmar que
+  // se ha guardado, borra la visita entera (mismo useBorrarVisita/RPC que
+  // "Borrar esta visita" — instancia propia para no mezclar su mensaje final
+  // con el del borrado simple).
+  const [quiereLiberar, setQuiereLiberar] = useState(false);
+  const [visitaLiberada, setVisitaLiberada] = useState(false);
+  const tamanoAdjuntos = useTamanoAdjuntosVisita(visitaId);
+  const { operaciones: colaLocalVisita } = useSyncQueue(visitaId);
+  const liberar = useBorrarVisita({
+    onBorrada: () => {
+      setVisitaLiberada(true);
+      setTimeout(() => {
+        navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true });
+      }, 1200);
+    },
+  });
+
   const puedeEditarResumen = puedeBorrarVisita;
 
   function abrirEditarResumen() {
@@ -292,6 +315,41 @@ export function DetalleVisitaCerrada() {
 
   const estadoDescarga = visitaId ? estadoDe(visitaId) : 'inactivo';
   const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+
+  // Candados de "Descargar y liberar espacio" (diseño acordado 12/9): sin
+  // oportunidad abierta colgando (si no, `eliminar_visita_completa` se la
+  // llevaría por delante sin avisar) y sin nada de esta visita pendiente de
+  // subir en la cola local de este dispositivo (la cola no se purga tras
+  // sincronizar — queda 'completado' para siempre, ver sync-engine.ts).
+  const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
+  const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
+  const puedeLiberarEspacio = oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
+  const liberarListo = quiereLiberar && !!descargaLista && !!liberar.previsualizacion;
+  const tamanoMB = tamanoAdjuntos.bytes != null ? formatearMB(tamanoAdjuntos.bytes) : null;
+
+  function iniciarLiberarEspacio() {
+    if (!visitaId) return;
+    setQuiereLiberar(true);
+    void liberar.pedir(visitaId);
+    void descargar('visita', visitaId);
+  }
+
+  function cancelarLiberarEspacio() {
+    setQuiereLiberar(false);
+    liberar.cancelar();
+  }
+
+  const subtituloLiberar = quiereLiberar
+    ? estadoDescarga === 'sin-red'
+      ? 'Sin conexión. Inténtalo cuando tengas red'
+      : estadoDescarga === 'error'
+        ? 'No se pudo generar, toca de nuevo'
+        : 'Generando el informe…'
+    : !puedeLiberarEspacio
+      ? 'Resuelve el aviso de arriba para poder liberar espacio'
+      : tamanoMB
+        ? `Descarga el informe (${tamanoMB} MB) y elimina la visita de PrimeNotes`
+        : 'Descarga el informe y elimina la visita de PrimeNotes';
 
   const sinNada =
     !!data &&
@@ -641,6 +699,70 @@ export function DetalleVisitaCerrada() {
 
       {data && visitaId && puedeBorrarVisita && (
         <div style={{ marginTop: 4 }}>
+          {oportunidadesAbiertas.length > 0 && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Tiene {plural(oportunidadesAbiertas.length, 'oportunidad abierta', 'oportunidades abiertas')} sin
+                cerrar:{' '}
+                {oportunidadesAbiertas.map((o, i) => (
+                  <span key={o.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/oportunidades/${o.id}`} state={origen}>
+                      {o.titulo}
+                    </Link>
+                  </span>
+                ))}
+                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de liberar espacio.
+              </Aviso>
+            </div>
+          )}
+          {haySinSubirLocal && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
+                sincronicen antes de liberar espacio.
+              </Aviso>
+            </div>
+          )}
+          {visitaLiberada ? (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="exito">Visita liberada.</Aviso>
+            </div>
+          ) : liberarListo ? (
+            <div style={{ marginBottom: 8 }}>
+              <ConfirmacionBorrado
+                onCancelar={cancelarLiberarEspacio}
+                onConfirmar={() => void liberar.confirmar()}
+                cargando={liberar.borrando.cargando}
+                error={liberar.borrando.error}
+                confirmar="Sí, liberar espacio"
+                cargandoTexto="Liberando…"
+              >
+                Guarda este archivo donde lo necesites antes de seguir. Al confirmar, esta visita desaparece de
+                PrimeNotes para siempre.
+              </ConfirmacionBorrado>
+            </div>
+          ) : (
+            <SeccionLista>
+              <FilaAccion
+                densidad="compacta"
+                titulo="Descargar y liberar espacio"
+                subtitulo={subtituloLiberar}
+                acciones={[
+                  {
+                    icono: 'almacenamiento',
+                    etiqueta: 'Descargar y liberar espacio',
+                    onClick:
+                      puedeLiberarEspacio && estadoDescarga !== 'generando'
+                        ? iniciarLiberarEspacio
+                        : undefined,
+                    disabled: !puedeLiberarEspacio || estadoDescarga === 'generando',
+                    tono: 'riesgo',
+                  },
+                ]}
+              />
+            </SeccionLista>
+          )}
           {borrar.visitaBorrarId === visitaId ? (
             <ConfirmarBorradoVisita ctrl={borrar} />
           ) : (
