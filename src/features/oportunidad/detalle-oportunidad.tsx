@@ -203,6 +203,34 @@ export function DetalleOportunidad() {
     navigate(volver);
   }
 
+  // Guardado inmediato de zona — igual que Archivar/Borrar en otras
+  // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
+  // Misma rama enCola/servidor que guardar() de abajo: si aún no ha
+  // llegado al servidor, se actualiza la copia local de la cola.
+  async function guardarZonaYa(zona: string) {
+    if (!oportunidadId) return;
+    if (enCola) {
+      const op = await obtenerOperacion(oportunidadId);
+      if (op?.entidad === 'oportunidad') {
+        await actualizarOperacion(oportunidadId, {
+          payload: { ...op.payload, zonaTexto: zona.trim() || undefined },
+        });
+      }
+      return;
+    }
+    const { error: err, count } = await supabase
+      .from('oportunidad')
+      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
+      .eq('id', oportunidadId);
+    if (err) throw new Error(err.message);
+    if (!count) {
+      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+    }
+    if (oportunidad?.visita_origen_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+    }
+  }
+
   async function guardar() {
     if (!oportunidadId) return;
     setGuardando(true);
@@ -229,6 +257,9 @@ export function DetalleOportunidad() {
       }
       setGuardando(false);
       setGuardadoConExito(true);
+      if (oportunidad?.visita_origen_id) {
+        queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+      }
       setTimeout(() => navigate(volver), 700);
       return;
     }
@@ -264,6 +295,9 @@ export function DetalleOportunidad() {
     // Si la visita de origen está cerrada y su resumen es automático, se
     // rehace con el título nuevo de la oportunidad.
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
+    if (oportunidad?.visita_origen_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
+    }
     setGuardadoConExito(true);
     setTimeout(() => navigate(volver), 700);
   }
@@ -564,7 +598,12 @@ export function DetalleOportunidad() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <SelectorZona visitaId={oportunidad.visita_origen_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
+      <SelectorZona
+        visitaId={oportunidad.visita_origen_id ?? undefined}
+        value={zonaTexto}
+        onChange={setZonaTexto}
+        onGuardar={guardarZonaYa}
+      />
 
       {error && <div className="field-error-text">{error}</div>}
 

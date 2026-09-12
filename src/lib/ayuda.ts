@@ -342,6 +342,12 @@ const _CONCEPTOS = {
       'Una etiqueta libre para el sitio que estás mirando (una puerta, una barrera, un rincón). Sale al pulsar «Marcar zonas», junto a «Captura lo que veas»; mientras haya una zona escrita, todo lo que captures queda atado a ella y al cerrar la visita lo repasas zona por zona. Si no marcas ninguna, todas las capturas van juntas al grupo «General». La etiqueta es de usar y tirar —no se guarda en ninguna lista—, pero las que ya has usado en esta visita te vuelven a salir como chip para reutilizarlas.',
     cuando: 'En clientes grandes o cuando recorres varias áreas y quieres el informe ordenado por sitio. Si no vas por zonas, ni toques «Marcar zonas»: captura normal y todo va a «General».',
   },
+  'zona-item': {
+    grupo: 'visita',
+    titulo: 'Zona de un hallazgo, nota, oportunidad o próximo paso',
+    queEs:
+      'Dónde ocurrió, dentro de las instalaciones del cliente. Toca una de las zonas ya usadas en esta visita para reutilizarla, o escribe el nombre y pulsa «Usar zona» para crear una nueva —quedará disponible para el resto de cosas que anotes en esta misma visita—. Si no eliges ninguna, queda en «General», sin zona concreta.',
+  },
   'tipo-fecha-hallazgo': {
     grupo: 'visita',
     titulo: 'Fecha relevante de un hallazgo',

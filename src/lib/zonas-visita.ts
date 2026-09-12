@@ -1,5 +1,21 @@
 import { supabase } from '@/lib/supabase-client';
 
+// Agrupa ignorando mayúsculas/espacios ("Muelle" y "muelle " son la misma
+// zona) para que la lista de chips no se llene de casi-duplicados; se
+// conserva la primera grafía vista, no se fuerza a minúsculas. Compartida
+// entre esta consulta al servidor y la lista local de visita-activa.tsx —
+// mismo criterio en los dos sitios donde se agregan zonas de una visita.
+export function deduplicarZonas(valores: (string | null | undefined)[]): string[] {
+  const vistas = new Map<string, string>();
+  for (const v of valores) {
+    const texto = v?.trim();
+    if (!texto) continue;
+    const clave = texto.toLocaleLowerCase('es');
+    if (!vistas.has(clave)) vistas.set(clave, texto);
+  }
+  return [...vistas.values()].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 // Zonas ya escritas en ESTA visita (en cualquier nota, hallazgo,
 // oportunidad o próximo paso), para poder ELEGIR una en vez de
 // reescribirla cada vez — mismo criterio que "zonas usadas" en Anotar
@@ -23,10 +39,5 @@ export async function listarZonasUsadasEnVisita(visitaId: string): Promise<strin
     ...(pasos.data ?? []),
   ] as { zona_texto: string | null }[];
 
-  const unicas = new Set<string>();
-  for (const f of filas) {
-    const z = f.zona_texto?.trim();
-    if (z) unicas.add(z);
-  }
-  return [...unicas].sort((a, b) => a.localeCompare(b, 'es'));
+  return deduplicarZonas(filas.map((f) => f.zona_texto));
 }

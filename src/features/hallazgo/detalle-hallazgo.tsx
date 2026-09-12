@@ -90,6 +90,7 @@ export function DetalleHallazgo() {
   // sigue usando como último recurso si no hay zona) hasta que se escriba
   // una zona nueva.
   const hallazgoTieneUbicacionLegado = !!hallazgo?.ubicacion_id;
+  const faltaTipoFecha = !!fechaRelevante && !tipoFechaRelevante;
 
   // El formulario se rellena con lo que hay en el servidor UNA sola vez por
   // hallazgo. Sin estos guards, cualquier refetch de la query (foco de la
@@ -162,6 +163,9 @@ export function DetalleHallazgo() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['hallazgo-areas', hallazgoId] });
+    if (hallazgo?.visita_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', hallazgo.visita_id] });
+    }
     // Si la visita está cerrada y su resumen es automático, se rehace con
     // el texto nuevo del hallazgo.
     await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
@@ -171,6 +175,26 @@ export function DetalleHallazgo() {
     // volver — antes saltaba a la pantalla anterior sin ninguna
     // confirmación, ni siquiera un flash.
     setTimeout(() => navigate(volver), 700);
+  }
+
+  // Guardado inmediato de zona — igual que Archivar/Borrar, no espera al
+  // «Guardar» general: elegir/crear/quitar zona ya se ve confirmado con la
+  // pastilla, así que tiene que quedar grabado en ese mismo instante, no
+  // pendiente hasta que se guarde el resto del formulario.
+  async function guardarZonaYa(zona: string) {
+    if (!hallazgoId) return;
+    const { error: err, count } = await supabase
+      .from('hallazgo')
+      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
+      .eq('id', hallazgoId);
+    if (err) throw new Error(err.message);
+    if (!count) {
+      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+    }
+    if (hallazgo?.visita_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', hallazgo.visita_id] });
+    }
+    await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
   }
 
   // Borrado individual — encargo técnico punto 2/3: comprobación explícita
@@ -297,7 +321,12 @@ export function DetalleHallazgo() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <SelectorZona visitaId={hallazgo.visita_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
+      <SelectorZona
+        visitaId={hallazgo.visita_id ?? undefined}
+        value={zonaTexto}
+        onChange={setZonaTexto}
+        onGuardar={guardarZonaYa}
+      />
       {!zonaTexto.trim() && hallazgoTieneUbicacionLegado && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
           Tenía una ubicación del catálogo antiguo; se conserva en el informe hasta que escribas
@@ -326,6 +355,9 @@ export function DetalleHallazgo() {
           ))}
         </select>
       </div>
+      {faltaTipoFecha && (
+        <div className="field-error-text">Indica también el tipo de fecha.</div>
+      )}
       <AyudaNota concepto="tipo-fecha-hallazgo" />
 
       {error && <div className="field-error-text">{error}</div>}
@@ -335,7 +367,7 @@ export function DetalleHallazgo() {
       <button
         className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
-        disabled={guardando || guardadoConExito}
+        disabled={guardando || guardadoConExito || faltaTipoFecha}
         onClick={guardar}
       >
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}

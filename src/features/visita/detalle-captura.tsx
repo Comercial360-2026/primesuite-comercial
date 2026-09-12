@@ -187,6 +187,34 @@ export function DetalleCaptura() {
   // consta, a la visita.
   const volver = useVolverA(visitaId ? `/visita/${visitaId}` : '/');
 
+  // Guardado inmediato de zona — igual que Archivar/Borrar en otras
+  // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
+  // Misma rama cola/servidor que guardarEdicion() de abajo.
+  async function guardarZonaYa(zona: string) {
+    if (!captura) return;
+    const zonaNueva = zona.trim() || undefined;
+    if (captura.fuente === 'servidor' || captura.estadoSync === 'completado') {
+      const { error: err, count } = await supabase
+        .from('captura_libre')
+        .update({ zona_texto: zonaNueva ?? null }, { count: 'exact' })
+        .eq('id', captura.id);
+      if (err) throw new Error(err.message);
+      if (!count) {
+        throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+      }
+      if (captura.visitaId) {
+        queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+      }
+    } else {
+      const op = await obtenerOperacion(captura.id);
+      if (op) {
+        await actualizarOperacion(captura.id, {
+          payload: { ...(op.payload as CapturaLibrePayload), zonaTexto: zonaNueva },
+        });
+      }
+    }
+  }
+
   async function guardarEdicion() {
     if (!captura) return;
 
@@ -247,6 +275,7 @@ export function DetalleCaptura() {
           setGuardadoConExito(true);
           if (captura.visitaId) {
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
+            queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
           }
           // Breve pausa para que "guardado ✓" sea visible antes de volver.
           setTimeout(() => navigate(volver), 700);
@@ -393,7 +422,12 @@ export function DetalleCaptura() {
             placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
           />
           <div className="label">Zona (opcional)</div>
-          <SelectorZona visitaId={captura.visitaId} value={zonaEdit} onChange={setZonaEdit} />
+          <SelectorZona
+            visitaId={captura.visitaId}
+            value={zonaEdit}
+            onChange={setZonaEdit}
+            onGuardar={guardarZonaYa}
+          />
         </>
       )}
 
@@ -414,7 +448,12 @@ export function DetalleCaptura() {
             onChange={(e) => setTextoEdit(e.target.value)}
           />
           <div className="label">Zona (opcional)</div>
-          <SelectorZona visitaId={captura.visitaId} value={zonaEdit} onChange={setZonaEdit} />
+          <SelectorZona
+            visitaId={captura.visitaId}
+            value={zonaEdit}
+            onChange={setZonaEdit}
+            onGuardar={guardarZonaYa}
+          />
         </>
       )}
 

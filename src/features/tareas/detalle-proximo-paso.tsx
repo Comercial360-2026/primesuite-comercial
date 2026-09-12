@@ -67,6 +67,23 @@ export function DetalleProximoPaso() {
     setZonaTexto(paso.zona_texto ?? '');
   }, [paso]);
 
+  // Guardado inmediato de zona — igual que Archivar/Borrar en otras
+  // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
+  async function guardarZonaYa(zona: string) {
+    if (!pasoId) return;
+    const { error: err, count } = await supabase
+      .from('proximo_paso')
+      .update({ zona_texto: zona.trim() || null }, { count: 'exact' })
+      .eq('id', pasoId);
+    if (err) throw new Error(err.message);
+    if (!count) {
+      throw new Error('No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.');
+    }
+    if (paso?.visita_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+    }
+  }
+
   async function guardar() {
     if (!pasoId || !descripcion.trim()) return;
     setGuardando(true);
@@ -99,6 +116,9 @@ export function DetalleProximoPaso() {
     setGuardadoConExito(true);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
     queryClient.invalidateQueries({ queryKey: ['proximo-paso', pasoId] });
+    if (paso?.visita_id) {
+      queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+    }
     // Misma pausa de 700ms que el resto de pantallas de detalle, para que
     // "guardado ✓" sea visible antes de volver.
     setTimeout(() => navigate(volver), 700);
@@ -260,7 +280,12 @@ export function DetalleProximoPaso() {
       />
 
       <div className="label">Zona (opcional)</div>
-      <SelectorZona visitaId={paso.visita_id ?? undefined} value={zonaTexto} onChange={setZonaTexto} />
+      <SelectorZona
+        visitaId={paso.visita_id ?? undefined}
+        value={zonaTexto}
+        onChange={setZonaTexto}
+        onGuardar={guardarZonaYa}
+      />
 
       {error && <div className="field-error-text">{error}</div>}
 

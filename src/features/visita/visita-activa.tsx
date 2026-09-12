@@ -28,6 +28,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
 import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
+import { deduplicarZonas, listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
 import type {
   OperacionPendiente,
   HallazgoPayload,
@@ -1157,6 +1158,17 @@ export function VisitaActiva() {
       return mapa;
     },
   });
+  // Mismo bug que `misZonasReales` de arriba, pero para la lista de chips de
+  // «Marcar zonas»: la cola local solo sabe la zona con la que se capturó
+  // cada cosa, no las que se han añadido o cambiado después desde la ficha
+  // de un hallazgo/captura/oportunidad/próximo paso, ni las de un compañero.
+  // Mismo query (y misma queryKey) que usa `SelectorZona` en esas fichas, así
+  // que comparten caché y una invalida a la otra.
+  const { data: zonasServidor } = useQuery({
+    queryKey: ['zonas-usadas-visita', visitaId],
+    enabled: !!visitaId,
+    queryFn: () => listarZonasUsadasEnVisita(visitaId!),
+  });
   const notasCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'nota') ?? [];
   const audiosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'audio') ?? [];
   // B4 · Las fotos de compañeros también cuentan y se listan (antes se
@@ -1425,15 +1437,16 @@ export function VisitaActiva() {
   const zonaUsada = [...capturas, ...hallazgos, ...oportunidades].some(
     (op) => !!(op.payload as { zonaTexto?: string }).zonaTexto
   );
-  // Zonas ya anotadas en ESTA visita (cola local + lo sincronizado): chips
-  // para volver a una sin reescribirla.
-  const zonasUsadas = [
-    ...new Set(
-      [...capturas, ...hallazgos, ...oportunidades, ...pasos]
-        .map((op) => (op.payload as { zonaTexto?: string }).zonaTexto)
-        .filter((z): z is string => !!z && z.trim().length > 0)
+  // Zonas ya anotadas en ESTA visita: cola local (lo mío, capturado en este
+  // dispositivo) + servidor (lo mío ya editado desde otra pantalla, y lo de
+  // cualquier compañero) — sin el servidor, una zona creada o cambiada desde
+  // la ficha de un hallazgo no salía aquí como chip.
+  const zonasUsadas = deduplicarZonas([
+    ...[...capturas, ...hallazgos, ...oportunidades, ...pasos].map(
+      (op) => (op.payload as { zonaTexto?: string }).zonaTexto
     ),
-  ].sort((a, b) => a.localeCompare(b, 'es'));
+    ...(zonasServidor ?? []),
+  ]);
   const hayZonaActiva = !!zonaActual.trim();
 
   // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.
