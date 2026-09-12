@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
+import { registerSW } from 'virtual:pwa-register';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from '@/app/routes';
@@ -9,6 +10,25 @@ import { supabase } from '@/lib/supabase-client';
 import '@/styles/tokens.css';
 import '@/styles/components.css';
 import '@/styles/splash.css';
+
+// `registerType: 'autoUpdate'` (vite.config.ts) recarga solo en cuanto
+// detecta un Service Worker nuevo — pero el navegador solo comprueba si hay
+// build nuevo en momentos concretos (navegación, o cada ~24h de fondo), muy
+// espaciado para alguien probando un despliegue recién hecho. Sin esto, un
+// comercial (o quien esté verificando un cambio) podía seguir viendo la
+// versión vieja de la app en una pestaña ya abierta un buen rato después de
+// desplegar, sin ninguna pista de que hubiera una nueva. Se fuerza la
+// comprobación cada 60s y al volver a la pestaña.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, registration) {
+    if (!registration) return;
+    setInterval(() => void registration.update(), 60_000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void registration.update();
+    });
+  },
+});
 
 // Sin esto, un fallo real en el móvil de un comercial era invisible salvo
 // que alguien mirase la consola del navegador en el instante exacto en
