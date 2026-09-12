@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -17,6 +17,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
 // vía paso-rapido-hoja.tsx). Mismo patrón que detalle-hallazgo.tsx:
@@ -34,6 +35,7 @@ export function DetalleProximoPaso() {
   const volver = useVolverA('/tareas');
 
   const [descripcion, setDescripcion] = useState('');
+  const refDictado = useRef<RefCampoDictado>(null);
   const [fechaObjetivo, setFechaObjetivo] = useState('');
   const [zonaTexto, setZonaTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -103,7 +105,8 @@ export function DetalleProximoPaso() {
   }
 
   async function guardar() {
-    if (!pasoId || !descripcion.trim()) return;
+    const descripcionConsolidada = (refDictado.current?.consolidar() ?? descripcion).trim();
+    if (!pasoId || !descripcionConsolidada) return;
     setGuardando(true);
     setError(null);
     // Mismo encargo técnico que el borrado (punto 2/3, ver
@@ -118,7 +121,7 @@ export function DetalleProximoPaso() {
             .from('proximo_paso')
             .update(
               {
-                descripcion: descripcion.trim(),
+                descripcion: descripcionConsolidada,
                 fecha_objetivo: fechaObjetivo || null,
                 zona_texto: zonaTexto.trim() || null,
               },
@@ -140,7 +143,7 @@ export function DetalleProximoPaso() {
       await actualizarOperacion(pasoId, {
         payload: {
           ...(opLocalPaso.payload as ProximoPasoPayload),
-          descripcion: descripcion.trim(),
+          descripcion: descripcionConsolidada,
           fechaObjetivo: fechaObjetivo || undefined,
           zonaTexto: zonaTexto.trim() || undefined,
         },
@@ -193,7 +196,8 @@ export function DetalleProximoPaso() {
     // La descripción del paso es el objetivo de la visita — obligatorio, así
     // que no se planifica si está vacía (el botón de guardar del paso ya lo
     // exige, pero esto cubre el caso de haberla borrado sin guardar).
-    if (!comercial || !paso || !paso.proyecto_id || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada)
+    const descripcionConsolidada = (refDictado.current?.consolidar() ?? descripcion).trim();
+    if (!comercial || !paso || !paso.proyecto_id || !fechaObjetivo || !descripcionConsolidada || planificando || visitaPlanificada)
       return;
     setPlanificando(true);
     setErrorPlan(null);
@@ -215,7 +219,7 @@ export function DetalleProximoPaso() {
         () =>
           supabase
             .from('visita')
-            .update({ hora_definida: false, objetivo: descripcion.trim() }, { count: 'exact' })
+            .update({ hora_definida: false, objetivo: descripcionConsolidada }, { count: 'exact' })
             .eq('id', nuevaId),
         'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
       );
@@ -292,12 +296,11 @@ export function DetalleProximoPaso() {
       </div>
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictado}
         rows={2}
-        value={descripcion}
-        onChange={(e) => setDescripcion(e.target.value)}
+        valor={descripcion}
+        onCambio={setDescripcion}
         placeholder="volver a llamar en dos semanas, enviar propuesta…"
       />
 

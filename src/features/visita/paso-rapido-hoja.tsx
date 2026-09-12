@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface PasoRapidoHojaProps {
   visitaId: string;
@@ -37,12 +38,14 @@ export function PasoRapidoHoja({
   const [modo, setModo] = useState<'tarea' | 'visita'>('tarea');
 
   const [descripcion, setDescripcion] = useState('');
+  const refDictadoDescripcion = useRef<RefCampoDictado>(null);
   const [fechaObjetivo, setFechaObjetivo] = useState('');
 
   const [fechaVisita, setFechaVisita] = useState('');
   const [horaVisita, setHoraVisita] = useState('');
   const [franjaVisita, setFranjaVisita] = useState<'' | 'manana' | 'tarde'>('');
   const [objetivoVisita, setObjetivoVisita] = useState('');
+  const refDictadoObjetivo = useRef<RefCampoDictado>(null);
 
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -55,20 +58,22 @@ export function PasoRapidoHoja({
     setError(null);
     try {
       if (modo === 'tarea') {
-        if (!descripcion.trim()) return;
+        const descripcionConsolidada = (refDictadoDescripcion.current?.consolidar() ?? descripcion).trim();
+        if (!descripcionConsolidada) return;
         await onGuardar({
           visitaId,
           comercialResponsableId: comercialId,
-          descripcion: descripcion.trim(),
+          descripcion: descripcionConsolidada,
           fechaObjetivo: fechaObjetivo || undefined,
         });
       } else {
-        if (!fechaVisita || !objetivoVisita.trim()) return;
+        const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivoVisita).trim();
+        if (!fechaVisita || !objetivoConsolidado) return;
         await onPlanificarVisita({
           fecha: fechaVisita,
           hora: horaVisita,
           franja: franjaVisita,
-          objetivo: objetivoVisita,
+          objetivo: objetivoConsolidado,
         });
       }
       // El cierre del modal lo controla el padre (visita-activa.tsx), con
@@ -114,12 +119,11 @@ export function PasoRapidoHoja({
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
               Algo de despacho: enviar propuesta, llamar a compras…
             </div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
+            <TextareaDictado
+              ref={refDictadoDescripcion}
               rows={2}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
+              valor={descripcion}
+              onCambio={setDescripcion}
               placeholder="volver a llamar en dos semanas, enviar propuesta…"
               autoFocus
             />
@@ -145,13 +149,12 @@ export function PasoRapidoHoja({
               onChange={(e) => setFechaVisita(e.target.value)}
             />
             <div className="label">Objetivo</div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
+            <TextareaDictado
+              ref={refDictadoObjetivo}
               rows={2}
               placeholder="a qué vuelves: cerrar el pedido, revisar la instalación…"
-              value={objetivoVisita}
-              onChange={(e) => setObjetivoVisita(e.target.value)}
+              valor={objetivoVisita}
+              onCambio={setObjetivoVisita}
             />
             <div className="label">Hora (opcional)</div>
             <input

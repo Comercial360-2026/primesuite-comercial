@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -12,6 +12,7 @@ import { arrancarVisitaAhora } from '@/lib/arrancar-visita';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
 // "Empezar visita" — hoja sobre Hoy que resuelve el 90% (arrancar una visita
@@ -40,6 +41,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   const [proyectoId, setProyectoId] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [creandoProyecto, setCreandoProyecto] = useState(false);
   const [nombreProyectoNuevo, setNombreProyectoNuevo] = useState('');
   const [creandoProyErr, setCreandoProyErr] = useState<string | null>(null);
@@ -176,7 +178,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     }
   }
 
-  async function lanzar() {
+  async function lanzar(objetivoTexto: string) {
     if (!comercial || !clienteId || !proyectoId) {
       setErrorAhora('Recarga la página e inténtalo de nuevo.');
       return;
@@ -191,7 +193,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         clienteId,
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
-        objetivo,
+        objetivo: objetivoTexto,
       });
       onCerrar();
       navigate(`/visita/${visitaId}`);
@@ -202,7 +204,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   }
 
   function empezar() {
-    if (!objetivo.trim()) {
+    const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivo).trim();
+    if (!objetivoConsolidado) {
       setErrorAhora('Escribe a qué vas.');
       return;
     }
@@ -210,7 +213,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
       setEnCursoAbierto(true);
       return;
     }
-    void lanzar();
+    void lanzar(objetivoConsolidado);
   }
 
   function irAPlanificar() {
@@ -382,14 +385,13 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             )}
 
             <div className="label">Objetivo</div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
+            <TextareaDictado
+              ref={refDictadoObjetivo}
               rows={2}
               autoFocus
               placeholder="a qué vas: cerrar pedido, presentar gama, primera toma de contacto…"
-              value={objetivo}
-              onChange={(e) => setObjetivo(e.target.value)}
+              valor={objetivo}
+              onCambio={setObjetivo}
             />
             {errorAhora && <div className="field-error-text" style={{ marginTop: 8 }}>{errorAhora}</div>}
             <button
@@ -425,7 +427,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           }}
           onEmpezarOtra={() => {
             setEnCursoAbierto(false);
-            void lanzar();
+            void lanzar(objetivo.trim());
           }}
           onCerrar={() => setEnCursoAbierto(false)}
         />

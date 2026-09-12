@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { esSinRed } from '@/lib/red';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface ReportarProblemaHojaProps {
   comercialId: string;
@@ -17,12 +18,13 @@ interface ReportarProblemaHojaProps {
 // propia pantalla "Yo", no hay pantalla aparte.
 export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarProblemaHojaProps) {
   const [texto, setTexto] = useState('');
+  const refDictado = useRef<RefCampoDictado>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function enviar() {
-    const limpio = texto.trim();
+    const limpio = (refDictado.current?.consolidar() ?? texto).trim();
     if (!limpio) return;
     if (!navigator.onLine) {
       setError('Sin conexión. Envíalo cuando tengas red.');
@@ -59,13 +61,12 @@ export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarPro
         Cuenta qué esperabas y qué pasó. Se envía con la versión de la app y la pantalla en la que estás; lo ve
         Dirección.
       </div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictado}
         rows={4}
         autoFocus
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
+        valor={texto}
+        onCambio={setTexto}
         placeholder="p. ej. al guardar una nota sin cobertura, el contador no bajó al volver la red"
         disabled={enviando || enviado}
       />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -17,6 +17,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface Proyecto {
   id: string;
@@ -150,6 +151,7 @@ export function PlanificarVisita() {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [hora, setHora] = useState('');
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');
   const [comercialPlan, setComercialPlan] = useState('');
@@ -183,7 +185,7 @@ export function PlanificarVisita() {
     },
   });
 
-  async function lanzarVisitaAhora() {
+  async function lanzarVisitaAhora(objetivoTexto: string) {
     if (!comercial || !clienteId || !proyectoId) {
       setErrorAhora('Recarga la página e inténtalo de nuevo.');
       return;
@@ -198,7 +200,7 @@ export function PlanificarVisita() {
         clienteId,
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
-        objetivo,
+        objetivo: objetivoTexto,
       });
       navigate(`/visita/${visitaId}`);
     } catch (e) {
@@ -208,7 +210,8 @@ export function PlanificarVisita() {
   }
 
   function empezarAhora() {
-    if (!objetivo.trim()) {
+    const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivo).trim();
+    if (!objetivoConsolidado) {
       setErrorAhora('Escribe a qué vas.');
       return;
     }
@@ -216,10 +219,11 @@ export function PlanificarVisita() {
       setEnCursoAbierto(true);
       return;
     }
-    void lanzarVisitaAhora();
+    void lanzarVisitaAhora(objetivoConsolidado);
   }
 
   async function planificar() {
+    const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivo).trim();
     await guardado.ejecutar(
       async () => {
         if (!navigator.onLine) {
@@ -227,7 +231,7 @@ export function PlanificarVisita() {
         }
         if (!comercial || !clienteId || !proyectoId) throw new Error('Recarga la página e inténtalo de nuevo.');
         if (!fecha) throw new Error('Elige una fecha para la visita.');
-        if (!objetivo.trim()) throw new Error('Escribe el objetivo de la visita.');
+        if (!objetivoConsolidado) throw new Error('Escribe el objetivo de la visita.');
         const responsableId = esDireccion && comercialPlan ? comercialPlan : comercial.id;
         const visitaId = uuid();
         const { error } = await crearVisitaConResponsable({
@@ -240,7 +244,7 @@ export function PlanificarVisita() {
         });
         if (error) throw new Error(error);
         const parche: { objetivo: string; hora_definida?: boolean; franja?: string | null } = {
-          objetivo: objetivo.trim(),
+          objetivo: objetivoConsolidado,
         };
         if (!hora) {
           parche.hora_definida = false;
@@ -471,13 +475,12 @@ export function PlanificarVisita() {
             )}
 
             <div className="label">Objetivo</div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
+            <TextareaDictado
+              ref={refDictadoObjetivo}
               rows={2}
               placeholder="a qué vas: cerrar pedido, presentar gama, primera toma de contacto…"
-              value={objetivo}
-              onChange={(e) => setObjetivo(e.target.value)}
+              valor={objetivo}
+              onCambio={setObjetivo}
             />
 
             {cuando === 'otro' && (
@@ -582,7 +585,7 @@ export function PlanificarVisita() {
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoAbierto(false);
-            void lanzarVisitaAhora();
+            void lanzarVisitaAhora(objetivo.trim());
           }}
           onCerrar={() => setEnCursoAbierto(false)}
         />

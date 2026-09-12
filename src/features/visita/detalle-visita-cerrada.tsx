@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -24,6 +24,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
@@ -92,6 +93,7 @@ export function DetalleVisitaCerrada() {
   // del cliente.
   const [editandoResumen, setEditandoResumen] = useState(false);
   const [borradorResumen, setBorradorResumen] = useState('');
+  const refDictadoResumen = useRef<RefCampoDictado>(null);
   const guardadoResumen = useAccionAsync();
 
   const { comercial } = useSesionActual();
@@ -271,7 +273,7 @@ export function DetalleVisitaCerrada() {
       guardadoResumen.establecerError('Necesitas conexión para editar el resumen.');
       return;
     }
-    const texto = borradorResumen.trim();
+    const texto = (refDictadoResumen.current?.consolidar() ?? borradorResumen).trim();
     await guardadoResumen.ejecutar(
       async () => {
         await conReintentoDeSesion(
@@ -435,13 +437,12 @@ export function DetalleVisitaCerrada() {
 
               {editandoResumen ? (
                 <div style={{ marginTop: 6 }}>
-                  <textarea
-                    className="field"
-                    style={{ height: 'auto', padding: 8 }}
+                  <TextareaDictado
+                    ref={refDictadoResumen}
                     rows={4}
                     autoFocus
-                    value={borradorResumen}
-                    onChange={(e) => setBorradorResumen(e.target.value)}
+                    valor={borradorResumen}
+                    onCambio={setBorradorResumen}
                     placeholder="cómo fue la visita: sensación, siguiente movimiento…"
                   />
                   {guardadoResumen.error && (

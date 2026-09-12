@@ -6,6 +6,7 @@ import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_P
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import type { OportunidadPayload } from '@/lib/offline-queue';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorAreas } from '@/components/ui/selector-areas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -48,6 +49,7 @@ export function DetalleOportunidad() {
   const [prioridad, setPrioridad] = useState<string>('media');
   const [horizonte, setHorizonte] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const refDictadoDescripcion = useRef<RefCampoDictado>(null);
   const [zonaTexto, setZonaTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -217,6 +219,7 @@ export function DetalleOportunidad() {
 
   async function guardar() {
     if (!oportunidadId) return;
+    const descripcionConsolidada = (refDictadoDescripcion.current?.consolidar() ?? descripcion).trim();
     setGuardando(true);
     setError(null);
 
@@ -234,7 +237,7 @@ export function DetalleOportunidad() {
             prioridad: prioridad as OportunidadPayload['prioridad'],
             etapa,
             horizonteDecision: horizonte || undefined,
-            descripcion: descripcion.trim() || undefined,
+            descripcion: descripcionConsolidada || undefined,
             zonaTexto: zonaTexto.trim() || undefined,
           },
         });
@@ -265,7 +268,7 @@ export function DetalleOportunidad() {
                 etapa,
                 prioridad,
                 horizonte_decision: horizonte || null,
-                descripcion: descripcion.trim() || null,
+                descripcion: descripcionConsolidada || null,
                 zona_texto: zonaTexto.trim() || null,
               },
               { count: 'exact' }
@@ -298,7 +301,7 @@ export function DetalleOportunidad() {
           prioridad: prioridad as OportunidadPayload['prioridad'],
           etapa,
           horizonteDecision: horizonte || undefined,
-          descripcion: descripcion.trim() || undefined,
+          descripcion: descripcionConsolidada || undefined,
           zonaTexto: zonaTexto.trim() || undefined,
         },
       });
@@ -426,13 +429,7 @@ export function DetalleOportunidad() {
       )}
 
       <div className="label">Descripción</div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
-        rows={2}
-        value={descripcion}
-        onChange={(e) => setDescripcion(e.target.value)}
-      />
+      <TextareaDictado ref={refDictadoDescripcion} rows={2} valor={descripcion} onCambio={setDescripcion} />
 
       <div className="label">Título</div>
       <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />

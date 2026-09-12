@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -16,6 +16,7 @@ import { RecategorizarItem } from './recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { enlaceMapa } from '@/lib/geo';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { TextareaDictado, InputDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 // Regla 5 (cero jerga): el estado de sincronización de la cola offline
 // (pendiente/subiendo/completado/error) no se enseña nunca en crudo.
@@ -63,6 +64,8 @@ export function DetalleCaptura() {
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [tituloEdit, setTituloEdit] = useState('');
   const [textoEdit, setTextoEdit] = useState('');
+  const refDictado = useRef<RefCampoDictado>(null);
+  const refDictadoTitulo = useRef<RefCampoDictado>(null);
   const [zonaEdit, setZonaEdit] = useState('');
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
   const guardado = useAccionAsync();
@@ -240,11 +243,13 @@ export function DetalleCaptura() {
 
   async function guardarEdicion() {
     if (!captura) return;
+    const textoConsolidado = (refDictado.current?.consolidar() ?? textoEdit).trim();
+    const tituloConsolidado = (refDictadoTitulo.current?.consolidar() ?? tituloEdit).trim();
 
     await guardado.ejecutar(
       async () => {
-        const tituloNuevo = tituloEdit.trim() || undefined;
-        const textoNuevo = textoEdit.trim();
+        const tituloNuevo = tituloConsolidado || undefined;
+        const textoNuevo = textoConsolidado;
         const zonaNueva = zonaEdit.trim() || undefined;
         const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
@@ -291,7 +296,7 @@ export function DetalleCaptura() {
         onExito: async () => {
           setCaptura((prev) =>
             prev
-              ? { ...prev, titulo: tituloEdit.trim(), contenidoTexto: textoEdit.trim(), zonaTexto: zonaEdit.trim() }
+              ? { ...prev, titulo: tituloConsolidado, contenidoTexto: textoConsolidado, zonaTexto: zonaEdit.trim() }
               : prev
           );
           setGuardadoConExito(true);
@@ -432,10 +437,10 @@ export function DetalleCaptura() {
 
       {(captura.tipo === 'foto' || captura.tipo === 'audio') && (
         <>
-          <input
-            className="field"
-            value={tituloEdit}
-            onChange={(e) => setTituloEdit(e.target.value)}
+          <InputDictado
+            ref={refDictadoTitulo}
+            valor={tituloEdit}
+            onCambio={setTituloEdit}
             placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
           />
           <div className="label">Zona (opcional)</div>
@@ -456,14 +461,7 @@ export function DetalleCaptura() {
             onChange={(e) => setTituloEdit(e.target.value)}
             placeholder="título breve (opcional)"
           />
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={6}
-            autoFocus
-            value={textoEdit}
-            onChange={(e) => setTextoEdit(e.target.value)}
-          />
+          <TextareaDictado ref={refDictado} rows={6} autoFocus valor={textoEdit} onCambio={setTextoEdit} />
           <div className="label">Zona (opcional)</div>
           <SelectorZona
             visitaId={captura.visitaId}

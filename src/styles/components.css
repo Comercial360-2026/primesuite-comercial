@@ -1267,6 +1267,27 @@ textarea.field {
 }
 .voc-rama + .voc-aviso-dup { padding-left: calc(var(--fila-pad-x) + var(--space-3)); }
 
+/* Botón de dictado dentro de un campo (componente CampoDictado): mismo
+   sitio que el micro de un buscador o el de WhatsApp — dentro del campo,
+   no un botón aparte debajo. `--input` se centra en vertical a la derecha
+   (campo de una línea); `--textarea` se ancla a la esquina inferior
+   derecha (deja libre la parte de arriba, donde se empieza a escribir). */
+.campo-dictado { position: relative; }
+.campo-dictado--con-boton > .field { padding-right: 40px; }
+.campo-dictado__btn {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%;
+  background: none; color: var(--ink-400); cursor: pointer;
+}
+.campo-dictado__btn:active { background: var(--surface-1); }
+.campo-dictado__btn--input { top: 50%; right: 5px; transform: translateY(-50%); }
+.campo-dictado__btn--textarea { right: 6px; bottom: 6px; }
+/* Mismo lenguaje que "Audio" al grabar en la visita: fondo/tinte
+   signal-600 + punto que late (`.rec-dot`, ya con su @keyframes y su
+   prefers-reduced-motion definidos arriba). */
+.campo-dictado__btn--on { background: var(--signal-050); color: var(--signal-600); }
+.campo-dictado__dot { position: absolute; top: 2px; right: 2px; }
+
 /* Modo seleccionar — casilla circular a la izquierda + fondo de fila
    marcada. La pinta FilaNavegable/FilaAccion cuando recibe `seleccion`. */
 .fila-toggle { flex-shrink: 0; display: flex; color: var(--fila-seleccion); }

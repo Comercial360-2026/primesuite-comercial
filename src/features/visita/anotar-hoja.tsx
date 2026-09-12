@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { uuid } from '@/lib/uuid';
 import type { HallazgoPayload, OportunidadPayload } from '@/lib/offline-queue/types';
 import type { Area } from '@/lib/vocabulario';
@@ -7,7 +7,7 @@ import { SelectorAreas } from '@/components/ui/selector-areas';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Icono } from '@/components/ui/iconos';
-import { useDictado } from '@/hooks/use-dictado';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { useClasificacionDetallada } from '@/hooks/use-ajustes';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 
@@ -78,38 +78,16 @@ export function AnotarHoja({
   const [mostrarTip] = useState(() => leerUsos() < 2);
 
   // Dictado voz→texto: escribir en el móvil delante del cliente queda mal.
-  // Lo final se añade al texto, lo provisional se pinta en vivo.
-  const [dictadoProvisional, setDictadoProvisional] = useState('');
-  const dictado = useDictado((frag, { final }) => {
-    if (final) {
-      setTexto((t) => (t.trim() ? `${t.trimEnd()} ${frag}` : frag));
-      setDictadoProvisional('');
-    } else {
-      setDictadoProvisional(frag);
-    }
-  });
-  const textoEnVivo =
-    dictado.dictando && dictadoProvisional
-      ? `${texto.trimEnd()}${texto.trim() ? ' ' : ''}${dictadoProvisional}`
-      : texto;
-
-  function textoConsolidado(): string {
-    if (dictadoProvisional.trim()) {
-      const t = `${texto.trimEnd()}${texto.trim() ? ' ' : ''}${dictadoProvisional.trim()}`;
-      dictado.parar();
-      setTexto(t);
-      setDictadoProvisional('');
-      return t;
-    }
-    return texto;
-  }
+  // La acumulación final/provisional ahora vive en CampoDictado; aquí solo
+  // hace falta pedirle el texto consolidado justo antes de guardar.
+  const refDictado = useRef<RefCampoDictado>(null);
 
   function alternarMarca(m: Exclude<Marca, 'nada'>) {
     setMarca((actual) => (actual === m ? 'nada' : m));
   }
 
   async function guardar() {
-    const cuerpo = textoConsolidado().trim();
+    const cuerpo = (refDictado.current?.consolidar() ?? texto).trim();
     if (!cuerpo) return;
     setGuardando(true);
     setError(null);
@@ -191,27 +169,14 @@ export function AnotarHoja({
         </div>
       )}
 
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictado}
         rows={3}
         autoFocus
-        value={textoEnVivo}
-        onChange={(e) => setTexto(e.target.value)}
-        readOnly={dictado.dictando && !!dictadoProvisional}
+        valor={texto}
+        onCambio={setTexto}
         placeholder="escribe o dicta lo que has visto…"
       />
-      {dictado.soportado && (
-        <button
-          type="button"
-          className={`chip${dictado.dictando ? ' chip--on' : ''}`}
-          style={{ marginTop: 6 }}
-          onClick={dictado.alternar}
-        >
-          <Icono nombre="audio" size={14} />
-          {dictado.dictando ? 'Escuchando… tocar para parar' : 'Dictar'}
-        </button>
-      )}
 
       <div className="label">Se guarda como nota. Márcalo si además es:</div>
       <div style={{ display: 'flex', gap: 6 }}>
@@ -282,7 +247,7 @@ export function AnotarHoja({
       <button
         className="btn btn-primary"
         style={{ marginTop: 12 }}
-        disabled={!textoEnVivo.trim() || guardando || guardadoConExito}
+        disabled={!texto.trim() || guardando || guardadoConExito}
         onClick={guardar}
       >
         {guardadoConExito ? (
@@ -294,7 +259,7 @@ export function AnotarHoja({
         )}
       </button>
 
-      {!textoEnVivo.trim() && !guardadoConExito && (
+      {!texto.trim() && !guardadoConExito && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
           Escribe o dicta arriba lo que has visto para poder guardarlo.
         </div>

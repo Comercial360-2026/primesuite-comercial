@@ -23,6 +23,7 @@ import { ParticipantesHoja } from './participantes-hoja';
 import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
+import { TextareaDictado, InputDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { Aviso } from '@/components/ui/aviso';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -357,6 +358,7 @@ export function VisitaActiva() {
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
   const [tituloPendiente, setTituloPendiente] = useState('');
+  const refDictadoTituloPendiente = useRef<RefCampoDictado>(null);
   // B6 · La zona se congela en el MOMENTO de capturar (disparo de la foto,
   // inicio de la grabación), no al pulsar "Guardar" en la hoja de título:
   // si entre medias cambias de zona, la captura anterior debe quedarse en
@@ -576,6 +578,7 @@ export function VisitaActiva() {
   const objetivoActual = visitaServidor?.objetivo ?? visitaLocal?.objetivo ?? null;
   const objetivoEditable = !!visitaServidor;
   const [objetivoBorrador, setObjetivoBorrador] = useState<string | null>(null);
+  const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const guardadoObjetivo = useAccionAsync();
   // B5 · El borrador se re-sincroniza con el valor real SIEMPRE que no
   // estés editándolo ahora mismo (antes solo se rellenaba una vez, con lo
@@ -662,6 +665,7 @@ export function VisitaActiva() {
   }
 
   async function confirmarCapturaPendiente() {
+    const tituloConsolidado = (refDictadoTituloPendiente.current?.consolidar() ?? tituloPendiente).trim();
     if (fotoPendiente) {
       await capturaFoto.ejecutar(
         () =>
@@ -672,7 +676,7 @@ export function VisitaActiva() {
               visitaId: visitaId!,
               comercialAutorId: comercial!.id,
               tipo: 'foto',
-              titulo: tituloPendiente.trim() || undefined,
+              titulo: tituloConsolidado || undefined,
               zonaTexto: zonaPendiente,
               latitud: coordsFotoRef.current?.lat,
               longitud: coordsFotoRef.current?.lng,
@@ -699,7 +703,7 @@ export function VisitaActiva() {
               visitaId: visitaId!,
               comercialAutorId: comercial!.id,
               tipo: 'audio',
-              titulo: tituloPendiente.trim() || undefined,
+              titulo: tituloConsolidado || undefined,
               zonaTexto: zonaPendiente,
             },
             { dependeDe: visitaId, archivoLocal: audioPendiente }
@@ -833,9 +837,10 @@ export function VisitaActiva() {
   }, [grabando]);
 
   async function guardarObjetivo() {
+    const nuevoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivoBorrador ?? '').trim();
     await guardadoObjetivo.ejecutar(
       async () => {
-        const nuevo = (objetivoBorrador ?? '').trim();
+        const nuevo = nuevoConsolidado;
         // El objetivo es obligatorio: no se permite dejarlo en blanco.
         if (!nuevo) throw new Error('El objetivo de la visita no puede quedar vacío.');
         await conReintentoDeSesion(
@@ -1643,13 +1648,12 @@ export function VisitaActiva() {
             >
               <Icono nombre="editar" size={13} /> A qué vienes
             </div>
-            <textarea
-              className="field"
-              style={{ height: 'auto', padding: 8 }}
+            <TextareaDictado
+              ref={refDictadoObjetivo}
               rows={2}
               autoFocus
-              value={objetivoBorrador ?? ''}
-              onChange={(e) => setObjetivoBorrador(e.target.value)}
+              valor={objetivoBorrador ?? ''}
+              onCambio={(v) => setObjetivoBorrador(typeof v === 'function' ? v(objetivoBorrador ?? '') : v)}
               placeholder="a qué has venido: cerrar pedido, presentar gama, primera toma de contacto…"
             />
             <div className="fila-btns" style={{ marginTop: 6 }}>
@@ -2355,11 +2359,11 @@ export function VisitaActiva() {
           <div className="label" style={{ marginTop: 0 }}>
             {fotoPendiente ? 'Qué es esta foto' : 'Qué es este audio'}
           </div>
-          <input
-            className="field"
+          <InputDictado
+            ref={refDictadoTituloPendiente}
             autoFocus
-            value={tituloPendiente}
-            onChange={(e) => setTituloPendiente(e.target.value)}
+            valor={tituloPendiente}
+            onCambio={setTituloPendiente}
             placeholder={fotoPendiente ? 'p. ej. lector averiado puerta 3 · opcional' : 'p. ej. notas del jefe de planta · opcional'}
           />
           <div className="fila-btns" style={{ marginTop: 12 }}>

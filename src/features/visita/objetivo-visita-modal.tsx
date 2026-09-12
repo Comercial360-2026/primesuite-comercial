@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
 import { Icono } from '@/components/ui/iconos';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface ProyectoOpcion {
   id: string;
@@ -41,6 +42,7 @@ export function ObjetivoVisitaModal({
   onCerrar,
 }: ObjetivoVisitaModalProps) {
   const [objetivo, setObjetivo] = useState('');
+  const refDictado = useRef<RefCampoDictado>(null);
   // Proyectos creados desde esta misma ventana, para que aparezcan en el
   // selector sin esperar a que la lista de origen se recargue.
   const [opcionesLocales, setOpcionesLocales] = useState<ProyectoOpcion[]>([]);
@@ -80,11 +82,12 @@ export function ObjetivoVisitaModal({
   }
 
   async function empezar() {
-    if (!objetivo.trim() || arrancando) return;
+    const objetivoConsolidado = (refDictado.current?.consolidar() ?? objetivo).trim();
+    if (!objetivoConsolidado || arrancando) return;
     setArrancando(true);
     setError(null);
     try {
-      await onConfirmar(objetivo.trim(), proyectoId);
+      await onConfirmar(objetivoConsolidado, proyectoId);
     } catch (err) {
       setError(
         err instanceof Error
@@ -100,13 +103,12 @@ export function ObjetivoVisitaModal({
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
         el objetivo de la visita. Podrás matizarlo dentro.
       </div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictado}
         rows={2}
         autoFocus
-        value={objetivo}
-        onChange={(e) => setObjetivo(e.target.value)}
+        valor={objetivo}
+        onCambio={setObjetivo}
         placeholder="cerrar el pedido pendiente, presentar la nueva gama, primera toma de contacto…"
       />
 

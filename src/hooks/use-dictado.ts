@@ -50,6 +50,10 @@ function obtenerCtor(): CtorReconocedor | null {
 
 export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }) => void) {
   const [dictando, setDictando] = useState(false);
+  // Antes este error se tragaba en silencio: el usuario hablaba, el motor
+  // paraba por permiso denegado y no pasaba nada en pantalla, sin ninguna
+  // pista de por qué. Se expone para que el consumidor pueda avisar.
+  const [permisoDenegado, setPermisoDenegado] = useState(false);
   const refReconocedor = useRef<Reconocedor | null>(null);
   // El usuario quiere seguir dictando (no ha pulsado "parar"). Mientras sea
   // true, cada `onend` del motor reanuda la escucha.
@@ -105,6 +109,7 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
       if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
         quiereDictar.current = false;
         setDictando(false);
+        setPermisoDenegado(true);
       }
     };
     refReconocedor.current = r;
@@ -128,6 +133,7 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
       return;
     }
     if (!obtenerCtor()) return;
+    setPermisoDenegado(false);
     quiereDictar.current = true;
     arrancar();
   }, [dictando, parar, arrancar]);
@@ -140,5 +146,5 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
     []
   );
 
-  return { soportado, dictando, alternar, parar };
+  return { soportado, dictando, permisoDenegado, alternar, parar };
 }

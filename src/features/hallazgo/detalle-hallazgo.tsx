@@ -19,6 +19,7 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorAreas } from '@/components/ui/selector-areas';
 import { SelectorZona } from '@/components/ui/selector-zona';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import type { Area } from '@/lib/vocabulario';
 import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
 import { Icono } from '@/components/ui/iconos';
@@ -47,6 +48,7 @@ export function DetalleHallazgo() {
   // varias filas por hallazgo desde el principio.
   const [areas, setAreas] = useState<Area[]>([]);
   const [nota, setNota] = useState('');
+  const refDictadoNota = useRef<RefCampoDictado>(null);
   const [zonaTexto, setZonaTexto] = useState('');
   const [fechaRelevante, setFechaRelevante] = useState('');
   const [tipoFechaRelevante, setTipoFechaRelevante] = useState('');
@@ -130,6 +132,7 @@ export function DetalleHallazgo() {
       setError('Si indicas una fecha relevante, indica también su tipo.');
       return;
     }
+    const notaConsolidada = (refDictadoNota.current?.consolidar() ?? nota).trim();
     setGuardando(true);
     setError(null);
     // Mismo encargo técnico que el borrado (punto 2/3, ver
@@ -145,7 +148,7 @@ export function DetalleHallazgo() {
             .from('hallazgo')
             .update(
               {
-                nota: nota.trim() || null,
+                nota: notaConsolidada || null,
                 zona_texto: zonaTexto.trim() || null,
                 fecha_relevante: fechaRelevante || null,
                 tipo_fecha_relevante: fechaRelevante ? tipoFechaRelevante : null,
@@ -179,7 +182,7 @@ export function DetalleHallazgo() {
       await actualizarOperacion(hallazgoId, {
         payload: {
           ...(opLocal.payload as HallazgoPayload),
-          nota: nota.trim() || undefined,
+          nota: notaConsolidada || undefined,
           zonaTexto: zonaTexto.trim() || undefined,
           fechaRelevante: fechaRelevante || undefined,
           tipoFechaRelevante: fechaRelevante ? tipoFechaRelevante : undefined,
@@ -356,12 +359,11 @@ export function DetalleHallazgo() {
       )}
 
       <div className="label">Nota</div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictadoNota}
         rows={2}
-        value={nota}
-        onChange={(e) => setNota(e.target.value)}
+        valor={nota}
+        onCambio={setNota}
         placeholder="envejecido, cliente insatisfecho…"
       />
 
