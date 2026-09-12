@@ -4,10 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { eliminarOperacion, obtenerOperacion, actualizarOperacion } from '@/lib/offline-queue';
 import type { OportunidadPayload } from '@/lib/offline-queue';
-import { SelectorTermino } from '@/components/ui/selector-termino';
 import { SelectorZona } from '@/components/ui/selector-zona';
-import { HojaSuperior } from '@/components/ui/hoja-superior';
-import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -28,18 +25,6 @@ const capFrase = (s: string) => s.charAt(0).toLocaleUpperCase('es') + s.slice(1)
 const ETAPAS = ['latente', 'cualificada', 'en_propuesta', 'cerrada'] as const;
 const PRIORIDADES = ['baja', 'media', 'alta', 'estrategica'] as const;
 const HORIZONTES = ['0-3 meses', '3-6 meses', '6-12 meses', 'mas de 12 meses', 'sin fecha definida'];
-
-// 'tecnologia_motivadora' = lo que el cliente ya tiene y motivó la
-// oportunidad (p.ej. terminales de otra marca a sustituir/integrar).
-// 'solucion_propuesta' = lo que le estamos ofreciendo. Las dos coexisten
-// en la misma Oportunidad, cada término con su papel — así se resuelve el
-// caso "integrar terminales de otra marca con nuestro software" sin forzar
-// una entidad "integración" aparte: son dos términos, dos papeles, una
-// misma Oportunidad.
-interface TerminoAsociado {
-  termino_id: string;
-  nombre: string;
-}
 
 export function DetalleOportunidad() {
   const { oportunidadId } = useParams<{ oportunidadId: string }>();
@@ -66,11 +51,6 @@ export function DetalleOportunidad() {
   // oportunidad desde el chip de Etapa.
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
-
-  // Se muestra el selector solo para uno de los dos papeles a la vez,
-  // según qué botón "+ añadir" se pulsó.
-  const [buscandoRol, setBuscandoRol] = useState<'solucion_propuesta' | 'tecnologia_motivadora' | null>(null);
-  const [errorAsociar, setErrorAsociar] = useState<string | null>(null);
 
   const { data: oportunidad, isLoading, isError, refetch } = useQuery({
     queryKey: ['oportunidad', oportunidadId],
@@ -125,39 +105,6 @@ export function DetalleOportunidad() {
     .filter(Boolean)
     .join(' · ');
 
-  async function cargarTerminosPorRol(rol: 'solucion_propuesta' | 'tecnologia_motivadora'): Promise<TerminoAsociado[]> {
-    const { data: rels, error: err } = await supabase
-      .from('oportunidad_termino')
-      .select('termino_id')
-      .eq('oportunidad_id', oportunidadId!)
-      .eq('rol_en_oportunidad', rol);
-    if (err) throw err;
-    if (!rels?.length) return [];
-    const { data: terminos, error: errT } = await supabase
-      .from('termino')
-      .select('id, nombre, parent:parent_id(nombre)')
-      .in('id', rels.map((r) => r.termino_id));
-    if (errT) throw errT;
-    // Si el término es un modelo, el chip muestra la ruta "MIFARE › DESFire
-    // EV2" (mismo criterio que SelectorTermino), para que se vea de qué
-    // familia es sin abrir el catálogo.
-    return ((terminos ?? []) as unknown as { id: string; nombre: string; parent: { nombre: string } | null }[]).map(
-      (t) => ({ termino_id: t.id, nombre: t.parent ? `${t.parent.nombre} › ${t.nombre}` : t.nombre })
-    );
-  }
-
-  const { data: soluciones } = useQuery({
-    queryKey: ['terminos-oportunidad', oportunidadId, 'solucion_propuesta'],
-    enabled: !!oportunidadId,
-    queryFn: () => cargarTerminosPorRol('solucion_propuesta'),
-  });
-
-  const { data: motivadoras } = useQuery({
-    queryKey: ['terminos-oportunidad', oportunidadId, 'tecnologia_motivadora'],
-    enabled: !!oportunidadId,
-    queryFn: () => cargarTerminosPorRol('tecnologia_motivadora'),
-  });
-
   useEffect(() => {
     if (!oportunidad) return;
     setTitulo(oportunidad.titulo);
@@ -168,16 +115,8 @@ export function DetalleOportunidad() {
     setZonaTexto(oportunidad.zona_texto ?? '');
   }, [oportunidad]);
 
-  // Los dos bloques de términos ("lo que ya tiene" + "lo que le proponemos")
-  // se estructuran normalmente desde la oficina, no en la visita: van en una
-  // sección plegable que solo abre sola si ya hay algo asociado. Así la
-  // pantalla de campo queda en Título · Etapa · Prioridad · Horizonte ·
-  // Descripción, sin scroll.
-  const nTerminos = (motivadoras?.length ?? 0) + (soluciones?.length ?? 0);
-
-  // ¿Hay cambios en el formulario que aún no se han guardado? (los términos
-  // asociados se guardan al momento, no entran aquí). Sirve para avisar
-  // antes de salir: los chips parecían aplicarse solos y no era así.
+  // ¿Hay cambios en el formulario que aún no se han guardado? Sirve para
+  // avisar antes de salir.
   const sucio =
     !!oportunidad &&
     (titulo !== oportunidad.titulo ||
@@ -306,8 +245,8 @@ export function DetalleOportunidad() {
 
   // Borrado completo — usa la función RPC eliminar_oportunidad_completa
   // (46_encargo_punto3_borrado.sql), que hace la cascada correcta
-  // (desvincula próximos pasos, borra soluciones asociadas y el histórico
-  // de seguimiento) dentro de una única transacción, y comprueba el
+  // (desvincula próximos pasos y borra el histórico de seguimiento) dentro
+  // de una única transacción, y comprueba el
   // permiso explícitamente antes de tocar nada — lanza una excepción clara
   // en vez de fallar en silencio.
   async function confirmarBorrado() {
@@ -344,44 +283,6 @@ export function DetalleOportunidad() {
     navigate(volver);
   }
 
-  // Asociar un término existente del catálogo con el papel elegido
-  // ('solucion_propuesta' o 'tecnologia_motivadora'). No valida duplicados
-  // explícitamente aquí — la clave primaria compuesta de oportunidad_termino
-  // (oportunidad_id, termino_id, rol_en_oportunidad) ya lo impide a nivel de
-  // base de datos, y ese error se muestra tal cual si ocurre.
-  async function asociarTermino(terminoId: string) {
-    if (!oportunidadId || !buscandoRol) return;
-    setErrorAsociar(null);
-    const { error: err } = await supabase
-      .from('oportunidad_termino')
-      .insert({ oportunidad_id: oportunidadId, termino_id: terminoId, rol_en_oportunidad: buscandoRol });
-    if (err) {
-      setErrorAsociar(err.message);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: ['terminos-oportunidad', oportunidadId, buscandoRol] });
-    setBuscandoRol(null);
-  }
-
-  async function desvincularTermino(terminoId: string, rol: 'solucion_propuesta' | 'tecnologia_motivadora') {
-    if (!oportunidadId) return;
-    const { error: err, count } = await supabase
-      .from('oportunidad_termino')
-      .delete({ count: 'exact' })
-      .eq('oportunidad_id', oportunidadId)
-      .eq('termino_id', terminoId)
-      .eq('rol_en_oportunidad', rol);
-    if (err) {
-      setErrorAsociar(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorAsociar('No se ha podido quitar el término (0 filas afectadas). Puede que no tengas permiso.');
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: ['terminos-oportunidad', oportunidadId, rol] });
-  }
-
   if (isLoading || (!oportunidad && !isError)) {
     return (
       <div className="screen">
@@ -410,14 +311,11 @@ export function DetalleOportunidad() {
   // pasos) las corta la RPC y devuelve un mensaje claro.
   const puedeRecategorizar =
     comercial?.rol === 'direccion_comercial' || oportunidad.comercial_autor_id === comercial?.id;
-  const nTerminosAsociados = (soluciones?.length ?? 0) + (motivadoras?.length ?? 0);
   const motivoBloqueoRecat = !puedeRecategorizar
     ? 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'
     : oportunidad.etapa !== 'latente'
       ? 'Esta oportunidad ya está en marcha. Ciérrala o bórrala antes de cambiarla de tipo.'
-      : nTerminosAsociados > 0
-        ? 'Tiene términos asociados. Quítalos antes de cambiarla de tipo.'
-        : undefined;
+      : undefined;
 
   return (
     <div className="screen">
@@ -507,89 +405,6 @@ export function DetalleOportunidad() {
         ))}
       </select>
 
-      {/* Dos listas con papel distinto — resuelve el caso "el cliente tiene
-          terminales de otra marca (tecnología motivadora) y quiere integrar
-          nuestro software (solución propuesta)": son dos términos, cada uno
-          con su papel, en la misma Oportunidad, sin forzar una entidad
-          "integración" aparte. Plegadas: solo se abren solas si ya hay algo. */}
-      <SeccionColapsable
-        titulo="Términos y soluciones"
-        cantidad={nTerminos}
-        defaultAbierta={nTerminos > 0}
-        siempreAbrible
-      >
-      <div className="label" style={{ marginTop: 0 }}>Lo que ya tiene (motiva la oportunidad)</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        {motivadoras?.map((t) => (
-          <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {t.nombre}
-            <button
-              type="button"
-              onClick={() => desvincularTermino(t.termino_id, 'tecnologia_motivadora')}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
-              aria-label={`desvincular ${t.nombre}`}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        {!motivadoras?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ninguno asociado</span>}
-        <button
-          type="button"
-          className="chip"
-          disabled={enCola}
-          onClick={() => { setBuscandoRol('tecnologia_motivadora'); setErrorAsociar(null); }}
-        >
-          + añadir
-        </button>
-      </div>
-
-      <div className="label">Lo que le proponemos</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        {soluciones?.map((t) => (
-          <span key={t.termino_id} className="chip chip--on" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            {t.nombre}
-            <button
-              type="button"
-              onClick={() => desvincularTermino(t.termino_id, 'solucion_propuesta')}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}
-              aria-label={`desvincular ${t.nombre}`}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        {!soluciones?.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ninguna asociada</span>}
-        <button
-          type="button"
-          className="chip"
-          disabled={enCola}
-          onClick={() => { setBuscandoRol('solucion_propuesta'); setErrorAsociar(null); }}
-        >
-          + añadir
-        </button>
-      </div>
-
-      {enCola && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-          Podrás asociar términos cuando la oportunidad termine de guardarse (unos segundos con conexión).
-        </div>
-      )}
-      </SeccionColapsable>
-
-      {/* Hoja de búsqueda: baja de arriba (regla de hojas), va fuera de la
-          sección plegable — pegada en la página se notaba poco que se
-          había abierto. */}
-      {buscandoRol && (
-        <HojaSuperior
-          titulo={`buscar término ${buscandoRol === 'solucion_propuesta' ? '(solución)' : '(lo que ya tiene)'}`}
-          onCerrar={() => setBuscandoRol(null)}
-        >
-          <SelectorTermino onSeleccionar={(t) => asociarTermino(t.id)} />
-          {errorAsociar && <div className="field-error-text">{errorAsociar}</div>}
-        </HojaSuperior>
-      )}
-
       <div className="label">Descripción</div>
       <textarea
         className="field"
@@ -651,8 +466,8 @@ export function DetalleOportunidad() {
           cargando={borrando}
           error={errorBorrado}
         >
-          Se borrarán también sus soluciones asociadas y su histórico de seguimiento. Los próximos pasos vinculados no
-          se borran: quedan sin oportunidad asociada.
+          Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
+          oportunidad asociada.
         </ConfirmacionBorrado>
       )}
     </div>

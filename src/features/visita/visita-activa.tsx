@@ -1132,14 +1132,16 @@ export function VisitaActiva() {
   // Zona REAL de lo mío ya subido — bug real encontrado en vivo: la vista
   // "por zona" agrupaba con la zona que quedó copiada en la cola local en
   // el momento de capturar, sin enterarse si luego se editaba la zona
-  // desde la propia ficha del hallazgo/captura (fuera de esta pantalla).
-  // Mismo patrón que `deCompaneros` (arriba) pero de lo mío, solo id+zona.
+  // desde la propia ficha del hallazgo/captura/oportunidad/próximo paso
+  // (fuera de esta pantalla). Mismo patrón que `deCompaneros` (arriba) pero
+  // de lo mío, solo id+zona — las 4 tablas, no solo captura/hallazgo (ese
+  // hueco es el mismo que ya se corrigió en el catálogo de zonas).
   const { data: misZonasReales } = useQuery({
     queryKey: ['mis-zonas-reales-visita', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial,
     refetchInterval: 20_000,
     queryFn: async () => {
-      const [capturasRes, hallazgosRes] = await Promise.all([
+      const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
         supabase
           .from('captura_libre')
           .select('id, zona_texto')
@@ -1150,9 +1152,24 @@ export function VisitaActiva() {
           .select('id, zona_texto')
           .eq('visita_id', visitaId!)
           .eq('comercial_autor_id', comercial!.id),
+        supabase
+          .from('proximo_paso')
+          .select('id, zona_texto')
+          .eq('visita_id', visitaId!)
+          .eq('comercial_responsable_id', comercial!.id),
+        supabase
+          .from('oportunidad')
+          .select('id, zona_texto')
+          .eq('visita_origen_id', visitaId!)
+          .eq('comercial_autor_id', comercial!.id),
       ]);
       const mapa: Record<string, string | null> = {};
-      for (const fila of [...(capturasRes.data ?? []), ...(hallazgosRes.data ?? [])]) {
+      for (const fila of [
+        ...(capturasRes.data ?? []),
+        ...(hallazgosRes.data ?? []),
+        ...(pasosRes.data ?? []),
+        ...(oportunidadesRes.data ?? []),
+      ]) {
         mapa[fila.id] = fila.zona_texto;
       }
       return mapa;
@@ -1361,20 +1378,25 @@ export function VisitaActiva() {
   // `zonaParaCaptura` es `zonaActual.trim() || undefined`.
   const enZona = (z: string | null | undefined) => !zonaParaCaptura || (z ?? '') === zonaParaCaptura;
   const zTexto = (op: { payload: unknown }) => (op.payload as { zonaTexto?: string }).zonaTexto;
+  // Zona real si ya se conoce (aunque sea "ninguna" — por eso `in`, no `??`:
+  // una zona real vacía no debe caer de vuelta a la de la cola local), si no
+  // la de la cola local. Se usa tanto para la coletilla como para el
+  // filtro por zona — antes el filtro seguía mirando solo la cola local, así
+  // que un ítem podía aparecer "en la zona equivocada" (o desaparecer del
+  // todo) si su zona real ya no coincidía con lo que se capturó.
+  const zonaReal = (op: OperacionPendiente) =>
+    misZonasReales && op.id in misZonasReales ? misZonasReales[op.id] : zTexto(op);
   // Coletilla "zona · hora" para una fila propia sin sub todavía (audio,
-  // nota, hallazgo): antes no enseñaban ni dónde ni cuándo se capturó. Zona
-  // real (BD) si ya se subió y se conoce — mismo criterio que
-  // CapturasPorUbicacion — si no, la de la cola local.
+  // nota, hallazgo): antes no enseñaban ni dónde ni cuándo se capturó.
   const subZonaHora = (op: OperacionPendiente) => {
-    const zona = misZonasReales?.[op.id] ?? zTexto(op);
-    return [zona, op.creadoEn ? hora(op.creadoEn) : undefined].filter(Boolean).join(' · ') || undefined;
+    return [zonaReal(op), op.creadoEn ? hora(op.creadoEn) : undefined].filter(Boolean).join(' · ') || undefined;
   };
-  const fotosOwnV = fotosOwn.filter((c) => enZona(zTexto(c)));
-  const audiosOwnV = audiosOwn.filter((c) => enZona(zTexto(c)));
-  const notasOwnV = notasOwn.filter((c) => enZona(zTexto(c)));
-  const hallazgosV = hallazgos.filter((c) => enZona(zTexto(c)));
-  const oportunidadesV = oportunidades.filter((c) => enZona(zTexto(c)));
-  const pasosV = pasos.filter((c) => enZona(zTexto(c)));
+  const fotosOwnV = fotosOwn.filter((c) => enZona(zonaReal(c)));
+  const audiosOwnV = audiosOwn.filter((c) => enZona(zonaReal(c)));
+  const notasOwnV = notasOwn.filter((c) => enZona(zonaReal(c)));
+  const hallazgosV = hallazgos.filter((c) => enZona(zonaReal(c)));
+  const oportunidadesV = oportunidades.filter((c) => enZona(zonaReal(c)));
+  const pasosV = pasos.filter((c) => enZona(zonaReal(c)));
   const fotosCompanerosV = fotosCompaneros.filter((c) => enZona(c.zona_texto));
   const audiosCompanerosV = audiosCompaneros.filter((c) => enZona(c.zona_texto));
   const notasCompanerosV = notasCompaneros.filter((c) => enZona(c.zona_texto));
@@ -1452,7 +1474,7 @@ export function VisitaActiva() {
   // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.
   function cuentaZona(z: string) {
     const mio = [...capturas, ...hallazgos, ...oportunidades, ...pasos].filter(
-      (op) => (op.payload as { zonaTexto?: string }).zonaTexto === z
+      (op) => zonaReal(op) === z
     ).length;
     const comp = [
       ...(deCompaneros?.capturas ?? []),
