@@ -253,6 +253,22 @@ export function DetalleCaptura() {
         const zonaNueva = zonaEdit.trim() || undefined;
         const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
+        // BUG real (13 sept, reportado por Cesar — confirmado contra los
+        // logs de Supabase: dos PATCH a `captura_libre` por cada guardado).
+        // La pastilla de zona ya graba SOLA al elegirla (`guardarZonaYa`,
+        // más abajo) — si lo único que se tocó fue la zona, pulsar el
+        // «Guardar» general repetía la MISMA escritura por segunda vez sin
+        // necesidad, doblando el tiempo de espera en cada guardado. Si
+        // título, texto y zona ya coinciden con lo que hay guardado, no
+        // hay nada que mandar al servidor.
+        if (
+          tituloNuevo === (captura.titulo || undefined) &&
+          textoNuevo === captura.contenidoTexto &&
+          zonaNueva === (captura.zonaTexto || undefined)
+        ) {
+          return;
+        }
+
         if (enServidor) {
           // Ya sincronizada: UPDATE directo contra la tabla. Sin permiso,
           // Supabase NO da error — el UPDATE "tiene éxito" afectando a 0
