@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MENSAJE_SIN_RED, MENSAJE_SESION_CADUCADA } from '@/lib/con-reintento-de-sesion';
 
 interface EstadoAccionAsync {
   cargando: boolean;
@@ -60,8 +61,19 @@ export function useAccionAsync() {
       return resultado;
     } catch (err) {
       pararTemporizador();
-      const mensaje =
-        typeof opciones?.mensajeError === 'function'
+      // BUG real (13 sept, reportado repetidamente por Cesar): un
+      // `mensajeError` fijo de pantalla ("falta permiso de edición") tapaba
+      // SIEMPRE el error real, aunque conReintentoDeSesion ya hubiera
+      // diagnosticado bien la causa (sesión caducada, sin red). El
+      // resultado era un mensaje falso que mandaba a revisar permisos
+      // cuando lo que hacía falta era volver a iniciar sesión. Estos dos
+      // mensajes concretos, al ser ya el diagnóstico correcto y accionable,
+      // ganan siempre al texto fijo de la pantalla.
+      const esMensajeDeInfraestructura =
+        err instanceof Error && (err.message === MENSAJE_SIN_RED || err.message === MENSAJE_SESION_CADUCADA);
+      const mensaje = esMensajeDeInfraestructura
+        ? (err as Error).message
+        : typeof opciones?.mensajeError === 'function'
           ? opciones.mensajeError(err)
           : (opciones?.mensajeError ??
             (err instanceof Error ? err.message : 'No se pudo completar la acción. Inténtalo de nuevo.'));

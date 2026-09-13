@@ -1286,6 +1286,15 @@ export function VisitaActiva() {
     };
   }, [fotosVisor]);
 
+  // Para la tira de miniaturas de abajo (Tipo → Fotos): reutiliza las URL
+  // ya creadas y memoizadas en `fotosVisor` en vez de volver a llamar
+  // `URL.createObjectURL()` en cada render. BUG real (13 sept, reportado
+  // por Cesar): hacerlo inline en el render generaba una URL de blob
+  // NUEVA en cada repintado sin revocar nunca las anteriores — fuga de
+  // memoria, y en Safari/iOS una miniatura podía quedarse con el icono de
+  // imagen rota si el navegador reciclaba una URL de blob todavía en uso.
+  const urlPorFotoId = useMemo(() => new Map(fotosVisor.map((f) => [f.id, f.url])), [fotosVisor]);
+
   const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
   const visorFotos =
     indiceVisor >= 0 ? (
@@ -2157,12 +2166,12 @@ export function VisitaActiva() {
                     {fotosOwnV.length > 0 && (
                       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
                         {[...fotosOwnV].reverse().map((f) => {
-                          const blob = f.archivoLocal as Blob | undefined;
+                          const url = urlPorFotoId.get(f.id);
                           const titulo = (f.payload as { titulo?: string }).titulo;
-                          return blob ? (
+                          return url ? (
                             <img
                               key={f.id}
-                              src={URL.createObjectURL(blob)}
+                              src={url}
                               alt={titulo ?? 'foto'}
                               onClick={() => setFotoVisorId(f.id)}
                               style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}

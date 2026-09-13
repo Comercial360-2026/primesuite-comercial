@@ -24,8 +24,22 @@ import { supabase } from '@/lib/supabase-client';
 const MAX_INTENTOS = 2;
 const ESPERA_ENTRE_INTENTOS_MS = 400;
 const TIMEOUT_RED_MS = 10_000;
-const MENSAJE_SIN_RED =
+// Exportados para que useAccionAsync (use-accion-async.ts) pueda reconocer
+// estos dos mensajes concretos y mostrarlos tal cual, sin dejar que el
+// `mensajeError` fijo de cada pantalla los tape — ver el bug documentado
+// más abajo, en MENSAJE_SESION_CADUCADA.
+export const MENSAJE_SIN_RED =
   'La conexión está tardando demasiado para guardar. Comprueba tu cobertura o wifi y vuelve a intentarlo.';
+// BUG real (13 sept, reportado por Cesar con la sesión ya caducada de
+// verdad): `refreshSession()` se llamaba pero su resultado se ignoraba del
+// todo. Si el refresco fallaba (sesión realmente caducada, no solo a punto
+// de caducar — confirmado contra `auth.users.last_sign_in_at`, un
+// re-login posterior al fallo), el código reintentaba igualmente con la
+// misma sesión rota, fallaba otra vez, y acababa mostrando "falta
+// permiso" — un diagnóstico falso que mandaba a revisar permisos cuando
+// lo que hacía falta era volver a iniciar sesión.
+export const MENSAJE_SESION_CADUCADA =
+  'Tu sesión ha caducado. Sal de la app y vuelve a entrar antes de seguir guardando.';
 
 function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,18 +78,26 @@ export async function conReintentoDeSesion<
     throw err;
   }
   if (resultado.error) throw new Error(resultado.error.message);
+  let sesionSinConfirmar = false;
   for (let intento = 2; esFallo(resultado) && intento <= MAX_INTENTOS; intento++) {
     await esperar(ESPERA_ENTRE_INTENTOS_MS);
     try {
-      await conTimeout(supabase.auth.refreshSession(), TIMEOUT_RED_MS);
+      const { error: errorRefresco } = await conTimeout(supabase.auth.refreshSession(), TIMEOUT_RED_MS);
+      // Si el refresco de verdad falla (no un timeout de red, ya cubierto
+      // abajo), la sesión está muerta de verdad — reintentar `ejecutar()`
+      // con ella no va a arreglarse solo. Se corta el bucle ya: seguir
+      // insistiendo solo tarda más en decir la verdad.
+      sesionSinConfirmar = !!errorRefresco;
       resultado = await conTimeout(ejecutar(), TIMEOUT_RED_MS);
     } catch (err) {
       if (err instanceof ErrorTimeoutRed) throw new Error(MENSAJE_SIN_RED);
       throw err;
     }
     if (resultado.error) throw new Error(resultado.error.message);
+    if (sesionSinConfirmar) break;
   }
   if (esFallo(resultado)) {
+    if (sesionSinConfirmar) throw new Error(MENSAJE_SESION_CADUCADA);
     throw new Error(typeof mensajeSinFilas === 'string' ? mensajeSinFilas : mensajeSinFilas(resultado));
   }
   return resultado;
