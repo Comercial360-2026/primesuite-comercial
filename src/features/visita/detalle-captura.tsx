@@ -86,8 +86,22 @@ function escribirZonaEnCache(
   }
 }
 
-// Pantalla de solo-una-captura: nota (con edición), foto o audio.
+// BUG real (13 sept, reportado por Cesar: una foto se quedaba sin
+// reaccionar al tocar el chip de zona — ni un solo guardado llegaba al
+// servidor). React Router NO remonta el componente al navegar de una
+// captura a otra por esta misma ruta (mismo `/capturas/:capturaId`,
+// solo cambia el parámetro) — reutiliza la instancia. `captura`/
+// `zonaEdit`/etc. se reponían a mano en el efecto de abajo, pero el
+// candado de guardado (`guardado`, `zonaGuardando` — useAccionAsync no
+// se puede "resetear" desde fuera) podía quedar pegado de la foto
+// anterior y bloquear la nueva sin que se disparara ninguna petición.
+// `key={capturaId}` fuerza un remonte limpio de verdad en cada foto.
 export function DetalleCaptura() {
+  const { capturaId } = useParams<{ capturaId: string }>();
+  return <DetalleCapturaPorId key={capturaId ?? 'sin-id'} />;
+}
+
+function DetalleCapturaPorId() {
   const { capturaId } = useParams<{ capturaId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
