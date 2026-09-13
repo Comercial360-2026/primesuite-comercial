@@ -218,8 +218,18 @@ export async function eliminarOperacion(id: string): Promise<void> {
 // asignar una zona a una foto, que dispara EVENTO_COLA_PROCESADA).
 // Ahora usa el índice `by-visita-id` (ver calcularVisitaId): solo lee lo
 // que de verdad es de esta visita.
+//
+// BUG real (13 sept): `getAllFromIndex` con una clave repetida (todas las
+// operaciones de la misma visita comparten el mismo valor de índice) no
+// devuelve orden cronológico — IndexedDB ordena por la clave primaria
+// (`id`, un uuid aleatorio) cuando el valor del índice coincide, así que
+// una foto nueva podía aparecer intercalada entre las antiguas en vez de
+// al final (reportado por Cesar: "la ha puesto en el medio"). El conjunto
+// es siempre pequeño (lo de una sola visita), así que ordenar en JS por
+// `creadoEn` es barato y no necesita otro índice compuesto.
 export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendiente[]> {
-  return conDb((db) => db.getAllFromIndex('operaciones', 'by-visita-id', visitaId));
+  const operaciones = await conDb((db) => db.getAllFromIndex('operaciones', 'by-visita-id', visitaId));
+  return operaciones.sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
 }
 
 // Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —
@@ -289,23 +299,34 @@ const DIAS_RETENCION_COMPLETADAS = 30;
 // otra escritura detrás. Se trocea en lotes pequeños con una transacción
 // por lote y una pausa entre lotes, para ceder el object store a cualquier
 // escritura interactiva que esté esperando en vez de monopolizarlo.
-const LOTE_PURGA = 25;
-const PAUSA_ENTRE_LOTES_MS = 60;
+//
+// Con lotes de 25 y 60ms de pausa la espera bajó de ~40s a ~23s (Cesar,
+// mismo día) — mejor, pero un dispositivo con meses sin purgar sigue
+// tardando demasiado en UNA sola pasada, y cada lote sigue siendo una
+// transacción `readwrite` real que una escritura del usuario debe esperar
+// si llega justo mientras ese lote concreto está en curso. En vez de
+// intentar vaciarlo todo de una vez, se limita el trabajo total por
+// llamada (`TOPE_VISITADAS_POR_LLAMADA`): si queda más por purgar, se
+// completa en el siguiente arranque de la app, no en esta misma sesión.
+const LOTE_PURGA = 10;
+const PAUSA_ENTRE_LOTES_MS = 150;
+const TOPE_VISITADAS_POR_LLAMADA = 300;
 
 export async function purgarCompletadasAntiguas(
   diasAntiguedad: number = DIAS_RETENCION_COMPLETADAS
 ): Promise<number> {
   const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
   let totalBorradas = 0;
-  for (;;) {
-    const { borradas, hayMas } = await conDb(async (db) => {
+  let totalVisitadas = 0;
+  while (totalVisitadas < TOPE_VISITADAS_POR_LLAMADA) {
+    const { borradas, visitadas, hayMas } = await conDb(async (db) => {
       const tx = db.transaction('operaciones', 'readwrite');
       const indice = tx.store.index('by-estado');
       let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
-      let visitadas = 0;
+      let visitadasLote = 0;
       let borradasLote = 0;
-      while (cursor && visitadas < LOTE_PURGA) {
-        visitadas++;
+      while (cursor && visitadasLote < LOTE_PURGA) {
+        visitadasLote++;
         if (cursor.value.creadoEn < limite) {
           await cursor.delete();
           borradasLote++;
@@ -313,9 +334,10 @@ export async function purgarCompletadasAntiguas(
         cursor = await cursor.continue();
       }
       await tx.done;
-      return { borradas: borradasLote, hayMas: !!cursor };
+      return { borradas: borradasLote, visitadas: visitadasLote, hayMas: !!cursor };
     });
     totalBorradas += borradas;
+    totalVisitadas += visitadas;
     if (!hayMas) break;
     await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
   }
