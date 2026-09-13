@@ -12,6 +12,13 @@ interface SelectorZonaProps {
   // tampoco esperan al Guardar. Sin esto, la pastilla parecía confirmar
   // algo que en realidad quedaba pendiente hasta guardar toda la pantalla.
   onGuardar?: (valor: string) => Promise<void>;
+  // BUG real (13 sept): el candado de "guardando" de aquí y el del botón
+  // "Guardar" general de la pantalla eran independientes — se podía tocar
+  // uno mientras el otro seguía guardando la MISMA captura, lanzando dos
+  // escrituras en paralelo (confirmado con los logs de Supabase: 14 PATCH
+  // seguidos a la misma foto). Cuando la pantalla está guardando por su
+  // cuenta (el botón general "Guardar"), esto bloquea también los chips.
+  deshabilitado?: boolean;
 }
 
 // Campo de zona: buscador + chips de las ya usadas en esta visita, con
@@ -22,7 +29,7 @@ interface SelectorZonaProps {
 // Visita activa, pero sin su peso visual — aquí es un campo más de un
 // formulario, no un modo que afecta a todo lo que se captura después.
 // Vacío = sin zona = «General», nunca obliga a rellenar.
-export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZonaProps) {
+export function SelectorZona({ visitaId, value, onChange, onGuardar, deshabilitado }: SelectorZonaProps) {
   const { data: zonasUsadas } = useQuery({
     queryKey: ['zonas-usadas-visita', visitaId],
     enabled: !!visitaId,
@@ -41,7 +48,13 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
   const [guardadoOk, setGuardadoOk] = useState(false);
   const [errorZona, setErrorZona] = useState<string | null>(null);
 
+  // Candado combinado: el propio de esta pastilla (`guardandoZona`) MÁS el
+  // que venga de fuera (p. ej. el botón "Guardar" general de la pantalla,
+  // guardando algo distinto sobre la MISMA captura al mismo tiempo).
+  const bloqueado = guardandoZona || !!deshabilitado;
+
   async function confirmar(zona: string) {
+    if (bloqueado) return;
     onChange(zona);
     setTexto('');
     setZonaAlAbrir('');
@@ -71,14 +84,14 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <span
             className="chip chip--on"
-            style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0, opacity: guardandoZona ? 0.6 : 1 }}
+            style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0, opacity: bloqueado ? 0.6 : 1 }}
           >
             {value.trim()}
           </span>
           <button
             type="button"
             className="chip"
-            disabled={guardandoZona}
+            disabled={bloqueado}
             style={{ borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             onClick={() => {
               setTexto('');
@@ -92,7 +105,7 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
             type="button"
             aria-label="Quitar la zona"
             title="Quitar la zona"
-            disabled={guardandoZona}
+            disabled={bloqueado}
             style={{
               border: 'none', background: 'none', color: 'var(--ink-400)',
               padding: '0 6px', cursor: 'pointer', fontSize: 15,
@@ -150,6 +163,7 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
                 key={z}
                 type="button"
                 className={`chip${esLaActual ? ' chip--on' : ''}`}
+                disabled={bloqueado}
                 onClick={() => confirmar(z)}
               >
                 {z}
@@ -163,6 +177,7 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
           type="button"
           className="btn btn-secondary"
           style={{ marginTop: 6 }}
+          disabled={bloqueado}
           onClick={() => confirmar(texto.trim())}
         >
           Usar zona «{texto.trim()}»

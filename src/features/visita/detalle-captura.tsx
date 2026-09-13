@@ -72,6 +72,17 @@ export function DetalleCaptura() {
   const borrado = useAccionAsync();
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  // BUG real (13 sept, reportado por Cesar — confirmado con los logs de
+  // Supabase: 14 PATCH seguidos a la misma foto, todos con éxito en el
+  // servidor). El candado de "guardando" de la pastilla de zona
+  // (SelectorZona) y el del botón "Guardar" general son dos estados
+  // INDEPENDIENTES — ninguno bloqueaba al otro. Se podía tocar "Guardar"
+  // mientras la zona seguía guardándose sola (o al revés), lanzando un
+  // segundo guardado en paralelo sin ningún aviso: cada guardado en sí
+  // era rápido, pero como no había ningún candado compartido, tocar varias
+  // veces seguidas (por no ver confirmación a tiempo) iba disparando más
+  // y más guardados a la vez. Un único candado compartido para los dos.
+  const [zonaGuardando, setZonaGuardando] = useState(false);
 
   useEffect(() => {
     if (!capturaId) return;
@@ -196,48 +207,57 @@ export function DetalleCaptura() {
   // Misma rama cola/servidor que guardarEdicion() de abajo.
   async function guardarZonaYa(zona: string) {
     if (!captura) return;
-    const zonaNueva = zona.trim() || undefined;
-    if (captura.fuente === 'servidor' || captura.estadoSync === 'completado') {
-      await conReintentoDeSesion(
-        () =>
-          supabase
-            .from('captura_libre')
-            .update({ zona_texto: zonaNueva ?? null }, { count: 'exact' })
-            .eq('id', captura.id),
-        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
-      );
-      if (captura.visitaId) {
-        // Se espera el refetch: sin esto, «cambiar» podía reabrir el
-        // buscador con la lista de zonas todavía vieja (carrera
-        // invalidar/repintar).
-        await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
-        // `mis-zonas-reales-visita` (Visita activa, vista "por zona") no se
-        // invalidaba nunca — solo se refrescaba sola cada 20s
-        // (`refetchInterval`). La foto/nota editada aquí se quedaba
-        // agrupada con la zona vieja en esa vista hasta que tocara el
-        // refresco automático: parecía que el guardado no había hecho
-        // nada durante ese rato (bug real reportado en vivo).
-        queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
+    setZonaGuardando(true);
+    try {
+      const zonaNueva = zona.trim() || undefined;
+      if (captura.fuente === 'servidor' || captura.estadoSync === 'completado') {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('captura_libre')
+              .update({ zona_texto: zonaNueva ?? null }, { count: 'exact' })
+              .eq('id', captura.id),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+        if (captura.visitaId) {
+          // Se espera el refetch: sin esto, «cambiar» podía reabrir el
+          // buscador con la lista de zonas todavía vieja (carrera
+          // invalidar/repintar).
+          await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
+          // `mis-zonas-reales-visita` (Visita activa, vista "por zona") no se
+          // invalidaba nunca — solo se refrescaba sola cada 20s
+          // (`refetchInterval`). La foto/nota editada aquí se quedaba
+          // agrupada con la zona vieja en esa vista hasta que tocara el
+          // refresco automático: parecía que el guardado no había hecho
+          // nada durante ese rato (bug real reportado en vivo).
+          queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
+        }
       }
-    }
-    // BUG: si la captura ya estaba sincronizada (fuente 'cola' +
-    // estadoSync 'completado'), el bloque de arriba escribía en el
-    // servidor pero no aquí — «En esta visita» de Visita activa lee la
-    // cola local, no Supabase, así que la foto seguía viéndose en la zona
-    // vieja aunque el servidor ya tuviera la nueva. La copia local se
-    // actualiza siempre que exista, esté ya sincronizada o no (igual que
-    // ya hace guardarEdicion() más abajo).
-    if (captura.fuente === 'cola') {
-      const op = await obtenerOperacion(captura.id);
-      if (op) {
-        await actualizarOperacion(captura.id, {
-          payload: { ...(op.payload as CapturaLibrePayload), zonaTexto: zonaNueva },
-        });
-        // Si «En esta visita» ya está montada (no siempre se vuelve a
-        // montar al navegar), esta señal es lo único que la fuerza a releer
-        // la cola sin esperar a su próximo evento propio.
-        window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+      // BUG: si la captura ya estaba sincronizada (fuente 'cola' +
+      // estadoSync 'completado'), el bloque de arriba escribía en el
+      // servidor pero no aquí — «En esta visita» de Visita activa lee la
+      // cola local, no Supabase, así que la foto seguía viéndose en la zona
+      // vieja aunque el servidor ya tuviera la nueva. La copia local se
+      // actualiza siempre que exista, esté ya sincronizada o no (igual que
+      // ya hace guardarEdicion() más abajo).
+      if (captura.fuente === 'cola') {
+        const op = await obtenerOperacion(captura.id);
+        if (op) {
+          await actualizarOperacion(captura.id, {
+            payload: { ...(op.payload as CapturaLibrePayload), zonaTexto: zonaNueva },
+          });
+          // Si «En esta visita» ya está montada (no siempre se vuelve a
+          // montar al navegar), esta señal es lo único que la fuerza a releer
+          // la cola sin esperar a su próximo evento propio.
+          window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+        }
       }
+      // Refleja el guardado ya hecho en el estado local — así guardarEdicion()
+      // (si se pulsa "Guardar" justo después) ve que la zona ya coincide y no
+      // vuelve a mandar la misma escritura por segunda vez.
+      setCaptura((prev) => (prev ? { ...prev, zonaTexto: zonaNueva ?? '' } : prev));
+    } finally {
+      setZonaGuardando(false);
     }
   }
 
@@ -465,6 +485,7 @@ export function DetalleCaptura() {
             value={zonaEdit}
             onChange={setZonaEdit}
             onGuardar={guardarZonaYa}
+            deshabilitado={guardado.cargando}
           />
         </>
       )}
@@ -485,6 +506,7 @@ export function DetalleCaptura() {
             value={zonaEdit}
             onChange={setZonaEdit}
             onGuardar={guardarZonaYa}
+            deshabilitado={guardado.cargando}
           />
         </>
       )}
@@ -499,7 +521,7 @@ export function DetalleCaptura() {
       <button
         className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
-        disabled={guardado.cargando || guardadoConExito || (captura.tipo === 'nota' && !textoEdit.trim())}
+        disabled={guardado.cargando || zonaGuardando || guardadoConExito || (captura.tipo === 'nota' && !textoEdit.trim())}
         onClick={guardarEdicion}
       >
         {guardadoConExito ? (
