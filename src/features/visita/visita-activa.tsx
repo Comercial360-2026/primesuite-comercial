@@ -100,6 +100,25 @@ function CapturasPorUbicacion({
   onAbrirHallazgo,
   zonasReales,
 }: CapturasPorUbicacionProps) {
+  // Mismo bug y mismo arreglo que en la vista "por tipo" (ver fotosVisor
+  // más abajo en VisitaActiva): antes esta vista creaba una URL de blob
+  // NUEVA en cada render con `URL.createObjectURL()`, sin revocar nunca
+  // las anteriores — fuga de memoria que se agrava cuanto más se usa la
+  // vista "por zona" en una misma sesión larga de pruebas.
+  const urlPorFotoId = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const c of capturas) {
+      const blob = c.archivoLocal as Blob | undefined;
+      if (blob) mapa.set(c.id, URL.createObjectURL(blob));
+    }
+    return mapa;
+  }, [capturas]);
+  useEffect(() => {
+    return () => {
+      urlPorFotoId.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [urlPorFotoId]);
+
   // Clave de agrupación por zona. Si ya se conoce la zona real (subido y
   // refrescado de la BD), manda ella — así una zona editada después de
   // capturar (desde la propia ficha del hallazgo/captura) se ve aquí sin
@@ -179,13 +198,13 @@ function CapturasPorUbicacion({
           <div className="seccion-lista__subcabecera">Fotos</div>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
             {[...c.fotos].reverse().map((f) => {
-              const blob = f.archivoLocal as Blob | undefined;
+              const url = urlPorFotoId.get(f.id);
               const titulo = (f.payload as { titulo?: string }).titulo;
               const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
-              return blob ? (
+              return url ? (
                 <img
                   key={f.id}
-                  src={URL.createObjectURL(blob)}
+                  src={url}
                   alt={titulo ?? 'foto'}
                   onClick={abrir}
                   style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
@@ -357,6 +376,29 @@ export function VisitaActiva() {
   const [segsGrabando, setSegsGrabando] = useState(0);
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
+  // Mismo bug de fuga que en las miniaturas (ver fotosVisor/urlPorFotoId
+  // más abajo): `URL.createObjectURL()` puesto directo en el `src` del
+  // JSX se repetía en cada tecla del título (cada repintado de la hoja),
+  // sin revocar nunca las URL anteriores. Se genera una única vez por
+  // Blob y se revoca al cerrarse o cambiar.
+  const urlFotoPendiente = useMemo(
+    () => (fotoPendiente ? URL.createObjectURL(fotoPendiente) : null),
+    [fotoPendiente]
+  );
+  const urlAudioPendiente = useMemo(
+    () => (audioPendiente ? URL.createObjectURL(audioPendiente) : null),
+    [audioPendiente]
+  );
+  useEffect(() => {
+    return () => {
+      if (urlFotoPendiente) URL.revokeObjectURL(urlFotoPendiente);
+    };
+  }, [urlFotoPendiente]);
+  useEffect(() => {
+    return () => {
+      if (urlAudioPendiente) URL.revokeObjectURL(urlAudioPendiente);
+    };
+  }, [urlAudioPendiente]);
   const [tituloPendiente, setTituloPendiente] = useState('');
   const refDictadoTituloPendiente = useRef<RefCampoDictado>(null);
   // B6 · La zona se congela en el MOMENTO de capturar (disparo de la foto,
@@ -2372,15 +2414,15 @@ export function VisitaActiva() {
           captura (igual que el botón "Descartar"). */}
       {(fotoPendiente || audioPendiente) && (
         <HojaSuperior titulo={fotoPendiente ? 'Foto' : 'Audio'} onCerrar={descartarPendiente}>
-          {fotoPendiente && (
+          {fotoPendiente && urlFotoPendiente && (
             <img
-              src={URL.createObjectURL(fotoPendiente)}
+              src={urlFotoPendiente}
               alt="vista previa"
               style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }}
             />
           )}
-          {audioPendiente && (
-            <audio controls src={URL.createObjectURL(audioPendiente)} style={{ width: '100%', marginBottom: 8 }} />
+          {audioPendiente && urlAudioPendiente && (
+            <audio controls src={urlAudioPendiente} style={{ width: '100%', marginBottom: 8 }} />
           )}
           {/* B7 · La zona en la que cae esta captura, aquí y ahora — para no
               descubrir al cerrar que una foto quedó en el sitio que no era. */}
