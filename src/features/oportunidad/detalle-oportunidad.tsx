@@ -432,7 +432,7 @@ export function DetalleOportunidad() {
       <TextareaDictado ref={refDictadoDescripcion} rows={2} valor={descripcion} onCambio={setDescripcion} />
 
       <div className="label">Título</div>
-      <input className="field" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+      <input className="field" autoComplete="off" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
 
       {/* Antes de elegir, no después: son tres campos con nombre poco obvio
           (recorrido de revisión). */}

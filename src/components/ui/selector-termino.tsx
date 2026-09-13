@@ -82,6 +82,7 @@ export function SelectorTermino({ onSeleccionar, onCerrar, titulo }: SelectorTer
         <input
           className="field"
           autoFocus
+          autoComplete="off"
           value={textoBusqueda}
           onChange={(e) => setTextoBusqueda(e.target.value)}
           placeholder="buscar término o modelo…"

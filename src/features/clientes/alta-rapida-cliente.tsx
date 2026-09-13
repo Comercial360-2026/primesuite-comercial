@@ -316,6 +316,7 @@ export function AltaRapidaCliente() {
           <input
             className={`field${creacionCliente.error ? ' field--error' : ''}`}
             autoFocus
+            autoComplete="off"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="razón social"
@@ -324,6 +325,7 @@ export function AltaRapidaCliente() {
           <div className="label">Primer proyecto</div>
           <input
             className="field"
+            autoComplete="off"
             value={nombreProyecto}
             onChange={(e) => setNombreProyecto(e.target.value)}
             placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"

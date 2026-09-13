@@ -1804,6 +1804,7 @@ export function VisitaActiva() {
               onChange={(e) => setZonaActual(e.target.value)}
               placeholder="Escribe la zona · p. ej. Puerta muelle de carga"
               autoFocus
+              autoComplete="off"
             />
 
             {/* Confirmar / aplicar la zona escrita (nueva o no) — cierra el
@@ -1916,6 +1917,7 @@ export function VisitaActiva() {
                           className="field"
                           style={{ marginTop: 8 }}
                           autoFocus
+                          autoComplete="off"
                           value={nombreZonaNuevo}
                           onChange={(e) => setNombreZonaNuevo(e.target.value)}
                         />

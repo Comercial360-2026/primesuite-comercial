@@ -143,6 +143,7 @@ export function ObjetivoVisitaModal({
               <input
                 className={`field${errorNuevo ? ' field--error' : ''}`}
                 autoFocus
+                autoComplete="off"
                 value={nombreNuevo}
                 onChange={(e) => setNombreNuevo(e.target.value)}
                 placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"

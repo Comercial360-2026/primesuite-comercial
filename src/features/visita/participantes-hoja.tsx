@@ -501,6 +501,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
             <input
               className="field"
               autoFocus
+              autoComplete="off"
               value={notaAyuda}
               onChange={(e) => setNotaAyuda(e.target.value)}
               placeholder="por qué necesitas ayuda (opcional)"

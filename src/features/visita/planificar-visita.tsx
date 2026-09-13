@@ -325,6 +325,7 @@ export function PlanificarVisita() {
             <input
               className="field"
               autoFocus
+              autoComplete="off"
               placeholder="nombre del cliente"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -394,6 +395,7 @@ export function PlanificarVisita() {
                 <input
                   className={`field${creacionProyecto.error ? ' field--error' : ''}`}
                   autoFocus
+                  autoComplete="off"
                   value={nombreProyectoNuevo}
                   onChange={(e) => setNombreProyectoNuevo(e.target.value)}
                   placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"

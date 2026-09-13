@@ -69,6 +69,7 @@ export const TextareaDictado = forwardRef<RefCampoDictado, PropsTextarea>(functi
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>
       <textarea
+        autoComplete="off"
         {...resto}
         className={`field${className ? ` ${className}` : ''}`}
         value={d.valorEnVivo}
@@ -94,6 +95,7 @@ export const InputDictado = forwardRef<RefCampoDictado, PropsInput>(function Inp
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>
       <input
+        autoComplete="off"
         {...resto}
         type="text"
         className={`field${className ? ` ${className}` : ''}`}

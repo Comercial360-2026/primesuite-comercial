@@ -179,6 +179,7 @@ export function AltaComercial() {
               <input
                 className="field"
                 autoFocus
+                autoComplete="off"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="nombre y apellidos"
@@ -190,6 +191,7 @@ export function AltaComercial() {
                 className="field"
                 type="email"
                 autoCapitalize="none"
+                autoComplete="off"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nombre@primion.com"
@@ -214,6 +216,7 @@ export function AltaComercial() {
               <div className="label">Zona (opcional)</div>
               <input
                 className="field"
+                autoComplete="off"
                 value={zona}
                 onChange={(e) => setZona(e.target.value)}
                 placeholder="p. ej. Cataluña, Grandes cuentas…"

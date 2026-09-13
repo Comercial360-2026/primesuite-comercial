@@ -159,6 +159,7 @@ export function SolicitudesReasignacion() {
                     <input
                       className="field"
                       autoFocus
+                      autoComplete="off"
                       style={{ marginTop: 6 }}
                       value={busqueda}
                       onChange={(e) => setBusqueda(e.target.value)}

@@ -894,6 +894,7 @@ export function ColaVocabulario() {
           <input
             className="field"
             autoFocus
+            autoComplete="off"
             value={textoRenombrarTermino}
             onChange={(e) => setTextoRenombrarTermino(e.target.value)}
           />
@@ -983,6 +984,7 @@ export function ColaVocabulario() {
                     <input
                       className="field"
                       autoFocus
+                      autoComplete="off"
                       value={nuevoModeloPorPadre[t.id] ?? ''}
                       onChange={(e) => setNuevoModeloPorPadre((p) => ({ ...p, [t.id]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') crearModelo(t); }}
@@ -1197,6 +1199,7 @@ export function ColaVocabulario() {
                         <input
                           className="field"
                           autoFocus
+                          autoComplete="off"
                           style={{ marginTop: 6 }}
                           value={textoBusquedaFusion}
                           onChange={(e) => setTextoBusquedaFusion(e.target.value)}
@@ -1471,6 +1474,7 @@ export function ColaVocabulario() {
               <input
                 className="field"
                 autoFocus
+                autoComplete="off"
                 value={nuevaCategoriaTexto}
                 onChange={(e) => setNuevaCategoriaTexto(e.target.value)}
                 placeholder="nombre de la categoría nueva"
@@ -1618,6 +1622,7 @@ export function ColaVocabulario() {
                     <input
                       className="field"
                       autoFocus
+                      autoComplete="off"
                       value={textoRenombrarCategoria}
                       onChange={(e) => setTextoRenombrarCategoria(e.target.value)}
                     />
@@ -1781,6 +1786,7 @@ export function ColaVocabulario() {
                             <input
                               className="field"
                               autoFocus
+                              autoComplete="off"
                               value={nuevoTerminoPorCategoria[cat.categoria_id] ?? ''}
                               onChange={(e) =>
                                 setNuevoTerminoPorCategoria((prev) => ({ ...prev, [cat.categoria_id]: e.target.value }))

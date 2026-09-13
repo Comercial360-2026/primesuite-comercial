@@ -134,6 +134,7 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar }: SelectorZ
       <input
         className="field"
         autoFocus={buscando}
+        autoComplete="off"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         placeholder="Buscar o escribir zona nueva"

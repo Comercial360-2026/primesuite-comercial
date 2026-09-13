@@ -386,7 +386,7 @@ export function DetalleComercial() {
           <div style={{ padding: '12px var(--fila-pad-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <div>
               <div className="label" style={{ marginTop: 0 }}>Nombre</div>
-              <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+              <input className="field" autoComplete="off" value={nombre} onChange={(e) => setNombre(e.target.value)} />
             </div>
             <div>
               <div className="label">Rol</div>
@@ -407,6 +407,7 @@ export function DetalleComercial() {
               <div className="label">Zona (opcional)</div>
               <input
                 className="field"
+                autoComplete="off"
                 placeholder="p. ej. Cataluña, Grandes cuentas…"
                 value={zona}
                 onChange={(e) => setZona(e.target.value)}

@@ -246,6 +246,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
         <input
           className="field"
           autoFocus
+          autoComplete="off"
           value={form.nombre}
           onChange={(e) => set({ ...form, nombre: e.target.value })}
           placeholder="nombre"
@@ -253,6 +254,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
         <input
           className="field"
           style={{ marginTop: 6 }}
+          autoComplete="off"
           value={form.cargo}
           onChange={(e) => set({ ...form, cargo: e.target.value })}
           placeholder="cargo (opcional)"
@@ -261,6 +263,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           className="field"
           style={{ marginTop: 6 }}
           type="tel"
+          autoComplete="off"
           value={form.telefono}
           onChange={(e) => set({ ...form, telefono: e.target.value })}
           placeholder="teléfono (opcional)"
@@ -269,6 +272,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           className="field"
           style={{ marginTop: 6 }}
           type="email"
+          autoComplete="off"
           value={form.email}
           onChange={(e) => set({ ...form, email: e.target.value })}
           placeholder="email (opcional)"
@@ -276,6 +280,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
         <input
           className="field"
           style={{ marginTop: 6 }}
+          autoComplete="off"
           value={form.relevancia}
           onChange={(e) => set({ ...form, relevancia: e.target.value })}
           placeholder="por qué importa (opcional)"

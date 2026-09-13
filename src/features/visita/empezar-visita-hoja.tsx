@@ -252,6 +252,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             <input
               className="field"
               autoFocus
+              autoComplete="off"
               placeholder="buscar cliente"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
@@ -320,6 +321,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                 <input
                   className={`field${creandoProyErr ? ' field--error' : ''}`}
                   autoFocus
+                  autoComplete="off"
                   value={nombreProyectoNuevo}
                   onChange={(e) => setNombreProyectoNuevo(e.target.value)}
                   placeholder="p. ej. Mantenimiento, Obra nueva…"

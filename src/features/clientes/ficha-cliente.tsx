@@ -474,6 +474,7 @@ export function FichaCliente() {
            <input
              className="field"
              autoFocus
+             autoComplete="off"
              value={formNombre}
              onChange={(e) => setFormNombre(e.target.value)}
              placeholder="razón social"
@@ -500,6 +501,7 @@ export function FichaCliente() {
            <div className="label">Ubicación general</div>
            <input
              className="field"
+             autoComplete="off"
              value={formUbicacion}
              onChange={(e) => setFormUbicacion(e.target.value)}
              placeholder="p. ej. Polígono Norte, Sevilla"
@@ -608,6 +610,7 @@ export function FichaCliente() {
             <input
               className={`field${creacionProyecto.error ? ' field--error' : ''}`}
               autoFocus
+              autoComplete="off"
               value={nombreProyecto}
               onChange={(e) => setNombreProyecto(e.target.value)}
               placeholder="mantenimiento, obra nueva, postventa…"

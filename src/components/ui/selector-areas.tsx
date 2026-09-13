@@ -165,6 +165,7 @@ export function SelectorAreas({ seleccionadas, onCambio }: SelectorAreasProps) {
         <Icono nombre="buscar" size={16} />
         <input
           className="field"
+          autoComplete="off"
           value={textoBusqueda}
           onChange={(e) => setTextoBusqueda(e.target.value)}
           placeholder="buscar categoría, término o modelo…"

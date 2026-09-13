@@ -169,6 +169,7 @@ export function GestionarSectores() {
             <input
               className="field"
               autoFocus
+              autoComplete="off"
               value={nuevo}
               onChange={(e) => setNuevo(e.target.value)}
               onKeyDown={(e) => {
@@ -258,6 +259,7 @@ export function GestionarSectores() {
                     <input
                       className="field"
                       autoFocus
+                      autoComplete="off"
                       value={borrador}
                       onChange={(e) => setBorrador(e.target.value)}
                       onKeyDown={(e) => {

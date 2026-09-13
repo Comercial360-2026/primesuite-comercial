@@ -42,6 +42,7 @@ export function CampoBuscar({ value, onChange, placeholder, onCerrar }: CampoBus
       <input
         className="field"
         autoFocus
+        autoComplete="off"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

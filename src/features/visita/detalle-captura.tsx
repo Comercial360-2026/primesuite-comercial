@@ -457,6 +457,7 @@ export function DetalleCaptura() {
         <>
           <input
             className="field"
+            autoComplete="off"
             value={tituloEdit}
             onChange={(e) => setTituloEdit(e.target.value)}
             placeholder="título breve (opcional)"

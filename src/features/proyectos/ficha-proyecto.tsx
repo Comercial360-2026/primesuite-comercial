@@ -456,6 +456,7 @@ export function FichaProyecto() {
             <input
               className={`field${guardadoNombre.error ? ' field--error' : ''}`}
               autoFocus
+              autoComplete="off"
               value={formNombre}
               onChange={(e) => setFormNombre(e.target.value)}
               placeholder="mantenimiento, obra nueva, postventa…"
