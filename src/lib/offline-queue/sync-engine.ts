@@ -18,6 +18,12 @@ import type { OperacionPendiente } from './types';
 
 const MAX_INTENTOS = 5;
 const INTERVALO_REINTENTO_MS = 60_000;
+// Backoff corto tras un fallo suelto (no agotado) — 3s, 6s, 12s, 24s, tope
+// 30s — para no depender del ciclo automático de 60s en el caso normal
+// (timeout de red, corte momentáneo). Con MAX_INTENTOS=5 nunca se llega a
+// esperar más que esto antes de que el intento agote y pase a 'error'.
+const REINTENTO_RAPIDO_BASE_MS = 3_000;
+const REINTENTO_RAPIDO_MAX_MS = 30_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
 let sincronizandoAhora = false;
@@ -117,26 +123,35 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 
   await actualizarOperacion(operacion.id, { estado: 'subiendo' });
 
+  // `operacion` es el snapshot que leyó `obtenerPendientes()` al empezar
+  // esta pasada — si el comercial edita algo (p. ej. cambia la zona de una
+  // foto desde su ficha) MIENTRAS esta operación sigue en cola esperando
+  // su turno o subiendo, ese snapshot ya está desfasado. Sin releer aquí,
+  // el cambio se guardaba bien en IndexedDB pero la subida al servidor
+  // mandaba el payload viejo — la edición se perdía en el servidor sin
+  // ningún aviso (bug real: cambiar de zona justo tras hacer la foto).
+  const actual = (await obtenerOperacion(operacion.id)) ?? operacion;
+
   try {
-    switch (operacion.entidad) {
+    switch (actual.entidad) {
       case 'visita':
-        await sincronizarVisita(operacion);
+        await sincronizarVisita(actual);
         break;
       case 'cliente':
       case 'proyecto':
       case 'oportunidad':
       case 'proximo_paso':
       case 'ubicacion':
-        await sincronizarInsertSimple(operacion.entidad, operacion);
+        await sincronizarInsertSimple(actual.entidad, actual);
         break;
       case 'hallazgo':
-        await sincronizarHallazgo(operacion);
+        await sincronizarHallazgo(actual);
         break;
       case 'captura_libre':
-        await sincronizarCapturaLibre(operacion);
+        await sincronizarCapturaLibre(actual);
         break;
     }
-    await actualizarOperacion(operacion.id, { estado: 'completado' });
+    await actualizarOperacion(actual.id, { estado: 'completado' });
     // Se conserva en IndexedDB con estado 'completado' en vez de borrarse
     // inmediatamente, para que la UI pueda seguir leyendo la cola local sin
     // parpadeos mientras la caché de TanStack Query se revalida. La limpieza
@@ -144,13 +159,24 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
     // ligera, no crítica para el flujo — se puede añadir sin tocar este
     // motor si el volumen local llega a pesar.
   } catch (err) {
-    const intentos = operacion.intentos + 1;
+    const intentos = actual.intentos + 1;
     const mensaje = err instanceof Error ? err.message : String(err);
-    await actualizarOperacion(operacion.id, {
-      estado: intentos >= MAX_INTENTOS ? 'error' : 'pendiente',
+    const agotado = intentos >= MAX_INTENTOS;
+    await actualizarOperacion(actual.id, {
+      estado: agotado ? 'error' : 'pendiente',
       intentos,
       ultimoError: mensaje,
     });
+    if (!agotado) {
+      // Un fallo suelto (foto grande + cobertura floja: el timeout de la
+      // subida, un corte momentáneo de la conexión) antes se quedaba
+      // esperando al ciclo automático siguiente — hasta 60s después, sea
+      // cual sea el motivo del fallo — en vez de reintentarse en segundos.
+      // Reportado en real por Cesar: "tarda 60 segundos en actualizar",
+      // el número exacto del intervalo automático (INTERVALO_REINTENTO_MS).
+      const espera = Math.min(REINTENTO_RAPIDO_BASE_MS * 2 ** (intentos - 1), REINTENTO_RAPIDO_MAX_MS);
+      setTimeout(() => void procesarCola(), espera);
+    }
   }
 }
 
