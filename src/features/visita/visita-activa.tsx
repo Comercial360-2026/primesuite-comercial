@@ -38,16 +38,11 @@ import type {
   ProximoPasoPayload,
 } from '@/lib/offline-queue/types';
 
-// Mapa id → URL de blob que solo cambia cuando el Blob de ESE id cambia de
-// verdad (misma referencia = misma URL, para siempre). BUG real (13 sept,
-// reportado por Cesar con capturas de pantalla: una miniatura se quedaba
-// con el icono de imagen rota). El arreglo anterior memoizaba las URL
-// sobre `operaciones` entero — cualquier cambio en la cola (guardar OTRA
-// cosa, el sondeo periódico…) recreaba TODAS las URL de blob de golpe y
-// revocaba las anteriores; si el navegador estaba a mitad de cargar una
-// de esas imágenes justo en ese instante, se quedaba rota. Aquí cada foto
-// conserva su propia URL mientras su Blob no cambie, sin importar qué
-// más se mueva en `operaciones`.
+// Mapa id → URL de blob: una URL por Blob, revocada solo cuando ese Blob
+// deja de estar en la lista o cambia. Evita crear URLs en cada render sin
+// revocarlas. (La miniatura rota "?" tras editar una foto NO venía de
+// aquí, sino de cómo WebKit invalidaba los Blob de IndexedDB al reescribir
+// el registro — ver el comentario de cabecera de offline-queue/db.ts.)
 function useMapaUrlsBlobEstable(items: { id: string; blob: Blob | undefined }[]): Map<string, string> {
   const cacheRef = useRef(new Map<string, { blob: Blob; url: string }>());
   const idsActuales = new Set(items.map((i) => i.id));

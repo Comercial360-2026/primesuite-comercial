@@ -4,14 +4,29 @@ import type { OperacionPendiente, EntidadSincronizable, EstadoOperacion } from '
 // Una única base de datos local, un único object store para toda la cola.
 // No se replica el esquema completo de Supabase en local — solo se persiste
 // lo que está pendiente de sincronizar (ver 09_arquitectura_tecnica.md §4).
-// El binario (Blob de foto/audio) se guarda directamente en el mismo
-// registro: IndexedDB soporta Blobs de forma nativa, así que no hace falta
-// un store separado ni convertir a base64.
+//
+// El binario de foto/audio se guarda como ArrayBuffer (`archivoBuffer` +
+// `archivoTipo`), NO como Blob, y se reconstruye un Blob en memoria al leer.
+// BUG real (13 sept, reproducido en Safari de iOS 26 con una foto de ~800
+// KB): WebKit guarda los Blob grandes de IndexedDB como archivos aparte, y
+// al REESCRIBIR un registro que ya lleva uno (cambiar la zona, pasar a
+// 'subiendo'/'completado'…) invalida ese archivo — el Blob leído justo
+// antes o justo después del put falla con NotFoundError hasta ~1,5 s
+// después. En la app eso era la miniatura con el icono roto "?" en Visita
+// activa tras editar una foto, que volvía sola al siguiente releído de la
+// cola (hasta 60 s). Con ArrayBuffer no hay archivo aparte que invalidar:
+// probado en el mismo simulador, 0 roturas en ediciones seguidas.
+// Los registros antiguos (con `archivoLocal` Blob) se leen tal cual y se
+// convierten en su primera reescritura (`aAlmacenada`).
+type OperacionAlmacenada = OperacionPendiente & {
+  archivoBuffer?: ArrayBuffer;
+  archivoTipo?: string;
+};
 
 interface ColaOfflineDB extends DBSchema {
   operaciones: {
     key: string; // OperacionPendiente.id
-    value: OperacionPendiente;
+    value: OperacionAlmacenada;
     indexes: {
       'by-estado': EstadoOperacion;
       'by-entidad': EntidadSincronizable;
@@ -121,8 +136,42 @@ async function conDb<T>(fn: (db: IDBPDatabase<ColaOfflineDB>) => Promise<T>): Pr
   }
 }
 
+// Registro guardado → operación en memoria: el binario vuelve a ser un Blob
+// nuevo, en memoria, que ninguna reescritura posterior puede invalidar.
+function desdeAlmacenada(reg: OperacionAlmacenada): OperacionPendiente {
+  if (!reg.archivoBuffer) return reg;
+  const { archivoBuffer, archivoTipo, ...resto } = reg;
+  return { ...resto, archivoLocal: new Blob([archivoBuffer], { type: archivoTipo ?? '' }) } as OperacionPendiente;
+}
+
+async function leerBytes(blob: Blob): Promise<ArrayBuffer> {
+  // Un Blob antiguo (guardado como Blob antes de este cambio) puede estar
+  // en la ventana en que WebKit lo da por perdido tras una reescritura
+  // hecha por la versión anterior de la app — se recupera solo en ~1,5 s.
+  for (let intento = 0; ; intento++) {
+    try {
+      return await blob.arrayBuffer();
+    } catch (err) {
+      if (intento >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+  }
+}
+
+// Operación en memoria → registro a guardar: nunca se guarda un Blob.
+async function aAlmacenada(op: OperacionPendiente | OperacionAlmacenada): Promise<OperacionAlmacenada> {
+  const reg: OperacionAlmacenada = { ...op, visitaId: calcularVisitaId(op) };
+  if (reg.archivoLocal instanceof Blob) {
+    const blob = reg.archivoLocal;
+    reg.archivoBuffer = await leerBytes(blob);
+    reg.archivoTipo = blob.type;
+    delete reg.archivoLocal;
+  }
+  return reg;
+}
+
 export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
-  const conVisitaId = { ...operacion, visitaId: calcularVisitaId(operacion) };
+  const conVisitaId = await aAlmacenada(operacion);
   try {
     await conDb((db) => db.put('operaciones', conVisitaId));
   } catch (err) {
@@ -153,15 +202,18 @@ export async function actualizarOperacion(
     // pueda verificar que el resultado sigue perteneciendo a un único
     // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
     // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
-    const actualizado = { ...existente, ...cambios } as unknown as OperacionPendiente;
-    // `cambios` puede traer un `payload` nuevo — recalcular por si acaso,
-    // aunque en la práctica una operación no cambia de visita a mitad de camino.
-    await db.put('operaciones', { ...actualizado, visitaId: calcularVisitaId(actualizado) });
+    const actualizado = { ...existente, ...cambios } as unknown as OperacionAlmacenada;
+    // `aAlmacenada` recalcula `visitaId` (por si `cambios` trae un payload
+    // nuevo) y, si el registro aún guarda el binario como Blob (anterior a
+    // este cambio), lo pasa a ArrayBuffer ANTES de reescribirlo — el
+    // momento en que WebKit lo invalidaría.
+    await db.put('operaciones', await aAlmacenada(actualizado));
   });
 }
 
 export async function obtenerOperacion(id: string): Promise<OperacionPendiente | undefined> {
-  return conDb((db) => db.get('operaciones', id));
+  const reg = await conDb((db) => db.get('operaciones', id));
+  return reg && desdeAlmacenada(reg);
 }
 
 // Cola ordenada por antigüedad — es lo que garantiza que una `visita` se
@@ -196,7 +248,9 @@ export async function obtenerPendientes(incluirErrores = false): Promise<Operaci
       incluirErrores ? db.getAllFromIndex('operaciones', 'by-estado', 'error') : Promise.resolve([]),
     ])
   );
-  return [...pendientes, ...conError].sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  return [...pendientes, ...conError]
+    .map((r) => desdeAlmacenada(r))
+    .sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
 }
 
 // Para el aviso global en Yo — "N elementos no se han podido sincronizar".
@@ -205,7 +259,8 @@ export async function obtenerPendientes(incluirErrores = false): Promise<Operaci
 // mirase la cola local con las herramientas de desarrollador; nunca llegaba
 // a ninguna pantalla que el comercial fuera a ver por su cuenta.
 export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]> {
-  return conDb((db) => db.getAllFromIndex('operaciones', 'by-estado', 'error'));
+  const regs = await conDb((db) => db.getAllFromIndex('operaciones', 'by-estado', 'error'));
+  return regs.map((r) => desdeAlmacenada(r));
 }
 
 export async function contarPendientesPorEntidad(
@@ -239,7 +294,7 @@ export async function eliminarOperacion(id: string): Promise<void> {
 // `creadoEn` es barato y no necesita otro índice compuesto.
 export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendiente[]> {
   const operaciones = await conDb((db) => db.getAllFromIndex('operaciones', 'by-visita-id', visitaId));
-  return operaciones.sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  return operaciones.map((r) => desdeAlmacenada(r)).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
 }
 
 // Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —
@@ -285,7 +340,7 @@ export async function obtenerUbicacionesPorCliente(
   const todas = (await conDb((db) =>
     db.getAllFromIndex('operaciones', 'by-entidad', 'ubicacion')
   )) as OperacionPendiente<'ubicacion'>[];
-  return todas.filter((op) => op.payload.clienteId === clienteId);
+  return todas.filter((op) => op.payload.clienteId === clienteId).map((r) => desdeAlmacenada(r) as OperacionPendiente<'ubicacion'>);
 }
 
 const DIAS_RETENCION_COMPLETADAS = 30;
