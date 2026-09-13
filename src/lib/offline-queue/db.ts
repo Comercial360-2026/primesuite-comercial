@@ -301,25 +301,28 @@ const DIAS_RETENCION_COMPLETADAS = 30;
 // escritura interactiva que esté esperando en vez de monopolizarlo.
 //
 // Con lotes de 25 y 60ms de pausa la espera bajó de ~40s a ~23s (Cesar,
-// mismo día) — mejor, pero un dispositivo con meses sin purgar sigue
-// tardando demasiado en UNA sola pasada, y cada lote sigue siendo una
-// transacción `readwrite` real que una escritura del usuario debe esperar
-// si llega justo mientras ese lote concreto está en curso. En vez de
-// intentar vaciarlo todo de una vez, se limita el trabajo total por
-// llamada (`TOPE_VISITADAS_POR_LLAMADA`): si queda más por purgar, se
-// completa en el siguiente arranque de la app, no en esta misma sesión.
-const LOTE_PURGA = 10;
+// mismo día) — mejor, pero seguía tardando demasiado. Un tope FIJO de
+// registros (probado después: 300) tampoco bastó: en WebKit/iOS cada
+// `cursor.delete()` de un registro con blob de foto/audio es lento de
+// verdad (no es solo borrar una fila pequeña), así que "cuántos registros"
+// no predice "cuánto tiempo" — con blobs pesados, 300 registros seguían
+// tardando ~28s. Se corta por PRESUPUESTO DE TIEMPO en vez de cantidad: la
+// purga trabaja como mucho ~2s reales por llamada, sea cual sea el tamaño
+// de los blobs que le toque borrar, y si queda más, lo completa en el
+// siguiente arranque de la app. Un dispositivo rápido purga más en esos 2s;
+// uno lento purga menos — pero ninguno bloquea al usuario más de eso.
+const LOTE_PURGA = 5;
 const PAUSA_ENTRE_LOTES_MS = 150;
-const TOPE_VISITADAS_POR_LLAMADA = 300;
+const PRESUPUESTO_TIEMPO_MS = 2000;
 
 export async function purgarCompletadasAntiguas(
   diasAntiguedad: number = DIAS_RETENCION_COMPLETADAS
 ): Promise<number> {
   const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
+  const inicio = Date.now();
   let totalBorradas = 0;
-  let totalVisitadas = 0;
-  while (totalVisitadas < TOPE_VISITADAS_POR_LLAMADA) {
-    const { borradas, visitadas, hayMas } = await conDb(async (db) => {
+  while (Date.now() - inicio < PRESUPUESTO_TIEMPO_MS) {
+    const { borradas, hayMas } = await conDb(async (db) => {
       const tx = db.transaction('operaciones', 'readwrite');
       const indice = tx.store.index('by-estado');
       let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
@@ -334,10 +337,9 @@ export async function purgarCompletadasAntiguas(
         cursor = await cursor.continue();
       }
       await tx.done;
-      return { borradas: borradasLote, visitadas: visitadasLote, hayMas: !!cursor };
+      return { borradas: borradasLote, hayMas: !!cursor };
     });
     totalBorradas += borradas;
-    totalVisitadas += visitadas;
     if (!hayMas) break;
     await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
   }
