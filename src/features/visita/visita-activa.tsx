@@ -38,6 +38,45 @@ import type {
   ProximoPasoPayload,
 } from '@/lib/offline-queue/types';
 
+// Mapa id → URL de blob que solo cambia cuando el Blob de ESE id cambia de
+// verdad (misma referencia = misma URL, para siempre). BUG real (13 sept,
+// reportado por Cesar con capturas de pantalla: una miniatura se quedaba
+// con el icono de imagen rota). El arreglo anterior memoizaba las URL
+// sobre `operaciones` entero — cualquier cambio en la cola (guardar OTRA
+// cosa, el sondeo periódico…) recreaba TODAS las URL de blob de golpe y
+// revocaba las anteriores; si el navegador estaba a mitad de cargar una
+// de esas imágenes justo en ese instante, se quedaba rota. Aquí cada foto
+// conserva su propia URL mientras su Blob no cambie, sin importar qué
+// más se mueva en `operaciones`.
+function useMapaUrlsBlobEstable(items: { id: string; blob: Blob | undefined }[]): Map<string, string> {
+  const cacheRef = useRef(new Map<string, { blob: Blob; url: string }>());
+  const idsActuales = new Set(items.map((i) => i.id));
+  for (const [id, entrada] of cacheRef.current) {
+    const item = items.find((i) => i.id === id);
+    if (!item || item.blob !== entrada.blob) {
+      URL.revokeObjectURL(entrada.url);
+      cacheRef.current.delete(id);
+    }
+  }
+  for (const item of items) {
+    if (item.blob && !cacheRef.current.has(item.id)) {
+      cacheRef.current.set(item.id, { blob: item.blob, url: URL.createObjectURL(item.blob) });
+    }
+  }
+  useEffect(() => {
+    const cache = cacheRef.current;
+    return () => {
+      cache.forEach((entrada) => URL.revokeObjectURL(entrada.url));
+      cache.clear();
+    };
+  }, []);
+  const mapa = new Map<string, string>();
+  cacheRef.current.forEach((entrada, id) => {
+    if (idsActuales.has(id)) mapa.set(id, entrada.url);
+  });
+  return mapa;
+}
+
 // Formato de audio: iOS/Safari solo graba en audio/mp4 (AAC); Chrome y
 // Firefox en webm. Antes se forzaba 'audio/webm' a pelo, así que en
 // iPhone el blob quedaba mal etiquetado y el reproductor daba "Error".
@@ -100,24 +139,9 @@ function CapturasPorUbicacion({
   onAbrirHallazgo,
   zonasReales,
 }: CapturasPorUbicacionProps) {
-  // Mismo bug y mismo arreglo que en la vista "por tipo" (ver fotosVisor
-  // más abajo en VisitaActiva): antes esta vista creaba una URL de blob
-  // NUEVA en cada render con `URL.createObjectURL()`, sin revocar nunca
-  // las anteriores — fuga de memoria que se agrava cuanto más se usa la
-  // vista "por zona" en una misma sesión larga de pruebas.
-  const urlPorFotoId = useMemo(() => {
-    const mapa = new Map<string, string>();
-    for (const c of capturas) {
-      const blob = c.archivoLocal as Blob | undefined;
-      if (blob) mapa.set(c.id, URL.createObjectURL(blob));
-    }
-    return mapa;
-  }, [capturas]);
-  useEffect(() => {
-    return () => {
-      urlPorFotoId.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [urlPorFotoId]);
+  const urlPorFotoId = useMapaUrlsBlobEstable(
+    useMemo(() => capturas.map((c) => ({ id: c.id, blob: c.archivoLocal as Blob | undefined })), [capturas])
+  );
 
   // Clave de agrupación por zona. Si ya se conoce la zona real (subido y
   // refrescado de la BD), manda ella — así una zona editada después de
@@ -1290,11 +1314,11 @@ export function VisitaActiva() {
 
   // Todas las fotos de la visita en este dispositivo, ordenadas de la más
   // reciente a la más antigua — es lo que recorre el visor a pantalla
-  // completa con ‹ ›. Se memoiza sobre `operaciones` (referencia estable
-  // entre recargas de la cola) para no recrear los object URL en cada
-  // render; se revocan al cambiar la lista o al desmontar. El nombre de la
-  // zona se resuelve aparte, al pintar, para no meter en la dependencia un
-  // objeto que se recrea en cada render.
+  // completa con ‹ › y la tira de miniaturas de abajo. Metadatos aparte de
+  // la URL: la URL de cada una sale de `useMapaUrlsBlobEstable`, que la
+  // mantiene fija mientras su Blob no cambie (ver el hook, arriba del
+  // todo) — así un guardado en OTRA foto, o el sondeo periódico, no la
+  // toca ni de refilón.
   const fotosVisor = useMemo(() => {
     return operaciones
       .filter(
@@ -1309,10 +1333,9 @@ export function VisitaActiva() {
           latitud?: number;
           longitud?: number;
         };
-        const blob = f.archivoLocal as Blob | undefined;
         return {
           id: f.id,
-          url: blob ? URL.createObjectURL(blob) : null,
+          blob: f.archivoLocal as Blob | undefined,
           titulo: p.titulo ?? null,
           zonaTexto: p.zonaTexto ?? null,
           ubicacionId: p.ubicacionId ?? null,
@@ -1322,20 +1345,7 @@ export function VisitaActiva() {
       });
   }, [operaciones]);
 
-  useEffect(() => {
-    return () => {
-      fotosVisor.forEach((f) => f.url && URL.revokeObjectURL(f.url));
-    };
-  }, [fotosVisor]);
-
-  // Para la tira de miniaturas de abajo (Tipo → Fotos): reutiliza las URL
-  // ya creadas y memoizadas en `fotosVisor` en vez de volver a llamar
-  // `URL.createObjectURL()` en cada render. BUG real (13 sept, reportado
-  // por Cesar): hacerlo inline en el render generaba una URL de blob
-  // NUEVA en cada repintado sin revocar nunca las anteriores — fuga de
-  // memoria, y en Safari/iOS una miniatura podía quedarse con el icono de
-  // imagen rota si el navegador reciclaba una URL de blob todavía en uso.
-  const urlPorFotoId = useMemo(() => new Map(fotosVisor.map((f) => [f.id, f.url])), [fotosVisor]);
+  const urlPorFotoId = useMapaUrlsBlobEstable(fotosVisor);
 
   const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
   const visorFotos =
@@ -1343,7 +1353,7 @@ export function VisitaActiva() {
       <VisorFotos
         fotos={fotosVisor.map((f) => ({
           id: f.id,
-          url: f.url,
+          url: urlPorFotoId.get(f.id) ?? null,
           titulo: f.titulo,
           ubicacion_nombre:
             f.zonaTexto ?? (f.ubicacionId ? nombresUbicacionesVisita[f.ubicacionId] ?? null : null),
