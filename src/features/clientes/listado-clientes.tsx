@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -37,7 +37,26 @@ export function ListadoClientes() {
   // duplicados). No es una restricción de permisos (la BD lo permite a
   // todos), es qué se muestra por defecto en esta pantalla.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [vistaDireccion, setVistaDireccion] = useState<'mios' | 'todos'>('mios');
+  // Filtro en la URL (?vista=todos), no solo en memoria: si viviera en un
+  // useState a secas, volver desde la ficha de un cliente remonta esta
+  // pantalla y el filtro nace siempre en "mios" — igual que ya se
+  // resolvió en mi-espacio.tsx (?vista=equipo), aquí faltaba aplicarlo.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [vistaDireccion, setVistaDireccionState] = useState<'mios' | 'todos'>(
+    esDireccionComercial && searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
+  );
+  // El rol puede resolverse después del primer render (arranque en frío):
+  // si venías con ?vista=todos, respétalo en cuanto sepamos que sí diriges.
+  useEffect(() => {
+    if (esDireccionComercial && searchParams.get('vista') === 'todos') setVistaDireccionState('todos');
+    else if (!esDireccionComercial) setVistaDireccionState('mios');
+  }, [esDireccionComercial, searchParams]);
+
+  function cambiarVistaDireccion(v: 'mios' | 'todos') {
+    setVistaDireccionState(v);
+    setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
+  }
+
   const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
   const queryClient = useQueryClient();
 
@@ -165,7 +184,7 @@ export function ListadoClientes() {
             ] as const
           }
           valor={vistaDireccion}
-          onCambio={setVistaDireccion}
+          onCambio={cambiarVistaDireccion}
         />
       )}
 

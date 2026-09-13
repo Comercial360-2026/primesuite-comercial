@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -69,7 +70,13 @@ interface CategoriaConTerminos {
 export function ColaVocabulario() {
   const queryClient = useQueryClient();
 
-  const [vista, setVista] = useState<'pendientes' | 'catalogo'>('catalogo');
+  // Filtro en la URL (?vista=pendientes), no solo en memoria — mismo bug ya
+  // visto en listado-clientes.tsx/agenda-del-dia.tsx: un useState a secas se
+  // resetea a "catalogo" al volver de un detalle abierto desde esta pantalla.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [vista, setVista] = useState<'pendientes' | 'catalogo'>(
+    searchParams.get('vista') === 'pendientes' ? 'pendientes' : 'catalogo'
+  );
 
   // --- estado de la pestaña "Pendientes" ---
   const [fusionandoId, setFusionandoId] = useState<string | null>(null);
@@ -683,6 +690,7 @@ export function ColaVocabulario() {
   // y con las categorías plegadas.
   function cambiarVista(v: 'pendientes' | 'catalogo') {
     setVista(v);
+    setSearchParams(v === 'pendientes' ? { vista: 'pendientes' } : {}, { replace: true });
     setEditando(false);
     setOrdenLocal(null);
     setMarcadosCat(new Set());

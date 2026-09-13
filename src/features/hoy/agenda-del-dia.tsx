@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
@@ -79,7 +79,27 @@ export function AgendaDelDia() {
   // Segmentado: "Agenda" (calendario de mes de las planificadas) + el filtro
   // de hoy. Dirección: [Agenda · Solo mías · Todas]. Comercial normal:
   // [Agenda · Hoy] (mías/todas no le aplican).
-  const [vista, setVista] = useState<'agenda' | 'mias' | 'todas'>('mias');
+  // Filtro en la URL (?vista=agenda|todas), no solo en memoria: "Hoy" es la
+  // pantalla de inicio, y se vuelve a ella tras ver la ficha de un cliente
+  // desde una fila de la agenda — un useState a secas resetea el filtro al
+  // remontar, igual que el mismo bug ya visto en listado-clientes.tsx.
+  const [searchParams, setSearchParams] = useSearchParams();
+  type VistaHoy = 'agenda' | 'mias' | 'todas';
+  function vistaValida(v: string | null): VistaHoy | null {
+    return v === 'agenda' || v === 'todas' ? v : null;
+  }
+  const [vista, setVistaState] = useState<VistaHoy>(() => {
+    const v = vistaValida(searchParams.get('vista'));
+    if (v === 'todas' && !esDireccionComercial) return 'mias';
+    return v ?? 'mias';
+  });
+  useEffect(() => {
+    if (!esDireccionComercial && vista === 'todas') setVistaState('mias');
+  }, [esDireccionComercial, vista]);
+  function cambiarVista(v: VistaHoy) {
+    setVistaState(v);
+    setSearchParams(v === 'mias' ? {} : { vista: v }, { replace: true });
+  }
   const modoAgenda = vista === 'agenda';
   const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
@@ -471,7 +491,7 @@ export function AgendaDelDia() {
                 ] as const)
           }
           valor={vista}
-          onCambio={setVista}
+          onCambio={cambiarVista}
         />
       </div>
 
@@ -644,7 +664,7 @@ export function AgendaDelDia() {
                     <FilaNavegable
                       tono="aviso"
                       titulo={`Resolver las ${atrasadas.length}`}
-                      onClick={() => setVista('agenda')}
+                      onClick={() => cambiarVista('agenda')}
                     />
                   )}
                 </SeccionLista>

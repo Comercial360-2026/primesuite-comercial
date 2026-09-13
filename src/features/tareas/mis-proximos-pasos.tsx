@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -31,7 +31,17 @@ export function MisProximosPasos() {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
-  const [filtro, setFiltro] = useState<'pendiente' | 'completado'>('pendiente');
+  // Filtro en la URL (?filtro=completado), no solo en memoria — mismo bug
+  // ya visto en listado-clientes.tsx/agenda-del-dia.tsx/cola-vocabulario.tsx:
+  // un useState a secas se resetea al volver del detalle de un paso.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filtro, setFiltroState] = useState<'pendiente' | 'completado'>(
+    searchParams.get('filtro') === 'completado' ? 'completado' : 'pendiente'
+  );
+  function cambiarFiltro(f: 'pendiente' | 'completado') {
+    setFiltroState(f);
+    setSearchParams(f === 'completado' ? { filtro: 'completado' } : {}, { replace: true });
+  }
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
@@ -199,7 +209,7 @@ export function MisProximosPasos() {
           ] as const
         }
         valor={filtro}
-        onCambio={setFiltro}
+        onCambio={cambiarFiltro}
       />
 
       {isLoading && <EstadoLista estado="cargando" />}
