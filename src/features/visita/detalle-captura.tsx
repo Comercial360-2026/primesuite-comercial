@@ -403,7 +403,16 @@ function DetalleCapturaPorId() {
             queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
           }
           // Breve pausa para que "guardado ✓" sea visible antes de volver.
-          setTimeout(() => navigate(volver), 700);
+          //
+          // BUG real (13 sept, reportado por Cesar): si Visita activa tiene
+          // una zona marcada como filtro ("Marcar zonas"), la foto que
+          // acabas de editar puede haber cambiado a OTRA zona — y como el
+          // filtro ya no la incluye, desaparece de la lista a la que
+          // vuelves, sin ningún aviso de por qué. Es el filtro haciendo lo
+          // que tiene que hacer, pero justo después de editar algo es lo
+          // último que se espera ver. Se manda el id al volver para que esa
+          // pantalla la siga enseñando aunque no encaje con el filtro.
+          setTimeout(() => navigate(volver, { state: { idRecienEditado: captura.id } }), 700);
         },
         mensajeError:
           'No se pudo actualizar. Si la nota ya estaba sincronizada, puede que falte permiso de edición en el servidor.',
