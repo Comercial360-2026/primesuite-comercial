@@ -6,6 +6,8 @@
 //      <AyudaNota concepto="…" /> muestra el `queEs` del EntradaConcepto.
 //   3. La pantalla /ayuda ("Cómo funciona PrimeNotes") → recorre estos dos
 //      mapas, los agrupa y deja buscar.
+//   4. El tour guiado del primer uso (<TourGuiado>, ver
+//      src/hooks/use-tour-guiado.ts) → PasoTour, más abajo.
 //
 // Añadir ayuda a algo nuevo = una entrada aquí, EN EL MISMO COMMIT que el
 // cambio de comportamiento. Un texto de ayuda que ya no es cierto es un bug
@@ -449,3 +451,52 @@ export type ConceptoAyudaId = keyof typeof _CONCEPTOS;
 
 export const PANTALLAS: Record<PantallaAyudaId, EntradaPantalla> = _PANTALLAS;
 export const CONCEPTOS: Record<ConceptoAyudaId, EntradaConcepto> = _CONCEPTOS;
+
+export interface PasoTour {
+  /** Debe coincidir con el `data-tour="…"` del elemento real que señala. */
+  id: string;
+  /** 1-3 palabras. Es un tour, no el manual: no repite el título de PANTALLAS. */
+  titulo: string;
+  /** Una frase. Si hace falta más, la respuesta ya está en /ayuda. */
+  texto: string;
+}
+
+// Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Se
+// dispara una sola vez tras el primer login (useTourGuiado en
+// layout-shell.tsx) y se puede repetir desde Yo → "Ver guía rápida".
+// Mismo contenido para cualquier rol: el menú de abajo es igual para
+// comercial y Dirección Comercial.
+export const TOUR_NAVEGACION: PasoTour[] = [
+  {
+    id: 'nav-hoy',
+    titulo: 'Hoy',
+    texto: 'Tu punto de partida: la visita en curso o la siguiente, y lo planificado para hoy.',
+  },
+  {
+    id: 'nav-clientes',
+    titulo: 'Clientes',
+    texto: 'Tu cartera. Entra en un cliente para arrancar o planificar una visita.',
+  },
+  {
+    id: 'nav-tareas',
+    titulo: 'Pasos',
+    texto: 'Lo que quedó pendiente de tus visitas: llamar, enviar propuesta, volver a pasar.',
+  },
+  {
+    id: 'nav-yo',
+    titulo: 'Yo',
+    texto: 'Tu espacio: si algo no ha sincronizado, el manual completo, y cerrar sesión.',
+  },
+];
+
+// Paso extra solo para Dirección Comercial — se dispara la primera vez que
+// entra en "Yo" y señala el bloque de gestión que un comercial no tiene.
+// Localstorage propio (independiente de TOUR_NAVEGACION): un comercial que
+// asciende a Dirección lo ve la primera vez que entra con el rol nuevo.
+export const TOUR_DIRECCION: PasoTour[] = [
+  {
+    id: 'direccion-equipo',
+    titulo: 'Dirección del equipo',
+    texto: 'Aquí gestionas al equipo, revisas categorías propuestas y ves la actividad de todos.',
+  },
+];

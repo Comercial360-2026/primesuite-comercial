@@ -3,10 +3,15 @@ import { desde } from '@/lib/volver-a';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useTourGuiado } from '@/hooks/use-tour-guiado';
+import { TourNavegacionContext } from '@/hooks/use-tour-navegacion-context';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
 import { BannerInstalar } from '@/components/ui/banner-instalar';
+import { TourGuiado } from '@/components/ui/tour-guiado';
 import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
+import { TOUR_NAVEGACION } from '@/lib/ayuda';
 
 // Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
 // solo se alcanza desde Hoy (ver 06_arquitectura_navegacion.md §5).
@@ -32,68 +37,87 @@ export function LayoutShell() {
   const { aviso: avisoLiberar } = useAvisoLiberar();
   const { hayAvisos: hayAvisosParticipacion } = useAvisosParticipacion();
 
+  // Tour de bienvenida (4 pasos, uno por pestaña) — se dispara solo una vez
+  // por comercial, en cualquier ruta (el bottom nav es el mismo en todas).
+  // Vive aquí (y no en Yo) porque LayoutShell envuelve todas las rutas;
+  // "Ver guía rápida" en Yo lo relanza vía TourNavegacionContext.
+  const { comercial } = useSesionActual();
+  const tourNav = useTourGuiado('navegacion', comercial?.id, TOUR_NAVEGACION);
+
   return (
-    <div className="app-shell">
-      <main className="app-shell__content">
-        <Outlet />
-      </main>
+    <TourNavegacionContext.Provider value={{ reiniciar: tourNav.reiniciar }}>
+      <div className="app-shell">
+        <main className="app-shell__content">
+          <Outlet />
+        </main>
 
-      <AvisoEspacio />
+        <AvisoEspacio />
 
-      {visitaEnCurso && !dentroDeLaVisita ? (
-        // Link (no <a href>): navegación SPA. Con <a href> se recargaba la
-        // PWA entera en mitad de una visita — lento y se perdía el estado
-        // en memoria.
-        <Link
-          to={`/visita/${visitaEnCurso.id}`}
-          state={desde(location)}
-          className="visita-en-curso-banner"
-        >
-          Visita en curso con {visitaEnCurso.clienteNombre}
-        </Link>
-      ) : !visitaEnCurso ? (
-        <AvisoVisitaProxima />
-      ) : null}
+        {visitaEnCurso && !dentroDeLaVisita ? (
+          // Link (no <a href>): navegación SPA. Con <a href> se recargaba la
+          // PWA entera en mitad de una visita — lento y se perdía el estado
+          // en memoria.
+          <Link
+            to={`/visita/${visitaEnCurso.id}`}
+            state={desde(location)}
+            className="visita-en-curso-banner"
+          >
+            Visita en curso con {visitaEnCurso.clienteNombre}
+          </Link>
+        ) : !visitaEnCurso ? (
+          <AvisoVisitaProxima />
+        ) : null}
 
-      <BannerInstalar />
+        <BannerInstalar />
 
-      <nav className="bottom-nav">
-        <NavLink to="/" end>
-          {({ isActive }) => (
-            <>
-              <IconoHoy activo={isActive} />
-              Hoy
-            </>
-          )}
-        </NavLink>
-        <NavLink to="/clientes">
-          {({ isActive }) => (
-            <>
-              <IconoClientes activo={isActive} />
-              Clientes
-            </>
-          )}
-        </NavLink>
-        <NavLink to="/tareas">
-          {({ isActive }) => (
-            <>
-              <IconoTareas activo={isActive} />
-              Pasos
-            </>
-          )}
-        </NavLink>
-        <NavLink to="/yo">
-          {({ isActive }) => (
-            <>
-              <IconoYo activo={isActive} />
-              Yo
-              {(avisoLiberar || hayAvisosParticipacion) && (
-                <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
-              )}
-            </>
-          )}
-        </NavLink>
-      </nav>
-    </div>
+        <nav className="bottom-nav">
+          <NavLink to="/" end data-tour="nav-hoy">
+            {({ isActive }) => (
+              <>
+                <IconoHoy activo={isActive} />
+                Hoy
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/clientes" data-tour="nav-clientes">
+            {({ isActive }) => (
+              <>
+                <IconoClientes activo={isActive} />
+                Clientes
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/tareas" data-tour="nav-tareas">
+            {({ isActive }) => (
+              <>
+                <IconoTareas activo={isActive} />
+                Pasos
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/yo" data-tour="nav-yo">
+            {({ isActive }) => (
+              <>
+                <IconoYo activo={isActive} />
+                Yo
+                {(avisoLiberar || hayAvisosParticipacion) && (
+                  <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
+                )}
+              </>
+            )}
+          </NavLink>
+        </nav>
+      </div>
+
+      {tourNav.paso && (
+        <TourGuiado
+          paso={tourNav.paso}
+          indice={tourNav.indice}
+          total={tourNav.total}
+          onSiguiente={tourNav.siguiente}
+          onSaltar={tourNav.saltar}
+        />
+      )}
+    </TourNavegacionContext.Provider>
   );
 }

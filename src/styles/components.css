@@ -665,6 +665,35 @@ textarea.field {
   box-shadow: var(--shadow-elevated);
   animation: hoja-sup-entra var(--motion-base) var(--motion-ease);
 }
+/* Tour guiado — coach mark anclado a un elemento real (data-tour="…").
+   Sin velo translúcido de fondo (regla "sin transparencias sobre color"):
+   el elemento se marca con un anillo opaco y al lado se ancla una tarjeta
+   sólida, mismo lenguaje visual que .modal-*. Ver tour-guiado.tsx y
+   use-tour-guiado.ts. */
+.tour-anillo {
+  position: fixed; z-index: 25; pointer-events: none;
+  border: 2px solid var(--brand-600);
+  border-radius: var(--radius-control);
+  transition: top var(--motion-base) var(--motion-ease), left var(--motion-base) var(--motion-ease),
+    width var(--motion-base) var(--motion-ease), height var(--motion-base) var(--motion-ease);
+}
+.tour-tarjeta {
+  position: fixed; z-index: 25; box-sizing: border-box;
+  background: var(--surface-1);
+  border: 1px solid var(--ink-100);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-elevated);
+  padding: var(--space-3) var(--space-4);
+  animation: modal-caja-entra var(--motion-base) var(--motion-ease);
+}
+.tour-tarjeta__titulo { font-size: var(--text-md); font-weight: 600; margin: 0 0 4px; }
+.tour-tarjeta__texto { font-size: var(--text-sm); color: var(--ink-700); line-height: 1.4; margin: 0 0 var(--space-3); }
+.tour-tarjeta__pie { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.tour-tarjeta__puntos { display: flex; gap: 5px; flex-shrink: 0; }
+.tour-punto { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-100); }
+.tour-punto--activo { background: var(--brand-600); }
+.tour-tarjeta__acciones { display: flex; gap: var(--space-2); flex-shrink: 0; }
+
 @keyframes hoja-sup-entra {
   from { opacity: 0; transform: translateY(-16px); }
 }

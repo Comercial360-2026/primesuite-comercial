@@ -46,6 +46,7 @@ import {
   MapPin,
   ListBullets,
   DotsThreeVertical,
+  Compass,
   type IconProps,
 } from '@phosphor-icons/react';
 
@@ -115,6 +116,7 @@ const registro = {
   lista: ListBullets, // vista de lista (frente a agrupada)
   equipo: UsersThree, // tú y tus compañeros (grupo)
   opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)
+  guia: Compass, // "Ver guía rápida" — relanzar el tour de bienvenida
 } satisfies Record<string, IconoPhosphor>;
 
 export type NombreIcono = keyof typeof registro;

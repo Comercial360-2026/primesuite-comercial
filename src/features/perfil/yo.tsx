@@ -12,6 +12,8 @@ import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { useTourGuiado } from '@/hooks/use-tour-guiado';
+import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -22,6 +24,8 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
+import { TourGuiado } from '@/components/ui/tour-guiado';
+import { TOUR_DIRECCION } from '@/lib/ayuda';
 
 const DIAS_AVISO_BACKUP = 7;
 
@@ -107,6 +111,16 @@ export function Yo() {
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
+
+  // Paso extra del tour, solo Dirección — señala "El equipo" la primera vez
+  // que entra aquí. Tour de bienvenida (las 4 pestañas) vive en LayoutShell;
+  // "Ver guía rápida" más abajo relanza los dos.
+  const tourDireccion = useTourGuiado(
+    'direccion',
+    esDireccionComercial ? comercial?.id : undefined,
+    TOUR_DIRECCION
+  );
+  const tourNavControl = useTourNavegacionControl();
 
   const { data: numSolicitudesPendientes } = useQuery({
     queryKey: ['num-solicitudes-reasignacion-pendientes'],
@@ -582,7 +596,7 @@ export function Yo() {
         )}
 
         {esDireccionComercial && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          <div data-tour="direccion-equipo" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <SeccionLista titulo="El equipo">
               {/* Una sola fila de almacenamiento: lleva a "Mi espacio", que
                   por dentro ya tiene el segmentado "Mis visitas / Por
@@ -712,6 +726,12 @@ export function Yo() {
             subtitulo="Algo va mal o no se entiende — se lo cuentas a Dirección"
             onClick={() => setReportando(true)}
           />
+          <FilaNavegable
+            icono="guia"
+            titulo="Ver guía rápida"
+            subtitulo="El recorrido de bienvenida por el menú de abajo"
+            onClick={() => tourNavControl.reiniciar()}
+          />
         </SeccionLista>
 
         <SeccionLista>
@@ -751,6 +771,16 @@ export function Yo() {
               queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
             }
           }}
+        />
+      )}
+
+      {tourDireccion.paso && (
+        <TourGuiado
+          paso={tourDireccion.paso}
+          indice={tourDireccion.indice}
+          total={tourDireccion.total}
+          onSiguiente={tourDireccion.siguiente}
+          onSaltar={tourDireccion.saltar}
         />
       )}
     </div>
