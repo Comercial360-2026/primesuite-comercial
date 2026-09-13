@@ -32,8 +32,14 @@ export function iniciarMotorSincronizacion(): void {
   void procesarCola();
   // Mantenimiento ligero, una vez por arranque de app: purga lo
   // 'completado' hace más de 30 días. No bloquea nada de lo anterior — si
-  // falla, no impide sincronizar.
-  void purgarCompletadasAntiguas().catch(() => {});
+  // falla, no impide sincronizar. Se retrasa un poco para no competir con
+  // la carga inicial de la pantalla que se esté abriendo justo ahora — la
+  // purga ya trabaja por lotes (ver db.ts) y no monopoliza el almacén,
+  // pero no hay motivo para que la primera pantalla del usuario comparta
+  // el arranque en frío con una tarea de mantenimiento que puede esperar.
+  setTimeout(() => {
+    void purgarCompletadasAntiguas().catch(() => {});
+  }, 5000);
 }
 
 export function detenerMotorSincronizacion(): void {

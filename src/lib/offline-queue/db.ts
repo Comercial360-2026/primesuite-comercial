@@ -279,23 +279,45 @@ const DIAS_RETENCION_COMPLETADAS = 30;
 // cola en sí no deja de crecer. Se purga por cursor sobre `by-estado`
 // ('completado' únicamente, nunca escanea el resto) y se borra el registro
 // entero — eso libera el Blob también, no hace falta tocarlo aparte.
+// BUG real (13 sept, el mismo día): una única transacción `readwrite`
+// recorriendo TODO el rango 'completado' de un tirón bloqueaba cualquier
+// otra escritura sobre `operaciones` mientras durase — en un dispositivo
+// con meses de operaciones 'completado' sin purgar nunca antes de hoy, eso
+// significó que guardar la zona de una foto (otra escritura sobre el mismo
+// object store) se quedaba esperando detrás de la purga entera: la foto
+// "desaparecía" de la pantalla ~40s, y cada toque de más solo encolaba
+// otra escritura detrás. Se trocea en lotes pequeños con una transacción
+// por lote y una pausa entre lotes, para ceder el object store a cualquier
+// escritura interactiva que esté esperando en vez de monopolizarlo.
+const LOTE_PURGA = 25;
+const PAUSA_ENTRE_LOTES_MS = 60;
+
 export async function purgarCompletadasAntiguas(
   diasAntiguedad: number = DIAS_RETENCION_COMPLETADAS
 ): Promise<number> {
   const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
-  return conDb(async (db) => {
-    const tx = db.transaction('operaciones', 'readwrite');
-    const indice = tx.store.index('by-estado');
-    let borradas = 0;
-    let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
-    while (cursor) {
-      if (cursor.value.creadoEn < limite) {
-        await cursor.delete();
-        borradas++;
+  let totalBorradas = 0;
+  for (;;) {
+    const { borradas, hayMas } = await conDb(async (db) => {
+      const tx = db.transaction('operaciones', 'readwrite');
+      const indice = tx.store.index('by-estado');
+      let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
+      let visitadas = 0;
+      let borradasLote = 0;
+      while (cursor && visitadas < LOTE_PURGA) {
+        visitadas++;
+        if (cursor.value.creadoEn < limite) {
+          await cursor.delete();
+          borradasLote++;
+        }
+        cursor = await cursor.continue();
       }
-      cursor = await cursor.continue();
-    }
-    await tx.done;
-    return borradas;
-  });
+      await tx.done;
+      return { borradas: borradasLote, hayMas: !!cursor };
+    });
+    totalBorradas += borradas;
+    if (!hayMas) break;
+    await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
+  }
+  return totalBorradas;
 }
