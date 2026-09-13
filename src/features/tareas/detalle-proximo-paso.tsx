@@ -1,17 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { eliminarOperacion, obtenerOperacion, actualizarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import type { ProximoPasoPayload } from '@/lib/offline-queue';
 import { fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { Icono } from '@/components/ui/iconos';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { SelectorZona } from '@/components/ui/selector-zona';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 // Pantalla de edición de un próximo paso ya creado (desde Visita Activa,
-// vía paso-rapido-modal.tsx). Mismo patrón que detalle-hallazgo.tsx:
+// vía paso-rapido-hoja.tsx). Mismo patrón que detalle-hallazgo.tsx:
 // carga, edición con confirmación explícita de éxito, y borrado en dos
 // pasos con comprobación de `count` (ver adenda_punto1_delete_silencioso.md
 // — sin comprobar count, un DELETE sin política que lo autorice se ve
@@ -21,9 +30,14 @@ export function DetalleProximoPaso() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
+  // Se llega desde Mis próximos pasos, desde una visita cerrada o desde la
+  // actividad del proyecto. El ← vuelve al origen; si no consta, a la lista.
+  const volver = useVolverA('/tareas');
 
   const [descripcion, setDescripcion] = useState('');
+  const refDictado = useRef<RefCampoDictado>(null);
   const [fechaObjetivo, setFechaObjetivo] = useState('');
+  const [zonaTexto, setZonaTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +54,9 @@ export function DetalleProximoPaso() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, visita:visita_id(cliente:cliente_id(id, nombre))')
+        .select(
+          'id, descripcion, fecha_objetivo, estado, zona_texto, proyecto_id, visita_id, visita:visita_id(cliente:cliente_id(id, nombre)), proyecto:proyecto_id(nombre)'
+        )
         .eq('id', pasoId!)
         .single();
       if (err) throw err;
@@ -52,53 +68,124 @@ export function DetalleProximoPaso() {
     if (!paso) return;
     setDescripcion(paso.descripcion);
     setFechaObjetivo(paso.fecha_objetivo ?? '');
+    setZonaTexto(paso.zona_texto ?? '');
   }, [paso]);
 
+  // Guardado inmediato de zona — igual que Archivar/Borrar en otras
+  // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
+  async function guardarZonaYa(zona: string) {
+    if (!pasoId) return;
+    await conReintentoDeSesion(
+      () => supabase.from('proximo_paso').update({ zona_texto: zona.trim() || null }, { count: 'exact' }).eq('id', pasoId),
+      'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+    );
+    // Mismo bug ya corregido para el borrado más abajo (confirmarBorrado) y
+    // en detalle-captura.tsx / detalle-oportunidad.tsx / detalle-hallazgo.tsx:
+    // si este paso se creó desde la visita en curso, sigue existiendo una
+    // copia local en IndexedDB (misma id) aunque ya haya sincronizado. Solo
+    // tocar la fila de Supabase la dejaba desactualizada — "En esta visita"
+    // lee esa copia, no el servidor.
+    const opLocal = await obtenerOperacion(pasoId);
+    if (opLocal?.entidad === 'proximo_paso') {
+      await actualizarOperacion(pasoId, {
+        payload: { ...(opLocal.payload as ProximoPasoPayload), zonaTexto: zona.trim() || undefined },
+      });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+    }
+    if (paso?.visita_id) {
+      // Se espera a que termine el refetch: si no, «cambiar» podía reabrir
+      // el buscador con la lista de zonas todavía vieja (sin la recién
+      // creada) por una carrera entre invalidar y repintar.
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      // Ver comentario gemelo en detalle-captura.tsx: `mis-zonas-reales-visita`
+      // (vista "por zona" de Visita activa) no se invalidaba nunca — solo se
+      // refrescaba sola cada 20s.
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', paso.visita_id] });
+    }
+  }
+
   async function guardar() {
-    if (!pasoId || !descripcion.trim()) return;
+    const descripcionConsolidada = (refDictado.current?.consolidar() ?? descripcion).trim();
+    if (!pasoId || !descripcionConsolidada) return;
     setGuardando(true);
     setError(null);
-    const { error: err } = await supabase
-      .from('proximo_paso')
-      .update({
-        descripcion: descripcion.trim(),
-        fecha_objetivo: fechaObjetivo || null,
-      })
-      .eq('id', pasoId);
-    setGuardando(false);
-    if (err) {
-      setError(err.message);
+    // Mismo encargo técnico que el borrado (punto 2/3, ver
+    // adenda_punto1_delete_silencioso.md): sin permiso, Supabase no da
+    // error — el UPDATE "tiene éxito" afectando a 0 filas. Comprobar
+    // `count` es la única forma de no decir "guardado ✓" sin haber
+    // tocado nada.
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('proximo_paso')
+            .update(
+              {
+                descripcion: descripcionConsolidada,
+                fecha_objetivo: fechaObjetivo || null,
+                zona_texto: zonaTexto.trim() || null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', pasoId),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden editar un próximo paso.'
+      );
+    } catch (errGuardar) {
+      setGuardando(false);
+      setError(errGuardar instanceof Error ? errGuardar.message : 'No se pudo guardar.');
       return;
+    }
+    setGuardando(false);
+    // Mismo bug que guardarZonaYa(): se actualiza también el rastro local si
+    // queda uno, aunque ya haya sincronizado.
+    const opLocalPaso = await obtenerOperacion(pasoId);
+    if (opLocalPaso?.entidad === 'proximo_paso') {
+      await actualizarOperacion(pasoId, {
+        payload: {
+          ...(opLocalPaso.payload as ProximoPasoPayload),
+          descripcion: descripcionConsolidada,
+          fechaObjetivo: fechaObjetivo || undefined,
+          zonaTexto: zonaTexto.trim() || undefined,
+        },
+      });
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
     }
     setGuardadoConExito(true);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
     queryClient.invalidateQueries({ queryKey: ['proximo-paso', pasoId] });
+    if (paso?.visita_id) {
+      await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', paso.visita_id] });
+      queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', paso.visita_id] });
+    }
     // Misma pausa de 700ms que el resto de pantallas de detalle, para que
     // "guardado ✓" sea visible antes de volver.
-    setTimeout(() => navigate(-1), 700);
+    setTimeout(() => navigate(volver), 700);
   }
 
   async function confirmarBorrado() {
     if (!pasoId) return;
     setBorrando(true);
     setErrorBorrado(null);
-    const { error: err, count } = await supabase
-      .from('proximo_paso')
-      .delete({ count: 'exact' })
-      .eq('id', pasoId);
-    setBorrando(false);
-    if (err) {
-      setErrorBorrado(err.message);
-      return;
-    }
-    if (!count) {
-      setErrorBorrado(
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').delete({ count: 'exact' }).eq('id', pasoId),
         'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden borrar un próximo paso.'
       );
+    } catch (errBorrar) {
+      setBorrando(false);
+      setErrorBorrado(errBorrar instanceof Error ? errBorrar.message : 'No se pudo borrar.');
       return;
     }
+    setBorrando(false);
+    // Mismo bug que ya se corrigió en nota (detalle-captura.tsx) y
+    // oportunidad (detalle-oportunidad.tsx), y que faltaba también en
+    // hallazgo (detalle-hallazgo.tsx): si este paso se creó desde la visita
+    // en curso, sigue existiendo una copia local en IndexedDB (misma id).
+    // Borrar solo la fila real no la quita de ahí — "En esta visita" lo
+    // seguía mostrando como fantasma. No falla si la entrada local no existe.
+    await eliminarOperacion(pasoId);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
-    navigate(-1);
+    navigate(volver);
   }
 
   // Si el próximo paso es en realidad "volver a visitar", se planifica la
@@ -109,26 +196,33 @@ export function DetalleProximoPaso() {
     // La descripción del paso es el objetivo de la visita — obligatorio, así
     // que no se planifica si está vacía (el botón de guardar del paso ya lo
     // exige, pero esto cubre el caso de haberla borrado sin guardar).
-    if (!comercial || !fechaObjetivo || !descripcion.trim() || planificando || visitaPlanificada) return;
+    const descripcionConsolidada = (refDictado.current?.consolidar() ?? descripcion).trim();
+    if (!comercial || !paso || !paso.proyecto_id || !fechaObjetivo || !descripcionConsolidada || planificando || visitaPlanificada)
+      return;
     setPlanificando(true);
     setErrorPlan(null);
     try {
       const nuevaId = uuid();
+      // La visita sigue en el mismo proyecto del paso — continuidad.
       const { error: err } = await crearVisitaConResponsable({
         pVisitaId: nuevaId,
         pClienteId: clienteId,
         pComercialId: comercial.id,
+        pProyectoId: paso.proyecto_id,
         pFecha: new Date(`${fechaObjetivo}T09:00:00`).toISOString(),
         pEstadoCaptura: 'agendada',
       });
       if (err) throw new Error(err);
       // La visita hereda la descripción del paso como objetivo — "esto lo
       // tengo que hacer" se convierte en "voy a esta visita a hacer esto".
-      const { error: errParche } = await supabase
-        .from('visita')
-        .update({ hora_definida: false, objetivo: descripcion.trim() })
-        .eq('id', nuevaId);
-      if (errParche) throw new Error(errParche.message);
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('visita')
+            .update({ hora_definida: false, objetivo: descripcionConsolidada }, { count: 'exact' })
+            .eq('id', nuevaId),
+        'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+      );
       setVisitaPlanificada(true);
       for (const k of [
         ['visitas-hoy'],
@@ -147,15 +241,26 @@ export function DetalleProximoPaso() {
 
   async function marcarHecho() {
     if (!pasoId) return;
-    await supabase.from('proximo_paso').update({ estado: 'completado' }).eq('id', pasoId);
+    // Mismo encargo técnico que `guardar()`: sin permiso, Supabase no da
+    // error — comprobar `count` es la única forma de no navegar como si
+    // se hubiera marcado, sin haber tocado nada.
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').update({ estado: 'completado' }, { count: 'exact' }).eq('id', pasoId),
+        'No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.'
+      );
+    } catch (errMarcar) {
+      setError(errMarcar instanceof Error ? errMarcar.message : 'No se pudo marcar.');
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
-    navigate(-1);
+    navigate(volver);
   }
 
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" />
+        <CabeceraDetalle titulo="Próximo paso" ayuda="proximo-paso" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -164,7 +269,7 @@ export function DetalleProximoPaso() {
   if (isError || !paso) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Próximo paso" />
+        <CabeceraDetalle titulo="Próximo paso" ayuda="proximo-paso" volverA={volver} />
         <EstadoLista estado="error" mensaje="No se pudo cargar este próximo paso." onReintentar={() => refetch()} />
       </div>
     );
@@ -172,6 +277,12 @@ export function DetalleProximoPaso() {
 
   const cliente = (paso.visita as unknown as { cliente: { id: string; nombre: string } | null })?.cliente;
   const clienteNombre = cliente?.nombre;
+  // Regla 6 (contexto siempre visible): el proyecto (siempre con nombre) se
+  // añade detrás del cliente — mismo criterio que Agenda y las otras dos
+  // pantallas de detalle.
+  const contextoCliente = [clienteNombre, paso.proyecto?.nombre ?? null]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="screen">
@@ -179,18 +290,17 @@ export function DetalleProximoPaso() {
         <CabeceraDetalle
           titulo="Próximo paso"
           ayuda="proximo-paso"
-          subtitulo={clienteNombre}
-          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(-1))}
+          subtitulo={contextoCliente || undefined}
+          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
         />
       </div>
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
-      <textarea
-        className="field"
-        style={{ height: 'auto', padding: 8 }}
+      <TextareaDictado
+        ref={refDictado}
         rows={2}
-        value={descripcion}
-        onChange={(e) => setDescripcion(e.target.value)}
+        valor={descripcion}
+        onCambio={setDescripcion}
         placeholder="volver a llamar en dos semanas, enviar propuesta…"
       />
 
@@ -200,6 +310,14 @@ export function DetalleProximoPaso() {
         type="date"
         value={fechaObjetivo}
         onChange={(e) => setFechaObjetivo(e.target.value)}
+      />
+
+      <div className="label">Zona (opcional)</div>
+      <SelectorZona
+        visitaId={paso.visita_id ?? undefined}
+        value={zonaTexto}
+        onChange={setZonaTexto}
+        onGuardar={guardarZonaYa}
       />
 
       {error && <div className="field-error-text">{error}</div>}
@@ -238,37 +356,24 @@ export function DetalleProximoPaso() {
         disabled={!descripcion.trim() || guardando || guardadoConExito}
         onClick={guardar}
       >
-        {guardadoConExito ? 'Guardado ✓' : guardando ? 'Guardando…' : 'Guardar'}
+        {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
       {!confirmandoBorrado ? (
-        <button
-          className="btn btn-secondary"
-          style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+        <FilaNavegable
+          icono="borrar"
+          titulo="Borrar próximo paso"
+          tono="riesgo"
+          chevron={false}
           onClick={() => setConfirmandoBorrado(true)}
-        >
-          Borrar próximo paso
-        </button>
+        />
       ) : (
-        <div className="card card--riesgo">
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-            ¿Seguro? Esta acción no se puede deshacer.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setConfirmandoBorrado(false)} disabled={borrando}>
-              cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ background: 'var(--risk-600)' }}
-              onClick={confirmarBorrado}
-              disabled={borrando}
-            >
-              {borrando ? 'Borrando…' : 'Confirmar borrado'}
-            </button>
-          </div>
-          {errorBorrado && <div className="field-error-text" style={{ marginTop: 8 }}>{errorBorrado}</div>}
-        </div>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
       )}
     </div>
   );

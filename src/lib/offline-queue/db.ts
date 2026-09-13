@@ -4,35 +4,95 @@ import type { OperacionPendiente, EntidadSincronizable, EstadoOperacion } from '
 // Una única base de datos local, un único object store para toda la cola.
 // No se replica el esquema completo de Supabase en local — solo se persiste
 // lo que está pendiente de sincronizar (ver 09_arquitectura_tecnica.md §4).
-// El binario (Blob de foto/audio) se guarda directamente en el mismo
-// registro: IndexedDB soporta Blobs de forma nativa, así que no hace falta
-// un store separado ni convertir a base64.
+//
+// El binario de foto/audio se guarda como ArrayBuffer (`archivoBuffer` +
+// `archivoTipo`), NO como Blob, y se reconstruye un Blob en memoria al leer.
+// BUG real (13 sept, reproducido en Safari de iOS 26 con una foto de ~800
+// KB): WebKit guarda los Blob grandes de IndexedDB como archivos aparte, y
+// al REESCRIBIR un registro que ya lleva uno (cambiar la zona, pasar a
+// 'subiendo'/'completado'…) invalida ese archivo — el Blob leído justo
+// antes o justo después del put falla con NotFoundError hasta ~1,5 s
+// después. En la app eso era la miniatura con el icono roto "?" en Visita
+// activa tras editar una foto, que volvía sola al siguiente releído de la
+// cola (hasta 60 s). Con ArrayBuffer no hay archivo aparte que invalidar:
+// probado en el mismo simulador, 0 roturas en ediciones seguidas.
+// Los registros antiguos (con `archivoLocal` Blob) se leen tal cual y se
+// convierten en su primera reescritura (`aAlmacenada`).
+type OperacionAlmacenada = OperacionPendiente & {
+  archivoBuffer?: ArrayBuffer;
+  archivoTipo?: string;
+};
 
 interface ColaOfflineDB extends DBSchema {
   operaciones: {
     key: string; // OperacionPendiente.id
-    value: OperacionPendiente;
+    value: OperacionAlmacenada;
     indexes: {
       'by-estado': EstadoOperacion;
       'by-entidad': EntidadSincronizable;
       'by-creado-en': string;
+      // v2: qué visita referencia esta operación (denormalizado, ver
+      // calcularVisitaId). Sin esto, obtenerPorVisita tenía que leer TODA
+      // la cola local (todas las visitas, con todos sus blobs de fotos/
+      // audios) y filtrar en memoria — el escaneo completo es lo que
+      // causaba el retraso real (~5s en dispositivos con historial) al
+      // recargar la visita activa tras cualquier cambio en la cola.
+      'by-visita-id': string;
     };
   };
 }
 
 const DB_NAME = 'primesuite-cola-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+
+// Qué visita referencia una operación, la misma regla que ya usaban
+// obtenerPorVisita/obtenerVisitasConPendientes filtrando en memoria —
+// ahora se calcula UNA VEZ al guardar (encolar/actualizar) y UNA VEZ al
+// migrar lo ya guardado, para poder indexarlo. 'cliente'/'proyecto'/
+// 'ubicacion' no cuelgan de una visita → undefined (fuera del índice).
+function calcularVisitaId(op: OperacionPendiente): string | undefined {
+  if (op.entidad === 'visita') return op.id;
+  if (op.entidad === 'oportunidad') {
+    return (op.payload as { visitaOrigenId?: string }).visitaOrigenId;
+  }
+  if (op.entidad === 'cliente' || op.entidad === 'proyecto' || op.entidad === 'ubicacion') {
+    return undefined;
+  }
+  return (op.payload as { visitaId?: string }).visitaId;
+}
 
 let dbPromise: Promise<IDBPDatabase<ColaOfflineDB>> | null = null;
 
 function getDb() {
   if (!dbPromise) {
     dbPromise = openDB<ColaOfflineDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        const store = db.createObjectStore('operaciones', { keyPath: 'id' });
-        store.createIndex('by-estado', 'estado');
-        store.createIndex('by-entidad', 'entidad');
-        store.createIndex('by-creado-en', 'creadoEn');
+      upgrade(db, oldVersion, _newVersion, transaction) {
+        const store =
+          oldVersion < 1
+            ? db.createObjectStore('operaciones', { keyPath: 'id' })
+            : transaction.objectStore('operaciones');
+        if (oldVersion < 1) {
+          store.createIndex('by-estado', 'estado');
+          store.createIndex('by-entidad', 'entidad');
+          store.createIndex('by-creado-en', 'creadoEn');
+        }
+        if (oldVersion < 2) {
+          store.createIndex('by-visita-id', 'visitaId');
+          // Migración retroactiva: lo ya guardado en el dispositivo antes de
+          // esta versión no tiene `visitaId` — sin esto, el índice nuevo
+          // simplemente no las encontraría y "desaparecerían" de
+          // obtenerPorVisita para visitas con capturas ya en cola.
+          if (oldVersion >= 1) {
+            store.openCursor().then(function recorrer(cursor): unknown {
+              if (!cursor) return;
+              const op = cursor.value as OperacionPendiente;
+              if (op.visitaId === undefined) {
+                cursor.update({ ...op, visitaId: calcularVisitaId(op) });
+              }
+              return cursor.continue().then(recorrer);
+            });
+          }
+        }
       },
       terminated() {
         // Safari en iPhone (y otros navegadores bajo presión de memoria, o
@@ -76,9 +136,44 @@ async function conDb<T>(fn: (db: IDBPDatabase<ColaOfflineDB>) => Promise<T>): Pr
   }
 }
 
+// Registro guardado → operación en memoria: el binario vuelve a ser un Blob
+// nuevo, en memoria, que ninguna reescritura posterior puede invalidar.
+function desdeAlmacenada(reg: OperacionAlmacenada): OperacionPendiente {
+  if (!reg.archivoBuffer) return reg;
+  const { archivoBuffer, archivoTipo, ...resto } = reg;
+  return { ...resto, archivoLocal: new Blob([archivoBuffer], { type: archivoTipo ?? '' }) } as OperacionPendiente;
+}
+
+async function leerBytes(blob: Blob): Promise<ArrayBuffer> {
+  // Un Blob antiguo (guardado como Blob antes de este cambio) puede estar
+  // en la ventana en que WebKit lo da por perdido tras una reescritura
+  // hecha por la versión anterior de la app — se recupera solo en ~1,5 s.
+  for (let intento = 0; ; intento++) {
+    try {
+      return await blob.arrayBuffer();
+    } catch (err) {
+      if (intento >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+  }
+}
+
+// Operación en memoria → registro a guardar: nunca se guarda un Blob.
+async function aAlmacenada(op: OperacionPendiente | OperacionAlmacenada): Promise<OperacionAlmacenada> {
+  const reg: OperacionAlmacenada = { ...op, visitaId: calcularVisitaId(op) };
+  if (reg.archivoLocal instanceof Blob) {
+    const blob = reg.archivoLocal;
+    reg.archivoBuffer = await leerBytes(blob);
+    reg.archivoTipo = blob.type;
+    delete reg.archivoLocal;
+  }
+  return reg;
+}
+
 export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
+  const conVisitaId = await aAlmacenada(operacion);
   try {
-    await conDb((db) => db.put('operaciones', operacion));
+    await conDb((db) => db.put('operaciones', conVisitaId));
   } catch (err) {
     // QuotaExceededError no se propagaba con ningún mensaje útil — llegaba
     // tal cual del navegador ("The quota has been exceeded.", en inglés,
@@ -107,21 +202,55 @@ export async function actualizarOperacion(
     // pueda verificar que el resultado sigue perteneciendo a un único
     // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
     // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
-    await db.put('operaciones', { ...existente, ...cambios } as unknown as OperacionPendiente);
+    const actualizado = { ...existente, ...cambios } as unknown as OperacionAlmacenada;
+    // `aAlmacenada` recalcula `visitaId` (por si `cambios` trae un payload
+    // nuevo) y, si el registro aún guarda el binario como Blob (anterior a
+    // este cambio), lo pasa a ArrayBuffer ANTES de reescribirlo — el
+    // momento en que WebKit lo invalidaría.
+    await db.put('operaciones', await aAlmacenada(actualizado));
   });
 }
 
 export async function obtenerOperacion(id: string): Promise<OperacionPendiente | undefined> {
-  return conDb((db) => db.get('operaciones', id));
+  const reg = await conDb((db) => db.get('operaciones', id));
+  return reg && desdeAlmacenada(reg);
 }
 
 // Cola ordenada por antigüedad — es lo que garantiza que una `visita` se
 // intenta sincronizar antes que sus `hallazgo`/`captura_libre`, siempre que
 // se hayan encolado en el orden en que ocurrieron (que es el caso natural:
 // no se puede capturar nada sin haber iniciado la visita primero).
-export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
-  const todas = await conDb((db) => db.getAllFromIndex('operaciones', 'by-creado-en'));
-  return todas.filter((op) => op.estado === 'pendiente' || op.estado === 'error');
+//
+// BUG real (13 sept): usaba `getAllFromIndex('by-creado-en')` sin rango —
+// el índice solo ordena, no acota, así que en la práctica leía la cola
+// ENTERA (incluidas las operaciones 'completado' de siempre, con sus blobs
+// de foto/audio) cada vez que se llamaba. El motor de sincronización llama
+// a esto cada 60s automáticamente (`sync-engine.ts`), con o sin pantalla
+// abierta — con el volumen acumulado por uso real, esto es lo que hizo que
+// un ciclo pasase de ~5s a ~34s. Ahora se lee solo por `by-estado`
+// ('pendiente'/'error' — nunca 'completado' ni 'subiendo'), que es un
+// subconjunto pequeño y estable frente al histórico completo; se ordena en
+// JS porque ese subconjunto ya es pequeño.
+// `incluirErrores` por defecto en `false`: una operación en 'error' ya
+// agotó sus MAX_INTENTOS y el motor automático (intervalo de 60s, evento
+// 'online', arranque de app) NO debe seguir reintentándola sola para
+// siempre — así es como una operación con un dato mal formado de verdad
+// (p. ej. sin `proyecto_id`, que nunca va a poder insertarse) se ha estado
+// reintentando en segundo plano miles de veces sin que nadie lo supiera
+// (encontrado en real: 1140 intentos desde hace 2 días). El único sitio
+// que debe pasar `true` es "Reintentar ahora" en Yo (acción explícita del
+// comercial sobre SUS errores visibles) — ver `procesarCola` en
+// sync-engine.ts.
+export async function obtenerPendientes(incluirErrores = false): Promise<OperacionPendiente[]> {
+  const [pendientes, conError] = await conDb((db) =>
+    Promise.all([
+      db.getAllFromIndex('operaciones', 'by-estado', 'pendiente'),
+      incluirErrores ? db.getAllFromIndex('operaciones', 'by-estado', 'error') : Promise.resolve([]),
+    ])
+  );
+  return [...pendientes, ...conError]
+    .map((r) => desdeAlmacenada(r))
+    .sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
 }
 
 // Para el aviso global en Yo — "N elementos no se han podido sincronizar".
@@ -130,7 +259,8 @@ export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
 // mirase la cola local con las herramientas de desarrollador; nunca llegaba
 // a ninguna pantalla que el comercial fuera a ver por su cuenta.
 export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]> {
-  return conDb((db) => db.getAllFromIndex('operaciones', 'by-estado', 'error'));
+  const regs = await conDb((db) => db.getAllFromIndex('operaciones', 'by-estado', 'error'));
+  return regs.map((r) => desdeAlmacenada(r));
 }
 
 export async function contarPendientesPorEntidad(
@@ -146,17 +276,58 @@ export async function eliminarOperacion(id: string): Promise<void> {
 
 // Usado por la UI (badges de estado_subida en Cierre de visita, etc.) para
 // leer en tiempo real qué hay todavía sin subir de una visita concreta.
+// BUG real (12 sept): antes leía TODA la tabla (todas las visitas de
+// siempre, con sus blobs de fotos/audios) y filtraba en memoria — el
+// escaneo completo tardaba ~5s en un dispositivo con historial cada vez
+// que se recargaba la cola de la visita activa (p. ej. al volver tras
+// asignar una zona a una foto, que dispara EVENTO_COLA_PROCESADA).
+// Ahora usa el índice `by-visita-id` (ver calcularVisitaId): solo lee lo
+// que de verdad es de esta visita.
+//
+// BUG real (13 sept): `getAllFromIndex` con una clave repetida (todas las
+// operaciones de la misma visita comparten el mismo valor de índice) no
+// devuelve orden cronológico — IndexedDB ordena por la clave primaria
+// (`id`, un uuid aleatorio) cuando el valor del índice coincide, así que
+// una foto nueva podía aparecer intercalada entre las antiguas en vez de
+// al final (reportado por Cesar: "la ha puesto en el medio"). El conjunto
+// es siempre pequeño (lo de una sola visita), así que ordenar en JS por
+// `creadoEn` es barato y no necesita otro índice compuesto.
 export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendiente[]> {
-  const todas = await conDb((db) => db.getAll('operaciones'));
-  return todas.filter((op) => {
-    if (op.entidad === 'visita') return op.id === visitaId;
+  const operaciones = await conDb((db) => db.getAllFromIndex('operaciones', 'by-visita-id', visitaId));
+  return operaciones.map((r) => desdeAlmacenada(r)).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+}
+
+// Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —
+// evita recorrer la cola local una vez por visita marcada en el borrado por
+// lotes de Mi espacio (candado "cola sin subir" del punto 6 del backlog).
+//
+// Mismo bug que `obtenerPendientes` (13 sept): `db.getAll()` leía la cola
+// entera, blobs de 'completado' incluidos. Como aquí ya se descartaba todo
+// lo 'completado' en memoria, basta con no traerlo — se lee por
+// `by-estado` ('pendiente'/'error'/'subiendo', nunca 'completado').
+export async function obtenerVisitasConPendientes(): Promise<Set<string>> {
+  const [pendientes, subiendo, conError] = await conDb((db) =>
+    Promise.all([
+      db.getAllFromIndex('operaciones', 'by-estado', 'pendiente'),
+      db.getAllFromIndex('operaciones', 'by-estado', 'subiendo'),
+      db.getAllFromIndex('operaciones', 'by-estado', 'error'),
+    ])
+  );
+  const ids = new Set<string>();
+  for (const op of [...pendientes, ...subiendo, ...conError]) {
+    if (op.entidad === 'visita') {
+      ids.add(op.id);
+      continue;
+    }
     if (op.entidad === 'oportunidad') {
       const payload = op.payload as { visitaOrigenId?: string };
-      return payload.visitaOrigenId === visitaId;
+      if (payload.visitaOrigenId) ids.add(payload.visitaOrigenId);
+      continue;
     }
     const payload = op.payload as { visitaId?: string };
-    return payload.visitaId === visitaId;
-  });
+    if (payload.visitaId) ids.add(payload.visitaId);
+  }
+  return ids;
 }
 
 // `ubicacion` es la única entidad que vive a nivel de CLIENTE, no de visita
@@ -169,5 +340,73 @@ export async function obtenerUbicacionesPorCliente(
   const todas = (await conDb((db) =>
     db.getAllFromIndex('operaciones', 'by-entidad', 'ubicacion')
   )) as OperacionPendiente<'ubicacion'>[];
-  return todas.filter((op) => op.payload.clienteId === clienteId);
+  return todas.filter((op) => op.payload.clienteId === clienteId).map((r) => desdeAlmacenada(r) as OperacionPendiente<'ubicacion'>);
+}
+
+const DIAS_RETENCION_COMPLETADAS = 30;
+
+// La raíz de la regresión de rendimiento (13 sept): una operación
+// 'completado' no se borra nunca (se conserva a propósito para que la UI
+// no parpadee, ver comentario en sync-engine.ts), y con uso real en
+// producción esto crece sin límite — registro Y blob de foto/audio
+// incluidos. Cualquier arreglo de índice (obtenerPendientes,
+// obtenerVisitasConPendientes) vuelve a degradarse con el tiempo si la
+// cola en sí no deja de crecer. Se purga por cursor sobre `by-estado`
+// ('completado' únicamente, nunca escanea el resto) y se borra el registro
+// entero — eso libera el Blob también, no hace falta tocarlo aparte.
+// BUG real (13 sept, el mismo día): una única transacción `readwrite`
+// recorriendo TODO el rango 'completado' de un tirón bloqueaba cualquier
+// otra escritura sobre `operaciones` mientras durase — en un dispositivo
+// con meses de operaciones 'completado' sin purgar nunca antes de hoy, eso
+// significó que guardar la zona de una foto (otra escritura sobre el mismo
+// object store) se quedaba esperando detrás de la purga entera: la foto
+// "desaparecía" de la pantalla ~40s, y cada toque de más solo encolaba
+// otra escritura detrás. Se trocea en lotes pequeños con una transacción
+// por lote y una pausa entre lotes, para ceder el object store a cualquier
+// escritura interactiva que esté esperando en vez de monopolizarlo.
+//
+// Con lotes de 25 y 60ms de pausa la espera bajó de ~40s a ~23s (Cesar,
+// mismo día) — mejor, pero seguía tardando demasiado. Un tope FIJO de
+// registros (probado después: 300) tampoco bastó: en WebKit/iOS cada
+// `cursor.delete()` de un registro con blob de foto/audio es lento de
+// verdad (no es solo borrar una fila pequeña), así que "cuántos registros"
+// no predice "cuánto tiempo" — con blobs pesados, 300 registros seguían
+// tardando ~28s. Se corta por PRESUPUESTO DE TIEMPO en vez de cantidad: la
+// purga trabaja como mucho ~2s reales por llamada, sea cual sea el tamaño
+// de los blobs que le toque borrar, y si queda más, lo completa en el
+// siguiente arranque de la app. Un dispositivo rápido purga más en esos 2s;
+// uno lento purga menos — pero ninguno bloquea al usuario más de eso.
+const LOTE_PURGA = 5;
+const PAUSA_ENTRE_LOTES_MS = 150;
+const PRESUPUESTO_TIEMPO_MS = 2000;
+
+export async function purgarCompletadasAntiguas(
+  diasAntiguedad: number = DIAS_RETENCION_COMPLETADAS
+): Promise<number> {
+  const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
+  const inicio = Date.now();
+  let totalBorradas = 0;
+  while (Date.now() - inicio < PRESUPUESTO_TIEMPO_MS) {
+    const { borradas, hayMas } = await conDb(async (db) => {
+      const tx = db.transaction('operaciones', 'readwrite');
+      const indice = tx.store.index('by-estado');
+      let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
+      let visitadasLote = 0;
+      let borradasLote = 0;
+      while (cursor && visitadasLote < LOTE_PURGA) {
+        visitadasLote++;
+        if (cursor.value.creadoEn < limite) {
+          await cursor.delete();
+          borradasLote++;
+        }
+        cursor = await cursor.continue();
+      }
+      await tx.done;
+      return { borradas: borradasLote, hayMas: !!cursor };
+    });
+    totalBorradas += borradas;
+    if (!hayMas) break;
+    await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
+  }
+  return totalBorradas;
 }

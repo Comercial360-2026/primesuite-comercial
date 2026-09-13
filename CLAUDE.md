@@ -7,6 +7,14 @@ Repositorio: https://github.com/Comercial360-2026/primesuite-comercial
 Todo cambio se valida en un Deploy Preview de un Pull Request; producción solo se toca
 con autorización explícita del usuario.
 
+> ⚠️ **REALIDAD DEL DESPLIEGUE (2026-09-03):** Netlify tiene *auto-publish* activo
+> sobre `main`. **`git push origin main` publica producción automáticamente**, sin
+> "Publish deploy" ni intervención. Es decir: **hacer `push` a `main` ES el despliegue
+> a producción** y por tanto necesita el texto literal `HAZ DEPLOY A PRODUCCIÓN` del
+> usuario ANTES de ejecutarlo. No basta con "sube" / "adelante".
+> Para volver a un flujo deliberado: en Netlify → *Deploys* → **Stop auto publishing**
+> (los push seguirán compilando y dando preview, pero publicar será un clic manual).
+
 ## Flujo de trabajo obligatorio
 
 Estas reglas son de cumplimiento estricto y prevalecen sobre cualquier otra pauta por defecto.
@@ -44,6 +52,55 @@ Estas reglas son de cumplimiento estricto y prevalecen sobre cualquier otra paut
 
    Sin ese texto literal no hay autorización. Un "ya está bien", "adelante", "mergea",
    "súbelo" o similar **no** cuenta.
+
+## Método al corregir un bug (obligatorio, sin que se pida)
+
+Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
+
+1. **Identificar la CLASE del bug**, no la instancia. «El ← de la visita en
+   curso va a Hoy en vez de a donde vengo» → clase: *navegación atrás que
+   ignora el origen*.
+2. **Barrer toda la app** buscando esa clase (grep de los antipatrones,
+   revisar componentes hermanos). Dejar la lista de sitios afectados por
+   escrito en el prompt maestro / doc de la tarea.
+3. **Arreglar TODOS los sitios en la misma tanda.** No «uno por PR», no
+   «esto en otro pase». Si un sitio se deja a propósito, se anota por qué.
+4. **Añadir la regla a este fichero o a `docs/` si es recurrente**, para que
+   se aplique siempre en el futuro sin recordárnoslo. La memoria de Claude no
+   cuenta como sitio donde apuntarlo: tiene que estar en el repo.
+
+### Reglas de este tipo ya fijadas
+
+- **Navegación atrás (Regla #14 del modelo UI).** El ← de una pantalla
+  **nunca** es `navigate(-1)`. Quien navega a un detalle estampa el origen
+  (`state={desde(location)}` en `<Link>`, o `navigate(destino, { state:
+  desde(location) })`), y el destino hace `const volver = useVolverA('/ruta-
+  fallback-viva')` + `onVolver={() => navigate(volver)}` / `volverA={volver}`.
+  Un `volverA="/ruta-fija"` solo vale si esa pantalla **solo** se alcanza
+  desde un sitio. Al tocar cualquier pantalla de detalle o cualquier fila que
+  navega a una, comprobar que estampa origen y que el destino usa
+  `useVolverA`. Detalle en `src/lib/volver-a.ts`.
+
+- **Buscador de selección: elegir un resultado vacía la búsqueda.** En un
+  campo que busca sobre un catálogo o una lista y del que se *elige* algo
+  (categoría, término, comercial, cliente…) quedándote en la misma
+  pantalla, el `onClick` del resultado **vacía el texto** además de aplicar
+  la selección. Si no, el buscador se queda con el texto y debajo siguen
+  colgando los resultados y el botón «+ Proponer "…" como término nuevo»
+  para algo que acabas de encontrar en el catálogo. El patrón es una
+  función única (`elegirDeBusqueda`) que hace las dos cosas, nunca repetir
+  `setTexto('')` en cada `onClick`: así un resultado nuevo no se olvida.
+  Cuando la acción es asíncrona, se vacía **después** del éxito — si falla,
+  el texto se queda para reintentar (`asociarTermino` en detalle-
+  oportunidad, `resolver` en cola-vocabulario, `asignar` en solicitudes-
+  reasignacion ya lo hacen así).
+  **No aplica** —y se deja a propósito— cuando el campo es un *filtro* de
+  una lista que sigue en pantalla y la confirmación llega luego con un
+  botón (`participantes-hoja`, modo «Añadir al equipo»: vaciar repoblaría
+  la lista entera y perderías el sitio mientras marcas casillas), ni
+  cuando el buscador desaparece solo al pasar de paso
+  (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
+  listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
 
 ## Despliegue (Netlify)
 

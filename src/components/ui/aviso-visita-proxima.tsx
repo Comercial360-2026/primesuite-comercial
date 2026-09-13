@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { desde } from '@/lib/volver-a';
 
 // Aviso "por hora": mientras la app está abierta, da un toque ~30 min antes
 // de una visita planificada CON HORA que aún no se ha empezado, y sigue
@@ -32,6 +33,7 @@ interface VisitaAviso {
 
 export function AvisoVisitaProxima() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const [descartadas, setDescartadas] = useState<Set<string>>(new Set());
   const [, setTick] = useState(0);
@@ -103,7 +105,10 @@ export function AvisoVisitaProxima() {
     >
       <span
         style={{ flex: 1, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        onClick={() => v.cliente && navigate(`/clientes/${v.cliente.id}/repaso?visitaId=${v.id}`)}
+        onClick={() =>
+          v.cliente &&
+          navigate(`/clientes/${v.cliente.id}/repaso?visitaId=${v.id}`, { state: desde(location) })
+        }
       >
         {v.cliente?.nombre ?? 'Visita'} · {hora}
         {pasada ? ` — era ${cuando}, ¿la empezaste?` : ` — ${cuando}`}

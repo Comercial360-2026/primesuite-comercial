@@ -1,16 +1,27 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
+import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
+import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
+import { BarraSeleccion } from '@/components/ui/barra-seleccion';
+import { BotonVerMas } from '@/components/ui/boton-ver-mas';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { Icono } from '@/components/ui/iconos';
+import { Segmentado } from '@/components/ui/segmentado';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
+import { desde } from '@/lib/volver-a';
 import { BloqueAhora } from './bloque-ahora';
+import { CalendarioMes } from './calendario-mes';
 
 interface VisitaAgenda {
   id: string;
@@ -21,6 +32,14 @@ interface VisitaAgenda {
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
+  /** Solo lo trae la consulta de visitas EN CURSO (para el tono y "abierta hace…"). */
+  en_curso_desde?: string | null;
+  proyecto?: { nombre: string } | null;
+  /** Solo lo trae la consulta de visitas EN CURSO — oportunidades con etapa
+   *  <> 'cerrada' colgando de la visita (incidente 2026-09-12, migración
+   *  115: eliminar_visita_completa las rechaza en el servidor; esto es
+   *  para no dejar marcar de antemano lo que va a fallar). */
+  oportunidades_abiertas?: number;
 }
 
 // Rango del día en curso, hora local del dispositivo — suficiente para v1
@@ -36,6 +55,9 @@ function rangoDeHoy() {
 // Texto de "cuándo" de una visita. Con hora → "09:00"; sin hora pero con
 // franja → "mañana" / "tarde". `conDia` antepone el día (para la lista de
 // Próximas, que mezcla fechas).
+// Orden de urgencia de "También en curso": la que lleva más abierta, arriba.
+const SEV = { riesgo: 0, aviso: 1, neutral: 2 } as const;
+
 function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
   const t = v.hora_definida
     ? hora(v.fecha)
@@ -45,16 +67,49 @@ function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
 
 export function AgendaDelDia() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
+  const { visitaEnCurso, cerrarVisita } = useVisitaActivaContext();
   const { inicio, fin } = useMemo(rangoDeHoy, []);
   const queryClient = useQueryClient();
   // Decisión de producto (29/8/2026): mismo criterio que en Clientes — un
   // comercial normal ve siempre solo sus propias visitas de hoy, sin poder
   // cambiarlo; el interruptor "Todos" es exclusivo de Dirección Comercial.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [soloMiasElegido, setSoloMias] = useState(true);
-  const soloMias = esDireccionComercial ? soloMiasElegido : true;
+  // Segmentado: "Agenda" (calendario de mes de las planificadas) + el filtro
+  // de hoy. Dirección: [Agenda · Solo mías · Todas]. Comercial normal:
+  // [Agenda · Hoy] (mías/todas no le aplican).
+  // Filtro en la URL (?vista=agenda|todas), no solo en memoria: "Hoy" es la
+  // pantalla de inicio, y se vuelve a ella tras ver la ficha de un cliente
+  // desde una fila de la agenda — un useState a secas resetea el filtro al
+  // remontar, igual que el mismo bug ya visto en listado-clientes.tsx.
+  const [searchParams, setSearchParams] = useSearchParams();
+  type VistaHoy = 'agenda' | 'mias' | 'todas';
+  function vistaValida(v: string | null): VistaHoy | null {
+    return v === 'agenda' || v === 'todas' ? v : null;
+  }
+  const [vista, setVistaState] = useState<VistaHoy>(() => {
+    const v = vistaValida(searchParams.get('vista'));
+    if (v === 'todas' && !esDireccionComercial) return 'mias';
+    return v ?? 'mias';
+  });
+  useEffect(() => {
+    if (!esDireccionComercial && vista === 'todas') setVistaState('mias');
+  }, [esDireccionComercial, vista]);
+  function cambiarVista(v: VistaHoy) {
+    setVistaState(v);
+    setSearchParams(v === 'mias' ? {} : { vista: v }, { replace: true });
+  }
+  const modoAgenda = vista === 'agenda';
+  const soloMias = esDireccionComercial ? vista !== 'todas' : true;
   const [hechasAbiertas, setHechasAbiertas] = useState(false);
+  const [empezarAbierto, setEmpezarAbierto] = useState(false);
+  // "También en curso": tope de 3 + "Ver las otras N"; modo Seleccionar para
+  // cerrar/descartar varias sin botones por fila.
+  const [enCursoTodas, setEnCursoTodas] = useState(false);
+  const [selEnCurso, setSelEnCurso] = useState(false);
+  const [marcadasEnCurso, setMarcadasEnCurso] = useState<Set<string>>(new Set());
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
 
   const queryKey = ['visitas-hoy', comercial?.id, inicio];
   const {
@@ -118,6 +173,68 @@ export function AgendaDelDia() {
     },
   });
 
+  // Visitas EN CURSO del comercial — TODAS, sin filtro de día: una visita
+  // abierta no tiene "fecha de agenda", sigue abierta hasta que se cierra.
+  // Antes se sacaban del filtro por rango del día (`visitasFiltradas`), así
+  // que una que quedó a medias otro día era invisible y no había forma de
+  // volver a ella. Fuente: participante = yo, como en `otras-visitas-en-curso`
+  // de la visita activa.
+  const { data: visitasEnCurso = [], isSuccess: enCursoCargado } = useQuery({
+    queryKey: ['visitas-en-curso', comercial?.id],
+    enabled: !!comercial,
+    refetchOnMount: 'always',
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select(
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, en_curso_desde, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre))'
+        )
+        .eq('comercial_id', comercial!.id)
+        .in('estado', ['pendiente', 'aceptado'])
+        .eq('visita.estado_captura', 'en_curso')
+        .order('visita(fecha)', { ascending: false });
+      if (error) throw error;
+      const filas = (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
+      const ids = filas.map((f) => f.id);
+      let oportunidadesAbiertasPorVisita: Record<string, number> = {};
+      if (ids.length) {
+        const { data: ops } = await supabase
+          .from('oportunidad')
+          .select('visita_origen_id')
+          .in('visita_origen_id', ids)
+          .neq('etapa', 'cerrada');
+        oportunidadesAbiertasPorVisita = (ops ?? []).reduce<Record<string, number>>((acc, o) => {
+          const id = (o as { visita_origen_id: string }).visita_origen_id;
+          acc[id] = (acc[id] ?? 0) + 1;
+          return acc;
+        }, {});
+      }
+      return filas.map((f) => ({ ...f, oportunidades_abiertas: oportunidadesAbiertasPorVisita[f.id] ?? 0 }));
+    },
+  });
+
+  // Vista "Agenda" (calendario de mes): TODAS mis visitas planificadas, no
+  // solo las de hoy. El filtro "mías" va en la propia consulta (participante
+  // = yo). Solo se pide al entrar en esa vista.
+  const { data: visitasPlanificadas = [], isLoading: cargandoAgenda } = useQuery({
+    queryKey: ['agenda-mes-planificadas', comercial?.id],
+    enabled: modoAgenda && !!comercial,
+    refetchOnMount: 'always',
+    queryFn: async (): Promise<VisitaAgenda[]> => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select(
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre))'
+        )
+        .eq('comercial_id', comercial!.id)
+        .in('estado', ['pendiente', 'aceptado'])
+        .eq('visita.estado_captura', 'agendada')
+        .order('visita(fecha)', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r) => r.visita as unknown as VisitaAgenda);
+    },
+  });
+
   // El responsable vive en visita_participante (rol 'responsable'), no en
   // la propia tabla `visita`. Se pide para hoy + próximas + atrasadas.
   const idsVisitas = [
@@ -149,7 +266,9 @@ export function AgendaDelDia() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select('visita_id, comercial_id')
-        .in('visita_id', idsVisitas);
+        .in('visita_id', idsVisitas)
+        // Quien rechazó o fue expulsado no cuenta como participante.
+        .in('estado', ['pendiente', 'aceptado']);
       if (error) throw error;
       const mapa: Record<string, string[]> = {};
       for (const p of data ?? []) {
@@ -175,7 +294,69 @@ export function AgendaDelDia() {
   const proximasFiltradas = visitasProximas?.filter((v) => esMia(v.id));
   const atrasadasFiltradas = visitasAtrasadas?.filter((v) => esMia(v.id));
 
-  const hoyEnCurso = visitasFiltradas?.filter((v) => v.estado_captura === 'en_curso') ?? [];
+  // "La visita en curso" que destaca la app = la última que abriste (contexto
+  // persistido), no la más reciente por fecha. Así la tarjeta grande de Hoy y
+  // el banner global apuntan a la MISMA. Si la marcada ya no está abierta, o
+  // no hay ninguna marcada, se cae a la más reciente (visitasEnCurso viene
+  // ordenada por fecha desc).
+  const idActual = visitaEnCurso?.id;
+  const hoyEnCurso = useMemo(() => {
+    const marcada = idActual ? visitasEnCurso.find((v) => v.id === idActual) : undefined;
+    return marcada ? [marcada, ...visitasEnCurso.filter((v) => v.id !== idActual)] : visitasEnCurso;
+  }, [visitasEnCurso, idActual]);
+
+  // Si el contexto persistido apunta a una visita que ya no está en curso
+  // (la cerraste en otro sitio / otro dispositivo), se limpia para que el
+  // banner global no muestre una visita fantasma.
+  useEffect(() => {
+    if (
+      enCursoCargado &&
+      visitaEnCurso &&
+      !visitasEnCurso.some((v) => v.id === visitaEnCurso.id)
+    ) {
+      cerrarVisita();
+    }
+  }, [enCursoCargado, visitaEnCurso, visitasEnCurso, cerrarVisita]);
+  // "También en curso" (todas menos la que va en la tarjeta de arriba),
+  // ordenadas por urgencia: primero las que llevan más tiempo abiertas
+  // (riesgo → aviso → neutral), y dentro de cada tono, la más vieja antes.
+  const restoEnCurso = useMemo(() => {
+    return hoyEnCurso.slice(1).slice().sort((a, b) => {
+      const da = a.en_curso_desde ?? a.fecha;
+      const db = b.en_curso_desde ?? b.fecha;
+      const s = SEV[tonoPorAntiguedad(da)] - SEV[tonoPorAntiguedad(db)];
+      return s !== 0 ? s : da < db ? -1 : 1;
+    });
+  }, [hoyEnCurso]);
+  // Se ven 3; el resto tras "Ver las otras N". En modo Seleccionar se ven
+  // todas (para poder marcar cualquiera).
+  const TOPE_EN_CURSO = 3;
+  const enCursoVisibles =
+    selEnCurso || enCursoTodas ? restoEnCurso : restoEnCurso.slice(0, TOPE_EN_CURSO);
+  const marcadasArr = [...marcadasEnCurso];
+  // Poda: si una visita marcada deja de estar en curso (se cerró/descartó),
+  // fuera de la selección.
+  useEffect(() => {
+    setMarcadasEnCurso((prev) => {
+      const vivos = new Set(restoEnCurso.map((v) => v.id));
+      const filtrado = [...prev].filter((id) => vivos.has(id));
+      return filtrado.length === prev.size ? prev : new Set(filtrado);
+    });
+  }, [restoEnCurso]);
+  function salirSelEnCurso() {
+    setSelEnCurso(false);
+    setMarcadasEnCurso(new Set());
+    setConfirmandoDescarte(false);
+  }
+  function toggleMarcadaEnCurso(id: string) {
+    setMarcadasEnCurso((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
   const hoyPendientes = visitasFiltradas?.filter((v) => v.estado_captura === 'agendada') ?? [];
   const hoyHechas = visitasFiltradas?.filter((v) => v.estado_captura === 'consolidada') ?? [];
   const proximas = proximasFiltradas ?? [];
@@ -209,10 +390,16 @@ export function AgendaDelDia() {
     atrasadas.length === 0;
 
   const sinConexion = isPaused && visitas === undefined;
+  const online = typeof navigator === 'undefined' ? true : navigator.onLine;
   function reintentar() {
     queryClient.resetQueries({ queryKey });
     refetch();
   }
+
+  // "Descartar" una visita en curso apilada por error (patrón de borrado de
+  // visita común: previsualiza qué arrastra → confirma). El propio hook
+  // invalida ['visitas-en-curso'].
+  const borrar = useBorrarVisita();
 
   function abrirVisita(visita: VisitaAgenda) {
     if (visita.estado_captura === 'en_curso') {
@@ -235,6 +422,9 @@ export function AgendaDelDia() {
     }
   }
 
+  // `conDia` marca las de OTRO día (sección "Próximas"): icono de agenda (no
+  // el de "hoy"), y el día va con peso — es lo que las define frente a las de
+  // hoy, que solo llevan hora. Regla docs/08 §"Listas hermanas".
   function renderVisita(visita: VisitaAgenda, conDia: boolean) {
     const responsableId = responsables?.[visita.id];
     const deOtro = !!responsableId && responsableId !== comercial?.id;
@@ -243,14 +433,16 @@ export function AgendaDelDia() {
         .filter(Boolean)
         .join(' · ') || undefined;
     const cuando = cuandoTexto(visita, conDia);
+    const icono =
+      visita.estado_captura === 'consolidada' ? 'check' : conDia ? 'agenda' : 'hoy';
     return (
       <FilaNavegable
         key={visita.id}
-        icono={visita.estado_captura === 'consolidada' ? 'check' : 'hoy'}
+        icono={icono}
         titulo={visita.cliente?.nombre ?? 'Cliente'}
         subtitulo={subtitulo}
         valor={cuando || undefined}
-        valorTenue
+        valorTenue={!conDia}
         onClick={() => abrirVisita(visita)}
         chevron
       />
@@ -261,22 +453,73 @@ export function AgendaDelDia() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Hoy" icono="hoy" ayuda="hoy" subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)} />
+      <CabeceraSeccion
+        titulo="Hoy"
+        icono="hoy"
+        ayuda="hoy"
+        subtitulo={fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1)}
+        derecha={
+          <button
+            type="button"
+            className="btn btn-primary btn--compacto"
+            onClick={() => setEmpezarAbierto(true)}
+          >
+            <Icono nombre="mas" size={16} />
+            Visita
+          </button>
+        }
+      />
 
-      {esDireccionComercial && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* El seleccionado por defecto (Solo mías) va primero — es la
-              vista natural; "Todas" es abrir el foco, va después. */}
-          <button type="button" className={`chip${soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(true)}>
-            Solo mías
-          </button>
-          <button type="button" className={`chip${!soloMias ? ' chip--on' : ''}`} onClick={() => setSoloMias(false)}>
-            Todas
-          </button>
-        </div>
-      )}
+      {empezarAbierto && <EmpezarVisitaHoja onCerrar={() => setEmpezarAbierto(false)} />}
+
+      {/* Filtro único: "Agenda" (calendario de mes) + el foco del día. La
+          agenda ya no es una pantalla aparte ni un icono suelto — es una
+          pestaña más, y la vista Lista de la vieja /agenda era redundante
+          con "Solo mías / Todas". */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <Segmentado
+          opciones={
+            esDireccionComercial
+              ? ([
+                  { valor: 'agenda', etiqueta: 'Agenda' },
+                  { valor: 'mias', etiqueta: 'Solo mías' },
+                  { valor: 'todas', etiqueta: 'Todas' },
+                ] as const)
+              : ([
+                  { valor: 'agenda', etiqueta: 'Agenda' },
+                  { valor: 'mias', etiqueta: 'Hoy' },
+                ] as const)
+          }
+          valor={vista}
+          onCambio={cambiarVista}
+        />
+      </div>
 
       <div className="screen__scroll">
+        {modoAgenda ? (
+          cargandoAgenda ? (
+            <EstadoLista estado="cargando" mensaje="Cargando agenda…" />
+          ) : visitasPlanificadas.length === 0 ? (
+            <EstadoLista estado="vacio" mensaje="No tienes ninguna visita planificada." />
+          ) : (
+            <CalendarioMes
+              visitas={visitasPlanificadas}
+              renderVisita={(v) => (
+                <FilaNavegable
+                  key={v.id}
+                  icono="hoy"
+                  titulo={v.cliente?.nombre ?? 'Cliente'}
+                  subtitulo={v.objetivo || undefined}
+                  valor={cuandoTexto(v, false) || undefined}
+                  valorTenue
+                  to={`/visita/${v.id}/planificada`}
+                  state={desde(location)}
+                />
+              )}
+            />
+          )
+        ) : (
+        <>
         {isLoading && <EstadoLista estado="cargando" mensaje="Cargando agenda…" />}
         {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
         {isError && (
@@ -292,6 +535,108 @@ export function AgendaDelDia() {
               proximaEsHoy={proximaEsHoy}
               onAbrir={(v) => abrirVisita(v as VisitaAgenda)}
             />
+
+            {/* Resto de visitas en curso (la 1ª va en la tarjeta de arriba).
+                Se ven 3 + "Ver las otras N". Cerrar / descartar van por el
+                modo "Seleccionar" (casillas + BarraSeleccion), no botones por
+                fila. */}
+            {restoEnCurso.length > 0 && (
+              <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div className="lbl-seccion" style={{ marginBottom: 0 }}>
+                    También en curso{' '}
+                    {restoEnCurso.length > 1 && (
+                      <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>({restoEnCurso.length})</span>
+                    )}
+                  </div>
+                  {!selEnCurso && restoEnCurso.length > 1 && (
+                    <button type="button" className="chip" onClick={() => setSelEnCurso(true)}>
+                      Seleccionar
+                    </button>
+                  )}
+                </div>
+
+                {selEnCurso && !confirmandoDescarte && (
+                  <div style={{ marginTop: 8 }}>
+                    <BarraSeleccion
+                      n={marcadasArr.length}
+                      onCancelar={salirSelEnCurso}
+                      acciones={[
+                        {
+                          etiqueta: 'Cerrar',
+                          icono: 'check',
+                          disabled: marcadasArr.length !== 1 || !online,
+                          onClick: () => {
+                            const id = marcadasArr[0];
+                            salirSelEnCurso();
+                            navigate(`/visita/${id}/cierre`, { state: desde(location) });
+                          },
+                        },
+                        {
+                          etiqueta: `Descartar${marcadasArr.length ? ` (${marcadasArr.length})` : ''}`,
+                          icono: 'borrar',
+                          tono: 'riesgo',
+                          disabled: marcadasArr.length === 0 || !online,
+                          onClick: () => setConfirmandoDescarte(true),
+                        },
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {confirmandoDescarte && (
+                  <div style={{ marginTop: 8 }}>
+                    <ConfirmacionBorrado
+                      confirmar={`Sí, descartar ${marcadasArr.length}`}
+                      cargandoTexto="Descartando…"
+                      cargando={borrar.borrando.cargando}
+                      error={borrar.borrando.error}
+                      onCancelar={() => setConfirmandoDescarte(false)}
+                      onConfirmar={async () => {
+                        await borrar.borrarVarias(marcadasArr);
+                        salirSelEnCurso();
+                      }}
+                    >
+                      Se descartan {marcadasArr.length} {marcadasArr.length === 1 ? 'visita' : 'visitas'} y todo
+                      su contenido (fotos, audios, notas, hallazgos, oportunidades…).
+                    </ConfirmacionBorrado>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                  {enCursoVisibles.map((v) => (
+                    <FilaVisitaAbierta
+                      key={v.id}
+                      visita={{
+                        id: v.id,
+                        clienteNombre: v.cliente?.nombre ?? 'Cliente',
+                        proyectoNombre: v.proyecto?.nombre ?? null,
+                        desde: v.en_curso_desde ?? v.fecha,
+                        esMia: true,
+                        oportunidadesAbiertas: v.oportunidades_abiertas,
+                      }}
+                      onAbrir={() => abrirVisita(v)}
+                      seleccion={
+                        selEnCurso
+                          ? {
+                              activa: true,
+                              marcada: marcadasEnCurso.has(v.id),
+                              onToggle: () => toggleMarcadaEnCurso(v.id),
+                            }
+                          : undefined
+                      }
+                    />
+                  ))}
+                  {!selEnCurso && restoEnCurso.length > TOPE_EN_CURSO && (
+                    <BotonVerMas
+                      n={restoEnCurso.length - TOPE_EN_CURSO}
+                      abierto={enCursoTodas}
+                      onClick={() => setEnCursoTodas((x) => !x)}
+                    />
+                  )}
+                </div>
+              </section>
+            )}
 
             {atrasadas.length > 0 && (
               <section>
@@ -312,11 +657,16 @@ export function AgendaDelDia() {
                       chevron
                     />
                   ))}
-                  <FilaNavegable
-                    tono="aviso"
-                    titulo={atrasadas.length > 2 ? `Resolver las ${atrasadas.length}` : 'Ver en la agenda'}
-                    to="/agenda"
-                  />
+                  {/* Solo si hay más de las 2 que se muestran: llevar a la
+                      pestaña Agenda a resolver el resto. Sin este caso no se
+                      pone fila — la pestaña "Agenda" de arriba ya está. */}
+                  {atrasadas.length > 2 && (
+                    <FilaNavegable
+                      tono="aviso"
+                      titulo={`Resolver las ${atrasadas.length}`}
+                      onClick={() => cambiarVista('agenda')}
+                    />
+                  )}
                 </SeccionLista>
               </section>
             )}
@@ -367,12 +717,6 @@ export function AgendaDelDia() {
               </SeccionLista>
             )}
 
-            {/* "Ir a" — no es contenido del día, lleva a otra pantalla. */}
-            <Link className="fila-ir" to="/agenda">
-              Ver toda la agenda
-              <Icono nombre="chevron" size={16} />
-            </Link>
-
             {sinNada && (
               <EstadoLista
                 estado="vacio"
@@ -381,14 +725,10 @@ export function AgendaDelDia() {
             )}
           </div>
         )}
+        </>
+        )}
       </div>
 
-      {/* Acción de pantalla anclada abajo, misma pinta que "Nuevo cliente"
-          en Clientes: primaria (relleno azul) y fija, no se va con el scroll. */}
-      <button className="btn btn-primary" onClick={() => navigate('/clientes')}>
-        <Icono nombre="mas" size={18} />
-        Empezar visita sin planificar
-      </button>
     </div>
   );
 }

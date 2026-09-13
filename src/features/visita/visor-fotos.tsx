@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Icono } from '@/components/ui/iconos';
+import { enlaceMapa } from '@/lib/geo';
 
 // Visor de fotos a pantalla completa. En móvil una rejilla pequeña no
 // sirve para ver el detalle (una barrera, un número de serie): tocar una
@@ -10,6 +11,10 @@ interface Foto {
   url: string | null;
   titulo: string | null;
   ubicacion_nombre: string | null;
+  // Coordenadas de la foto, si se capturaron. Con ellas el visor ofrece
+  // "Abrir en el mapa" — igual que la ficha de la captura.
+  latitud?: number | null;
+  longitud?: number | null;
 }
 
 interface Props {
@@ -17,9 +22,12 @@ interface Props {
   indice: number;
   onCerrar: () => void;
   onCambiar: (nuevoIndice: number) => void;
+  // Si se pasa, el visor muestra "Editar" y delega en el contenedor (abrir
+  // la ficha de la captura, o el editor en línea del Modo Recorrido).
+  onEditar?: (id: string) => void;
 }
 
-export function VisorFotos({ fotos, indice, onCerrar, onCambiar }: Props) {
+export function VisorFotos({ fotos, indice, onCerrar, onCambiar, onEditar }: Props) {
   const foto = fotos[indice];
   const inicioX = useRef<number | null>(null);
   const hayAnterior = indice > 0;
@@ -38,6 +46,7 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar }: Props) {
   if (!foto) return null;
 
   const pie = [foto.titulo, foto.ubicacion_nombre].filter(Boolean).join(' · ');
+  const tieneCoords = foto.latitud != null && foto.longitud != null;
 
   return (
     <div
@@ -57,9 +66,27 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar }: Props) {
         else if (dx < 0 && haySiguiente) onCambiar(indice + 1);
       }}
     >
-      <button type="button" className="visor-fotos__cerrar" onClick={onCerrar} aria-label="cerrar">
-        ×
-      </button>
+      <div className="visor-fotos__superior">
+        {/* Editar es una acción de modo (como en Fotos de iOS: arriba, junto
+            a cerrar, separada de los metadatos) — antes vivía abajo como
+            icono+texto subrayado, el mismo antipatrón de .btn-enlace pero
+            con clase propia. Solo icono, igual que el resto de "editar" en
+            la app (.boton-icono en las cabeceras). */}
+        {onEditar && (
+          <button
+            type="button"
+            className="visor-fotos__editar"
+            onClick={() => onEditar(foto.id)}
+            aria-label="Editar"
+            title="Editar"
+          >
+            <Icono nombre="editar" size={20} />
+          </button>
+        )}
+        <button type="button" className="visor-fotos__cerrar" onClick={onCerrar} aria-label="cerrar">
+          ×
+        </button>
+      </div>
 
       {foto.url ? (
         <img className="visor-fotos__img" src={foto.url} alt={foto.titulo ?? 'foto'} />
@@ -69,6 +96,18 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar }: Props) {
 
       <div className="visor-fotos__inferior">
         {pie && <div className="visor-fotos__pie">{pie}</div>}
+        {tieneCoords && (
+          <div className="visor-fotos__acciones">
+            <a
+              className="visor-fotos__accion"
+              href={enlaceMapa(foto.latitud!, foto.longitud!)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Icono nombre="ubicacion" size={14} /> Abrir en el mapa
+            </a>
+          </div>
+        )}
         <div className="visor-fotos__nav">
           <button type="button" onClick={() => onCambiar(indice - 1)} disabled={!hayAnterior} aria-label="anterior">
             <span className="visor-fotos__flecha-izq">

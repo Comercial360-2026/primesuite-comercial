@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -9,17 +10,25 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoError } from '@/components/ui/estado-error';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
+import { cargarEcosistemaCliente } from '@/lib/ecosistema';
+import { fechaCorta } from '@/lib/fechas';
 import { etiqueta, PRIORIDAD_LABEL } from '@/lib/etiquetas-visita';
+import { useVolverA } from '@/lib/volver-a';
 import { uuid } from '@/lib/uuid';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
+import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
-import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
+import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 
-interface EcosistemaItem {
-  termino_id: string;
-  naturaleza: string;
+interface NotaReciente {
+  id: string;
+  titulo: string | null;
+  contenido_texto: string | null;
+  creado_en: string;
 }
 
 interface OportunidadActiva {
@@ -41,6 +50,10 @@ export function RepasoCliente() {
   const [searchParams] = useSearchParams();
   const visitaIdAgendada = searchParams.get('visitaId');
   const navigate = useNavigate();
+  // Se llega desde Hoy, desde la visita planificada o desde el aviso global
+  // de visita próxima (puede saltar desde cualquier pantalla). El ← vuelve
+  // al origen real; si no consta, a Hoy.
+  const volver = useVolverA('/');
   const { comercial } = useSesionActual();
   const { iniciarVisita } = useVisitaActivaContext();
   const iniciandoVisita = useAccionAsync();
@@ -51,12 +64,30 @@ export function RepasoCliente() {
   // aviso previo si ya hay una visita en curso con este cliente.
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
+  const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
 
   function pedirIniciarVisitaAdHoc() {
     if (visitaEnCurso) setEnCursoModalAbierto(true);
     else setObjetivoModalAbierto(true);
   }
+
+  // Proyecto (línea de negocio) al que va la visita. Si el cliente solo
+  // tiene uno, la visita va a ese sin preguntar; si tiene 2+, la ventana
+  // "¿A qué vas?" pide a cuál — mismo selector que "Iniciar visita ahora"
+  // desde la ficha; aquí no se dibuja nada suelto.
+  const { data: proyectosCliente } = useQuery({
+    queryKey: ['proyectos-cliente-repaso', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado: string }>> => {
+      const { data, error } = await supabase
+        .from('proyecto')
+        .select('id, nombre, estado')
+        .eq('cliente_id', clienteId!)
+        .order('creado_en', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Si venimos de una visita ya planificada, traemos su objetivo para
   // recordar "a qué vengo" antes de entrar.
@@ -74,7 +105,12 @@ export function RepasoCliente() {
     },
   });
 
-  const clienteQueryKey = ['cliente', clienteId];
+  // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con
+  // más columnas): con la misma clave, TanStack Query serviría aquí o allá
+  // la caché de la otra pantalla — bug real de fondo, no hipotético, visto
+  // al navegar Ficha de proyecto → Ficha de cliente con la misma clave que
+  // usaba esta pantalla.
+  const clienteQueryKey = ['cliente-nombre', clienteId];
   const {
     data: cliente,
     isError: isErrorCliente,
@@ -110,34 +146,42 @@ export function RepasoCliente() {
   } = useQuery({
     queryKey: ecosistemaQueryKey,
     enabled: !!clienteId,
-    queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
-      const { data: items, error } = await supabase
-        .from('vw_ecosistema_actual_cliente')
-        .select('termino_id, naturaleza')
-        .eq('cliente_id', clienteId!)
-        .limit(6);
-      if (error) throw error;
-
-      const itemsValidos = (items ?? []).filter(
-        (i): i is { termino_id: string; naturaleza: string } =>
-          i.termino_id !== null && i.naturaleza !== null
-      );
-      if (!itemsValidos.length) return [];
-
-      const { data: terminos, error: errorTerminos } = await supabase
-        .from('termino')
-        .select('id, nombre')
-        .in('id', itemsValidos.map((i) => i.termino_id));
-      if (errorTerminos) throw errorTerminos;
-
-      const nombreById = new Map((terminos ?? []).map((t) => [t.id, t.nombre]));
-      return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
-    },
+    queryFn: () => cargarEcosistemaCliente(clienteId!, 6),
   });
   const sinConexionEcosistema = isPausedEcosistema && ecosistema === undefined;
   function reintentarEcosistema() {
     queryClient.resetQueries({ queryKey: ecosistemaQueryKey });
     refetchEcosistema();
+  }
+
+  // Últimas notas del cliente (PM11 Fase 4): lo que se anotó en visitas
+  // pasadas y no se marcó como hallazgo ni oportunidad. Solo lectura —
+  // el repaso se lee de un vistazo, no navega a ningún sitio.
+  const notasQueryKey = ['notas-recientes-cliente', clienteId];
+  const {
+    data: notasRecientes,
+    isError: isErrorNotas,
+    isPaused: isPausedNotas,
+    refetch: refetchNotas,
+  } = useQuery({
+    queryKey: notasQueryKey,
+    enabled: !!clienteId,
+    queryFn: async (): Promise<NotaReciente[]> => {
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select('id, titulo, contenido_texto, creado_en, visita:visita_id!inner(cliente_id)')
+        .eq('visita.cliente_id', clienteId!)
+        .eq('tipo', 'nota')
+        .order('creado_en', { ascending: false })
+        .limit(3);
+      if (error) throw error;
+      return (data ?? []) as unknown as NotaReciente[];
+    },
+  });
+  const sinConexionNotas = isPausedNotas && notasRecientes === undefined;
+  function reintentarNotas() {
+    queryClient.resetQueries({ queryKey: notasQueryKey });
+    refetchNotas();
   }
 
   const interlocutoresQueryKey = ['interlocutores-cliente', clienteId];
@@ -233,12 +277,21 @@ export function RepasoCliente() {
         if (!cliente || !comercial || !visitaIdAgendada) {
           throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
         }
-        const { error: errEstado } = await supabase
-          .from('visita')
-          .update({ estado_captura: 'en_curso' })
-          .eq('id', visitaIdAgendada)
-          .eq('estado_captura', 'agendada');
-        if (errEstado) throw new Error(errEstado.message);
+        // Sin permiso, o si otro comercial ya la empezó primero, el UPDATE
+        // no da error — "tiene éxito" afectando a 0 filas (mismo encargo
+        // técnico que el resto de guardados, ver
+        // adenda_punto1_delete_silencioso.md). Comprobar `count` es la
+        // única forma de no meter al comercial en una visita que en
+        // realidad no se ha marcado "en curso".
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update({ estado_captura: 'en_curso' }, { count: 'exact' })
+              .eq('id', visitaIdAgendada)
+              .eq('estado_captura', 'agendada'),
+          'No se ha podido empezar la visita (puede que ya la haya empezado otro, o que no tengas permiso).'
+        );
         return { visitaId: visitaIdAgendada, clienteNombre: cliente.nombre };
       },
       {
@@ -253,13 +306,14 @@ export function RepasoCliente() {
   // Visita SIN planificar: la lanza la ventana "¿A qué vas?" con el objetivo
   // ya escrito. Se encola (funciona con o sin red, ver lib/offline-queue).
   // Lanza en caso de fallo para que la ventana muestre el error.
-  async function iniciarVisitaConObjetivo(objetivo: string) {
+  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string) {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
     const visitaId = uuid();
     await encolar(visitaId, 'visita', {
       clienteId: cliente.id,
+      proyectoId: proyectoElegido || undefined,
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
@@ -274,9 +328,10 @@ export function RepasoCliente() {
         titulo={cliente?.nombre ?? '…'}
         subtitulo="Preparar la visita"
         ayuda="repaso-cliente"
-        onVolver={() => navigate(-1)}
+        volverA={volver}
       />
       <div className="screen__scroll">
+      <div className="lista-agrupada">
       {(isErrorCliente || sinConexionCliente) && (
         <EstadoError
           mensaje={sinConexionCliente ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el cliente.'}
@@ -285,13 +340,10 @@ export function RepasoCliente() {
       )}
 
       {visitaIdAgendada && (
-        <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>Vas a</div>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {visitaAgendada === undefined
-              ? 'Cargando…'
-              : visitaAgendada.objetivo?.trim() || 'sin objetivo definido'}
-          </div>
+        <div className="ficha-vitals">
+          <span>
+            Vas a: <b>{visitaAgendada === undefined ? 'cargando…' : visitaAgendada.objetivo?.trim() || 'sin objetivo definido'}</b>
+          </span>
         </div>
       )}
 
@@ -301,9 +353,7 @@ export function RepasoCliente() {
           onReintentar={reintentarInterlocutores}
         />
       ) : (
-        interlocutoresConocidos === undefined ? (
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
-        ) : interlocutoresConocidos.length ? (
+        !!interlocutoresConocidos?.length && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {interlocutoresConocidos.map((i) => (
               <span key={i.id} className="chip" style={{ fontSize: 'var(--text-xs)' }}>
@@ -311,7 +361,7 @@ export function RepasoCliente() {
               </span>
             ))}
           </div>
-        ) : null
+        )
       )}
 
       {isErrorEcosistema || sinConexionEcosistema ? (
@@ -319,49 +369,81 @@ export function RepasoCliente() {
           mensaje={sinConexionEcosistema ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el ecosistema.'}
           onReintentar={reintentarEcosistema}
         />
-      ) : ecosistema === undefined ? (
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
       ) : (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {ecosistema.map((item) => (
-            <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
-          ))}
-          {!ecosistema.length && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>}
-        </div>
+        <SeccionLista titulo="Ecosistema">
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+            {ecosistema === undefined ? (
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
+            ) : ecosistema.length ? (
+              ecosistema.map((item) => (
+                <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
+              ))
+            ) : (
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Sin ecosistema registrado todavía</span>
+            )}
+          </div>
+        </SeccionLista>
       )}
 
-      {isErrorOportunidad || sinConexionOportunidad ? (
+      {isErrorNotas || sinConexionNotas ? (
+        <EstadoError
+          mensaje={sinConexionNotas ? 'Sin conexión. Comprueba tu red.' : 'No se pudieron cargar las notas.'}
+          onReintentar={reintentarNotas}
+        />
+      ) : (
+        !!notasRecientes?.length && (
+          <SeccionLista titulo="Notas">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px var(--fila-pad-x)' }}>
+              {notasRecientes.map((n) => (
+                <div key={n.id} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>
+                  {n.titulo && <b>{n.titulo}. </b>}
+                  {n.contenido_texto?.trim() || '(nota sin texto)'}
+                  <span style={{ color: 'var(--ink-400)' }}> · {fechaCorta(n.creado_en)}</span>
+                </div>
+              ))}
+            </div>
+          </SeccionLista>
+        )
+      )}
+
+      {(isErrorOportunidad || sinConexionOportunidad) && (
         <EstadoError
           mensaje={sinConexionOportunidad ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar la oportunidad activa.'}
           onReintentar={reintentarOportunidad}
         />
-      ) : (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Oportunidad activa</div>
-          <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>
-            {oportunidad === undefined
-              ? 'Cargando…'
-              : oportunidad
-                ? `${oportunidad.titulo} · ${etiqueta(PRIORIDAD_LABEL, oportunidad.prioridad).toLowerCase()}`
-                : 'ninguna oportunidad activa'}
-          </div>
-        </div>
       )}
-
-      {isErrorProximoPaso || sinConexionProximoPaso ? (
+      {(isErrorProximoPaso || sinConexionProximoPaso) && (
         <EstadoError
           mensaje={sinConexionProximoPaso ? 'Sin conexión. Comprueba tu red.' : 'No se pudo cargar el próximo paso.'}
           onReintentar={reintentarProximoPaso}
         />
-      ) : (
-        <div className="card">
-          <div className="label" style={{ marginTop: 0 }}>Próximo paso pendiente</div>
-          <div style={{ fontSize: 'var(--text-base)' }}>
-            {proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin próximos pasos pendientes'}
-          </div>
-        </div>
+      )}
+      {(!(isErrorOportunidad || sinConexionOportunidad) || !(isErrorProximoPaso || sinConexionProximoPaso)) && (
+        <SeccionLista titulo="Antes de entrar">
+          {!(isErrorOportunidad || sinConexionOportunidad) && (
+            <FilaDato
+              etiqueta="Oportunidad activa"
+              valor={
+                oportunidad === undefined
+                  ? 'Cargando…'
+                  : oportunidad
+                    ? `${oportunidad.titulo} · ${etiqueta(PRIORIDAD_LABEL, oportunidad.prioridad).toLowerCase()}`
+                    : 'ninguna'
+              }
+              valorTenue={!oportunidad}
+            />
+          )}
+          {!(isErrorProximoPaso || sinConexionProximoPaso) && (
+            <FilaDato
+              etiqueta="Próximo paso"
+              valor={proximoPaso === undefined ? 'Cargando…' : proximoPaso ? proximoPaso.descripcion : 'sin pendientes'}
+              valorTenue={!proximoPaso}
+            />
+          )}
+        </SeccionLista>
       )}
 
+      </div>
       </div>
 
       <button
@@ -383,8 +465,10 @@ export function RepasoCliente() {
 
       {enCursoModalAbierto && visitaEnCurso && (
         <VisitaEnCursoModal
-          clienteNombre={cliente?.nombre}
+          clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
+          proyectoNombre={visitaEnCurso.proyectoNombre}
+          enCursoDesde={visitaEnCurso.enCursoDesde}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoModalAbierto(false);
@@ -397,6 +481,11 @@ export function RepasoCliente() {
       {objetivoModalAbierto && (
         <ObjetivoVisitaModal
           clienteNombre={cliente?.nombre}
+          proyectos={proyectosCliente}
+          proyectoInicial={proyectosCliente?.[0]?.id}
+          onCrearProyecto={
+            clienteId ? (nombreProy) => crearProyectoRapido(clienteId, nombreProy, encolar) : undefined
+          }
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
         />

@@ -1,13 +1,27 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useVolverA } from '@/lib/volver-a';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
+import { plural } from '@/lib/texto';
+import { generarResumenReglas } from '@/lib/resumen-visita';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaAccion } from '@/components/ui/fila-accion';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaDato } from '@/components/ui/fila-dato';
+import { Aviso } from '@/components/ui/aviso';
+import { Icono } from '@/components/ui/iconos';
+import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
+import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
+import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
 // Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
 // cola offline (db.ts/sync-engine.ts) solo modela creación de registros
@@ -16,17 +30,28 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 // resuelve aquí con un intento directo + reintento ligero en localStorage
 // si no hay red en el momento del cierre — es una corrección puntual, no
 // una ampliación del motor de sincronización.
-function intentarConsolidarOffline(visitaId: string) {
-  localStorage.setItem(
-    `consolidar-pendiente-${visitaId}`,
-    JSON.stringify({ estado_captura: 'consolidada' })
-  );
+interface ParcheCierre {
+  estado_captura: 'consolidada';
+  resumen_texto?: string;
+  resumen_origen?: 'reglas';
+}
+
+function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
+  localStorage.setItem(`consolidar-pendiente-${visitaId}`, JSON.stringify(parche));
   const reintentar = async () => {
     const clave = `consolidar-pendiente-${visitaId}`;
     const pendiente = localStorage.getItem(clave);
     if (!pendiente) return;
-    const { error } = await supabase.from('visita').update(JSON.parse(pendiente)).eq('id', visitaId);
-    if (!error) {
+    // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría éxito"
+    // con 0 filas: se borraría el pendiente de localStorage y se dejaría
+    // de reintentar, pero la visita nunca se habría consolidado de
+    // verdad — y aquí no hay pantalla donde avisar de eso. Mejor seguir
+    // reintentando (no se pierde el dato) que darlo por hecho en falso.
+    const { error, count } = await supabase
+      .from('visita')
+      .update(JSON.parse(pendiente), { count: 'exact' })
+      .eq('id', visitaId);
+    if (!error && count) {
       localStorage.removeItem(clave);
       window.removeEventListener('online', reintentar);
     }
@@ -37,11 +62,24 @@ function intentarConsolidarOffline(visitaId: string) {
 export function CierreVisita() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  // El ← respeta de dónde se llegó (panel de "visitas abiertas", Hoy…); si no
+  // consta, a la propia visita en curso. Regla #14 del modelo de UI.
+  const volverDeCierre = useVolverA(`/visita/${visitaId}`);
   const { operaciones } = useSyncQueue(visitaId);
+  // El objetivo puede no estar aún en el servidor si se cierra la visita en
+  // los primeros segundos (viaja en la cola de creación y se aplica con un
+  // UPDATE posterior). La cola local lo tiene desde el arranque — se usa
+  // como fallback para que el resumen automático nunca salga sin él.
+  const visitaLocal = useVisitaLocal(visitaId);
   const { cerrarVisita } = useVisitaActivaContext();
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
+  const { estadoDe, descargar } = useDescargarInforme();
+  // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). Se
+  // congelan los items al abrir: así el modal tiene una lista estable y las
+  // URLs de blob de fotos/audios no se recrean/revocan con cada re-render.
+  const [detalle, setDetalle] = useState<{ grupo: GrupoCierre; items: OperacionPendiente[] } | null>(null);
   const consolidacion = useAccionAsync();
 
   // "Ibas a…": el objetivo con el que se planificó la visita, para cerrarla
@@ -62,18 +100,62 @@ export function CierreVisita() {
     },
   });
 
-  const hallazgosParaResumen = operaciones.filter((op) => op.entidad === 'hallazgo');
-  const terminoIdsHallazgos = hallazgosParaResumen
-    .map((h) => (h.payload as { terminoId: string }).terminoId)
-    .filter((id, i, arr) => arr.indexOf(id) === i);
-
-  const { data: nombresTerminos } = useQuery({
-    queryKey: ['nombres-terminos-cierre', terminoIdsHallazgos.join(',')],
-    enabled: terminoIdsHallazgos.length > 0,
+  // Regla 6 (contexto siempre visible): ninguna de las 3 vistas de esta
+  // pantalla decía de qué cliente era la visita que se está cerrando, solo
+  // el objetivo cuando existía. maybeSingle: una visita ad-hoc offline puede
+  // no tener fila en el servidor todavía (mismo motivo que `visitaObjetivo`
+  // arriba). El proyecto (siempre con nombre) se añade al contexto.
+  const { data: contextoVisita } = useQuery({
+    queryKey: ['visita-contexto-cierre', visitaId],
+    enabled: !!visitaId,
     queryFn: async () => {
-      const { data, error } = await supabase.from('termino').select('id, nombre').in('id', terminoIdsHallazgos);
+      const { data, error } = await supabase
+        .from('visita')
+        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
+        .eq('id', visitaId!)
+        .maybeSingle();
       if (error) throw error;
-      return Object.fromEntries((data ?? []).map((t) => [t.id, t.nombre]));
+      return data;
+    },
+  });
+  const contextoTexto = [
+    contextoVisita?.cliente?.nombre,
+    contextoVisita?.proyecto?.nombre ?? null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  // Prechequeo antes de cerrar (aviso NO bloqueante): una visita sin
+  // interlocutores registrados es un hueco real ("¿con quién hablaste?"),
+  // y un cliente recién creado suele quedarse sin sector/tamaño/ubicación
+  // (salen en la cabecera de cada informe).
+  const { data: prechequeoCierre } = useQuery({
+    queryKey: ['prechequeo-cierre', visitaId],
+    enabled: !!visitaId,
+    queryFn: async () => {
+      const { data: v } = await supabase
+        .from('visita')
+        .select('cliente_id')
+        .eq('id', visitaId!)
+        .maybeSingle();
+      if (!v?.cliente_id) return null;
+      const [{ data: inters }, { data: cli }] = await Promise.all([
+        supabase
+          .from('visita_interlocutor')
+          .select('interlocutor:interlocutor_id(activo)')
+          .eq('visita_id', visitaId!),
+        supabase
+          .from('cliente')
+          .select('sector, tamano_aprox, ubicacion_general')
+          .eq('id', v.cliente_id)
+          .maybeSingle(),
+      ]);
+      const nInterlocutores = (inters ?? []).filter(
+        (r) => (r.interlocutor as unknown as { activo?: boolean } | null)?.activo
+      ).length;
+      const sinDatosCliente =
+        !!cli && !cli.sector && !cli.tamano_aprox && !cli.ubicacion_general;
+      return { nInterlocutores, sinDatosCliente };
     },
   });
 
@@ -108,11 +190,59 @@ export function CierreVisita() {
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
 
-  // Agrupación por zona: todo lo capturado en el recorrido (fotos, audios,
-  // notas, hallazgos, oportunidades) para repasarlo zona a zona antes de
-  // cerrar, no elemento a elemento.
-  const zonaDe = (op: (typeof operaciones)[number]) =>
-    (op.payload as { ubicacionId?: string }).ubicacionId ?? 'sin ubicación';
+  // Las seis casillas del resumen: cada una abre su detalle al pulsarla.
+  // La etiqueta concuerda en número con el recuento ("1 nota", no "1 Notas").
+  const casillasCierre: Array<{
+    grupo: GrupoCierre;
+    sing: string;
+    plur: string;
+    items: OperacionPendiente[];
+  }> = [
+    { grupo: 'fotos', sing: 'Foto', plur: 'Fotos', items: fotos },
+    { grupo: 'audios', sing: 'Audio', plur: 'Audios', items: audios },
+    { grupo: 'notas', sing: 'Nota', plur: 'Notas', items: notas },
+    { grupo: 'oportunidades', sing: 'Oportunidad', plur: 'Oportunidades', items: oportunidades },
+    { grupo: 'hallazgos', sing: 'Hallazgo', plur: 'Hallazgos', items: hallazgos },
+    { grupo: 'pasos', sing: 'Próximo paso', plur: 'Próximos pasos', items: pasos },
+  ];
+
+  // Tira de chips con el recuento — misma en "¿Confirmas el cierre?" y en
+  // el resumen. Concordancia de número correcta ("1 nota", no "1 notas").
+  const chipsRecuento = [
+    plural(fotos.length, 'foto', 'fotos'),
+    plural(audios.length, 'audio', 'audios'),
+    plural(notas.length, 'nota', 'notas'),
+    plural(hallazgos.length, 'hallazgo', 'hallazgos'),
+    plural(oportunidades.length, 'oportunidad', 'oportunidades'),
+    plural(pasos.length, 'próximo paso', 'próximos pasos'),
+  ];
+
+  // Resumen "por reglas" que se guarda al cerrar (visita.resumen_texto). Es
+  // una micro-historia legible, no el recuento; el comercial puede
+  // reescribirlo luego desde el detalle de la visita. Cadena barata de
+  // construir sobre arrays pequeños — no necesita memo.
+  const resumenReglas = generarResumenReglas({
+    objetivo: visitaObjetivo?.objetivo ?? visitaLocal?.objetivo,
+    hallazgos: hallazgos.map((h) => ({ nota: (h.payload as { nota?: string }).nota ?? null })),
+    oportunidades: oportunidades.map((o) => ({ titulo: (o.payload as { titulo: string }).titulo })),
+    pasos: pasos.map((p) => {
+      const pl = p.payload as { descripcion: string; fechaObjetivo?: string };
+      return { descripcion: pl.descripcion, fecha: pl.fechaObjetivo ?? null };
+    }),
+    nFotos: fotos.length,
+    nAudios: audios.length,
+    nNotas: notas.length,
+  });
+
+  // Agrupación por zona: todo lo capturado con una zona anotada (fotos,
+  // audios, notas, hallazgos, oportunidades) para repasarlo zona a zona
+  // antes de cerrar, no elemento a elemento. La zona es la etiqueta de
+  // texto libre `zonaTexto`; `ubicacionId` es el campo antiguo de
+  // catálogo, solo por si una visita quedó abierta desde antes del cambio.
+  const zonaDe = (op: (typeof operaciones)[number]) => {
+    const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
+    return p.zonaTexto?.trim() || p.ubicacionId || 'sin ubicación';
+  };
   const elementosPorUbicacion = (() => {
     const acc: Record<
       string,
@@ -135,23 +265,29 @@ export function CierreVisita() {
   async function consolidar() {
     if (!visitaId) return;
 
+    // El resumen "por reglas" se guarda junto con el cierre. `resumen_origen`
+    // nace 'reglas' por defecto en la BD; solo se fija explícito para dejar
+    // claro el origen aunque cambie el default.
+    const parche: ParcheCierre = { estado_captura: 'consolidada' };
+    if (resumenReglas) {
+      parche.resumen_texto = resumenReglas;
+      parche.resumen_origen = 'reglas';
+    }
+
     await consolidacion.ejecutar(
       async () => {
         if (navigator.onLine) {
-          const { error } = await supabase
-            .from('visita')
-            .update({ estado_captura: 'consolidada' })
-            .eq('id', visitaId);
-          if (error) {
-            // Con conexión presente, un error de Supabase es un fallo real
-            // (RLS, validación, servidor) — no desconexión. Se lanza para
-            // que useAccionAsync lo trate como error recuperable visible,
-            // en vez de disfrazarlo de "pendiente de conexión".
-            throw error;
-          }
+          // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría
+          // éxito" con 0 filas: la pantalla pasaría a "resumen" como si la
+          // visita se hubiera cerrado, cuando en el servidor seguiría
+          // 'en_curso'. Mismo encargo técnico que el resto de guardados.
+          await conReintentoDeSesion(
+            () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', visitaId),
+            'No se ha podido cerrar la visita (0 filas afectadas). Puede que no tengas permiso.'
+          );
           return { sincronizada: true };
         } else {
-          intentarConsolidarOffline(visitaId);
+          intentarConsolidarOffline(visitaId, parche);
           return { sincronizada: false };
         }
       },
@@ -159,6 +295,10 @@ export function CierreVisita() {
         onExito: ({ sincronizada }) => {
           setSincronizada(sincronizada);
           setVista('resumen');
+          // La visita ya no está en curso: quitar el banner ya, no al
+          // pulsar "volver" (1.6 — antes seguía abajo en la pantalla de
+          // resumen, lo que se contradecía con "visita cerrada").
+          cerrarVisita();
         },
         mensajeError: 'No se pudo cerrar la visita. Inténtalo de nuevo.',
       }
@@ -173,78 +313,140 @@ export function CierreVisita() {
   if (vista === 'resumen') {
     return (
       <div className="screen screen--split">
-        <CabeceraDetalle titulo="Resumen de la visita" onVolver={volverAHoy} ayuda="cierre-visita" />
+        <CabeceraDetalle
+          titulo="Resumen de la visita"
+          subtitulo={contextoTexto || undefined}
+          onVolver={volverAHoy}
+          ayuda="cierre-visita"
+        />
 
         {sincronizada ? (
-          <div className="card" style={{ borderColor: 'var(--success-600)' }}>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-600)', fontWeight: 500 }}>
-              ✓ visita consolidada correctamente
-            </div>
+          // El "momento de marca" del rediseño: el único punto de toda la
+          // app donde el trabajo de una visita entera queda cerrado de
+          // verdad. Check animado al entrar (una vez, no se repite) — el
+          // resto de "éxito" de la app sigue siendo el <Aviso> de siempre;
+          // este es la excepción deliberada. Círculo + check + palabra:
+          // el color nunca va solo (daltónico).
+          <div className="cierre-exito">
+            <span className="cierre-exito__check">
+              <Icono nombre="check" size={26} weight="bold" />
+            </span>
+            <span className="cierre-exito__texto">
+              <span className="cierre-exito__titulo">Visita cerrada</span>
+              <span className="cierre-exito__sub">Todo guardado correctamente.</span>
+            </span>
           </div>
         ) : (
-          <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
-              guardado localmente, pendiente de conexión
-            </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-              El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que hagas nada más.
-            </div>
-          </div>
+          <Aviso tipo="atencion" titulo="Guardado localmente, pendiente de conexión">
+            El cierre se confirmará con el servidor automáticamente en cuanto recuperes conexión. No hace falta que
+            hagas nada más.
+          </Aviso>
         )}
 
         <div className="screen__scroll">
-          {visitaObjetivo?.objetivo?.trim() && (
-            <div className="card" style={{ background: 'var(--surface-1)' }}>
-              <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
-              <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
-            </div>
+          {resumenReglas && (
+            <SeccionLista titulo="Resumen">
+              <div style={{ padding: '2px var(--fila-pad-x) 6px', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                {resumenReglas}
+              </div>
+              <div style={{ padding: '0 var(--fila-pad-x) 4px', fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+                Generado automáticamente. Puedes reescribirlo desde el detalle de la visita.
+              </div>
+            </SeccionLista>
           )}
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="chip">{fotos.length} fotos</span>
-            <span className="chip">{audios.length} audios</span>
-            <span className="chip">{notas.length} notas</span>
-            <span className="chip">{hallazgos.length} hallazgos</span>
-            <span className="chip">{oportunidades.length} oportunidades</span>
-            <span className="chip">{pasos.length} próximos pasos</span>
+            {chipsRecuento.map((c) => (
+              <span key={c} className="chip">{c}</span>
+            ))}
           </div>
 
+          {notas.length > 0 && (
+            <SeccionLista titulo="Notas">
+              {notas.map((n) => {
+                const p = n.payload as { titulo?: string; contenidoTexto?: string };
+                return (
+                  <FilaDato
+                    key={n.id}
+                    etiqueta={p.titulo || p.contenidoTexto || '(nota vacía)'}
+                    valor=""
+                  />
+                );
+              })}
+            </SeccionLista>
+          )}
+
           {oportunidades.length > 0 && (
-            <div className="card card--oportunidad" style={{ padding: '10px 16px' }}>
+            <SeccionLista titulo="Oportunidades">
               {oportunidades.map((o) => (
-                <div key={o.id} style={{ fontSize: 'var(--text-sm)' }}>
-                  {(o.payload as { titulo: string }).titulo}
-                </div>
+                <FilaDato key={o.id} etiqueta={(o.payload as { titulo: string }).titulo} valor="" />
               ))}
-            </div>
+            </SeccionLista>
           )}
 
           {hallazgos.length > 0 && (
-            <div className="card" style={{ padding: '10px 16px' }}>
-              {hallazgos.map((h) => {
-                const payload = h.payload as { terminoId: string; naturaleza: string };
-                return (
-                  <div key={h.id} style={{ fontSize: 'var(--text-sm)' }}>
-                    {nombresTerminos?.[payload.terminoId] ?? '…'} · {payload.naturaleza.replace('_', ' ')}
-                  </div>
-                );
-              })}
-            </div>
+            <SeccionLista titulo="Hallazgos">
+              {hallazgos.map((h) => (
+                <FilaDato
+                  key={h.id}
+                  etiqueta={(h.payload as { nota?: string }).nota?.trim() || 'Hallazgo'}
+                  valor=""
+                />
+              ))}
+            </SeccionLista>
           )}
 
           {pasos.length > 0 && (
-            <div className="card" style={{ padding: '10px 16px' }}>
+            <SeccionLista titulo="Próximos pasos">
               {pasos.map((p) => {
                 const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                 return (
-                  <div key={p.id} style={{ fontSize: 'var(--text-sm)' }}>
-                    {payload.descripcion}
-                    {payload.fechaObjetivo && ` · ${fechaCorta(payload.fechaObjetivo)}`}
-                  </div>
+                  <FilaDato
+                    key={p.id}
+                    etiqueta={payload.descripcion}
+                    valor={payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : ''}
+                    valorTenue
+                  />
                 );
               })}
-            </div>
+            </SeccionLista>
           )}
+
+          {/* El informe solo se puede generar si la visita ya está en el
+              servidor; sin conexión, se descarga luego desde el historial. */}
+          {sincronizada && visitaId && (() => {
+            const estadoDescarga = estadoDe(visitaId);
+            const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+            return (
+              <SeccionLista>
+                <FilaAccion
+                  densidad="compacta"
+                  titulo="Informe de la visita"
+                  subtitulo={
+                    descargaLista
+                      ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                      : estadoDescarga === 'generando'
+                        ? 'Generando el informe…'
+                        : estadoDescarga === 'sin-red'
+                          ? 'Sin conexión. Inténtalo cuando tengas red'
+                          : estadoDescarga === 'error'
+                            ? 'No se pudo generar, toca de nuevo'
+                            : 'PDF con las fotos y los audios, en un ZIP'
+                  }
+                  acciones={[
+                    {
+                      icono: 'descargar',
+                      etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
+                      onClick: descargaLista ? undefined : () => descargar('visita', visitaId),
+                      href: descargaLista ? descargaLista.url : undefined,
+                      disabled: estadoDescarga === 'generando',
+                      tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
+                    },
+                  ]}
+                />
+              </SeccionLista>
+            );
+          })()}
         </div>
 
         <button className="btn btn-primary" onClick={volverAHoy}>
@@ -256,9 +458,10 @@ export function CierreVisita() {
 
   if (vista === 'confirmar') {
     return (
-      <div className="screen screen--split">
+      <div className="screen">
         <CabeceraDetalle
           titulo="¿Confirmas el cierre?"
+          subtitulo={contextoTexto || undefined}
           onVolver={() => {
             consolidacion.limpiarError();
             setVista('cierre');
@@ -266,31 +469,26 @@ export function CierreVisita() {
           ayuda="cierre-visita"
         />
 
-        <div className="screen__scroll">
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="chip">{fotos.length} fotos</span>
-            <span className="chip">{audios.length} audios</span>
-            <span className="chip">{notas.length} notas</span>
-            <span className="chip">{hallazgos.length} hallazgos</span>
-            <span className="chip">{oportunidades.length} oportunidades</span>
-            <span className="chip">{pasos.length} próximos pasos</span>
-          </div>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', margin: 0 }}>
+          Al cerrar, la visita queda fija y en solo lectura. Esto es lo que se guarda:
+        </p>
 
-          {capturasPendientes.length > 0 && (
-            <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500 }}>
-                {capturasPendientes.length} captura(s) todavía sin confirmar en el servidor
-              </div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-                Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable, espera unos segundos para asegurarte de que todo suba antes de cerrar.
-              </div>
-            </div>
-          )}
-
-          {consolidacion.error && <div className="field-error-text">{consolidacion.error}</div>}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {chipsRecuento.map((c) => (
+            <span key={c} className="chip">{c}</span>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        {capturasPendientes.length > 0 && (
+          <Aviso tipo="atencion" titulo={`${plural(capturasPendientes.length, 'captura', 'capturas')} todavía sin confirmar en el servidor`}>
+            Puedes cerrar igualmente — se seguirán sincronizando en segundo plano — pero si tienes conexión estable,
+            espera unos segundos para asegurarte de que todo suba antes de cerrar.
+          </Aviso>
+        )}
+
+        {consolidacion.error && <Aviso tipo="error">{consolidacion.error}</Aviso>}
+
+        <div className="fila-btns" style={{ marginTop: 'var(--space-2)' }}>
           <button
             className="btn btn-secondary"
             disabled={consolidacion.cargando}
@@ -299,7 +497,7 @@ export function CierreVisita() {
               setVista('cierre');
             }}
           >
-            volver
+            Volver
           </button>
           <button className="btn btn-primary" disabled={consolidacion.cargando} onClick={consolidar}>
             {consolidacion.cargando ? 'Cerrando…' : 'Sí, cerrar visita'}
@@ -314,69 +512,155 @@ export function CierreVisita() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo="Cerrar visita"
-        onVolver={() => navigate(`/visita/${visitaId}`)}
+        subtitulo={contextoTexto || undefined}
+        onVolver={() => navigate(volverDeCierre)}
         ayuda="cierre-visita"
       />
 
+      {/* Todo el contenido (recuento, objetivo, avisos y "Revisar por
+          zona") va en el MISMO scroll: antes el recuento y los avisos
+          quedaban fijos y, con un aviso largo, "Revisar por zona" se
+          quedaba aplastado en una tira de 40px imposible de leer. */}
+      <div className="screen__scroll" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{fotos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Fotos</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{audios.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audios</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{notas.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Notas</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{oportunidades.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Oportunidades</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{hallazgos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Hallazgos</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{pasos.length}</div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Próximos pasos</div>
-        </div>
+        {casillasCierre.map(({ grupo, sing, plur, items }) => (
+          <button
+            key={grupo}
+            type="button"
+            className="card cierre-casilla"
+            disabled={items.length === 0}
+            onClick={() => setDetalle({ grupo, items })}
+          >
+            <div style={{ fontSize: 'var(--text-xl)', fontWeight: 500 }}>{items.length}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
+              {items.length === 1 ? sing : plur}
+            </div>
+          </button>
+        ))}
       </div>
 
       {visitaObjetivo?.objetivo?.trim() && (
-        <div className="card" style={{ background: 'var(--surface-1)' }}>
-          <div className="label" style={{ marginTop: 0 }}>Ibas a</div>
-          <div style={{ fontSize: 'var(--text-sm)' }}>{visitaObjetivo.objetivo}</div>
+        <div className="ficha-vitals">
+          <span>Ibas a: <b>{visitaObjetivo.objetivo}</b></span>
         </div>
       )}
 
-      <div className="screen__scroll">
-        <div className="label" style={{ marginTop: 0 }}>Revisar por ubicación</div>
-        {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
-          const resumen = [
-            n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
-            n.audios && `${n.audios} audio${n.audios > 1 ? 's' : ''}`,
-            n.notas && `${n.notas} nota${n.notas > 1 ? 's' : ''}`,
-            n.hallazgos && `${n.hallazgos} hallazgo${n.hallazgos > 1 ? 's' : ''}`,
-            n.oportunidades && `${n.oportunidades} oportunidad${n.oportunidades > 1 ? 'es' : ''}`,
-          ]
-            .filter(Boolean)
-            .join(' · ');
-          return (
-            <div key={ubicacionId} className="card">
-              {ubicacionId === 'sin ubicación' ? 'sin ubicación' : (nombresUbicaciones?.[ubicacionId] ?? '…')}
-              {' · '}
-              {resumen}
+      {prechequeoCierre &&
+        (prechequeoCierre.nInterlocutores === 0 ||
+          prechequeoCierre.sinDatosCliente ||
+          pasos.length === 0 ||
+          oportunidades.length === 0) && (
+          <Aviso tipo="atencion" titulo="Antes de cerrar">
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {prechequeoCierre.nInterlocutores === 0 && (
+                <li>
+                  No has registrado con quién hablaste.{' '}
+                  <button
+                    type="button"
+                    className="btn-enlace"
+                    style={{ padding: 0 }}
+                    onClick={() => navigate(`/visita/${visitaId}`)}
+                  >
+                    Volver a la visita
+                  </button>{' '}
+                  para añadir interlocutores.
+                </li>
+              )}
+              {pasos.length === 0 && (
+                <li>
+                  No has apuntado ningún próximo paso. Si acordasteis algo (mandar oferta, llamar,
+                  otra visita),{' '}
+                  <button
+                    type="button"
+                    className="btn-enlace"
+                    style={{ padding: 0 }}
+                    onClick={() => navigate(`/visita/${visitaId}`)}
+                  >
+                    vuelve a la visita
+                  </button>{' '}
+                  para dejarlo anotado.
+                </li>
+              )}
+              {oportunidades.length === 0 && (
+                <li>No has registrado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.</li>
+              )}
+              {prechequeoCierre.sinDatosCliente && (
+                <li>
+                  Este cliente no tiene sector, tamaño ni ubicación. Salen en la cabecera de cada
+                  informe — complétalos desde su ficha cuando puedas.
+                </li>
+              )}
+            </ul>
+          </Aviso>
+        )}
+
+        {/* Aviso informativo (no bloquea): solo si hay notas y NO se ha
+            marcado ningún hallazgo ni oportunidad en toda la visita —
+            señal de que aún no se ha clasificado nada. Si ya marcó algo,
+            sabe hacerlo y no se le insiste. Prompt maestro 11, Fase 3. */}
+        {notas.length > 0 && hallazgos.length === 0 && oportunidades.length === 0 && (
+          <SeccionLista titulo="Notas sin clasificar">
+            <div
+              style={{
+                padding: '2px var(--fila-pad-x) 6px',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--ink-400)',
+              }}
+            >
+              {plural(notas.length, 'nota', 'notas')}. Si alguna es «algo que tienen» o «algo para
+              venderles», ábrela y márcala. No hace falta para cerrar.
             </div>
-          );
-        })}
+            {notas.map((n) => {
+              const p = n.payload as { titulo?: string; contenidoTexto?: string };
+              return (
+                <FilaNavegable
+                  key={n.id}
+                  titulo={p.titulo?.trim() || p.contenidoTexto?.trim() || '(nota vacía)'}
+                  onClick={() =>
+                    navigate(`/capturas/${n.id}`, { state: { from: `/visita/${visitaId}/cierre` } })
+                  }
+                />
+              );
+            })}
+          </SeccionLista>
+        )}
+
+        {Object.keys(elementosPorUbicacion).some((k) => k !== 'sin ubicación') && (
+          <SeccionLista titulo="Revisar por zona">
+            {Object.entries(elementosPorUbicacion).map(([ubicacionId, n]) => {
+              const resumen = [
+                n.fotos && `${n.fotos} foto${n.fotos > 1 ? 's' : ''}`,
+                n.audios && `${n.audios} audio${n.audios > 1 ? 's' : ''}`,
+                n.notas && `${n.notas} nota${n.notas > 1 ? 's' : ''}`,
+                n.hallazgos && `${n.hallazgos} hallazgo${n.hallazgos > 1 ? 's' : ''}`,
+                n.oportunidades && `${n.oportunidades} oportunidad${n.oportunidades > 1 ? 'es' : ''}`,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <FilaDato
+                  key={ubicacionId}
+                  etiqueta={ubicacionId === 'sin ubicación' ? 'General' : nombresUbicaciones?.[ubicacionId] ?? ubicacionId}
+                  valor={resumen}
+                  valorTenue
+                />
+              );
+            })}
+          </SeccionLista>
+        )}
       </div>
 
       <button className="btn btn-primary" onClick={() => setVista('confirmar')}>
-        Consolidar visita
+        Cerrar visita
       </button>
+
+      {detalle && (
+        <HojaDetalleCierre
+          grupo={detalle.grupo}
+          items={detalle.items}
+          onCerrar={() => setDetalle(null)}
+        />
+      )}
     </div>
   );
 }

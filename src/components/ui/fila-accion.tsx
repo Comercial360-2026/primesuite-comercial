@@ -1,4 +1,5 @@
 import { Icono, type NombreIcono } from './iconos';
+import { Avatar } from './avatar';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 
 // Fila de una lista agrupada (dentro de SeccionLista) con un cuerpo
@@ -35,8 +36,17 @@ export interface AccionFila {
 
 interface Props {
   icono?: NombreIcono;
+  /** La fila es de una PERSONA (comercial/cliente): `Avatar` en vez de
+   *  icono. Si se pasan los dos, `icono` gana (es una señal de estado). */
+  avatar?: string;
   titulo: string;
   subtitulo?: string;
+  /** El subtítulo se queda en gris neutro aunque la fila tenga `tono`, para
+   *  no dar la falsa impresión de que un dato secundario (fecha, tamaño...)
+   *  es la señal de estado. Activarlo SOLO cuando el subtítulo ES la
+   *  explicación de ese tono (p. ej. "no se puede borrar: oportunidad
+   *  abierta") — entonces sí debe llevar el mismo color que icono/valor. */
+  subtituloConTono?: boolean;
   /** Si falta, el cuerpo es inerte (sin hover, sin cursor de puntero). */
   onClick?: () => void;
   tono?: Tono;
@@ -44,21 +54,28 @@ interface Props {
   /** Desactiva el `onClick` del cuerpo (no las acciones). */
   disabled?: boolean;
   acciones?: AccionFila[];
+  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones. */
+  badge?: string;
   /** Modo seleccionar. Con `activa`, el cuerpo marca/desmarca en vez de su
-   *  `onClick`, y los botones de acción se ocultan. Sin esta prop, o con
-   *  `activa:false`, la fila es exactamente la de hoy. */
+   *  `onClick` (que se ignora); `acciones` se sigue pintando igual — un modo
+   *  "Editar" puede combinar checkbox + flechas de orden en la misma fila
+   *  (catálogo de vocabulario). Sin esta prop, o con `activa:false`, la fila
+   *  es exactamente la de hoy. */
   seleccion?: EstadoSeleccion;
 }
 
 export function FilaAccion({
   icono,
+  avatar,
   titulo,
   subtitulo,
+  subtituloConTono,
   onClick,
   tono = 'neutral',
   densidad = 'normal',
   disabled,
   acciones = [],
+  badge,
   seleccion,
 }: Props) {
   const seleccionando = seleccion?.activa ?? false;
@@ -78,15 +95,20 @@ export function FilaAccion({
   const cuerpo = (
     <>
       {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
-      {icono && (
+      {icono ? (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
         </span>
+      ) : (
+        avatar && <Avatar nombre={avatar} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>
-        {subtitulo && <span className="fila__subtitulo">{subtitulo}</span>}
+        {subtitulo && (
+          <span className={`fila__subtitulo${subtituloConTono ? ' fila__subtitulo--tono' : ''}`}>{subtitulo}</span>
+        )}
       </span>
+      {badge != null && <span className="fila__badge">{badge}</span>}
     </>
   );
 
@@ -110,7 +132,7 @@ export function FilaAccion({
         <div className="fila__cuerpo-accion">{cuerpo}</div>
       )}
 
-      {!seleccionando && acciones.length > 0 && (
+      {acciones.length > 0 && (
         <div className="fila__acciones">
           {acciones.map((a, i) => {
             const claseBtn = [

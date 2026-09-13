@@ -14,17 +14,18 @@ import { EstablecerContrasena } from '@/features/auth/establecer-contrasena';
 // después el resto — coherente con el plan de implementación cerrado.
 
 import { AgendaDelDia } from '@/features/hoy/agenda-del-dia';
-import { Agenda } from '@/features/hoy/agenda';
 import { RepasoCliente } from '@/features/hoy/repaso-cliente';
 import { VisitaActiva } from '@/features/visita/visita-activa';
+import { PlanificarVisita } from '@/features/visita/planificar-visita';
 import { DetalleVisitaCerrada } from '@/features/visita/detalle-visita-cerrada';
 import { DetalleVisitaPlanificada } from '@/features/visita/detalle-visita-planificada';
 import { DetalleCaptura } from '@/features/visita/detalle-captura';
 import { CierreVisita } from '@/features/visita/cierre-visita';
 import { ListadoClientes } from '@/features/clientes/listado-clientes';
 import { FichaCliente } from '@/features/clientes/ficha-cliente';
-import { GestionUbicacionesCliente } from '@/features/clientes/gestion-ubicaciones-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
+import { FichaProyecto } from '@/features/proyectos/ficha-proyecto';
+import { EspacioProyecto } from '@/features/proyectos/espacio-proyecto';
 import { Deduplicacion } from '@/features/clientes/deduplicacion';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
@@ -35,7 +36,9 @@ import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignac
 import { Yo } from '@/features/perfil/yo';
 import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
-import { ConsumoComerciales } from '@/features/perfil/consumo-comerciales';
+import { ActividadComerciales } from '@/features/perfil/actividad-comerciales';
+import { DetalleActividadComercial } from '@/features/perfil/detalle-actividad-comercial';
+import { GestionarSectores } from '@/features/clientes/gestionar-sectores';
 import { ListadoComerciales } from '@/features/comerciales/listado-comerciales';
 import { AltaComercial } from '@/features/comerciales/alta-comercial';
 import { DetalleComercial } from '@/features/comerciales/detalle-comercial';
@@ -73,9 +76,11 @@ export function AppRoutes() {
         >
           {/* Nivel 0 — Hoy */}
           <Route path="/" element={<AgendaDelDia />} />
-          <Route path="/agenda" element={<Agenda />} />
+          {/* La agenda dejó de ser pantalla aparte: es la pestaña "Agenda"
+              de Hoy. Se mantiene la ruta como redirección por enlaces viejos. */}
+          <Route path="/agenda" element={<Navigate to="/" replace />} />
+          <Route path="/planificar" element={<PlanificarVisita />} />
           <Route path="/clientes/:clienteId/repaso" element={<RepasoCliente />} />
-          <Route path="/clientes/:clienteId/ubicaciones" element={<GestionUbicacionesCliente />} />
           <Route path="/clientes/nuevo" element={<AltaRapidaCliente />} />
 
           {/* Visita — Nivel 2, alcanzable solo desde Hoy */}
@@ -88,13 +93,17 @@ export function AppRoutes() {
           {/* Nivel 0 — Clientes */}
           <Route path="/clientes" element={<ListadoClientes />} />
           <Route path="/clientes/:clienteId" element={<FichaCliente />} />
+          {/* Proyecto — anidado bajo su cliente (P13): mantiene
+              Cliente › Proyecto siempre en la URL y en la cabecera. */}
+          <Route path="/clientes/:clienteId/proyectos/:proyectoId" element={<FichaProyecto />} />
+          <Route path="/clientes/:clienteId/proyectos/:proyectoId/espacio" element={<EspacioProyecto />} />
 
           {/* Nivel 2 — Detalle, múltiples puntos de entrada, misma pantalla */}
           <Route path="/hallazgos/:hallazgoId" element={<DetalleHallazgo />} />
           <Route path="/oportunidades/:oportunidadId" element={<DetalleOportunidad />} />
           <Route path="/proximos-pasos/:pasoId" element={<DetalleProximoPaso />} />
 
-          {/* Nivel 0 — Tareas */}
+          {/* Nivel 0 — Próximos pasos (ruta histórica /tareas) */}
           <Route path="/tareas" element={<MisProximosPasos />} />
 
           {/* Nivel 0 — Yo — hueco real: el bottom nav apuntaba aquí desde
@@ -104,12 +113,35 @@ export function AppRoutes() {
           {/* Manual in-app — "Cómo funciona PrimeNotes". Cualquier rol. */}
           <Route path="/ayuda" element={<AyudaManual />} />
 
-          {/* Nivel 0 — Consumo por comercial — exclusivo de Dirección Comercial */}
+          {/* "Consumo por comercial" se fundió en "Mi espacio" como la vista
+              "Por comercial" (segmentado, solo Dirección). Se mantiene la
+              ruta como redirección por si hay algún enlace guardado. */}
+          <Route path="/consumo-comerciales" element={<Navigate to="/mi-espacio?vista=equipo" replace />} />
+
+          {/* Catálogo de sectores de cliente — exclusivo de Dirección Comercial */}
           <Route
-            path="/consumo-comerciales"
+            path="/sectores"
             element={
               <RequireRole roles={['direccion_comercial']}>
-                <ConsumoComerciales />
+                <GestionarSectores />
+              </RequireRole>
+            }
+          />
+
+          {/* Nivel 0 — Actividad por comercial — exclusivo de Dirección Comercial */}
+          <Route
+            path="/actividad-comerciales"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <ActividadComerciales />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/actividad-comerciales/:comercialId"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <DetalleActividadComercial />
               </RequireRole>
             }
           />

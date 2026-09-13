@@ -7,6 +7,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
 interface Comercial {
@@ -26,7 +27,8 @@ export const ETIQUETA_ROL: Record<string, string> = {
 export function ListadoComerciales() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [verTodos, setVerTodos] = useState(false);
+  const [vista, setVista] = useState<'activos' | 'todos'>('activos');
+  const verTodos = vista === 'todos';
 
   const queryKey = ['comerciales-equipo'];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -79,7 +81,22 @@ export function ListadoComerciales() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraDetalle titulo="Equipo" volverA="/yo" ayuda="listado-comerciales" />
+      <CabeceraDetalle
+        titulo="Equipo"
+        volverA="/yo"
+        ayuda="listado-comerciales"
+        derecha={
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Nuevo comercial"
+            title="Nuevo comercial"
+            onClick={() => navigate('/comerciales/nuevo')}
+          >
+            <Icono nombre="mas" size={18} />
+          </button>
+        }
+      />
 
       <div className="screen__scroll">
        <div className="lista-agrupada">
@@ -92,7 +109,7 @@ export function ListadoComerciales() {
         ) : (
           <>
             {!!peticionesAcceso?.length && (
-              <SeccionLista titulo="⚠ Piden acceso">
+              <SeccionLista titulo="Piden acceso">
                 {peticionesAcceso.map((p) => (
                   <FilaNavegable
                     key={p.comercial_id}
@@ -107,13 +124,17 @@ export function ListadoComerciales() {
             )}
 
             {nBaja > 0 && (
-              <div style={{ display: 'flex', gap: 6, paddingInline: 'var(--fila-pad-x)' }}>
-                <button type="button" className={`chip${!verTodos ? ' chip--on' : ''}`} onClick={() => setVerTodos(false)}>
-                  Activos
-                </button>
-                <button type="button" className={`chip${verTodos ? ' chip--on' : ''}`} onClick={() => setVerTodos(true)}>
-                  Todos ({data?.length ?? 0})
-                </button>
+              <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                <Segmentado
+                  opciones={
+                    [
+                      { valor: 'activos', etiqueta: 'Activos' },
+                      { valor: 'todos', etiqueta: 'Todos' },
+                    ] as const
+                  }
+                  valor={vista}
+                  onCambio={setVista}
+                />
               </div>
             )}
 
@@ -124,7 +145,7 @@ export function ListadoComerciales() {
                 {lista.map((c) => (
                   <FilaNavegable
                     key={c.id}
-                    icono="clientes"
+                    avatar={c.nombre}
                     titulo={c.nombre}
                     subtitulo={`${ETIQUETA_ROL[c.rol] ?? c.rol}${c.zona_cartera ? ` · ${c.zona_cartera}` : ''}`}
                     tono={c.activo ? 'neutral' : 'riesgo'}
@@ -145,11 +166,6 @@ export function ListadoComerciales() {
         )}
        </div>
       </div>
-
-      <button className="btn btn-primary" onClick={() => navigate('/comerciales/nuevo')}>
-        <Icono nombre="mas" size={18} />
-        Nuevo comercial
-      </button>
     </div>
   );
 }

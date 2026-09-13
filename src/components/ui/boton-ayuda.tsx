@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal } from './modal';
 import { Icono } from './iconos';
+import { Aviso } from './aviso';
 import { PANTALLAS, type PantallaAyudaId } from '@/lib/ayuda';
 
 interface Props {
@@ -30,16 +31,15 @@ export function BotonAyuda({ pantalla }: Props) {
       {abierto && (
         <Modal titulo={entrada.titulo} onCerrar={() => setAbierto(false)}>
           <div className="ayuda-modal">
-            <p>{entrada.queEs}</p>
-            <p className="ayuda-modal__bloque">
-              <span className="ayuda-modal__lb">Cuándo</span>
-              {entrada.cuando}
-            </p>
+            <p className="ayuda-respuesta">{entrada.queEs}</p>
+            <div className="ayuda-bloque">
+              <span className="ayuda-bloque__lb">Cuándo</span>
+              <p className="ayuda-bloque__texto">{entrada.cuando}</p>
+            </div>
             {entrada.ojo && (
-              <p className="ayuda-modal__bloque ayuda-modal__bloque--ojo">
-                <span className="ayuda-modal__lb">Ojo</span>
+              <Aviso tipo="atencion" titulo="Ojo">
                 {entrada.ojo}
-              </p>
+              </Aviso>
             )}
           </div>
         </Modal>

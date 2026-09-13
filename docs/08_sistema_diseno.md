@@ -11,7 +11,7 @@ está **implementado en código** y a lo que apuntan los comentarios de
 | Qué | Dónde | Regla |
 |---|---|---|
 | Colores, tipografía, espaciado, radios, alturas | `src/styles/tokens.css` (`:root`) | Cualquier cambio de marca se hace **solo aquí**. |
-| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `box-shadow`, sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. |
+| Clases de componentes base (`.btn`, `.card`, `.field`, `.chip`, filas…) | `src/styles/components.css` | Implementan los tokens. Sin `blur`, sin degradados, sin `opacity` sobre color salvo el estado deshabilitado. Sombra solo de elevación (`--shadow-card` / `--shadow-elevated`) — ver §"Elevación". |
 | Iconos | `src/components/ui/iconos.tsx` | Registro único. Las pantallas piden el icono por nombre; cambiar de set = editar ese archivo. |
 
 ## Prueba de usuario — requisito de toda pantalla
@@ -77,6 +77,17 @@ propaga a toda la app):
   palabra (daltónico). Neutro = todo lo demás.
 - **El ritmo agrupa.** `.grupo` (hueco `--space-2`) envuelve secciones
   relacionadas; `.lista-agrupada` (`--space-6`) separa grupos sin relación.
+- **Listas hermanas se distinguen por forma, no por color.** Cuando una
+  pantalla apila varias listas de la MISMA fila que significan cosas
+  distintas (hoy / futuro / hecho / atrasado; pendiente / vencido), cada
+  lista lleva **su icono** (forma) y el **atributo que la define va con
+  peso** — no tenue, no solo el color de un borde (el usuario es daltónico).
+  Vocabulario de iconos para el estado temporal de una visita: `hoy` **solo**
+  para lo de HOY, `agenda` para futuras/planificación, `check` para hechas,
+  `atencion` (+ tono `aviso`) para atrasadas. En "Hoy": las de la sección
+  "Próximas" llevan `agenda` y el día con peso; las de "Hoy", `hoy` y solo la
+  hora. El título de sección y el `.lista-agrupada` entre bloques hacen el
+  resto.
 - **Lo escaso no lleva tarjeta.** Un solo dato trivial suelto →
   `.dato-inline` (etiqueta + valor en una línea, sin caja). Una tarjeta
   entera para una fila se lee como un error.
@@ -90,6 +101,74 @@ propaga a toda la app):
   panel está abierto. Una pantalla puede tener **cero** primarios (listas
   de monitorización o de administración con una decisión por fila, p. ej.
   Consumo por comercial o Clientes duplicados): ahí no se fuerza uno.
+- **Acción destructiva (borrar / anular / dar de baja).** Un solo rojo en
+  toda la app: `--risk-600` (borgoña). `--danger-600` (rojo vivo) es
+  **solo** para errores de formulario y el semáforo rojo — nunca una
+  acción. El color casi no ayuda al usuario daltónico, así que el peso lo
+  llevan la palabra, la papelera y el paso de confirmación:
+    - **Disparador** = `FilaNavegable tono="riesgo" icono="borrar"
+      chevron={false}`, al fondo. NO un botón. (En un modal o formulario
+      en línea donde una fila no encaja: `.btn-secondary.btn-secondary--riesgo`,
+      borde borgoña, sin `style` en línea.)
+    - **Confirmación** = componente `<ConfirmacionBorrado>` (tarjeta
+      `card--riesgo` + botón `.btn-peligro` relleno borgoña). El aviso es
+      "No se puede deshacer." salvo que se pase `reversible` con el cómo
+      ("Podrás reactivarlo más tarde"). La diferencia reversible / no
+      reversible va SIEMPRE en palabras, nunca en un matiz de color.
+    - Nunca `style={{ color/borderColor/background: 'var(--risk-600)' }}`
+      en línea sobre un `.btn`: para eso están las clases.
+
+---
+
+## Elevación
+
+Desde el rediseño "gran empresa" (2026-09-11) la sombra tiene un trabajo
+real: decir qué superficie **flota** sobre el fondo gris (`--surface-0`).
+Antes la regla era "cero sombra en ningún sitio"; el problema que resolvía
+—nada decorativo "porque queda bien"— se mantiene, pero la prohibición
+total hacía que tarjeta, hoja y fondo se confundieran entre sí. Dos
+tokens, dos únicos niveles, nunca un valor de sombra suelto en un
+componente:
+
+- **`--shadow-card`** — superficies que reposan EN la pantalla: `.card`,
+  `.seccion-lista__grupo`, `.tarjeta-accion`, `.medidor`, `.bloque-ahora`,
+  `.dvc-bloque`, `.aviso`, `.barra-seleccion`. Sutil: separa del fondo sin
+  gritar.
+- **`--shadow-elevated`** — superficies que se abren ENCIMA de la
+  pantalla y tienen que despegarse más: `.modal-caja`, `.hoja-sup-caja`.
+- **Una fila individual (`.fila`) NUNCA lleva sombra propia.** Vive dentro
+  del grupo que ya la tiene (`.seccion-lista__grupo`); una sombra por fila
+  se leería como una pila de tarjetas sueltas, no como una lista.
+- **Un botón normal (`Guardar`, `Cancelar`, cualquier `.btn`) no lleva
+  sombra.** Va plano, relleno de color, parte del flujo de la pantalla —
+  no es una superficie flotante.
+- **Excepción histórica, sin cambios:** la pastilla activa de `Segmentado`
+  (`.segmentado__btn--on`, `box-shadow: 0 1px 2px rgba(0,0,0,0.12)`) sigue
+  con su sombra propia, más pequeña que `--shadow-card` — marca selección
+  dentro de una cápsula, no elevación de página.
+- Antes de añadir una sombra nueva en cualquier sitio: ¿es una de estas
+  dos superficies (tarjeta/grupo en pantalla, o panel que se abre encima)?
+  Si no, no se pone — y si lo es, se usa el token, nunca un valor propio.
+
+---
+
+## Movimiento
+
+Toda la app comparte una única duración/curva (`--motion-fast` 150ms para
+reacciones al tacto, `--motion-base` 220ms para algo que se desplaza o
+aparece, `--motion-ease` con deceleración tipo iOS) — ver `tokens.css`.
+Un componente nuevo con estado (fondo al pulsar, apertura, marcar un chip)
+usa estos tokens en su `transition`/`animation`, nunca una duración propia
+inventada. Todo movimiento respeta `prefers-reduced-motion` — hay una
+guarda global en `components.css` que no hace falta repetir componente a
+componente.
+
+- **Reacción al tacto** (`.btn`, `.fila`, `.chip`, `.chip-accion`,
+  `.boton-icono`, `.capture-btn`, `.marca-opcion`, `.segmentado__btn`):
+  transición de color/fondo/transform en `--motion-fast`.
+- **Entrada de Modal y HojaSuperior**: animación de aparición en
+  `--motion-base` (fundido + un pequeño desplazamiento/escala) al montar.
+  No hay animación de salida — se desmontan al instante, igual que antes.
 
 ---
 
@@ -488,6 +567,50 @@ semáforo con forma+palabra en Clientes) que la distinga de una fila neutral.
 </div>
 ```
 
+## Identidad de persona
+
+Una fila que representa a un COMERCIAL o un CLIENTE (nunca una
+visita/tarea/hallazgo) lleva `Avatar` (`src/components/ui/avatar.tsx`) en
+vez de un icono genérico: iniciales sobre un círculo de color por hash del
+nombre — determinista, nunca a mano ni aleatorio, así el mismo nombre cae
+siempre en el mismo tono en cualquier pantalla. Las iniciales (texto) son
+la segunda pista de accesibilidad sobre el color (§"Color y
+accesibilidad" de siempre) — el círculo nunca es la única señal.
+
+- **`FilaNavegable` / `FilaDato` / `FilaAccion`** aceptan `avatar={nombre}`
+  además de `icono`: si se pasan los dos, `icono` gana (es una señal de
+  estado real, p. ej. ⚠ "de baja" o "atención" — pesa más que la
+  identidad). `Avatar` ocupa la misma ranura que `.fila__icono`.
+- **`CabeceraDetalle`** acepta `avatar={nombre}` para la ficha de un
+  comercial o un cliente — un `Avatar` más grande (`size="md"`) junto al
+  título.
+- **Cuándo NO se usa**: filas cuyo sujeto es un evento (una visita, un
+  hallazgo, un próximo paso) — esas ya tienen su propio idioma de icono
+  (hoy/agenda/check/atención, tipo de captura…) y un avatar competiría con
+  esa señal. El nombre del cliente/comercial dentro de esas filas se queda
+  en texto, como hasta ahora.
+- Dos tamaños únicos: `sm` (28px, dentro de una fila) y `md` (40px, junto
+  a un título de cabecera). Ningún otro tamaño suelto.
+
+## Gráficos por comercial
+
+`GraficoBarras` (`src/components/ui/grafico-barras.tsx`) — barras
+horizontales sin librería externa (mismo lenguaje que `.medidor__barra`,
+ya usado en Mi espacio): una fila por comercial, etiqueta con su `Avatar`
+a la izquierda, barra proporcional al valor, cifra exacta siempre en texto
+a la derecha — el color nunca es la única forma de leer el dato. Cada
+barra lleva su etiqueta al lado, así que no hace falta una leyenda aparte.
+
+- **Color de la barra**: o bien `colorAvatarDe(nombre)` (mismo tono que
+  el `Avatar` de esa persona — identidad, para un ranking sin más
+  significado que "quién es quién"), o un tono de estado
+  (`var(--risk-600)`/`var(--warning-600)`/`var(--brand-600)`) cuando el
+  valor SÍ tiene un umbral real (p. ej. % de cuota de espacio). No se
+  mezclan los dos criterios en el mismo gráfico.
+- Usado hoy en "Actividad por comercial" (visitas, color por persona) y
+  "Consumo por comercial" (MB, color por umbral de cuota) — pantalla Yo →
+  Gestión, la que mira Dirección.
+
 ## Iconos — cuándo sí y cuándo no
 
 Una sola regla para toda la app: el icono depende de **qué hace** el
@@ -563,6 +686,33 @@ Reglas:
 - El contenido interno usa los componentes normales (`.field`, `.btn`,
   `.chip`, `SeccionLista`…). `Modal` solo pone el marco y la cabecera.
 
+## Hojas
+
+Panel que se abre SOBRE una pantalla sin cambiar de ruta (elegir cliente,
+capturar un hallazgo/nota/foto, reportar un problema…). **Un solo
+componente: `HojaSuperior`** (`src/components/ui/hoja-superior.tsx`).
+
+**Toda hoja baja desde ARRIBA, nunca desde abajo.** La `HojaInferior`
+(bottom sheet) existió y se eliminó — no queda opción de equivocarse en una
+pantalla nueva. Regla de Cesar, repetida varias veces: un panel anclado
+abajo deja el contenido/los menús por debajo, obliga a mirar hacia abajo y
+rompe la coherencia con el resto de la app, que trabaja de arriba abajo.
+
+```tsx
+<HojaSuperior titulo="hallazgo" onCerrar={cerrar} derecha={<botón opcional>}>
+  …contenido…
+</HojaSuperior>
+```
+
+- Baja desde el borde superior, con cabecera propia (`titulo` + `derecha?` +
+  ×). Detrás, el fondo gris de la app; el panel blanco solo ocupa su
+  contenido. Cierre: × / `Esc` / tocar fuera.
+- ¿Hoja o pantalla propia? Si es una acción rápida desde otra pantalla y
+  vuelves a ella al terminar → hoja. Si es un destino con su propia URL →
+  pantalla.
+- ¿Hoja o `Modal`? `Modal` para un diálogo corto centrado (confirmar,
+  avisar). `HojaSuperior` para un formulario o una lista.
+
 ## Cabeceras
 
 Dos componentes, uno por nivel:
@@ -596,8 +746,8 @@ Tres superficies, todas leen de ese fichero (no tienen texto propio):
 | Superficie | Componente | De dónde sale |
 |---|---|---|
 | "?" en la cabecera | `BotonAyuda` (lo montan `CabeceraSeccion` / `CabeceraDetalle` con la prop `ayuda`) → abre `Modal` | una entrada de `PANTALLAS` |
-| Nota gris al pie de un campo | `<AyudaNota concepto="…" />` — `--text-xs` / `--ink-400`, una frase | el `queEs` de un `CONCEPTOS` |
-| Manual completo `/ayuda` ("Cómo funciona PrimeNotes", fila en Yo) | `AyudaManual` — recorre los dos mapas, agrupa, busca, filtra por rol | ambos mapas |
+| Nota gris al pie de un campo | `<AyudaNota concepto="…" />` — plegada por defecto (línea "ⓘ Qué es «…»" tocable); al abrirla muestra el texto en `--text-xs` / `--ink-400` | el `queEs` de un `CONCEPTOS` |
+| Manual completo `/ayuda` ("Cómo funciona PrimeNotes", fila en Yo) | `AyudaManual` — índice plegable (todos los títulos de un vistazo; se toca uno y se despliega), cabecera y buscador fijos, cuerpo con scroll propio; recorre los dos mapas, agrupa, busca, filtra por rol | ambos mapas |
 
 Reglas:
 
@@ -660,3 +810,24 @@ de pantalla (avisos, errores, confirmaciones). Sustituye a los
 - `role="alert"` para `error`, `role="status"` para el resto.
 - Para el error corto pegado a un campo de formulario se sigue usando
   `.field-error-text` (no un `Aviso` con caja).
+
+## Momento de marca
+
+Un producto se siente diseñado, no ensamblado, cuando tiene UN detalle
+pequeño y memorable — no veinte. La app tiene exactamente uno:
+`.cierre-exito` (`src/features/visita/cierre-visita.tsx`), el resumen que
+se ve al cerrar una visita con éxito. Círculo verde sólido + `check` +
+"Visita cerrada" con una animación de entrada (`cierre-exito-pop`,
+480ms) — respeta `prefers-reduced-motion` como todo el resto de la app.
+
+- **Por qué esta pantalla y no otra**: es el único punto de toda la app
+  donde se cierra el trabajo de una visita entera — el pago de todo lo
+  capturado durante la visita, no un guardado más.
+- **No es un patrón a reutilizar.** El resto de confirmaciones "hecho" de
+  la app siguen siendo un `Aviso tipo="exito"` normal, sin animación
+  propia. Copiar esta caja a otro "guardado con éxito" banalizaría el
+  único momento que la tiene — si hace falta otro en el futuro, se decide
+  con Cesar antes de añadirlo, no por costumbre.
+- Círculo + icono + palabra: el color nunca es la única pista
+  (accesibilidad, daltónico), igual que en cualquier otro sitio de la
+  app.

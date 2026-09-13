@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './mapa-fotos.css';
 import { enlaceMapa } from '@/lib/geo';
+import { plural } from '@/lib/texto';
 
 // Mapa con un pin por foto geolocalizada (captura_libre.latitud/longitud).
 // Teselas de OpenStreetMap; el Service Worker las cachea al verlas (ver
@@ -75,5 +76,7 @@ export function MapaFotos({ fotos }: { fotos: FotoSituada[] }) {
   }, [fotos]);
 
   if (fotos.length === 0) return null;
-  return <div ref={contRef} className="mapa-fotos" role="img" aria-label={`Mapa con ${fotos.length} foto(s)`} />;
+  return (
+    <div ref={contRef} className="mapa-fotos" role="img" aria-label={`Mapa con ${plural(fotos.length, 'foto', 'fotos')}`} />
+  );
 }

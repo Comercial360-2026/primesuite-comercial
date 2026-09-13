@@ -1,9 +1,12 @@
 /*
-  Design System v1 — PrimeSuite Comercial
+  Design System v1 — PrimeNotes
   Fuente única de verdad de todos los valores visuales.
   Ver 08_sistema_diseno.md — cualquier cambio de marca se hace SOLO aquí.
-  Regla no negociable: sin box-shadow, sin blur, sin degradados,
-  sin opacity sobre color salvo el estado deshabilitado ya definido.
+  Regla no negociable: sin blur, sin degradados, sin opacity sobre color
+  salvo el estado deshabilitado ya definido. La sombra SÍ tiene un uso
+  real desde el rediseño "gran empresa" (2026-09-11): marca elevación —
+  qué superficie flota sobre el fondo gris — nunca decoración porque
+  "queda bien". Ver 08_sistema_diseno.md §"Elevación".
 */
 
 :root {
@@ -24,19 +27,50 @@
   /* Acento funcional — Oportunidad */
   --signal-600: #EF4136;
 
-  /* Semántica de naturaleza de Hallazgo */
-  --risk-600: #6E2430;       /* Riesgo — borgoña, separado de Oportunidad */
-  --purple-600: #6E4C9E;     /* Competencia */
+  /* Identidad de tipo — Foto / Audio / Hallazgo / Próximo paso (Visita
+     activa: botones de captura + filas de "En esta visita"). Cada tipo YA
+     se distingue por su icono (forma); esto es la segunda mitad del par
+     forma+color que pide 08_sistema_diseno.md "Color y accesibilidad" —
+     el color nunca va solo, nunca sustituye al icono. Tiñe SOLO el icono
+     (nunca el texto de la fila: un texto de color se lee como alarma).
+     Nota no lleva tono propio — es la acción "por defecto" sin marcar
+     nada; Oportunidad reutiliza --signal-600, ya reservado para ella. */
+  --tipo-foto: #2F7B6B;
+  --tipo-audio: #4A5FA5;
+  --tipo-hallazgo: #9C5B3C;
+  --tipo-paso: #6B4FA0;
+
+  /* Identidad de PERSONA — fondo del `Avatar` de un comercial o cliente
+     (iniciales en blanco encima). Color por hash del nombre (determinista,
+     no aleatorio — el mismo nombre siempre cae en el mismo tono), NUNCA
+     asignado a mano. No son colores de estado: no se leen en ninguna otra
+     parte de la app, así que no compiten con semáforo/tipo/riesgo. Las
+     iniciales (texto) son la segunda pista sobre el color — regla de
+     accesibilidad de siempre, ver "Color y accesibilidad". 8 tonos, cada
+     uno con contraste suficiente para texto blanco encima. */
+  --avatar-1: #4A5578;
+  --avatar-2: #3E7CA6;
+  --avatar-3: #4F8F6B;
+  --avatar-4: #A6763E;
+  --avatar-5: #8B5A8F;
+  --avatar-6: #5A8296;
+  --avatar-7: #B0555F;
+  --avatar-8: #6B6F8C;
+
+  /* ÚNICO rojo de "acción destructiva" en toda la app (borrar / anular /
+     dar de baja). Ver 08_sistema_diseno.md §"Botones". */
+  --risk-600: #6E2430;       /* borgoña, separado de Oportunidad */
+  --risk-700: #57121C;       /* pulsado (:active de .btn-peligro) */
   --success-600: #3A7D4F;    /* Fortaleza / semáforo verde */
   --warning-600: #A87A12;    /* Semáforo amarillo */
-  --danger-600: #B23A3A;     /* Errores de formulario / semáforo rojo */
+  --danger-600: #B23A3A;     /* SOLO errores de formulario y semáforo rojo — nunca acciones destructivas */
 
   /* Fondos suaves de estado — para etiquetas de estado (semáforo) que se
      leen como estado y no como botón. Planos, sin degradado. */
   --success-050: #E7F1EB;
   --warning-050: #F5EFE0;
   --danger-050: #F6E9E9;
-  --signal-050: #FCEAE9;     /* tinte suave de Oportunidad — etiquetas de Ecosistema */
+  --signal-050: #FCEAE9;     /* tinte suave de Oportunidad */
   --ink-500: #5A6270;        /* cabeceras de sección con algo de peso */
 
   /* Ancho máximo de la app — en escritorio queda como una columna de móvil
@@ -74,6 +108,26 @@
   --h-bignav: 56px;
   --h-capture-button: 64px;
 
+  /* Elevación — qué superficie flota sobre el fondo gris (--surface-0).
+     Dos niveles, nunca más: "card" para lo que reposa en la pantalla
+     (tarjeta, grupo de filas, medidor…) y "elevated" para lo que se abre
+     ENCIMA de la pantalla (Modal, HojaSuperior) y necesita despegarse más.
+     Una fila individual NUNCA lleva sombra propia — vive dentro del grupo
+     que ya la tiene. Ver 08_sistema_diseno.md §"Elevación". */
+  --shadow-card: 0 1px 2px rgba(22, 26, 30, 0.06), 0 1px 1px rgba(22, 26, 30, 0.04);
+  --shadow-elevated: 0 12px 28px rgba(22, 26, 30, 0.16), 0 4px 10px rgba(22, 26, 30, 0.08);
+
+  /* Movimiento — duración/curva únicas para toda la app (cambios de fondo
+     al tocar, apertura de hoja/modal, un chip que se marca). "fast" para
+     reacciones al tacto (botón, fila, chip); "base" para algo que se
+     desplaza (hoja que baja, modal que aparece). Curva de deceleración
+     (empieza rápido, frena) — la misma sensación en iOS/Android/web. Toda
+     animación respeta `prefers-reduced-motion` (ver `.rec-dot` como
+     ejemplo ya existente). */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
   /* Filas — sistema de listas agrupadas (SeccionLista + FilaNavegable /
      FilaDato / FilaAccion).
      Todo el aspecto de las filas de toda la app se controla desde aquí:
@@ -83,7 +137,7 @@
   --fila-min-h: 52px;                       /* alto táctil mínimo de una fila */
   --fila-pad-x: var(--space-4);             /* 16px — margen lateral del contenido */
   --fila-pad-y: var(--space-3);             /* 12px — aire arriba/abajo cuando hay subtítulo */
-  --fila-separador: 1px solid var(--ink-100); /* línea fina entre filas de una sección */
+  --fila-separador: 1px solid var(--ink-200); /* línea entre filas de una sección — ink-200, no ink-100: con ink-100 (#E8EAED sobre blanco) el contraste es tan bajo que en móvil real no se ve */
   --fila-activa-bg: var(--surface-0);       /* fondo al pulsar / al pasar el ratón */
   --fila-icono: var(--ink-400);             /* color del icono de la izquierda */
   --fila-chevron: var(--ink-200);           /* color de la flecha ">" de la derecha */
@@ -103,6 +157,6 @@
      color: solo tiñe texto e icono, coherente con la regla "sin degradados,
      sin opacity sobre color". neutral = sin tono. */
   --fila-tono-aviso: var(--warning-600);
-  --fila-tono-riesgo: var(--danger-600);
+  --fila-tono-riesgo: var(--risk-600); /* acción destructiva = borgoña, no el rojo de error */
   --fila-tono-ok: var(--success-600);
 }

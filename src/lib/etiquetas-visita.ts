@@ -1,33 +1,13 @@
-// Etiquetas legibles de los enums de texto libre de una visita (naturaleza
-// de hallazgo, etapa y prioridad de oportunidad, tipo de visita). Un solo
-// sitio en la app — la Edge Function del informe tiene su propia copia
+// Etiquetas legibles de los enums de texto libre de una visita (etapa y
+// prioridad de oportunidad, tipo de visita, tipo de fecha relevante). Un
+// solo sitio en la app — la Edge Function del informe tiene su propia copia
 // (runtime distinto, no puede importar de src/), pero deben coincidir.
 
-export const NATURALEZA_ORDEN = [
-  'riesgo',
-  'proyecto_activo',
-  'competencia',
-  'oportunidad',
-  'fortaleza',
-  'contexto',
-] as const;
-
-export const NATURALEZA_LABEL: Record<string, string> = {
-  riesgo: 'Riesgo',
-  proyecto_activo: 'Proyecto activo',
-  competencia: 'Competencia',
-  oportunidad: 'Señal de oportunidad',
-  fortaleza: 'Fortaleza',
-  contexto: 'Contexto',
-};
-
 export const ETAPA_LABEL: Record<string, string> = {
-  latente: 'Latente',
-  cualificada: 'Cualificada',
+  latente: 'Idea',
+  cualificada: 'Interés',
   en_propuesta: 'En propuesta',
-  ganada: 'Ganada',
-  perdida: 'Perdida',
-  descartada: 'Descartada',
+  cerrada: 'Cerrada',
 };
 
 export const PRIORIDAD_LABEL: Record<string, string> = {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes } from '@/lib/fechas';
@@ -9,6 +10,8 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Segmentado } from '@/components/ui/segmentado';
+import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
 
 interface ClienteConSemaforo {
@@ -23,16 +26,38 @@ interface ClienteConSemaforo {
 // para "verde/amarillo/rojo", coherente con el resto del proyecto.
 export function ListadoClientes() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
-  // Decisión de producto (29/8/2026): un comercial normal ve siempre solo
-  // lo suyo, sin posibilidad de cambiarlo — el interruptor "Todos" es
-  // exclusivo de Dirección Comercial. No es una restricción de permisos
-  // (a nivel de base de datos sigue siendo visible para todos, igual que
-  // siempre), es una decisión de qué mostrar en esta pantalla en concreto.
+  const buscador = useBuscador(!!busqueda);
+  // Decisión de producto (29/8/2026, ajustada 2026-09-05): un comercial
+  // normal ve por defecto solo su cartera — el interruptor "Todos" es
+  // exclusivo de Dirección. PERO al escribir en el buscador cualquiera
+  // encuentra cualquier cliente (cubrir a un compañero, no crear
+  // duplicados). No es una restricción de permisos (la BD lo permite a
+  // todos), es qué se muestra por defecto en esta pantalla.
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  const [soloMiosElegido, setSoloMios] = useState(true);
-  const soloMios = esDireccionComercial ? soloMiosElegido : true;
+  // Filtro en la URL (?vista=todos), no solo en memoria: si viviera en un
+  // useState a secas, volver desde la ficha de un cliente remonta esta
+  // pantalla y el filtro nace siempre en "mios" — igual que ya se
+  // resolvió en mi-espacio.tsx (?vista=equipo), aquí faltaba aplicarlo.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [vistaDireccion, setVistaDireccionState] = useState<'mios' | 'todos'>(
+    esDireccionComercial && searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
+  );
+  // El rol puede resolverse después del primer render (arranque en frío):
+  // si venías con ?vista=todos, respétalo en cuanto sepamos que sí diriges.
+  useEffect(() => {
+    if (esDireccionComercial && searchParams.get('vista') === 'todos') setVistaDireccionState('todos');
+    else if (!esDireccionComercial) setVistaDireccionState('mios');
+  }, [esDireccionComercial, searchParams]);
+
+  function cambiarVistaDireccion(v: 'mios' | 'todos') {
+    setVistaDireccionState(v);
+    setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
+  }
+
+  const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
   const queryClient = useQueryClient();
 
   const queryKey = ['listado-clientes', busqueda];
@@ -96,8 +121,14 @@ export function ListadoClientes() {
     },
   });
 
+  // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
+  // compañero, comprobar antes de dar de alta un duplicado) — un buscador
+  // que esconde coincidencias confunde. Sin búsqueda, un comercial normal
+  // ve solo su cartera y Dirección respeta su interruptor "Solo míos".
+  const buscando = !!busqueda.trim();
+  const restringirACartera = soloMios && !buscando;
   const clientesFiltrados = clientes?.filter(
-    (c) => !soloMios || meta?.[c.cliente_id]?.responsable_id === comercial?.id
+    (c) => !restringirACartera || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );
 
   const sinConexion = isPaused && clientes === undefined;
@@ -112,32 +143,54 @@ export function ListadoClientes() {
 
   return (
     <div className="screen screen--split">
-      <CabeceraSeccion titulo="Clientes" icono="clientes" ayuda="clientes" />
-
-      <input
-        className="field"
-        placeholder="buscar cliente…"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
+      <CabeceraSeccion
+        titulo="Clientes"
+        icono="clientes"
+        ayuda="clientes"
+        derecha={
+          <>
+            {!buscador.abierto && <BotonBuscar etiqueta="buscar cliente…" onClick={buscador.abrir} />}
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Nuevo cliente"
+              title="Nuevo cliente"
+              onClick={() => navigate('/clientes/nuevo')}
+            >
+              <Icono nombre="mas" size={18} />
+            </button>
+          </>
+        }
       />
 
+      {buscador.abierto && (
+        <CampoBuscar
+          value={busqueda}
+          onChange={setBusqueda}
+          placeholder="buscar cliente…"
+          onCerrar={() => {
+            setBusqueda('');
+            buscador.cerrar();
+          }}
+        />
+      )}
+
       {esDireccionComercial && (
-        <div style={{ display: 'flex', gap: 6 }}>
-          {/* El seleccionado por defecto (Solo míos) va primero. */}
-          <button
-            type="button"
-            className={`chip${soloMios ? ' chip--on' : ''}`}
-            onClick={() => setSoloMios(true)}
-          >
-            Solo míos
-          </button>
-          <button
-            type="button"
-            className={`chip${!soloMios ? ' chip--on' : ''}`}
-            onClick={() => setSoloMios(false)}
-          >
-            Todos
-          </button>
+        <Segmentado
+          opciones={
+            [
+              { valor: 'mios', etiqueta: 'Solo míos' },
+              { valor: 'todos', etiqueta: 'Todos' },
+            ] as const
+          }
+          valor={vistaDireccion}
+          onCambio={cambiarVistaDireccion}
+        />
+      )}
+
+      {!!clientesFiltrados?.length && (
+        <div className="contador">
+          {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'}
         </div>
       )}
 
@@ -169,7 +222,7 @@ export function ListadoClientes() {
               const subtitulo =
                 [
                   // En "Todos" (Dirección): quién lleva la cuenta, o el aviso.
-                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : '⚠ Sin responsable') : null,
+                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : 'Sin responsable') : null,
                   heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
                   c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
                 ]
@@ -178,6 +231,7 @@ export function ListadoClientes() {
               return (
                 <FilaNavegable
                   key={c.cliente_id}
+                  avatar={c.cliente_nombre}
                   titulo={
                     heredado ? (
                       <>
@@ -193,6 +247,7 @@ export function ListadoClientes() {
                   tono={sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
                   valor={<EtiquetaSemaforo valor={c.semaforo} />}
                   to={`/clientes/${c.cliente_id}`}
+                  state={desde(location)}
                 />
               );
             })}
@@ -201,14 +256,18 @@ export function ListadoClientes() {
       )}
 
       {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
-        <EstadoLista estado="vacio" mensaje="Sin resultados." />
+        <EstadoLista
+          estado="vacio"
+          mensaje={
+            buscando
+              ? 'Sin resultados.'
+              : restringirACartera
+                ? 'Todavía no tienes clientes en tu cartera. Crea uno con «+», o usa el buscador para encontrar cualquier cliente.'
+                : 'No hay clientes.'
+          }
+        />
       )}
       </div>
-
-      <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
-        <Icono nombre="mas" size={18} />
-        Nuevo cliente
-      </button>
     </div>
   );
 }

@@ -1,19 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
-import { obtenerOperacionesConError } from '@/lib/offline-queue';
+import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
+import { esSinRed } from '@/lib/red';
+import { fechaCorta } from '@/lib/fechas';
+import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { useTourGuiado } from '@/hooks/use-tour-guiado';
+import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
+import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
-import { FilaDato } from '@/components/ui/fila-dato';
+import { FilaAccion } from '@/components/ui/fila-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
-import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
+import { Avatar } from '@/components/ui/avatar';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { Aviso } from '@/components/ui/aviso';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { Icono } from '@/components/ui/iconos';
+import { TourGuiado } from '@/components/ui/tour-guiado';
+import { TOUR_DIRECCION } from '@/lib/ayuda';
 
 const DIAS_AVISO_BACKUP = 7;
 
@@ -33,7 +45,7 @@ const TABLAS_BACKUP = [
   'captura_libre',
   'oportunidad',
   'oportunidad_visita_seguimiento',
-  'oportunidad_termino',
+  'oportunidad_area',
   'proximo_paso',
   'termino',
   'ubicacion',
@@ -53,16 +65,20 @@ const ETIQUETA_ROL: Record<string, string> = {
 // Distribución por intención (ver 08_sistema_diseno.md §"Sistema de filas"):
 //   · cabecera de identidad (nombre + rol), sin sección
 //   · aviso rojo "N sin sincronizar" si lo hay — destaca, no es una fila
-//   · "Tu espacio": Mi espacio (con lo que ocupan tus visitas como dato)
-//   · "Salud del equipo" (solo dir. comercial): el % del pozo del equipo
-//     como dato de fila, Consumo por comercial, y la copia de seguridad
-//     (TarjetaAccion — lleva barra de antigüedad y su propio botón)
+//   · "Tu espacio" (solo comercial normal): Mi espacio, con lo que ocupan
+//     tus visitas como dato
+//   · "El equipo" (solo dir. comercial): una única fila "Almacenamiento"
+//     — lleva a "Mi espacio", que por dentro ya trae el segmentado "Mis
+//     visitas / Por comercial"; el % del pozo del equipo va como valor de
+//     esa fila. Debajo, Actividad por comercial y la copia de seguridad
+//     (TarjetaAccion — lleva barra de antigüedad y su propio botón).
 //   · "Gestión" (solo dir. comercial): accesos de administración
 //   · SeccionLista suelta: Cerrar sesión (fila roja, al final)
 //
-// El % del equipo salía además como una TarjetaAccion aparte ("Espacio de
-// almacenamiento") con el mismo dato que el medidor de dentro de "Mi
-// espacio" — repetido. Ahora es una sola fila de dato.
+// Para Dirección esto eran antes tres filas de espacio en dos secciones
+// ("Mi espacio" en "Tu espacio"; la FilaDato "Espacio del equipo" y
+// "Consumo por comercial" en "El equipo"), y dos de ellas abrían la misma
+// pantalla. Ahora es una sola fila.
 export function Yo() {
   const { comercial } = useSesionActual();
   const { cerrarVisita } = useVisitaActivaContext();
@@ -72,12 +88,43 @@ export function Yo() {
   const [error, setError] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
+  const [reportando, setReportando] = useState(false);
+
+  const { invitaciones, rechazos, expulsiones, aceptar, rechazar, marcarRechazoVisto, marcarExpulsionVista } =
+    useAvisosParticipacion();
+  const [procesandoAviso, setProcesandoAviso] = useState<string | null>(null);
+  const [errorAviso, setErrorAviso] = useState<string | null>(null);
+
+  async function resolverAviso(id: string, accion: () => Promise<void>) {
+    setProcesandoAviso(id);
+    setErrorAviso(null);
+    try {
+      await accion();
+    } catch (err) {
+      setErrorAviso(
+        esSinRed(err) ? 'Sin conexión. Inténtalo cuando tengas red.' : 'No se pudo guardar. Inténtalo de nuevo.'
+      );
+    } finally {
+      setProcesandoAviso(null);
+    }
+  }
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
 
+  // Paso extra del tour, solo Dirección — señala "El equipo" la primera vez
+  // que entra aquí. Tour de bienvenida (las 4 pestañas) vive en LayoutShell;
+  // "Ver guía rápida" más abajo relanza los dos.
+  const tourDireccion = useTourGuiado(
+    'direccion',
+    esDireccionComercial ? comercial?.id : undefined,
+    TOUR_DIRECCION
+  );
+  const tourNavControl = useTourNavegacionControl();
+
   const { data: numSolicitudesPendientes } = useQuery({
     queryKey: ['num-solicitudes-reasignacion-pendientes'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { count, error: err } = await supabase
@@ -93,6 +140,7 @@ export function Yo() {
   // esperan que Dirección les reenvíe el enlace.
   const { data: numPeticionesAcceso } = useQuery({
     queryKey: ['num-solicitudes-acceso'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { count, error: err } = await supabase
@@ -108,8 +156,19 @@ export function Yo() {
   // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
   // fila — que Dirección Comercial vea que hay algo que revisar sin tener
   // que entrar.
+  //
+  // Se deja sin llevar a SQL (13 sept, barrido de patrón "trae la tabla
+  // entera y filtra en JS" junto con deduplicacion.tsx/cola-vocabulario.tsx):
+  // `claveDuplicado` (nombres-cliente.ts) normaliza a propósito en JS, sin
+  // `unaccent` en la base de datos — duplicar esa lógica en SQL arriesga que
+  // las dos copias diverjan en silencio y la pantalla de fusión (acción
+  // irreversible) decida "duplicado" con un criterio distinto al que ve
+  // Dirección Comercial aquí. Menor impacto que los otros dos: solo 2
+  // columnas de `cliente` (crece mucho más despacio que visita/hallazgo), y
+  // solo para el rol Dirección Comercial.
   const { data: numGruposDuplicados } = useQuery({
     queryKey: ['num-grupos-duplicados'],
+    refetchOnMount: 'always',
     enabled: esDireccionComercial,
     queryFn: async () => {
       const { data, error: err } = await supabase.from('cliente').select('nombre, estado_fusion');
@@ -124,17 +183,92 @@ export function Yo() {
     },
   });
 
+  // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
+  // visitas de equipo), no en una pantalla aparte.
+  const { data: reportesPendientes } = useQuery({
+    queryKey: ['reportes-problema-pendientes'],
+    refetchOnMount: 'always',
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('reporte_problema')
+        .select('id, texto, creado_en, contexto, comercial:comercial_id(nombre)')
+        .is('resuelto_en', null)
+        .order('creado_en', { ascending: false });
+      if (err) throw err;
+      return data ?? [];
+    },
+  });
+
+  async function marcarReporteVisto(id: string) {
+    await conReintentoDeSesion(
+      () =>
+        supabase
+          .from('reporte_problema')
+          .update({ resuelto_en: new Date().toISOString(), resuelto_por: comercial!.id }, { count: 'exact' })
+          .eq('id', id),
+      'No se ha podido marcar como visto (0 filas afectadas).'
+    );
+    queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
+  }
+
   // Visible para cualquier comercial, no solo Dirección Comercial: es la
   // cola local de SU PROPIO dispositivo, no un dato compartido. Antes, un
   // fallo permanente (5 intentos agotados, o heredado de un padre que
   // falló) era invisible salvo mirando IndexedDB con herramientas de
   // desarrollador — ninguna pantalla lo mostraba nunca.
-  const { data: operacionesConError, refetch: refetchErrores } = useQuery({
+  const { data: operacionesConError } = useQuery({
     queryKey: ['operaciones-con-error'],
     refetchOnMount: 'always',
     refetchInterval: 60_000,
     queryFn: obtenerOperacionesConError,
   });
+
+  // El motor de sincronización avisa al terminar cada pasada; también al
+  // recuperar conexión. Así "N sin sincronizar" se actualiza al instante en
+  // cuanto algo sube, sin esperar al intervalo de 60 s.
+  useEffect(() => {
+    const refrescar = () =>
+      queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+    window.addEventListener(EVENTO_COLA_PROCESADA, refrescar);
+    window.addEventListener('online', refrescar);
+    return () => {
+      window.removeEventListener(EVENTO_COLA_PROCESADA, refrescar);
+      window.removeEventListener('online', refrescar);
+    };
+  }, [queryClient]);
+
+  // "N sin sincronizar" son operaciones que YA agotaron sus 5 reintentos —
+  // no es un problema de conexión (el motor las reintenta solas cada 60s o
+  // al reconectar y sigue fallando), así que el mensaje no puede decir "se
+  // sube solo en cuanto haya conexión": eso no explica nada y confunde
+  // (Cesar lo reportó: "por qué aparece si tengo conexión"). Cada una
+  // enseña su `ultimoError` real y deja reintentar ya mismo o descartarla.
+  const [reintentandoCola, setReintentandoCola] = useState(false);
+  const [descartandoOpId, setDescartandoOpId] = useState<string | null>(null);
+  const [errorDescarte, setErrorDescarte] = useState<string | null>(null);
+
+  async function reintentarAhora() {
+    setReintentandoCola(true);
+    // El motor automático (60s/online/arranque) ya NO reintenta solo lo que
+    // está en 'error' — solo esta acción explícita lo hace (ver
+    // obtenerPendientes en db.ts).
+    await procesarCola({ incluirErrores: true });
+    queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+    setReintentandoCola(false);
+  }
+
+  async function descartarOperacion(id: string) {
+    setErrorDescarte(null);
+    try {
+      await eliminarOperacion(id);
+    } catch (err) {
+      setErrorDescarte(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    setDescartandoOpId(null);
+    queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
+  }
 
   const ETIQUETA_ENTIDAD: Record<string, string> = {
     visita: 'visita',
@@ -165,12 +299,14 @@ export function Yo() {
     ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
-  // Barra de "antigüedad" de la copia: 0 recién hecha, 100 al llegar al
-  // umbral de aviso (o si nunca se ha hecho una).
-  const backupBarra =
-    diasDesdeBackup === null ? 100 : Math.min(diasDesdeBackup / DIAS_AVISO_BACKUP, 1) * 100;
 
   async function hacerCopiaCompleta() {
+    // Sin red, cada select de abajo devolvería error y se bajaría un JSON
+    // lleno de "Failed to fetch" que no vale para nada. Mejor no empezar.
+    if (!navigator.onLine) {
+      setErrorExportacion('Sin conexión. La copia necesita internet para leer todos tus datos.');
+      return;
+    }
     setExportando(true);
     setErrorExportacion(null);
     try {
@@ -181,6 +317,15 @@ export function Yo() {
         // fallo dentro del propio backup en vez de abortar todo el
         // proceso — mejor una copia con un hueco señalado que ninguna.
         resultado[tabla] = err ? { error: err.message } : data;
+      }
+
+      // Pero si NINGUNA tabla se pudo leer (típico: la conexión se cayó a
+      // mitad), no se descarga una copia vacía — se avisa y punto.
+      const todasFallaron = Object.values(resultado).every(
+        (v) => v != null && typeof v === 'object' && 'error' in v
+      );
+      if (todasFallaron) {
+        throw new Error(navigator.onLine ? 'No se pudo leer ninguna tabla.' : 'Failed to fetch');
       }
 
       const fecha = new Date().toISOString().slice(0, 10);
@@ -204,7 +349,11 @@ export function Yo() {
       queryClient.invalidateQueries({ queryKey: ['ultimo-backup-completo'] });
     } catch (err) {
       setErrorExportacion(
-        err instanceof Error ? `No se pudo completar la copia: ${err.message}` : 'No se pudo completar la copia.'
+        esSinRed(err)
+          ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
+          : err instanceof Error
+            ? `No se pudo completar la copia: ${err.message}`
+            : 'No se pudo completar la copia.'
       );
     } finally {
       setExportando(false);
@@ -250,102 +399,270 @@ export function Yo() {
       <CabeceraSeccion titulo="Yo" icono="yo" ayuda="yo" />
 
       <div className="lista-agrupada">
-        <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
-          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500 }}>{comercial?.nombre ?? '—'}</div>
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 2 }}>{etiquetaRol}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingInline: 'var(--fila-pad-x)' }}>
+          {comercial?.nombre && <Avatar nombre={comercial.nombre} size="md" />}
+          <div>
+            <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700, letterSpacing: '-0.008em' }}>{comercial?.nombre ?? '—'}</div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', marginTop: 2 }}>{etiquetaRol}</div>
+          </div>
         </div>
 
         {numErrores > 0 && (
-          <div className="card card--riesgo">
-            <div className="label" style={{ marginTop: 0, color: 'var(--risk-600)' }}>
-              {numErrores} elemento{numErrores > 1 ? 's' : ''} sin sincronizar
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Aviso tipo="error" titulo={`${numErrores} elemento${numErrores > 1 ? 's' : ''} sin sincronizar`}>
+              No se han podido guardar en el servidor tras varios intentos — el motivo va debajo de cada uno, no siempre es falta de conexión.
+            </Aviso>
+
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {operacionesConError!.map((op, i) => (
+                <div
+                  key={op.id}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                    padding: '10px 0', borderTop: i === 0 ? undefined : '1px solid var(--ink-100)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+                        {ETIQUETA_ENTIDAD[op.entidad] ?? op.entidad}
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                        {op.ultimoError ?? 'Sin detalle del error.'}
+                        {' · '}{op.intentos} intento{op.intentos === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="boton-icono"
+                      aria-label="Descartar"
+                      title="Descartar"
+                      onClick={() => { setErrorDescarte(null); setDescartandoOpId(op.id); }}
+                    >
+                      <Icono nombre="borrar" size={18} />
+                    </button>
+                  </div>
+                  {descartandoOpId === op.id && (
+                    <ConfirmacionBorrado
+                      onCancelar={() => setDescartandoOpId(null)}
+                      onConfirmar={() => descartarOperacion(op.id)}
+                      error={errorDescarte}
+                      confirmar="Sí, descartar"
+                      reversible="No podrás recuperarlo: descarta este cambio guardado sin subir, no lo reintenta más."
+                    >
+                      Vas a descartar este {ETIQUETA_ENTIDAD[op.entidad] ?? op.entidad}.
+                    </ConfirmacionBorrado>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ marginTop: 8 }}
+                disabled={reintentandoCola}
+                onClick={reintentarAhora}
+              >
+                {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
+              </button>
             </div>
-            <div style={{ fontSize: 'var(--text-sm)' }}>
-              {Object.entries(
-                operacionesConError!.reduce<Record<string, number>>((acc, op) => {
-                  acc[op.entidad] = (acc[op.entidad] ?? 0) + 1;
-                  return acc;
-                }, {})
-              )
-                .map(([entidad, n]) => `${n} ${ETIQUETA_ENTIDAD[entidad] ?? entidad}${n > 1 ? '(s)' : ''}`)
-                .join(', ')}
-            </div>
+
             <AyudaNota concepto="sincronizacion" />
-            <button
-              className="btn btn-secondary"
-              style={{ marginTop: 8, width: 'auto', padding: '0 16px' }}
-              onClick={() => refetchErrores()}
-            >
-              Comprobar de nuevo
-            </button>
           </div>
         )}
 
-        <SeccionLista titulo="Tu espacio">
-          <FilaNavegable
-            icono="almacenamiento"
-            titulo="Mi espacio"
-            subtitulo="Tus visitas y lo que ocupan"
-            valor={
-              espacioEquipo ? (
-                <span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>
-                  {formatearMB(espacioEquipo.miUso)} MB
-                </span>
-              ) : undefined
-            }
-            to="/mi-espacio"
-          />
-        </SeccionLista>
+        {(invitaciones.length > 0 || rechazos.length > 0 || expulsiones.length > 0) && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Visitas de equipo</div>
+
+            {invitaciones.map((inv) => (
+              <div key={inv.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>{inv.clienteNombre}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(inv.fechaVisita)} · te añadió {inv.anadidoPorNombre}
+                </div>
+                <div className="fila-btns" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={procesandoAviso === inv.id}
+                    onClick={() => resolverAviso(inv.id, () => aceptar(inv.id))}
+                  >
+                    {procesandoAviso === inv.id ? 'Guardando…' : 'Aceptar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === inv.id}
+                    onClick={() => resolverAviso(inv.id, () => rechazar(inv.id))}
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {rechazos.map((r) => (
+              <div key={r.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  {r.comercialNombre} ha rechazado la visita de {r.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(r.fechaVisita)}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === r.id}
+                    onClick={() => resolverAviso(r.id, () => marcarRechazoVisto(r.id))}
+                  >
+                    {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {expulsiones.map((e) => (
+              <div key={e.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  Te han quitado de la visita de {e.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(e.fechaVisita)}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === e.id}
+                    onClick={() => resolverAviso(e.id, () => marcarExpulsionVista(e.id))}
+                  >
+                    {procesandoAviso === e.id ? 'Guardando…' : 'Entendido'}
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {errorAviso && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{errorAviso}</div>
+            )}
+          </div>
+        )}
+
+        {esDireccionComercial && (reportesPendientes?.length ?? 0) > 0 && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Problemas reportados</div>
+            {reportesPendientes!.map((r) => {
+              const ctx = (r.contexto ?? {}) as { version?: string; url?: string };
+              return (
+                <div key={r.id} style={{ marginTop: 'var(--space-3)' }}>
+                  <div style={{ fontSize: 'var(--text-sm)', whiteSpace: 'pre-wrap' }}>{r.texto}</div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                    {(r.comercial as unknown as { nombre: string } | null)?.nombre ?? '—'} · {fechaCorta(r.creado_en)}
+                    {ctx.version ? ` · v${ctx.version}` : ''}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={procesandoAviso === r.id}
+                      onClick={() => resolverAviso(r.id, () => marcarReporteVisto(r.id))}
+                    >
+                      {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {errorAviso && (
+              <div className="field-error-text" style={{ marginTop: 8 }}>{errorAviso}</div>
+            )}
+          </div>
+        )}
+
+        {!esDireccionComercial && (
+          <SeccionLista titulo="Tu espacio">
+            <FilaNavegable
+              icono="almacenamiento"
+              titulo="Mi espacio"
+              subtitulo="Tus visitas y lo que ocupan"
+              valor={
+                espacioEquipo ? (
+                  <span style={{ color: 'var(--ink-900)', fontWeight: 500 }}>
+                    {formatearMB(espacioEquipo.miUso)} MB
+                  </span>
+                ) : undefined
+              }
+              to="/mi-espacio"
+            />
+          </SeccionLista>
+        )}
 
         {esDireccionComercial && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <SeccionLista titulo="Salud del equipo">
-              <FilaDato
+          <div data-tour="direccion-equipo" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <SeccionLista titulo="El equipo">
+              {/* Una sola fila de almacenamiento: lleva a "Mi espacio", que
+                  por dentro ya tiene el segmentado "Mis visitas / Por
+                  comercial". El % del equipo (el dato que manda) va como
+                  valor, con su tono; antes esto eran tres filas —"Mi
+                  espacio", la FilaDato "Espacio del equipo" y "Consumo por
+                  comercial"— repartidas en dos secciones y dos de ellas
+                  abrían la misma pantalla. */}
+              <FilaNavegable
                 icono="almacenamiento"
-                etiqueta="Espacio del equipo"
+                titulo="Almacenamiento"
+                subtitulo="Tus visitas y el consumo del equipo"
                 tono={tonoEquipo}
                 valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+                to="/mi-espacio"
               />
               <FilaNavegable
-                icono="consumo"
-                titulo="Consumo por comercial"
-                subtitulo="Cuánto ocupa cada uno"
-                to="/consumo-comerciales"
+                icono="equipo"
+                titulo="Actividad por comercial"
+                subtitulo="Visitas, hallazgos y oportunidades de cada uno"
+                to="/actividad-comerciales"
               />
             </SeccionLista>
 
-            <TarjetaAccion
-              titulo="Copia de seguridad"
-              tono={backupPendiente ? 'aviso' : 'neutral'}
-              barra={backupBarra}
-              accion={{
-                etiqueta: 'Hacer copia ahora',
-                icono: 'descargar',
-                onClick: hacerCopiaCompleta,
-                cargando: exportando,
-                etiquetaCargando: 'Preparando copia…',
-                enfasis: backupPendiente ? 'primario' : 'secundario',
-              }}
-              error={errorExportacion ?? undefined}
-            >
-              <div>
-                {diasDesdeBackup === null
-                  ? 'Todavía no has hecho ninguna copia completa.'
-                  : diasDesdeBackup === 0
-                    ? 'Última copia: hoy.'
-                    : `Última copia: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}.`}
+            <SeccionLista>
+              <FilaAccion
+                icono="almacenamiento"
+                titulo="Copia de seguridad"
+                subtitulo={
+                  exportando
+                    ? 'Preparando la copia…'
+                    : diasDesdeBackup === null
+                      ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
+                      : diasDesdeBackup === 0
+                        ? 'Última: hoy'
+                        : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
+                            backupPendiente ? ' · conviene hacer una' : ''
+                          }`
+                }
+                tono={backupPendiente ? 'aviso' : 'neutral'}
+                acciones={[
+                  {
+                    icono: 'descargar',
+                    etiqueta: 'Hacer copia ahora',
+                    onClick: hacerCopiaCompleta,
+                    disabled: exportando,
+                    tono: backupPendiente ? 'brand' : 'neutral',
+                  },
+                ]}
+              />
+            </SeccionLista>
+            {errorExportacion && (
+              <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
+                {errorExportacion}
               </div>
-              {backupPendiente && (
-                <div className="tarjeta-accion__estado">
-                  Supabase gratuito no hace copias automáticas — conviene descargar una ya.
-                </div>
-              )}
-            </TarjetaAccion>
+            )}
           </div>
         )}
 
         {esDireccionComercial && (
           <SeccionLista titulo="Gestión">
+            {/* Primero lo que puede estar esperando una respuesta (llevan
+                badge / tono aviso cuando hay algo); luego los catálogos. */}
             {!!numPeticionesAcceso && (
               <FilaNavegable
                 icono="solicitudes"
@@ -357,21 +674,9 @@ export function Yo() {
               />
             )}
             <FilaNavegable
-              icono="clientes"
-              titulo="Equipo"
-              subtitulo="Dar de alta, editar o dar de baja comerciales"
-              to="/comerciales"
-            />
-            <FilaNavegable
-              icono="vocabulario"
-              titulo="Vocabulario"
-              subtitulo="Revisar propuestas y organizar el catálogo"
-              to="/vocabulario"
-            />
-            <FilaNavegable
               icono="solicitudes"
               titulo="Solicitudes de ayuda"
-              subtitulo="Comerciales que necesitan que alguien les sustituya en una visita"
+              subtitulo="Comerciales que piden que alguien les cubra una visita"
               badge={numSolicitudesPendientes || undefined}
               tono={numSolicitudesPendientes ? 'aviso' : 'neutral'}
               to="/solicitudes-reasignacion"
@@ -390,6 +695,24 @@ export function Yo() {
                 to="/deduplicacion"
               />
             )}
+            <FilaNavegable
+              icono="clientes"
+              titulo="Equipo"
+              subtitulo="Dar de alta, editar o dar de baja comerciales"
+              to="/comerciales"
+            />
+            <FilaNavegable
+              icono="vocabulario"
+              titulo="Categorías"
+              subtitulo="Revisar propuestas y organizar el catálogo"
+              to="/vocabulario"
+            />
+            <FilaNavegable
+              icono="vocabulario"
+              titulo="Sectores"
+              subtitulo="La lista de sectores que se elige en la ficha de cliente"
+              to="/sectores"
+            />
           </SeccionLista>
         )}
 
@@ -399,6 +722,18 @@ export function Yo() {
             titulo="Cómo funciona PrimeNotes"
             subtitulo="Manual de la app, pantalla por pantalla"
             to="/ayuda"
+          />
+          <FilaNavegable
+            icono="atencion"
+            titulo="Reportar un problema"
+            subtitulo="Algo va mal o no se entiende — se lo cuentas a Dirección"
+            onClick={() => setReportando(true)}
+          />
+          <FilaNavegable
+            icono="guia"
+            titulo="Ver guía rápida"
+            subtitulo="El recorrido de bienvenida por el menú de abajo"
+            onClick={() => tourNavControl.reiniciar()}
           />
         </SeccionLista>
 
@@ -416,7 +751,41 @@ export function Yo() {
             {error}
           </div>
         )}
+
+        <div
+          style={{
+            paddingInline: 'var(--fila-pad-x)',
+            marginTop: 'var(--space-4)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--ink-400)',
+          }}
+        >
+          PrimeNotes · v{__APP_VERSION__} · {__BUILD_DATE__}
+        </div>
       </div>
+
+      {reportando && comercial && (
+        <ReportarProblemaHoja
+          comercialId={comercial.id}
+          rol={comercial.rol}
+          onCerrar={() => {
+            setReportando(false);
+            if (esDireccionComercial) {
+              queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
+            }
+          }}
+        />
+      )}
+
+      {tourDireccion.paso && (
+        <TourGuiado
+          paso={tourDireccion.paso}
+          indice={tourDireccion.indice}
+          total={tourDireccion.total}
+          onSiguiente={tourDireccion.siguiente}
+          onSaltar={tourDireccion.saltar}
+        />
+      )}
     </div>
   );
 }

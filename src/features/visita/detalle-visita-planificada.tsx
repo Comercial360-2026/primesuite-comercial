@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, hora } from '@/lib/fechas';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -9,8 +10,10 @@ import { Icono } from '@/components/ui/iconos';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
+import { useVolverA, desde } from '@/lib/volver-a';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
 // verla, reprogramarla, cancelarla o empezarla. Es a donde llevan las
@@ -53,7 +56,11 @@ const CLAVES_LISTAS = [
 export function DetalleVisitaPlanificada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  // Se llega desde Hoy o desde la Agenda. El ← vuelve al origen; si no
+  // consta, a Hoy.
+  const volver = useVolverA('/');
 
   const [reprogramando, setReprogramando] = useState(false);
   const [fechaNueva, setFechaNueva] = useState('');
@@ -100,16 +107,26 @@ export function DetalleVisitaPlanificada() {
     if (!fechaNueva) return;
     await reprogramar.ejecutar(
       async () => {
-        const { error } = await supabase
-          .from('visita')
-          .update({
-            fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
-            hora_definida: !!horaNueva,
-            franja: horaNueva ? null : franjaNueva || null,
-          })
-          .eq('id', visitaId!)
-          .eq('estado_captura', 'agendada');
-        if (error) throw new Error(error.message);
+        // Mismo encargo técnico que el resto de guardados: sin permiso,
+        // Supabase no da error en un UPDATE que no matchea ninguna fila por
+        // RLS — comprobar `count` es la única forma de no decir
+        // "reprogramada" sin haberlo hecho de verdad.
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update(
+                {
+                  fecha: new Date(`${fechaNueva}T${horaNueva || '09:00'}:00`).toISOString(),
+                  hora_definida: !!horaNueva,
+                  franja: horaNueva ? null : franjaNueva || null,
+                },
+                { count: 'exact' }
+              )
+              .eq('id', visitaId!)
+              .eq('estado_captura', 'agendada'),
+          'No se ha podido reprogramar (0 filas afectadas). Puede que no tengas permiso.'
+        );
       },
       {
         onExito: () => {
@@ -133,7 +150,7 @@ export function DetalleVisitaPlanificada() {
       {
         onExito: () => {
           invalidarListas();
-          navigate(-1);
+          navigate(volver);
         },
       }
     );
@@ -141,7 +158,7 @@ export function DetalleVisitaPlanificada() {
 
   function empezar() {
     if (!data) return;
-    navigate(`/clientes/${data.cliente_id}/repaso?visitaId=${data.id}`);
+    navigate(`/clientes/${data.cliente_id}/repaso?visitaId=${data.id}`, { state: desde(location) });
   }
 
   // Si ya no está planificada (alguien la empezó o cerró desde otro sitio),
@@ -160,7 +177,7 @@ export function DetalleVisitaPlanificada() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" />
+      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" volverA={volver} />
 
       {isLoading && <EstadoLista estado="cargando" />}
       {(isError || isPaused) && (
@@ -179,6 +196,7 @@ export function DetalleVisitaPlanificada() {
                 icono="clientes"
                 titulo={data.cliente_nombre}
                 to={`/clientes/${data.cliente_id}`}
+                state={desde(location)}
               />
               <FilaDato
                 etiqueta="Fecha"
@@ -214,7 +232,7 @@ export function DetalleVisitaPlanificada() {
                 {fechaCorta(fechaVisita!)}. ¿Empezarla ahora
                 igualmente?
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button className="btn btn-secondary" onClick={() => setConfirmando(null)}>
                   No
                 </button>
@@ -281,7 +299,7 @@ export function DetalleVisitaPlanificada() {
                 </>
               )}
               {reprogramar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{reprogramar.error}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <div className="fila-btns" style={{ marginTop: 10 }}>
                 <button
                   className="btn btn-secondary"
                   disabled={reprogramar.cargando}
@@ -327,40 +345,29 @@ export function DetalleVisitaPlanificada() {
             </button>
           )}
 
-          {/* Cancelar */}
+          {/* Anular la visita planificada */}
           {confirmando === 'cancelar' ? (
-            <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                Se eliminará la visita planificada a {data.cliente_nombre} del{' '}
-                {fechaCorta(fechaVisita!)}. No se puede deshacer.
-              </div>
-              {cancelar.error && <div className="field-error-text" style={{ marginTop: 8 }}>{cancelar.error}</div>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="btn btn-secondary" disabled={cancelar.cargando} onClick={() => setConfirmando(null)}>
-                  No, dejarla
-                </button>
-                <button
-                  className="btn btn-primary"
-                  style={{ background: 'var(--risk-600)' }}
-                  disabled={cancelar.cargando}
-                  onClick={confirmarCancelar}
-                >
-                  {cancelar.cargando ? 'Cancelando…' : 'Sí, cancelar la visita'}
-                </button>
-              </div>
-            </div>
+            <ConfirmacionBorrado
+              onCancelar={() => setConfirmando(null)}
+              onConfirmar={confirmarCancelar}
+              cargando={cancelar.cargando}
+              error={cancelar.error}
+              confirmar="Sí, anular la visita"
+              cargandoTexto="Anulando…"
+            >
+              Se eliminará la visita planificada a {data.cliente_nombre} del {fechaCorta(fechaVisita!)}.
+            </ConfirmacionBorrado>
           ) : (
-            <button
-              className="btn btn-secondary"
-              style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
+            <FilaNavegable
+              icono="borrar"
+              titulo="Anular visita planificada"
+              tono="riesgo"
+              chevron={false}
               onClick={() => {
                 setReprogramando(false);
                 setConfirmando('cancelar');
               }}
-            >
-              <Icono nombre="borrar" size={18} />
-              Cancelar visita planificada
-            </button>
+            />
           )}
         </>
       )}

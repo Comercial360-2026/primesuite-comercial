@@ -21,3 +21,6 @@ login-check.png
 
 # Copia de CLAUDE.md que regenera una herramienta; no versionar
 AGENTS.md
+
+# Codex local MCP config
+.codex/

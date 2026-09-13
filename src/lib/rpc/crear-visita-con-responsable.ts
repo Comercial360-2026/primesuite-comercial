@@ -19,6 +19,7 @@ export async function crearVisitaConResponsable(
     p_visita_id: args.pVisitaId,
     p_cliente_id: args.pClienteId,
     p_comercial_id: args.pComercialId,
+    p_proyecto_id: args.pProyectoId,
     p_tipo_visita: args.pTipoVisita ?? undefined,
     p_fecha: args.pFecha ?? undefined,
     p_estado_captura: args.pEstadoCaptura ?? undefined,

@@ -1,0 +1,213 @@
+import { useRef, useState } from 'react';
+import type { ProximoPasoPayload } from '@/lib/offline-queue/types';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
+import { AyudaNota } from '@/components/ui/ayuda-nota';
+import { Segmentado } from '@/components/ui/segmentado';
+import { Icono } from '@/components/ui/iconos';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
+
+interface PasoRapidoHojaProps {
+  visitaId: string;
+  comercialId: string;
+  onGuardar: (payload: ProximoPasoPayload) => Promise<void>;
+  onPlanificarVisita: (args: {
+    fecha: string;
+    hora: string;
+    franja: '' | 'manana' | 'tarde';
+    objetivo: string;
+  }) => Promise<void>;
+  onCerrar: () => void;
+}
+
+// Al terminar una visita, lo que queda pendiente es de dos tipos y el
+// comercial lo sabe en caliente:
+//   - Próximo paso: algo de despacho ("enviar propuesta", "llamar a
+//     compras"). Va a proximo_paso y aparece en "Mis próximos pasos".
+//   - Próxima visita: hay que volver otro día. Se planifica ahí mismo y
+//     aparece en Agenda / calendario / "Hoy" — no se crea ningún
+//     proximo_paso.
+// Antes solo existía la primera y una "revisita" quedaba invisible fuera
+// de la pestaña de próximos pasos.
+export function PasoRapidoHoja({
+  onGuardar,
+  onPlanificarVisita,
+  visitaId,
+  comercialId,
+  onCerrar,
+}: PasoRapidoHojaProps) {
+  const [modo, setModo] = useState<'tarea' | 'visita'>('tarea');
+
+  const [descripcion, setDescripcion] = useState('');
+  const refDictadoDescripcion = useRef<RefCampoDictado>(null);
+  const [fechaObjetivo, setFechaObjetivo] = useState('');
+
+  const [fechaVisita, setFechaVisita] = useState('');
+  const [horaVisita, setHoraVisita] = useState('');
+  const [franjaVisita, setFranjaVisita] = useState<'' | 'manana' | 'tarde'>('');
+  const [objetivoVisita, setObjetivoVisita] = useState('');
+  const refDictadoObjetivo = useRef<RefCampoDictado>(null);
+
+  const [guardando, setGuardando] = useState(false);
+  const [guardadoConExito, setGuardadoConExito] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const hoyISO = new Date().toISOString().slice(0, 10);
+
+  async function guardar() {
+    setGuardando(true);
+    setError(null);
+    try {
+      if (modo === 'tarea') {
+        const descripcionConsolidada = (refDictadoDescripcion.current?.consolidar() ?? descripcion).trim();
+        if (!descripcionConsolidada) return;
+        await onGuardar({
+          visitaId,
+          comercialResponsableId: comercialId,
+          descripcion: descripcionConsolidada,
+          fechaObjetivo: fechaObjetivo || undefined,
+        });
+      } else {
+        const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivoVisita).trim();
+        if (!fechaVisita || !objetivoConsolidado) return;
+        await onPlanificarVisita({
+          fecha: fechaVisita,
+          hora: horaVisita,
+          franja: franjaVisita,
+          objetivo: objetivoConsolidado,
+        });
+      }
+      // El cierre del modal lo controla el padre (visita-activa.tsx), con
+      // el mismo retraso de 700ms que el resto de modales, para que
+      // "guardado ✓" sea visible antes de desaparecer.
+      setGuardadoConExito(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `No se pudo guardar: ${err.message}`
+          : 'No se pudo guardar. Inténtalo de nuevo.'
+      );
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  const puedeGuardar =
+    modo === 'tarea'
+      ? !!descripcion.trim()
+      : !!fechaVisita && !!objetivoVisita.trim();
+
+  return (
+    <HojaSuperior titulo="Qué queda pendiente" onCerrar={onCerrar}>
+        <div style={{ marginTop: 8 }}>
+          <Segmentado
+            opciones={
+              [
+                { valor: 'tarea', etiqueta: 'Próximo paso' },
+                { valor: 'visita', etiqueta: 'Próxima visita' },
+              ] as const
+            }
+            valor={modo}
+            onCambio={(v) => {
+              setModo(v);
+              setError(null);
+            }}
+          />
+        </div>
+
+        {modo === 'tarea' ? (
+          <>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
+              Algo de despacho: enviar propuesta, llamar a compras…
+            </div>
+            <TextareaDictado
+              ref={refDictadoDescripcion}
+              rows={2}
+              valor={descripcion}
+              onCambio={setDescripcion}
+              placeholder="volver a llamar en dos semanas, enviar propuesta…"
+              autoFocus
+            />
+            <div className="label">Fecha objetivo (opcional)</div>
+            <input
+              className="field"
+              type="date"
+              value={fechaObjetivo}
+              onChange={(e) => setFechaObjetivo(e.target.value)}
+            />
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
+              Hay que volver otro día. Se planifica y sale en tu agenda.
+            </div>
+            <div className="label" style={{ marginTop: 0 }}>Fecha</div>
+            <input
+              className="field"
+              type="date"
+              min={hoyISO}
+              value={fechaVisita}
+              onChange={(e) => setFechaVisita(e.target.value)}
+            />
+            <div className="label">Objetivo</div>
+            <TextareaDictado
+              ref={refDictadoObjetivo}
+              rows={2}
+              placeholder="a qué vuelves: cerrar el pedido, revisar la instalación…"
+              valor={objetivoVisita}
+              onCambio={setObjetivoVisita}
+            />
+            <div className="label">Hora (opcional)</div>
+            <input
+              className="field"
+              type="time"
+              value={horaVisita}
+              onChange={(e) => setHoraVisita(e.target.value)}
+            />
+            {!horaVisita && (
+              <>
+                <div className="label">Sin hora concreta, ¿cuándo?</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(
+                    [
+                      ['manana', 'Mañana'],
+                      ['tarde', 'Tarde'],
+                      ['', 'Sin hora fija'],
+                    ] as const
+                  ).map(([val, txt]) => (
+                    <button
+                      key={val || 'sin'}
+                      type="button"
+                      className={`chip${franjaVisita === val ? ' chip--on' : ''}`}
+                      onClick={() => setFranjaVisita(val)}
+                    >
+                      {txt}
+                    </button>
+                  ))}
+                </div>
+                <AyudaNota concepto="franja-visita" />
+              </>
+            )}
+          </>
+        )}
+
+        <button
+          className="btn btn-primary"
+          style={{ marginTop: 12 }}
+          disabled={!puedeGuardar || guardando || guardadoConExito}
+          onClick={guardar}
+        >
+          {guardadoConExito
+            ? modo === 'tarea'
+              ? <><Icono nombre="check" size={16} /> Guardado</>
+              : <><Icono nombre="check" size={16} /> Planificada</>
+            : guardando
+              ? 'Guardando…'
+              : modo === 'tarea'
+                ? 'Guardar'
+                : 'Planificar visita'}
+        </button>
+
+        {error && <div className="field-error-text" style={{ marginTop: 8 }}>{error}</div>}
+    </HojaSuperior>
+  );
+}

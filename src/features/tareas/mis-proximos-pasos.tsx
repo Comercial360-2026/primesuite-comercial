@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -9,6 +10,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
 interface ProximoPaso {
@@ -17,6 +19,7 @@ interface ProximoPaso {
   fecha_objetivo: string | null;
   estado: string;
   oportunidad_id: string | null;
+  zona_texto: string | null;
   visita: { cliente: { id: string; nombre: string } | null } | null;
 }
 
@@ -28,7 +31,17 @@ export function MisProximosPasos() {
   const navigate = useNavigate();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
-  const [filtro, setFiltro] = useState<'pendiente' | 'completado'>('pendiente');
+  // Filtro en la URL (?filtro=completado), no solo en memoria — mismo bug
+  // ya visto en listado-clientes.tsx/agenda-del-dia.tsx/cola-vocabulario.tsx:
+  // un useState a secas se resetea al volver del detalle de un paso.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filtro, setFiltroState] = useState<'pendiente' | 'completado'>(
+    searchParams.get('filtro') === 'completado' ? 'completado' : 'pendiente'
+  );
+  function cambiarFiltro(f: 'pendiente' | 'completado') {
+    setFiltroState(f);
+    setSearchParams(f === 'completado' ? { filtro: 'completado' } : {}, { replace: true });
+  }
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
 
@@ -45,7 +58,7 @@ export function MisProximosPasos() {
     queryFn: async (): Promise<ProximoPaso[]> => {
       const { data, error } = await supabase
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, visita:visita_id(cliente:cliente_id(id, nombre))')
+        .select('id, descripcion, fecha_objetivo, estado, oportunidad_id, zona_texto, visita:visita_id(cliente:cliente_id(id, nombre))')
         .eq('comercial_responsable_id', comercial!.id)
         .eq('estado', filtro)
         .order('fecha_objetivo', { ascending: true });
@@ -55,7 +68,7 @@ export function MisProximosPasos() {
   });
 
   // "Tarea" vs "Próxima visita": la elección se hace al crear el paso
-  // (PasoRapidoModal) y una "próxima visita" NO crea proximo_paso — planifica
+  // (PasoRapidoHoja) y una "próxima visita" NO crea proximo_paso — planifica
   // una visita. Así que aquí todo son tareas. Lo útil de distinguir en esta
   // pantalla es cuáles ya han derivado en una revisita planificada: se
   // cruza cada paso pendiente con las visitas 'agendada' futuras de su
@@ -100,18 +113,17 @@ export function MisProximosPasos() {
     if (guardandoId) return;
     setGuardandoId(id);
     setErrorGuardado(null);
-    const { error, count } = await supabase
-      .from('proximo_paso')
-      .update({ estado: 'completado' }, { count: 'exact' })
-      .eq('id', id);
-    setGuardandoId(null);
-    // count 0 sin error explícito es el mismo patrón de guardado
-    // silenciosamente fallido ya detectado y corregido en el resto de la
-    // app (adenda_punto1_delete_silencioso.md) — se trata igual como fallo real.
-    if (error || count === 0) {
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proximo_paso').update({ estado: 'completado' }, { count: 'exact' }).eq('id', id),
+        'No se pudo marcar como completado. Inténtalo de nuevo.'
+      );
+    } catch {
+      setGuardandoId(null);
       setErrorGuardado('No se pudo marcar como completado. Inténtalo de nuevo.');
       return;
     }
+    setGuardandoId(null);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
   }
 
@@ -150,7 +162,8 @@ export function MisProximosPasos() {
       ? ` · ${vencido ? `vencido ${haceRelativo(p.fecha_objetivo)}` : fechaCorta(p.fecha_objetivo)}`
       : '';
     const notaRevisita = revisita ? ` · revisita ${fechaCorta(revisita)}` : '';
-    const subtitulo = `${cliente}${cuando}${notaRevisita}${guardandoEsta ? ' · guardando…' : ''}`;
+    const zona = p.zona_texto?.trim() ? ` · ${p.zona_texto.trim()}` : '';
+    const subtitulo = `${cliente}${cuando}${notaRevisita}${zona}${guardandoEsta ? ' · guardando…' : ''}`;
 
     if (filtro === 'completado') {
       return (
@@ -188,22 +201,16 @@ export function MisProximosPasos() {
     <div className="screen">
       <CabeceraSeccion titulo="Mis próximos pasos" icono="tareas" ayuda="mis-proximos-pasos" />
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          type="button"
-          className={`chip${filtro === 'pendiente' ? ' chip--on' : ''}`}
-          onClick={() => setFiltro('pendiente')}
-        >
-          Pendientes
-        </button>
-        <button
-          type="button"
-          className={`chip${filtro === 'completado' ? ' chip--on' : ''}`}
-          onClick={() => setFiltro('completado')}
-        >
-          Completados
-        </button>
-      </div>
+      <Segmentado
+        opciones={
+          [
+            { valor: 'pendiente', etiqueta: 'Pendientes' },
+            { valor: 'completado', etiqueta: 'Completados' },
+          ] as const
+        }
+        valor={filtro}
+        onCambio={cambiarFiltro}
+      />
 
       {isLoading && <EstadoLista estado="cargando" />}
 

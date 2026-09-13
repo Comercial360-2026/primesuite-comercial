@@ -37,13 +37,44 @@ export function hora(v: Entrada): string {
   return d ? d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
+/** "hace un momento" / "hace 40 min" / "hace 3 h" / "ayer a las 18:40" /
+ *  "el lun 8, 18:40" / "hace 3 semanas" — para algo VIVO cuya antigüedad
+ *  importa al minuto/hora (una visita en curso). `haceRelativo` es de
+ *  granularidad-día y aquí se queda corto ("abierta hoy" para algo de hace
+ *  40 min). Siempre en pasado; para el futuro devuelve ''. */
+export function desdeHace(v: Entrada): string {
+  const d = aDate(v);
+  if (!d) return '';
+  const ms = Date.now() - d.getTime();
+  if (ms < 0) return '';
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const hoy0 = new Date();
+  hoy0.setHours(0, 0, 0, 0);
+  const d0 = new Date(d);
+  d0.setHours(0, 0, 0, 0);
+  const dias = Math.round((hoy0.getTime() - d0.getTime()) / 86_400_000);
+  if (dias === 0) return `hace ${Math.floor(min / 60)} h`;
+  if (dias === 1) return `ayer a las ${hora(d)}`;
+  if (dias < 7) return `el ${fechaDiaMes(d)}, ${hora(d)}`;
+  return haceRelativo(d);
+}
+
 /** "hoy" / "ayer" / "hace 5 días" / "hace 3 semanas" / "hace 4 meses" — para
  *  el de un vistazo ("última visita hace 6 semanas", "vencido hace 9 días").
  *  Siempre en pasado; para fechas futuras devuelve "" (usar `fechaCorta`). */
 export function haceRelativo(v: Entrada): string {
   const d = aDate(v);
   if (!d) return '';
-  const dias = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  // Días de CALENDARIO, no periodos de 24 h: algo de ayer por la tarde visto
+  // esta mañana es "ayer" aunque no hayan pasado 24 h. Se comparan las dos
+  // fechas a medianoche local.
+  const hoy0 = new Date();
+  hoy0.setHours(0, 0, 0, 0);
+  const d0 = new Date(d);
+  d0.setHours(0, 0, 0, 0);
+  const dias = Math.round((hoy0.getTime() - d0.getTime()) / 86_400_000);
   if (dias < 0) return '';
   if (dias === 0) return 'hoy';
   if (dias === 1) return 'ayer';

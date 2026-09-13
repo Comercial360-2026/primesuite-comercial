@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Avatar } from '@/components/ui/avatar';
 
 interface SolicitudPendiente {
   id: string;
@@ -67,6 +69,8 @@ export function SolicitudesReasignacion() {
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ['solicitudes-reasignacion-pendientes'] });
+    // El badge de "Solicitudes de ayuda" en la pantalla Yo.
+    queryClient.invalidateQueries({ queryKey: ['num-solicitudes-reasignacion-pendientes'] });
   }
 
   async function asignar(solicitud: SolicitudPendiente, comercialId: string) {
@@ -84,15 +88,24 @@ export function SolicitudesReasignacion() {
       setError(errParticipante.message);
       return;
     }
-    const { error: errSolicitud } = await supabase
-      .from('solicitud_reasignacion')
-      .update({ estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() })
-      .eq('id', solicitud.id);
-    setProcesando(null);
-    if (errSolicitud) {
-      setError(errSolicitud.message);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('solicitud_reasignacion')
+            .update(
+              { estado: 'resuelta', comercial_asignado_id: comercialId, resuelto_en: new Date().toISOString() },
+              { count: 'exact' }
+            )
+            .eq('id', solicitud.id),
+        'El participante se añadió, pero no se ha podido marcar la solicitud como resuelta (0 filas afectadas).'
+      );
+    } catch (errSolicitud) {
+      setProcesando(null);
+      setError(errSolicitud instanceof Error ? errSolicitud.message : 'No se pudo resolver la solicitud.');
       return;
     }
+    setProcesando(null);
     setAsignandoId(null);
     setBusqueda('');
     invalidar();
@@ -101,21 +114,27 @@ export function SolicitudesReasignacion() {
   async function descartar(id: string) {
     setProcesando(id);
     setError(null);
-    const { error: err } = await supabase
-      .from('solicitud_reasignacion')
-      .update({ estado: 'descartada', resuelto_en: new Date().toISOString() })
-      .eq('id', id);
-    setProcesando(null);
-    if (err) {
-      setError(err.message);
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('solicitud_reasignacion')
+            .update({ estado: 'descartada', resuelto_en: new Date().toISOString() }, { count: 'exact' })
+            .eq('id', id),
+        'No se ha podido descartar (0 filas afectadas). Puede que no tengas permiso.'
+      );
+    } catch (err) {
+      setProcesando(null);
+      setError(err instanceof Error ? err.message : 'No se pudo descartar.');
       return;
     }
+    setProcesando(null);
     invalidar();
   }
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Solicitudes de ayuda" ayuda="solicitudes-reasignacion" />
+      <CabeceraDetalle titulo="Solicitudes de ayuda" ayuda="solicitudes-reasignacion" volverA="/yo" />
 
       {error && <div className="field-error-text">{error}</div>}
 
@@ -140,6 +159,7 @@ export function SolicitudesReasignacion() {
                     <input
                       className="field"
                       autoFocus
+                      autoComplete="off"
                       style={{ marginTop: 6 }}
                       value={busqueda}
                       onChange={(e) => setBusqueda(e.target.value)}
@@ -153,10 +173,11 @@ export function SolicitudesReasignacion() {
                             key={c.id}
                             type="button"
                             className="chip"
-                            style={{ textAlign: 'left' }}
+                            style={{ textAlign: 'left', gap: 6 }}
                             disabled={procesando === s.id}
                             onClick={() => asignar(s, c.id)}
                           >
+                            <Avatar nombre={c.nombre} />
                             {c.nombre}
                           </button>
                         ))}

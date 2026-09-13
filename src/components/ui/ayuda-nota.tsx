@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CONCEPTOS, type ConceptoAyudaId } from '@/lib/ayuda';
 
 interface Props {
@@ -5,10 +6,28 @@ interface Props {
   concepto: ConceptoAyudaId;
 }
 
-// Línea gris de una frase bajo un campo que no se explica solo (la
-// naturaleza de un hallazgo, el tipo de fecha de un próximo paso…). El texto
-// es el `queEs` del concepto en `ayuda.ts` —- el mismo del que se genera el
-// manual, para que no puedan divergir-—. Sin estado, sin descartable.
+// Ayuda de un campo que no se explica solo (el horizonte de una
+// oportunidad, la fecha relevante de un hallazgo…). Va PLEGADA por
+// defecto: una línea
+// discreta y tocable; al abrirla muestra el `queEs` del concepto en
+// `ayuda.ts` —el mismo del que se genera el manual, para que no diverjan—.
+// Sin plegar, tres campos seguidos con su ayuda eran un muro de texto gris
+// en el móvil.
 export function AyudaNota({ concepto }: Props) {
-  return <p className="ayuda-nota">{CONCEPTOS[concepto].queEs}</p>;
+  const [abierta, setAbierta] = useState(false);
+  const { titulo, queEs } = CONCEPTOS[concepto];
+  return (
+    <div className="ayuda-nota">
+      <button
+        type="button"
+        className="ayuda-nota__toggle"
+        aria-expanded={abierta}
+        onClick={() => setAbierta((v) => !v)}
+      >
+        <span className="ayuda-nota__icono" aria-hidden="true">ⓘ</span>
+        {abierta ? 'Ocultar' : `Qué es «${titulo}»`}
+      </button>
+      {abierta && <p className="ayuda-nota__texto">{queEs}</p>}
+    </div>
+  );
 }

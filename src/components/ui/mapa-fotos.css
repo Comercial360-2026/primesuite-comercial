@@ -8,6 +8,13 @@
   overflow: hidden;
   border: 1px solid var(--ink-100);
   background: var(--surface-0);
+  /* Leaflet da a sus tiles y controles z-index internos altos (400–1000).
+     Sin aislar el contexto de apilado, esos z-index compiten en la raíz y
+     el mapa se dibuja por ENCIMA del visor de fotos (z-index 30) y de los
+     modales. `isolation` encierra todo el apilado de Leaflet aquí dentro. */
+  isolation: isolate;
+  position: relative;
+  z-index: 0;
 }
 
 .mapa-fotos .leaflet-container {

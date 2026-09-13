@@ -1,28 +1,38 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import {
-  NATURALEZA_ORDEN,
-  NATURALEZA_LABEL,
   ETAPA_LABEL,
   PRIORIDAD_LABEL,
   PRIORIDAD_ORDEN,
   TIPO_VISITA_LABEL,
   etiqueta,
 } from '@/lib/etiquetas-visita';
+import type { Area } from '@/lib/vocabulario';
+import { areasDeHallazgos } from '@/lib/hallazgo-areas';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useAccionAsync } from '@/hooks/use-accion-async';
+import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { useTamanoAdjuntosVisita } from '@/hooks/use-tamano-adjuntos-visita';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
+import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -44,13 +54,14 @@ interface DetalleVisita {
   objetivo: string | null;
   estado_captura: string;
   resumen_texto: string | null;
+  cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
-  notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null }>;
-  hallazgos: Array<{ id: string; naturaleza: string; nota: string | null; termino_nombre: string }>;
-  oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null }>;
-  proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string }>;
+  notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
+  hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
+  oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
+  proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string; zona_texto: string | null }>;
 }
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
@@ -65,11 +76,48 @@ function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolea
 export function DetalleVisitaCerrada() {
   const { visitaId } = useParams<{ visitaId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  // Se llega desde Hoy, la Agenda, Mi espacio, el historial del proyecto o
+  // el cierre de la propia visita. El ← vuelve al origen; si no consta, a Hoy.
+  const volver = useVolverA('/');
+  // Esta pantalla es a su vez origen de hallazgo/oportunidad/próximo paso:
+  // estampa su URL para que el ← de esas vuelva aquí, no a Hoy.
+  const origen = desde(location);
 
   const { estadoDe, descargar } = useDescargarInforme();
-  const borrar = useBorrarVisita({ onBorrada: () => navigate(-1) });
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
+
+  // Editar a mano el resumen de la visita (pasa a `resumen_origen = 'manual'`).
+  // UPDATE directo, sin cola offline — requiere conexión, como "Editar datos"
+  // del cliente.
+  const [editandoResumen, setEditandoResumen] = useState(false);
+  const [borradorResumen, setBorradorResumen] = useState('');
+  const refDictadoResumen = useRef<RefCampoDictado>(null);
+  const guardadoResumen = useAccionAsync();
+
+  const { comercial } = useSesionActual();
+  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  // Mismo criterio que el backend (eliminar_visita_completa: responsable de
+  // la visita o Dirección) — ver hallazgo gemelo en Ficha de cliente
+  // (auditoría 2026-09-05): la UI no debe ofrecer "Borrar" a un simple
+  // acompañante, aunque el servidor lo fuera a rechazar igualmente.
+  const { data: esResponsable } = useQuery({
+    queryKey: ['soy-responsable-visita', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial?.id && !esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('visita_participante')
+        .select('id')
+        .eq('visita_id', visitaId!)
+        .eq('comercial_id', comercial!.id)
+        .eq('rol', 'responsable')
+        .maybeSingle();
+      if (err) throw err;
+      return !!data;
+    },
+  });
+  const puedeBorrarVisita = esDireccionComercial || !!esResponsable;
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -85,26 +133,26 @@ export function DetalleVisitaCerrada() {
       ] = await Promise.all([
         supabase
           .from('visita')
-          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente:cliente_id(nombre)')
+          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente_id, cliente:cliente_id(nombre)')
           .eq('id', visitaId!)
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, ubicacion:ubicacion_id(nombre)')
+          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
           .from('hallazgo')
-          .select('id, nota, naturaleza, termino:termino_id(nombre)')
+          .select('id, nota, zona_texto')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
           .from('oportunidad')
-          .select('id, titulo, etapa, prioridad, valor_estimado')
+          .select('id, titulo, etapa, prioridad, valor_estimado, zona_texto')
           .eq('visita_origen_id', visitaId!),
         supabase
           .from('proximo_paso')
-          .select('id, descripcion, fecha_objetivo, estado')
+          .select('id, descripcion, fecha_objetivo, estado, zona_texto')
           .eq('visita_id', visitaId!)
           .order('fecha_objetivo', { ascending: true }),
       ]);
@@ -121,7 +169,10 @@ export function DetalleVisitaCerrada() {
 
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
-          const ubicacion_nombre = (f.ubicacion as unknown as { nombre: string } | null)?.nombre ?? null;
+          const ubicacion_nombre =
+            (f as { zona_texto?: string | null }).zona_texto ??
+            (f.ubicacion as unknown as { nombre: string } | null)?.nombre ??
+            null;
           const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
           if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre, ...geo };
           const { data: firmada } = await supabase.storage
@@ -140,21 +191,30 @@ export function DetalleVisitaCerrada() {
         })
       );
 
+      // Áreas del catálogo de cada hallazgo (prompt maestro 11, Fase 2).
+      const mapaAreasHz = await areasDeHallazgos((hallazgos ?? []).map((h) => h.id));
+
       return {
         fecha: visita!.fecha,
         tipo_visita: visita!.tipo_visita,
         objetivo: visita!.objetivo,
         estado_captura: visita!.estado_captura,
         resumen_texto: visita!.resumen_texto,
+        cliente_id: (visita! as { cliente_id: string | null }).cliente_id,
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
         audios,
-        notas: notas.map((n) => ({ id: n.id, titulo: n.titulo, contenido_texto: n.contenido_texto })),
+        notas: notas.map((n) => ({
+          id: n.id,
+          titulo: n.titulo,
+          contenido_texto: n.contenido_texto,
+          zona_texto: (n as { zona_texto?: string | null }).zona_texto ?? null,
+        })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
-          naturaleza: h.naturaleza,
           nota: h.nota,
-          termino_nombre: (h.termino as unknown as { nombre: string } | null)?.nombre ?? '',
+          zona_texto: h.zona_texto,
+          areas: mapaAreasHz.get(h.id) ?? [],
         })),
         oportunidades: (oportunidades ?? []) as DetalleVisita['oportunidades'],
         proximosPasos: proximosPasos ?? [],
@@ -168,6 +228,72 @@ export function DetalleVisitaCerrada() {
     refetch();
   }
 
+  // Al borrar, la visita deja de existir: `navigate(-1)` puede devolver a su
+  // propia pantalla de cierre (`/visita/:id/cierre`), una ruta muerta pintada
+  // con caché. Vamos a la ficha del cliente (destino vivo) y con `replace`
+  // para que el ← del navegador tampoco vuelva a la visita borrada.
+  const borrar = useBorrarVisita({
+    onBorrada: () =>
+      navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true }),
+  });
+
+  // "Descargar y liberar espacio": descarga el zip completo (mismo botón de
+  // informe, mismo useDescargarInforme de arriba) y, solo tras confirmar que
+  // se ha guardado, borra la visita entera (mismo useBorrarVisita/RPC que
+  // "Borrar esta visita" — instancia propia para no mezclar su mensaje final
+  // con el del borrado simple).
+  const [quiereLiberar, setQuiereLiberar] = useState(false);
+  const [visitaLiberada, setVisitaLiberada] = useState(false);
+  // Esta misma ruta también la usa Mi espacio para visitas 'agendada'
+  // (planificada, aún no ha pasado) — sin nada que liberar en ese caso, así
+  // que ni se listan los buckets ni la cola local hasta saber que ya cerró.
+  const idParaLiberar = data?.estado_captura === 'consolidada' ? visitaId : undefined;
+  const tamanoAdjuntos = useTamanoAdjuntosVisita(idParaLiberar);
+  const { operaciones: colaLocalVisita } = useSyncQueue(idParaLiberar);
+  const liberar = useBorrarVisita({
+    onBorrada: () => {
+      setVisitaLiberada(true);
+      setTimeout(() => {
+        navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true });
+      }, 1200);
+    },
+  });
+
+  const puedeEditarResumen = puedeBorrarVisita;
+
+  function abrirEditarResumen() {
+    setBorradorResumen(data?.resumen_texto ?? '');
+    guardadoResumen.limpiarError();
+    setEditandoResumen(true);
+  }
+
+  async function guardarResumen() {
+    if (!visitaId) return;
+    if (!navigator.onLine) {
+      guardadoResumen.establecerError('Necesitas conexión para editar el resumen.');
+      return;
+    }
+    const texto = (refDictadoResumen.current?.consolidar() ?? borradorResumen).trim();
+    await guardadoResumen.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update({ resumen_texto: texto || null, resumen_origen: 'manual' }, { count: 'exact' })
+              .eq('id', visitaId),
+          'No se ha podido guardar el resumen (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          setEditandoResumen(false);
+          queryClient.invalidateQueries({ queryKey });
+        },
+      }
+    );
+  }
+
   const estadoLegible: Record<string, string> = {
     en_curso: 'en curso',
     consolidada: 'cerrada',
@@ -179,22 +305,8 @@ export function DetalleVisitaCerrada() {
     ? [...data.oportunidades].sort((a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9))
     : [];
   const totalEuros = data ? data.oportunidades.reduce((s, o) => s + (o.valor_estimado ?? 0), 0) : 0;
-  const riesgosN = data ? data.hallazgos.filter((h) => h.naturaleza === 'riesgo').length : 0;
+  const hallazgosN = data ? data.hallazgos.length : 0;
   const vencidosN = data ? data.proximosPasos.filter(esVencido).length : 0;
-
-  const conocidas = new Set<string>(NATURALEZA_ORDEN);
-  const gruposHallazgos: { naturaleza: string; items: DetalleVisita['hallazgos'] }[] = data
-    ? [
-        ...NATURALEZA_ORDEN.map((n) => ({
-          naturaleza: n as string,
-          items: data.hallazgos.filter((h) => h.naturaleza === n),
-        })).filter((g) => g.items.length > 0),
-        ...(() => {
-          const otras = data.hallazgos.filter((h) => !conocidas.has(h.naturaleza));
-          return otras.length ? [{ naturaleza: otras[0].naturaleza, items: otras }] : [];
-        })(),
-      ]
-    : [];
 
   const fotosPorUbi = new Map<string, { foto: Foto; idx: number }[]>();
   data?.fotos.forEach((foto, idx) => {
@@ -206,12 +318,52 @@ export function DetalleVisitaCerrada() {
 
   const kpis: { texto: string; alerta: boolean }[] = [];
   if (totalEuros > 0) kpis.push({ texto: `${totalEuros.toLocaleString('es-ES')} € en oportunidades`, alerta: false });
-  if (riesgosN > 0) kpis.push({ texto: `${riesgosN} riesgo${riesgosN === 1 ? '' : 's'}`, alerta: true });
+  if (hallazgosN > 0) kpis.push({ texto: `${hallazgosN} hallazgo${hallazgosN === 1 ? '' : 's'}`, alerta: false });
   if (vencidosN > 0)
     kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
 
   const estadoDescarga = visitaId ? estadoDe(visitaId) : 'inactivo';
   const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
+
+  // Candados de "Descargar y liberar espacio" (diseño acordado 12/9): sin
+  // oportunidad abierta colgando (si no, `eliminar_visita_completa` se la
+  // llevaría por delante sin avisar) y sin nada de esta visita pendiente de
+  // subir en la cola local de este dispositivo (la cola no se purga tras
+  // sincronizar — queda 'completado' para siempre, ver sync-engine.ts).
+  // Esta misma ruta (/visita/:id/detalle) la usa también Mi espacio para
+  // visitas todavía 'agendada' (planificada, aún no ha pasado) — comprobado
+  // en vivo: sin este candado el botón salía activo en una visita futura sin
+  // nada que liberar. "Visita cerrada" es la condición 1 del diseño.
+  const visitaCerrada = data?.estado_captura === 'consolidada';
+  const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
+  const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
+  const puedeLiberarEspacio = visitaCerrada && oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
+  const liberarListo = quiereLiberar && !!descargaLista && !!liberar.previsualizacion;
+  const tamanoMB = tamanoAdjuntos.bytes != null ? formatearMB(tamanoAdjuntos.bytes) : null;
+
+  function iniciarLiberarEspacio() {
+    if (!visitaId) return;
+    setQuiereLiberar(true);
+    void liberar.pedir(visitaId);
+    void descargar('visita', visitaId);
+  }
+
+  function cancelarLiberarEspacio() {
+    setQuiereLiberar(false);
+    liberar.cancelar();
+  }
+
+  const subtituloLiberar = quiereLiberar
+    ? estadoDescarga === 'sin-red'
+      ? 'Sin conexión. Inténtalo cuando tengas red'
+      : estadoDescarga === 'error'
+        ? 'No se pudo generar, toca de nuevo'
+        : 'Generando el informe…'
+    : !puedeLiberarEspacio
+      ? 'Resuelve el aviso de arriba para poder liberar espacio'
+      : tamanoMB
+        ? `Descarga el informe (${tamanoMB} MB) y elimina la visita de PrimeNotes`
+        : 'Descarga el informe y elimina la visita de PrimeNotes';
 
   const sinNada =
     !!data &&
@@ -229,6 +381,7 @@ export function DetalleVisitaCerrada() {
       <CabeceraDetalle
         titulo={data?.cliente_nombre ?? 'visita'}
         ayuda="visita-cerrada"
+        volverA={volver}
         subtitulo={
           data
             ? `${fechaCorta(data.fecha)}${
@@ -261,11 +414,61 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {/* Resumen — primero y destacado, como en el informe. */}
+          {/* Resumen — primero y destacado, como en el informe. Se genera
+              solo al cerrar la visita; aquí se puede reescribir a mano. */}
           {!sinNada && (
             <div className="dvc-bloque dvc-bloque--resumen">
-              <div className="dvc-bloque__lb">Resumen</div>
-              {data.resumen_texto ? (
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+              >
+                <div className="dvc-bloque__lb">Resumen</div>
+                {puedeEditarResumen && !editandoResumen && (
+                  <button
+                    type="button"
+                    className="boton-icono"
+                    aria-label={data.resumen_texto ? 'Editar resumen' : 'Escribir resumen'}
+                    title={data.resumen_texto ? 'Editar resumen' : 'Escribir resumen'}
+                    onClick={abrirEditarResumen}
+                  >
+                    <Icono nombre="editar" size={16} />
+                  </button>
+                )}
+              </div>
+
+              {editandoResumen ? (
+                <div style={{ marginTop: 6 }}>
+                  <TextareaDictado
+                    ref={refDictadoResumen}
+                    rows={4}
+                    autoFocus
+                    valor={borradorResumen}
+                    onCambio={setBorradorResumen}
+                    placeholder="cómo fue la visita: sensación, siguiente movimiento…"
+                  />
+                  {guardadoResumen.error && (
+                    <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoResumen.error}</div>
+                  )}
+                  <div className="fila-btns" style={{ marginTop: 8 }}>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={guardadoResumen.cargando}
+                      onClick={() => {
+                        guardadoResumen.limpiarError();
+                        setEditandoResumen(false);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      disabled={guardadoResumen.cargando}
+                      onClick={guardarResumen}
+                    >
+                      {guardadoResumen.cargando ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : data.resumen_texto ? (
                 <div className="dvc-bloque__texto">{data.resumen_texto}</div>
               ) : (
                 <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
@@ -294,35 +497,34 @@ export function DetalleVisitaCerrada() {
                 <FilaNavegable
                   key={o.id}
                   titulo={o.titulo}
-                  subtitulo={`${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`}
+                  subtitulo={[
+                    `${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`,
+                    o.zona_texto?.trim() || null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                   valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
                   to={`/oportunidades/${o.id}`}
+                  state={origen}
                 />
               ))}
               {totalEuros > 0 && <FilaDato etiqueta="Total estimado" valor={`${totalEuros.toLocaleString('es-ES')} €`} />}
             </SeccionLista>
           )}
 
-          {gruposHallazgos.length > 0 && (
+          {data.hallazgos.length > 0 && (
             <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
-              {gruposHallazgos.flatMap((g) => [
-                <div
-                  key={`sub-${g.naturaleza}`}
-                  className={`seccion-lista__subcabecera${g.naturaleza === 'riesgo' ? ' seccion-lista__subcabecera--riesgo' : ''}`}
-                >
-                  {g.naturaleza === 'riesgo' && <Icono nombre="atencion" size={12} />}{' '}
-                  {etiqueta(NATURALEZA_LABEL, g.naturaleza)} ({g.items.length})
-                </div>,
-                ...g.items.map((h) => (
-                  <FilaNavegable
-                    key={h.id}
-                    titulo={h.termino_nombre || 'Hallazgo'}
-                    subtitulo={h.nota ?? undefined}
-                    tono={g.naturaleza === 'riesgo' ? 'riesgo' : 'neutral'}
-                    to={`/hallazgos/${h.id}`}
-                  />
-                )),
-              ])}
+              {data.hallazgos.map((h) => (
+                <FilaNavegable
+                  key={h.id}
+                  titulo={h.nota?.trim() || 'Hallazgo'}
+                  subtitulo={h.zona_texto?.trim() || undefined}
+                  valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
+                  valorTenue
+                  to={`/hallazgos/${h.id}`}
+                  state={origen}
+                />
+              ))}
             </SeccionLista>
           )}
 
@@ -334,6 +536,7 @@ export function DetalleVisitaCerrada() {
                   <FilaNavegable
                     key={p.id}
                     titulo={p.descripcion}
+                    subtitulo={p.zona_texto?.trim() || undefined}
                     tono={vencido ? 'riesgo' : 'neutral'}
                     valor={
                       vencido ? (
@@ -345,6 +548,7 @@ export function DetalleVisitaCerrada() {
                       ) : undefined
                     }
                     to={`/proximos-pasos/${p.id}`}
+                    state={origen}
                   />
                 );
               })}
@@ -358,13 +562,36 @@ export function DetalleVisitaCerrada() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {data.notas.map((n) => (
-                  <div key={n.id} className="dvc-bloque">
+                  <button
+                    key={n.id}
+                    type="button"
+                    className="dvc-bloque dvc-bloque--accion"
+                    onClick={() => navigate(`/capturas/${n.id}`, { state: origen })}
+                  >
                     {n.titulo && <div style={{ fontWeight: 500, marginBottom: 2 }}>{n.titulo}</div>}
                     <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>
                       {n.contenido_texto}
                     </div>
-                  </div>
+                    {n.zona_texto?.trim() && (
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
+                        {n.zona_texto}
+                      </div>
+                    )}
+                    <span aria-hidden className="dvc-bloque__editar">
+                      <Icono nombre="editar" size={14} />
+                    </span>
+                  </button>
                 ))}
+              </div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--ink-400)',
+                  marginTop: 4,
+                  paddingInline: 'var(--fila-pad-x)',
+                }}
+              >
+                Toca una nota para revisarla, editarla o marcarla como hallazgo u oportunidad.
               </div>
             </div>
           )}
@@ -395,7 +622,13 @@ export function DetalleVisitaCerrada() {
 
           {data.fotos.length > 0 && (
             <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+              <div
+                className="seccion-lista__cabecera"
+                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <span style={{ display: 'inline-flex', color: 'var(--tipo-foto)' }}>
+                  <Icono nombre="foto" size={14} />
+                </span>
                 Anexo · Fotos ({data.fotos.length})
               </div>
               {[...fotosPorUbi.entries()].map(([ubi, lista]) => (
@@ -421,7 +654,13 @@ export function DetalleVisitaCerrada() {
 
           {data.audios.length > 0 && (
             <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+              <div
+                className="seccion-lista__cabecera"
+                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
+              >
+                <span style={{ display: 'inline-flex', color: 'var(--tipo-audio)' }}>
+                  <Icono nombre="audio" size={14} />
+                </span>
                 Anexo · Audios ({data.audios.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -443,21 +682,23 @@ export function DetalleVisitaCerrada() {
             <SeccionLista>
               <FilaAccion
                 densidad="compacta"
-                titulo="Informe de la visita (PDF)"
+                titulo="Informe de la visita"
                 subtitulo={
                   descargaLista
-                    ? `Copia descargada (${formatearMB(descargaLista.tamanoBytes)} MB)`
+                    ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
                     : estadoDescarga === 'generando'
-                      ? 'Generando el PDF…'
-                      : estadoDescarga === 'error'
-                        ? 'No se pudo generar, toca de nuevo'
-                        : 'Descárgalo o pásalo a otras áreas'
+                      ? 'Generando el informe…'
+                      : estadoDescarga === 'sin-red'
+                        ? 'Sin conexión. Inténtalo cuando tengas red'
+                        : estadoDescarga === 'error'
+                          ? 'No se pudo generar, toca de nuevo'
+                          : 'PDF con las fotos y los audios, en un ZIP'
                 }
                 acciones={[
                   {
                     icono: 'descargar',
                     etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
-                    onClick: descargaLista ? undefined : () => descargar(visitaId),
+                    onClick: descargaLista ? undefined : () => descargar('visita', visitaId),
                     href: descargaLista ? descargaLista.url : undefined,
                     disabled: estadoDescarga === 'generando',
                     tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
@@ -469,21 +710,103 @@ export function DetalleVisitaCerrada() {
         </div>
       )}
 
-      {data && visitaId && (
+      {data && visitaId && puedeBorrarVisita && (
         <div style={{ marginTop: 4 }}>
-          {borrar.visitaBorrarId === visitaId ? (
-            <ConfirmarBorradoVisita ctrl={borrar} />
-          ) : (
-            <SeccionLista>
-              <FilaNavegable
-                icono="borrar"
-                titulo="Borrar esta visita"
-                tono="riesgo"
-                chevron={false}
-                onClick={() => void borrar.pedir(visitaId)}
-              />
-            </SeccionLista>
+          {visitaCerrada && oportunidadesAbiertas.length > 0 && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Tiene {plural(oportunidadesAbiertas.length, 'oportunidad abierta', 'oportunidades abiertas')} sin
+                cerrar:{' '}
+                {oportunidadesAbiertas.map((o, i) => (
+                  <span key={o.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/oportunidades/${o.id}`} state={origen}>
+                      {o.titulo}
+                    </Link>
+                  </span>
+                ))}
+                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de liberar espacio.
+              </Aviso>
+            </div>
           )}
+          {visitaCerrada && haySinSubirLocal && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
+                sincronicen antes de liberar espacio.
+              </Aviso>
+            </div>
+          )}
+          {visitaCerrada &&
+            (visitaLiberada ? (
+              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+                <Aviso tipo="exito">Visita liberada.</Aviso>
+              </div>
+            ) : liberarListo ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={cancelarLiberarEspacio}
+                  onConfirmar={() => void liberar.confirmar()}
+                  cargando={liberar.borrando.cargando}
+                  error={liberar.borrando.error}
+                  confirmar="Sí, liberar espacio"
+                  cargandoTexto="Liberando…"
+                >
+                  El archivo ha ido a donde tu dispositivo guarda las descargas — muévelo donde lo necesites
+                  antes de seguir. Al confirmar, esta visita desaparece de PrimeNotes para siempre.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaAccion
+                  densidad="compacta"
+                  titulo="Descargar y liberar espacio"
+                  subtitulo={subtituloLiberar}
+                  acciones={[
+                    {
+                      icono: 'almacenamiento',
+                      etiqueta: 'Descargar y liberar espacio',
+                      onClick:
+                        puedeLiberarEspacio && estadoDescarga !== 'generando'
+                          ? iniciarLiberarEspacio
+                          : undefined,
+                      disabled: !puedeLiberarEspacio || estadoDescarga === 'generando',
+                      tono: 'riesgo',
+                    },
+                  ]}
+                />
+              </SeccionLista>
+            ))}
+          {/* "Descargar y liberar espacio" es un borrado estrictamente más
+              seguro que este (obliga a descargar antes) — se retira este
+              atajo SOLO cuando esa alternativa está realmente disponible.
+              Si está bloqueada por cola sin subir o por que la visita ni
+              siquiera está cerrada, este sigue siendo el único camino para
+              borrar — quitarlo también habría dejado visitas bloqueadas
+              sin ninguna forma de borrarse (visto en vivo: CAPSA, cerrada
+              con una oportunidad abierta, se quedaba sin ningún botón).
+              OJO — esto YA NO es un atajo sin red de seguridad: desde el
+              incidente 2026-09-12 (SAPA borrada con 2 oportunidades
+              abiertas por este mismo botón), ConfirmarBorradoVisita corta
+              en seco si hay alguna oportunidad abierta (no deja ni
+              confirmar) y eliminar_visita_completa lo rechaza también en
+              el servidor pase lo que pase en el cliente. Este botón sigue
+              siendo el único camino cuando lo que bloquea es la cola sin
+              subir, pero no es un bypass del candado de oportunidades. */}
+          {!puedeLiberarEspacio &&
+            (borrar.visitaBorrarId === visitaId ? (
+              <ConfirmarBorradoVisita ctrl={borrar} />
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="borrar"
+                  titulo="Borrar esta visita"
+                  tono="riesgo"
+                  chevron={false}
+                  onClick={() => void borrar.pedir(visitaId)}
+                />
+              </SeccionLista>
+            ))}
         </div>
       )}
 

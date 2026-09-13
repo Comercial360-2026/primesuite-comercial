@@ -4,6 +4,7 @@ import {
   obtenerPendientes,
   actualizarOperacion,
   obtenerOperacion,
+  purgarCompletadasAntiguas,
 } from './db';
 import type { OperacionPendiente } from './types';
 
@@ -17,9 +18,23 @@ import type { OperacionPendiente } from './types';
 
 const MAX_INTENTOS = 5;
 const INTERVALO_REINTENTO_MS = 60_000;
+// Backoff corto tras un fallo suelto (no agotado) — 3s, 6s, 12s, 24s, tope
+// 30s — para no depender del ciclo automático de 60s en el caso normal
+// (timeout de red, corte momentáneo). Con MAX_INTENTOS=5 nunca se llega a
+// esperar más que esto antes de que el intento agote y pase a 'error'.
+const REINTENTO_RAPIDO_BASE_MS = 3_000;
+const REINTENTO_RAPIDO_MAX_MS = 30_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
 let sincronizandoAhora = false;
+// Si llega una petición de sincronizar mientras ya hay una pasada en curso
+// (p. ej. una foto grande subiendo con mala conexión) y se descartaba sin
+// más, la SIGUIENTE captura no arrancaba a subir hasta el ciclo automático
+// de 60s — parecía que el guardado se había quedado colgado más de lo que
+// realmente hacía falta (bug real, dos capturas seguidas: la segunda
+// tardaba mucho más que la primera). Ahora se apunta y se relanza en
+// cuanto la pasada actual termina, en vez de perderse.
+let pendienteReejecucion: { incluirErrores: boolean } | null = null;
 
 export function iniciarMotorSincronizacion(): void {
   window.addEventListener('online', () => void procesarCola());
@@ -29,6 +44,16 @@ export function iniciarMotorSincronizacion(): void {
   // Intento inicial al arrancar la app, por si ya hay red y cola pendiente
   // de una sesión anterior.
   void procesarCola();
+  // Mantenimiento ligero, una vez por arranque de app: purga lo
+  // 'completado' hace más de 30 días. No bloquea nada de lo anterior — si
+  // falla, no impide sincronizar. Se retrasa un poco para no competir con
+  // la carga inicial de la pantalla que se esté abriendo justo ahora — la
+  // purga ya trabaja por lotes (ver db.ts) y no monopoliza el almacén,
+  // pero no hay motivo para que la primera pantalla del usuario comparta
+  // el arranque en frío con una tarea de mantenimiento que puede esperar.
+  setTimeout(() => {
+    void purgarCompletadasAntiguas().catch(() => {});
+  }, 5000);
 }
 
 export function detenerMotorSincronizacion(): void {
@@ -38,16 +63,34 @@ export function detenerMotorSincronizacion(): void {
   }
 }
 
-export async function procesarCola(): Promise<void> {
-  if (sincronizandoAhora || !navigator.onLine) return;
+// Evento en `window` al terminar una pasada de la cola: la UI que muestra
+// "N sin sincronizar" (pantalla Yo) lo escucha para refrescarse al instante
+// en vez de esperar a su propio intervalo.
+export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
+
+export async function procesarCola(opciones?: { incluirErrores?: boolean }): Promise<void> {
+  const incluirErrores = opciones?.incluirErrores ?? false;
+  if (sincronizandoAhora) {
+    if (!pendienteReejecucion || incluirErrores) pendienteReejecucion = { incluirErrores };
+    return;
+  }
+  if (!navigator.onLine) return;
   sincronizandoAhora = true;
   try {
-    const pendientes = await obtenerPendientes();
+    const pendientes = await obtenerPendientes(incluirErrores);
     for (const operacion of pendientes) {
       await procesarOperacion(operacion);
     }
   } finally {
     sincronizandoAhora = false;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+    }
+    if (pendienteReejecucion) {
+      const siguiente = pendienteReejecucion;
+      pendienteReejecucion = null;
+      void procesarCola(siguiente);
+    }
   }
 }
 
@@ -80,23 +123,35 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 
   await actualizarOperacion(operacion.id, { estado: 'subiendo' });
 
+  // `operacion` es el snapshot que leyó `obtenerPendientes()` al empezar
+  // esta pasada — si el comercial edita algo (p. ej. cambia la zona de una
+  // foto desde su ficha) MIENTRAS esta operación sigue en cola esperando
+  // su turno o subiendo, ese snapshot ya está desfasado. Sin releer aquí,
+  // el cambio se guardaba bien en IndexedDB pero la subida al servidor
+  // mandaba el payload viejo — la edición se perdía en el servidor sin
+  // ningún aviso (bug real: cambiar de zona justo tras hacer la foto).
+  const actual = (await obtenerOperacion(operacion.id)) ?? operacion;
+
   try {
-    switch (operacion.entidad) {
+    switch (actual.entidad) {
       case 'visita':
-        await sincronizarVisita(operacion);
+        await sincronizarVisita(actual);
         break;
       case 'cliente':
-      case 'hallazgo':
+      case 'proyecto':
       case 'oportunidad':
       case 'proximo_paso':
       case 'ubicacion':
-        await sincronizarInsertSimple(operacion.entidad, operacion);
+        await sincronizarInsertSimple(actual.entidad, actual);
+        break;
+      case 'hallazgo':
+        await sincronizarHallazgo(actual);
         break;
       case 'captura_libre':
-        await sincronizarCapturaLibre(operacion);
+        await sincronizarCapturaLibre(actual);
         break;
     }
-    await actualizarOperacion(operacion.id, { estado: 'completado' });
+    await actualizarOperacion(actual.id, { estado: 'completado' });
     // Se conserva en IndexedDB con estado 'completado' en vez de borrarse
     // inmediatamente, para que la UI pueda seguir leyendo la cola local sin
     // parpadeos mientras la caché de TanStack Query se revalida. La limpieza
@@ -104,44 +159,65 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
     // ligera, no crítica para el flujo — se puede añadir sin tocar este
     // motor si el volumen local llega a pesar.
   } catch (err) {
-    const intentos = operacion.intentos + 1;
+    const intentos = actual.intentos + 1;
     const mensaje = err instanceof Error ? err.message : String(err);
-    await actualizarOperacion(operacion.id, {
-      estado: intentos >= MAX_INTENTOS ? 'error' : 'pendiente',
+    const agotado = intentos >= MAX_INTENTOS;
+    await actualizarOperacion(actual.id, {
+      estado: agotado ? 'error' : 'pendiente',
       intentos,
       ultimoError: mensaje,
     });
+    if (!agotado) {
+      // Un fallo suelto (foto grande + cobertura floja: el timeout de la
+      // subida, un corte momentáneo de la conexión) antes se quedaba
+      // esperando al ciclo automático siguiente — hasta 60s después, sea
+      // cual sea el motivo del fallo — en vez de reintentarse en segundos.
+      // Reportado en real por Cesar: "tarda 60 segundos en actualizar",
+      // el número exacto del intervalo automático (INTERVALO_REINTENTO_MS).
+      const espera = Math.min(REINTENTO_RAPIDO_BASE_MS * 2 ** (intentos - 1), REINTENTO_RAPIDO_MAX_MS);
+      setTimeout(() => void procesarCola(), espera);
+    }
   }
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
+  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
+  if (!proyectoId) {
+    // Desde la migración 103/104 el proyecto viaja siempre en el payload; una
+    // visita en cola sin él es una operación mal formada (no debería ocurrir).
+    throw new Error('La visita en cola no tiene proyecto asignado.');
+  }
   const { error } = await crearVisitaConResponsable({
     pVisitaId: operacion.id,
     pClienteId: clienteId,
     pComercialId: comercialResponsableId,
+    pProyectoId: proyectoId,
     pTipoVisita: tipoVisita,
     pFecha: fecha ?? null,
     pEstadoCaptura: agendada ? 'agendada' : null,
   });
   if (error) throw new Error(error);
-  // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front
-  // al planificar desde la ficha. Si falla, se lanza para reintentar toda
-  // la operación (la visita ya existe; el UPDATE es idempotente).
-  if (objetivo?.trim()) {
-    const { error: errObjetivo } = await supabase
+  // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front al
+  // planificar desde la ficha. Si falla, se lanza para reintentar toda la
+  // operación (la visita ya existe; el UPDATE es idempotente).
+  const parche: { objetivo?: string } = {};
+  if (objetivo?.trim()) parche.objetivo = objetivo.trim();
+  if (Object.keys(parche).length) {
+    const { error: errParche, count } = await supabase
       .from('visita')
-      .update({ objetivo: objetivo.trim() })
+      .update(parche, { count: 'exact' })
       .eq('id', operacion.id);
-    if (errObjetivo) throw new Error(errObjetivo.message);
+    if (errParche) throw new Error(errParche.message);
+    if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
   }
 }
 
-// Hallazgo, Oportunidad y Próximo paso son INSERT directos — no tienen el
-// problema de doble escritura atómica que sí tiene Visita (§1 de
-// 10_rpc_functions.sql), así que no necesitan pasar por una RPC.
+// Oportunidad y Próximo paso son INSERT directos — no tienen el problema de
+// doble escritura atómica que sí tiene Visita (§1 de 10_rpc_functions.sql),
+// así que no necesitan pasar por una RPC. (Hallazgo tiene su propia función
+// por la tabla puente `hallazgo_area` — ver `sincronizarHallazgo`.)
 async function sincronizarInsertSimple(
-  tabla: 'cliente' | 'hallazgo' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
+  tabla: 'cliente' | 'proyecto' | 'oportunidad' | 'proximo_paso' | 'ubicacion',
   operacion: OperacionPendiente
 ): Promise<void> {
   const fila = aPayloadSnakeCase(operacion);
@@ -155,6 +231,42 @@ async function sincronizarInsertSimple(
   // deliberado entre esa capa tipada y la llamada genérica a Supabase.
   const { error } = await supabase.from(tabla).insert({ id: operacion.id, ...fila } as never);
   if (error) throw new Error(error.message);
+}
+
+// Hallazgo = fila en `hallazgo` + N filas en la tabla puente `hallazgo_area`
+// (prompt maestro 11, Fase 2). No es atómico en el servidor, así que se
+// escribe de forma idempotente para que un reintento tras un fallo a medias
+// no deje el hallazgo sin áreas ni las duplique:
+//  - la fila `hallazgo` va con upsert que ignora el duplicado de PK,
+//  - las áreas se borran y se reinsertan (borrar 0 en la primera pasada).
+async function sincronizarHallazgo(operacion: OperacionPendiente<'hallazgo'>): Promise<void> {
+  const { areas, ...restoPayload } = operacion.payload;
+  const fila = aPayloadSnakeCase({ ...operacion, payload: restoPayload } as OperacionPendiente);
+  // `naturaleza` se retiró de `hallazgo` (PM11 Fase 5). Una operación
+  // encolada antes del cambio aún la lleva en el payload — se descarta aquí
+  // para que el INSERT no falle por columna inexistente.
+  delete (fila as Record<string, unknown>).naturaleza;
+
+  const { error } = await supabase
+    .from('hallazgo')
+    .upsert({ id: operacion.id, ...fila } as never, { onConflict: 'id', ignoreDuplicates: true });
+  if (error) throw new Error(error.message);
+
+  const { error: errorBorrado } = await supabase
+    .from('hallazgo_area')
+    .delete()
+    .eq('hallazgo_id', operacion.id);
+  if (errorBorrado) throw new Error(errorBorrado.message);
+
+  if (areas && areas.length > 0) {
+    const filasArea = areas.map((a) => ({
+      hallazgo_id: operacion.id,
+      categoria_id: a.tipo === 'categoria' ? a.id : null,
+      termino_id: a.tipo === 'termino' ? a.id : null,
+    }));
+    const { error: errorAreas } = await supabase.from('hallazgo_area').insert(filasArea);
+    if (errorAreas) throw new Error(errorAreas.message);
+  }
 }
 
 function extensionAudio(mime: string): string {

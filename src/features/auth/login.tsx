@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { solicitarAcceso } from '@/lib/gestionar-comercial';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -16,7 +16,6 @@ import { LogoPrimeNotes } from '@/components/marca/marca';
 // heredado del navegador.
 export function Login() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const acceso = useAccionAsync();
@@ -40,8 +39,6 @@ export function Login() {
     );
   }
 
-  const destino = (location.state as { desde?: string } | null)?.desde ?? '/';
-
   async function iniciarSesion() {
     if (!email.trim() || !password) return;
 
@@ -54,7 +51,9 @@ export function Login() {
         if (error) throw error;
       },
       {
-        onExito: () => navigate(destino, { replace: true }),
+        // Al entrar, siempre a Hoy — nunca a la última pantalla que quedó
+        // abierta antes de que caducara la sesión.
+        onExito: () => navigate('/', { replace: true }),
         mensajeError: (err) => {
           // No nos fiamos de navigator.onLine (poco fiable en Safari de
           // iPhone: puede decir "sí hay red" en pleno modo avión) ni del
@@ -128,7 +127,8 @@ export function Login() {
         <div style={{ marginTop: 'var(--space-4)' }}>
           <Aviso tipo="exito" titulo="Aviso enviado">
             Si el correo es de un comercial activo, tu responsable lo verá en la app y te reenviará el enlace de
-            acceso. Vuelve a intentarlo cuando lo tengas.
+            acceso. Vuelve a intentarlo cuando lo tengas. Revisa que el correo que has puesto sea el que usas para
+            entrar — si tiene una errata, tu responsable no podrá verlo.
           </Aviso>
         </div>
       ) : recuperarAbierto ? (
@@ -157,8 +157,8 @@ export function Login() {
           </button>
           <button
             type="button"
-            className="btn-enlace"
-            style={{ display: 'block', margin: 'var(--space-3) auto 0' }}
+            className="btn btn-secondary"
+            style={{ marginTop: 'var(--space-2)' }}
             onClick={() => {
               setRecuperarAbierto(false);
               recuperar.limpiarError();

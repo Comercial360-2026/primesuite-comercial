@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icono, type NombreIcono } from './iconos';
+import { Avatar } from './avatar';
 
 // Fila de una lista agrupada (dentro de SeccionLista) que solo muestra un
 // dato: etiqueta a la izquierda, valor a la derecha. No navega ni acciona
@@ -22,11 +23,14 @@ interface Props {
   valorTenue?: boolean;
   /** Icono opcional a la izquierda, por simetría con la familia de filas. */
   icono?: NombreIcono;
+  /** La fila es de una PERSONA (comercial/cliente): `Avatar` en vez de
+   *  icono. Si se pasan los dos, `icono` gana (es una señal de estado). */
+  avatar?: string;
   tono?: Tono;
   densidad?: 'normal' | 'compacta';
 }
 
-export function FilaDato({ etiqueta, valor, valorTenue, icono, tono = 'neutral', densidad = 'normal' }: Props) {
+export function FilaDato({ etiqueta, valor, valorTenue, icono, avatar, tono = 'neutral', densidad = 'normal' }: Props) {
   const clases = [
     'fila',
     'fila--dato',
@@ -40,10 +44,12 @@ export function FilaDato({ etiqueta, valor, valorTenue, icono, tono = 'neutral',
 
   return (
     <div className={clases}>
-      {icono && (
+      {icono ? (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
         </span>
+      ) : (
+        avatar && <Avatar nombre={avatar} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{etiqueta}</span>

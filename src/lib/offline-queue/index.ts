@@ -5,11 +5,18 @@ export {
   obtenerPendientes,
   obtenerOperacionesConError,
   obtenerPorVisita,
+  obtenerVisitasConPendientes,
   obtenerUbicacionesPorCliente,
   contarPendientesPorEntidad,
   eliminarOperacion,
+  purgarCompletadasAntiguas,
 } from './db';
-export { iniciarMotorSincronizacion, detenerMotorSincronizacion, procesarCola } from './sync-engine';
+export {
+  iniciarMotorSincronizacion,
+  detenerMotorSincronizacion,
+  procesarCola,
+  EVENTO_COLA_PROCESADA,
+} from './sync-engine';
 export type {
   OperacionPendiente,
   EntidadSincronizable,

@@ -5,6 +5,7 @@
 
 export type EntidadSincronizable =
   | 'cliente'
+  | 'proyecto'
   | 'visita'
   | 'hallazgo'
   | 'captura_libre'
@@ -28,11 +29,30 @@ export type EstadoOperacion = 'pendiente' | 'subiendo' | 'completado' | 'error';
 export interface ClientePayload {
   nombre: string;
   creadoPor: string;
+  // Responsable de cartera = quien lo crea. Dirección lo reasigna luego con
+  // "Cambiar responsable" (RPC de traspaso de cartera, migración 77).
+  responsableId: string;
   estadoRelacion?: string; // por defecto 'borrador' en la BD
+}
+
+// Igual que ClientePayload: reserva para cuando no hay red. Con conexión,
+// la creación de un proyecto sigue siendo un INSERT directo. `dependeDe`
+// encadena con el ClientePayload cuando ambos se crean en el mismo tramo
+// offline (cliente nuevo → primer proyecto nuevo → visita).
+export interface ProyectoPayload {
+  clienteId: string;
+  nombre: string;
+  estado?: string; // por defecto 'activo' en la BD
 }
 
 export interface VisitaPayload {
   clienteId: string;
+  // Proyecto (línea de negocio) al que pertenece la visita. Tras el fin de
+  // `es_general` (migración 103/104) el servidor ya NO lo deriva del
+  // cliente: `crear_visita_con_responsable` lo exige. Toda vía que encola
+  // una visita manda un `proyectoId` real — en el alta rápida offline se
+  // encola primero el proyecto y su id se encadena a la visita.
+  proyectoId?: string;
   comercialResponsableId: string;
   tipoVisita: 'comercial' | 'demo' | 'tecnica' | 'seguimiento' | 'relacion' | null;
   // Objetivo de la visita, en palabras del comercial. Obligatorio en la UI
@@ -46,19 +66,31 @@ export interface VisitaPayload {
   agendada?: boolean;
 }
 
+// El "área" de un hallazgo (prompt maestro 11, Fase 2): o una categoría del
+// catálogo de vocabulario ("Hardware", "Software"…) o un término concreto
+// ("MIFARE › DESFire EV2"). Se guardan varias por hallazgo en la tabla
+// puente `hallazgo_area`. Aquí viaja sin el nombre (solo tipo + id): el
+// nombre es para pintar, no para persistir.
+export interface AreaHallazgoRef {
+  tipo: 'categoria' | 'termino';
+  id: string;
+}
+
 export interface HallazgoPayload {
   visitaId: string; // referencia al id de OperacionPendiente<'visita'>, no al id real todavía si aún no sincronizó
   comercialAutorId: string;
-  terminoId: string;
-  naturaleza:
-    | 'contexto'
-    | 'oportunidad'
-    | 'riesgo'
-    | 'competencia'
-    | 'fortaleza'
-    | 'proyecto_activo';
+  // Áreas del catálogo (prompt maestro 11, Fase 2) — opcionales y varias.
+  // Sustituyen al antiguo `terminoId` único. Un hallazgo sin ningún área de
+  // tipo término no entra en el Ecosistema (igual que antes sin término).
+  areas?: AreaHallazgoRef[];
+  // Lo que el comercial escribió/dictó en "Anotar" — el cuerpo del
+  // hallazgo. Es lo que identifica al hallazgo (PM11).
   nota?: string;
   ubicacionId?: string;
+  // Etiqueta de zona del Modo Recorrido: texto libre, de usar y tirar, que
+  // el comercial escribe sobre la marcha. Sustituye a `ubicacionId` para
+  // las capturas nuevas; las visitas ya cerradas conservan `ubicacionId`.
+  zonaTexto?: string;
   fechaRelevante?: string; // ISO date
   tipoFechaRelevante?: string;
 }
@@ -69,9 +101,8 @@ export interface CapturaLibrePayload {
   tipo: 'foto' | 'audio' | 'nota';
   titulo?: string; // referencia corta para distinguir capturas en la lista; solo aplica a 'nota'
   contenidoTexto?: string; // nota, o transcripción posterior de audio
-  hallazgoId?: string;
-  oportunidadId?: string;
   ubicacionId?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   categoriaFoto?: string;
   latitud?: number;
   longitud?: number;
@@ -87,8 +118,15 @@ export interface OportunidadPayload {
   prioridad: 'baja' | 'media' | 'alta' | 'estrategica';
   hallazgoOrigenId?: string;
   ubicacionId?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   horizonteDecision?: string;
   solucionPrincipalTerminoId?: string;
+  // Se rellenan si el comercial completa la oportunidad en su Detalle
+  // ANTES de que la creación llegue al servidor (ver detalle-oportunidad.tsx
+  // — "Completar ahora" en Oportunidad rápida). Al sincronizar, el INSERT
+  // los lleva. Si no, `etapa` nace 'latente' por defecto en la BD.
+  etapa?: string;
+  descripcion?: string;
 }
 
 export interface ProximoPasoPayload {
@@ -97,6 +135,7 @@ export interface ProximoPasoPayload {
   descripcion: string;
   oportunidadId?: string;
   fechaObjetivo?: string;
+  zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
 }
 
 // A diferencia de las demás entidades, una ubicación no pertenece a una
@@ -120,6 +159,7 @@ export interface UbicacionPayload {
 
 export type PayloadPorEntidad = {
   cliente: ClientePayload;
+  proyecto: ProyectoPayload;
   visita: VisitaPayload;
   hallazgo: HallazgoPayload;
   captura_libre: CapturaLibrePayload;
@@ -144,6 +184,12 @@ type CamposComunes = {
   intentos: number;
   ultimoError?: string;
   creadoEn: string; // ISO timestamp
+  // Denormalizado por encolarOperacion() (db.ts) a partir de la entidad/
+  // payload — nunca lo rellena quien llama a encolar(). Existe SOLO para
+  // poder indexar "todo lo de esta visita" en IndexedDB sin escanear la
+  // tabla entera (obtenerPorVisita/obtenerVisitasConPendientes). No existe
+  // para 'cliente'/'proyecto'/'ubicacion' (no cuelgan de una visita).
+  visitaId?: string;
 };
 
 export type OperacionPendiente<E extends EntidadSincronizable = EntidadSincronizable> = {

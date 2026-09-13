@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
+import { plural } from '@/lib/texto';
+import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import {
   editarComercial,
@@ -13,6 +15,8 @@ import {
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
@@ -25,6 +29,7 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 export function DetalleComercial() {
   const { comercialId } = useParams<{ comercialId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { comercial: yo } = useSesionActual();
 
@@ -165,7 +170,7 @@ export function DetalleComercial() {
   if (isLoading || (!data && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -173,7 +178,7 @@ export function DetalleComercial() {
   if (isError || !data) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
         <EstadoLista estado="error" mensaje="No se pudo cargar este comercial." onReintentar={() => refetch()} />
       </div>
     );
@@ -230,7 +235,7 @@ export function DetalleComercial() {
       const r = await traspasarCartera(c.id, traspasoA);
       const nombreDestino = destinos.find((d) => d.id === traspasoA)?.nombre ?? 'el comercial elegido';
       setTraspasoHecho(
-        `${r.clientes} cliente(s), ${r.visitas} visita(s) planificada(s) y ${r.pasos} próximo(s) paso(s) pasan a ${nombreDestino}.`
+        `${plural(r.clientes, 'cliente', 'clientes')}, ${plural(r.visitas, 'visita planificada', 'visitas planificadas')} y ${plural(r.pasos, 'próximo paso', 'próximos pasos')} pasan a ${nombreDestino}.`
       );
       setModo(null);
       setTraspasoA('');
@@ -244,76 +249,81 @@ export function DetalleComercial() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--split">
       <CabeceraDetalle
         titulo={data.nombre}
         ayuda="detalle-comercial"
         subtitulo={data.activo ? undefined : `De baja${data.fecha_baja ? ` desde el ${fechaCorta(data.fecha_baja)}` : ''}`}
+        avatar={data.nombre}
         onVolver={() => navigate('/comerciales')}
       />
 
-      {!data.activo && (
-        <Aviso tipo="atencion" titulo="Comercial de baja">
-          No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
-        </Aviso>
-      )}
+      <div className="screen__scroll">
+       <div className="lista-agrupada">
+        {!data.activo && (
+          <Aviso tipo="atencion" titulo="Comercial de baja">
+            No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
+          </Aviso>
+        )}
 
-      {data.activo && peticionAcceso && !enlaceReenviado && (
-        <Aviso tipo="atencion" titulo="Ha pedido acceso">
-          El {fechaCorta(peticionAcceso.creado_en)}. Reenvíale el enlace y se marcará como resuelto.
-        </Aviso>
-      )}
+        {data.activo && peticionAcceso && !enlaceReenviado && (
+          <Aviso tipo="atencion" titulo="Ha pedido acceso">
+            El {fechaCorta(peticionAcceso.creado_en)}. Reenvíale el enlace y se marcará como resuelto.
+          </Aviso>
+        )}
 
-      <div className="label" style={{ marginTop: data.activo ? 0 : undefined }}>Nombre</div>
-      <input className="field" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        {/* Contexto siempre visible arriba (regla 6) — antes la cartera solo
+            se veía al abrir traspaso o baja. */}
+        {activo && (
+          <div className="ficha-vitals">
+            <span>
+              {totalCartera === 0
+                ? 'Sin clientes asignados todavía'
+                : [
+                    cartera?.clientes ? `${cartera.clientes} cliente${cartera.clientes === 1 ? '' : 's'}` : null,
+                    cartera?.visitas
+                      ? `${cartera.visitas} visita${cartera.visitas === 1 ? '' : 's'} planificada${cartera.visitas === 1 ? '' : 's'}`
+                      : null,
+                    cartera?.pasos
+                      ? `${cartera.pasos} próximo${cartera.pasos === 1 ? '' : 's'} paso${cartera.pasos === 1 ? '' : 's'}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+            </span>
+          </div>
+        )}
 
-      <div className="label">Rol</div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {ROLES.map((r) => (
-          <button
-            key={r.valor}
-            type="button"
-            className={`chip${rol === r.valor ? ' chip--on' : ''}`}
-            onClick={() => setRol(r.valor)}
-          >
-            {r.etiqueta}
-          </button>
-        ))}
-      </div>
+        {/* Acciones esporádicas como chip, no botón ancho (regla 3). */}
+        {data.activo && !enlaceReenviado && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="chip" disabled={reenviando} onClick={reenviarEnlace}>
+              {reenviando ? 'Generando enlace…' : 'Reenviar enlace de acceso'}
+            </button>
+            {totalCartera > 0 && modo !== 'baja' && modo !== 'traspaso' && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => {
+                  setTraspasoHecho(null);
+                  setModo('traspaso');
+                }}
+              >
+                Traspasar cartera
+              </button>
+            )}
+          </div>
+        )}
 
-      <div className="label">Zona / cartera (opcional)</div>
-      <input className="field" value={zona} onChange={(e) => setZona(e.target.value)} />
-
-      {error && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
-          <Aviso tipo="error">{error}</Aviso>
-        </div>
-      )}
-
-      {/* Con una tarjeta de acción grande abierta abajo (baja / traspaso),
-          ese panel es el foco: "Guardar cambios" baja a secundario para no
-          dejar dos primarios azules a la vez. */}
-      <button
-        className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
-        style={{ marginTop: 'auto' }}
-        disabled={!nombre.trim() || !hayCambios || guardando}
-        onClick={guardar}
-      >
-        {guardando ? 'Guardando…' : 'Guardar cambios'}
-      </button>
-
-      {/* Reenviar enlace de acceso — contraseña perdida o enlace de alta
-          caducado. Solo tiene sentido con el comercial activo. */}
-      {data.activo && (
-        enlaceReenviado ? (
+        {enlaceReenviado && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Aviso tipo="exito" titulo="Enlace nuevo listo">
               Pásaselo a {data.nombre}. La petición queda resuelta.
             </Aviso>
             <div className="enlace-copia">{enlaceReenviado}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="fila-btns" style={{ flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" style={{ width: 'auto', padding: '0 16px' }} onClick={copiarEnlace}>
-                {copiado ? 'Copiado ✓' : 'Copiar enlace'}
+                {copiado ? <><Icono nombre="check" size={16} /> Copiado</> : 'Copiar enlace'}
               </button>
               {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
                 <button
@@ -330,25 +340,15 @@ export function DetalleComercial() {
               )}
             </div>
           </div>
-        ) : (
-          <button className="btn btn-secondary" disabled={reenviando} onClick={reenviarEnlace}>
-            <Icono nombre="solicitudes" size={18} />
-            {reenviando ? 'Generando enlace…' : 'Reenviar enlace de acceso'}
-          </button>
-        )
-      )}
+        )}
 
-      {traspasoHecho && (
-        <div style={{ marginTop: 'var(--space-3)' }}>
+        {traspasoHecho && (
           <Aviso tipo="exito" titulo="Cartera traspasada">
             {traspasoHecho} {data.nombre} sigue activo.
           </Aviso>
-        </div>
-      )}
+        )}
 
-      {/* Traspasar cartera SIN dar de baja — solo si está activo y lleva algo. */}
-      {activo && totalCartera > 0 && modo !== 'baja' && (
-        modo === 'traspaso' ? (
+        {modo === 'traspaso' && (
           <div className="card">
             <ResumenCartera cartera={cartera} nombre={data.nombre} />
             <div className="label">Traspasar todo a</div>
@@ -358,7 +358,7 @@ export function DetalleComercial() {
                 <option key={d.id} value={d.id}>{d.nombre}</option>
               ))}
             </select>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div className="fila-btns" style={{ marginTop: 10 }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} disabled={cambiandoEstado} onClick={() => { setModo(null); setTraspasoA(''); }}>
                 Cancelar
               </button>
@@ -367,18 +367,72 @@ export function DetalleComercial() {
               </button>
             </div>
           </div>
-        ) : (
-          <button className="btn btn-secondary" onClick={() => { setTraspasoHecho(null); setModo('traspaso'); }}>
-            <Icono nombre="clientes" size={18} />
-            Traspasar cartera
-          </button>
-        )
-      )}
+        )}
 
-      {/* Baja / reactivación — al fondo, tono riesgo, con confirmación. */}
-      {activo ? (
-        modo === 'baja' ? (
-          <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+        {/* La ficha muestra la CARGA de cartera (arriba); su ACTIVIDAD
+            (visitas hechas, hallazgos, oportunidades) vive en otra pantalla
+            — antes no había forma de llegar desde aquí. */}
+        <SeccionLista titulo="Actividad">
+          <FilaNavegable
+            icono="equipo"
+            titulo="Ver actividad"
+            subtitulo="Visitas, hallazgos y oportunidades, por proyecto"
+            to={`/actividad-comerciales/${c.id}`}
+            state={desde(location)}
+          />
+        </SeccionLista>
+
+        <SeccionLista titulo="Datos">
+          <div style={{ padding: '12px var(--fila-pad-x)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div>
+              <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+              <input className="field" autoComplete="off" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            </div>
+            <div>
+              <div className="label">Rol</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {ROLES.map((r) => (
+                  <button
+                    key={r.valor}
+                    type="button"
+                    className={`chip${rol === r.valor ? ' chip--on' : ''}`}
+                    onClick={() => setRol(r.valor)}
+                  >
+                    {r.etiqueta}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="label">Zona (opcional)</div>
+              <input
+                className="field"
+                autoComplete="off"
+                placeholder="p. ej. Cataluña, Grandes cuentas…"
+                value={zona}
+                onChange={(e) => setZona(e.target.value)}
+              />
+            </div>
+          </div>
+        </SeccionLista>
+
+        {/* De baja: guardar cambios en los datos sigue siendo posible, pero
+            deja de ser la acción principal de la pantalla (eso es
+            Reactivar, fijo abajo) — se ofrece aquí como acción secundaria. */}
+        {!activo && (
+          <button
+            className="btn btn-secondary"
+            disabled={!nombre.trim() || !hayCambios || guardando}
+            onClick={guardar}
+          >
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        )}
+
+        {error && <Aviso tipo="error">{error}</Aviso>}
+
+        {activo && modo === 'baja' && (
+          <div className="card card--riesgo">
             {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
               {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan. Se
@@ -395,7 +449,7 @@ export function DetalleComercial() {
                 </select>
               </>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div className="fila-btns" style={{ marginTop: 10 }}>
               <button
                 className="btn btn-secondary"
                 style={{ flex: 1 }}
@@ -405,8 +459,8 @@ export function DetalleComercial() {
                 Cancelar
               </button>
               <button
-                className="btn btn-primary"
-                style={{ flex: 1, background: 'var(--risk-600)' }}
+                className="btn btn-peligro"
+                style={{ flex: 1 }}
                 disabled={cambiandoEstado || (totalCartera > 0 && !traspasoA)}
                 onClick={() => cambiarEstado(false)}
               >
@@ -418,19 +472,38 @@ export function DetalleComercial() {
               </button>
             </div>
           </div>
-        ) : (
-          <button
-            className="btn btn-secondary"
-            style={{ color: 'var(--risk-600)', borderColor: 'var(--risk-600)' }}
-            disabled={esYo}
-            title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}
-            onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
-          >
-            Dar de baja
-          </button>
-        )
+        )}
+
+        {activo && modo !== 'baja' && (
+          <SeccionLista>
+            <div title={esYo ? 'No puedes darte de baja a ti mismo' : undefined}>
+              <FilaNavegable
+                icono="borrar"
+                titulo="Dar de baja"
+                tono="riesgo"
+                chevron={false}
+                disabled={esYo}
+                onClick={() => { setTraspasoHecho(null); setModo('baja'); }}
+              />
+            </div>
+          </SeccionLista>
+        )}
+       </div>
+      </div>
+
+      {/* CTA fijo abajo: Guardar cambios si está activo (secundario cuando
+          hay un panel de baja/traspaso abierto, para no competir con él),
+          Reactivar si está de baja — un solo primario visible a la vez. */}
+      {activo ? (
+        <button
+          className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
+          disabled={!nombre.trim() || !hayCambios || guardando}
+          onClick={guardar}
+        >
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
       ) : (
-        <button className="btn btn-secondary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
+        <button className="btn btn-primary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
           {cambiandoEstado ? 'Reactivando…' : 'Reactivar comercial'}
         </button>
       )}

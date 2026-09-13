@@ -16,17 +16,31 @@ interface Props {
    *  `principal` = la sección del dinero o de la acción · `normal` (def.) ·
    *  `tenue` = metadatos de referencia (Datos, Más). Ver 08 §"Jerarquía". */
   prominencia?: 'principal' | 'normal' | 'tenue';
+  /** Acción a la derecha de la cabecera, en su misma línea. Normalmente un
+   *  `.boton-icono` con `<Icono nombre="mas">` para "añadir uno". */
+  accion?: ReactNode;
   children: ReactNode;
 }
 
-export function SeccionLista({ titulo, prominencia = 'normal', children }: Props) {
+export function SeccionLista({ titulo, prominencia = 'normal', accion, children }: Props) {
   const clase = ['seccion-lista', prominencia !== 'normal' && `seccion-lista--${prominencia}`]
     .filter(Boolean)
     .join(' ');
+  // Con `accion` (un "+" en la cabecera) la sección puede quedarse sin filas
+  // —una lista aún vacía a la que el "+" va a añadir la primera—: entonces
+  // solo se pinta la cabecera, no un grupo vacío con bordes.
+  const hayFilas = Array.isArray(children) ? children.some(Boolean) : Boolean(children);
   return (
     <section className={clase}>
-      {titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>}
-      <div className="seccion-lista__grupo">{children}</div>
+      {accion ? (
+        <div className="seccion-lista__cabecera-fila">
+          {titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>}
+          <div className="seccion-lista__cabecera-accion">{accion}</div>
+        </div>
+      ) : (
+        titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>
+      )}
+      {hayFilas && <div className="seccion-lista__grupo">{children}</div>}
     </section>
   );
 }

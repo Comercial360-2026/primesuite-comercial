@@ -8,6 +8,9 @@ export interface CrearVisitaConResponsableArgs {
   pVisitaId: string;
   pClienteId: string;
   pComercialId: string;
+  // Proyecto (línea de negocio) al que pertenece la visita. Obligatorio: el
+  // modelo ya no tiene proyecto "General" al que caer (migración 103/104).
+  pProyectoId: string;
   pTipoVisita?: string | null;
   // Para planificar una visita a fecha futura (ver migración 69). Sin estos,
   // la visita nace 'en_curso' con fecha = now(), como siempre.
@@ -23,7 +26,7 @@ export interface VisitaRow {
   tipo_visita: string | null;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   resumen_texto: string | null;
-  resumen_origen: 'reglas' | 'ia';
+  resumen_origen: 'reglas' | 'ia' | 'manual';
   creado_en: string;
   actualizado_en: string;
 }
@@ -39,6 +42,8 @@ export interface ResolverTerminoPropuestoArgs {
 export interface TerminoRow {
   id: string;
   categoria_id: string;
+  parent_id: string | null;
+  orden: number;
   nombre: string;
   rol_funcional: 'tecnologia' | 'solucion' | 'ambos';
   estado_gobierno: 'propuesto' | 'corporativo' | 'descartado';

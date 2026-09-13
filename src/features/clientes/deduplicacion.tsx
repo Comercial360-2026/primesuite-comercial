@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta } from '@/lib/fechas';
 import { claveDuplicado } from '@/lib/nombres-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -61,13 +62,32 @@ export function Deduplicacion() {
     },
   });
 
-  // Conteos: se traen todas las filas de una columna y se cuentan en el
-  // cliente. Es una tabla pequeña y una sola columna — más simple que una
-  // consulta agregada por cada ficha.
+  // Candidatos a duplicado por nombre — SOLO estos ids necesitan conteo.
+  // Antes las 4 consultas de abajo traían la columna cliente_id de TODA la
+  // tabla (todas las visitas/oportunidades/interlocutores/ubicaciones de la
+  // empresa, para siempre) y contaban en JS; con `.in()` restringido a los
+  // candidatos, el servidor solo devuelve filas de fichas que ya se sabe
+  // que están duplicadas por nombre — normalmente un puñado, no la empresa
+  // entera.
+  const candidatosIds = useMemo(() => {
+    if (!clientes) return [];
+    const porClave: Record<string, string[]> = {};
+    for (const c of clientes) (porClave[claveDuplicado(c.nombre)] ??= []).push(c.id);
+    return Object.values(porClave)
+      .filter((ids) => ids.length >= 2)
+      .flat();
+  }, [clientes]);
+
+  const hayCandidatos = candidatosIds.length > 0;
+
   const { data: conteoVisitas } = useQuery({
-    queryKey: ['dedup-conteo-visitas'],
+    queryKey: ['dedup-conteo-visitas', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('visita').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('visita')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const v of data ?? []) m[v.cliente_id] = (m[v.cliente_id] ?? 0) + 1;
@@ -76,9 +96,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoOportunidades } = useQuery({
-    queryKey: ['dedup-conteo-oportunidades'],
+    queryKey: ['dedup-conteo-oportunidades', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('oportunidad').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('oportunidad')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const o of data ?? []) m[o.cliente_id] = (m[o.cliente_id] ?? 0) + 1;
@@ -87,9 +111,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoInterlocutores } = useQuery({
-    queryKey: ['dedup-conteo-interlocutores'],
+    queryKey: ['dedup-conteo-interlocutores', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('interlocutor').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('interlocutor')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const i of data ?? []) m[i.cliente_id] = (m[i.cliente_id] ?? 0) + 1;
@@ -98,9 +126,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoUbicaciones } = useQuery({
-    queryKey: ['dedup-conteo-ubicaciones'],
+    queryKey: ['dedup-conteo-ubicaciones', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('ubicacion').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('ubicacion')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const u of data ?? []) m[u.cliente_id] = (m[u.cliente_id] ?? 0) + 1;
@@ -152,13 +184,18 @@ export function Deduplicacion() {
     // de bajo volumen. Si uno falla, los ya fusionados quedan bien y el
     // grupo se puede reintentar con lo que queda.
     for (const dup of duplicados) {
-      const { error: err } = await supabase
-        .from('cliente')
-        .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId })
-        .eq('id', dup.id);
-      if (err) {
+      try {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update({ estado_fusion: 'fusionado', fusionado_en_id: maestroId }, { count: 'exact' })
+              .eq('id', dup.id),
+          `No se pudo fusionar «${dup.nombre}» (0 filas afectadas). Puede que no tengas permiso.`
+        );
+      } catch (err) {
         setProcesando(null);
-        setError(`No se pudo fusionar «${dup.nombre}»: ${err.message}`);
+        setError(`No se pudo fusionar «${dup.nombre}»: ${err instanceof Error ? err.message : 'error desconocido'}`);
         return;
       }
     }
@@ -179,14 +216,11 @@ export function Deduplicacion() {
 
   const cargando =
     !clientes ||
-    !conteoVisitas ||
-    !conteoOportunidades ||
-    !conteoInterlocutores ||
-    !conteoUbicaciones;
+    (hayCandidatos && (!conteoVisitas || !conteoOportunidades || !conteoInterlocutores || !conteoUbicaciones));
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Clientes duplicados" ayuda="deduplicacion" />
+      <CabeceraDetalle titulo="Clientes duplicados" ayuda="deduplicacion" volverA="/yo" />
 
       {cargando ? (
         <EstadoLista estado="cargando" />
@@ -254,7 +288,7 @@ export function Deduplicacion() {
                   oportunidad{oportunidadesQueMueven === 1 ? '' : 'es'} (más hallazgos, ubicaciones y contactos). No se
                   puede deshacer desde la app.
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -263,14 +297,8 @@ export function Deduplicacion() {
                   >
                     Cancelar
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ background: 'var(--risk-600)' }}
-                    disabled={bloqueado}
-                    onClick={() => fusionar(g)}
-                  >
-                    {bloqueado ? 'Fusionando…' : 'Confirmar fusión'}
+                  <button type="button" className="btn btn-peligro" disabled={bloqueado} onClick={() => fusionar(g)}>
+                    {bloqueado ? 'Fusionando…' : 'Sí, fusionar'}
                   </button>
                 </div>
               </div>

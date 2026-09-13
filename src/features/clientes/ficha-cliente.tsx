@@ -1,54 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { haceRelativo } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
+import { plural } from '@/lib/texto';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
-import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { crearVisitaConResponsable } from '@/lib/rpc';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
-import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
-import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
-import { useVisitaEnCursoCliente } from '@/hooks/use-visita-en-curso-cliente';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
-import { EstadoLista } from '@/components/ui/estado-lista';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
-import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
-
-interface OportunidadActiva {
-  id: string;
-  titulo: string;
-  prioridad: string;
-  etapa: string;
-  valor_estimado: number | null;
-}
-
-interface ProximoPasoPendiente {
-  id: string;
-  descripcion: string;
-  fecha_objetivo: string | null;
-}
-
-interface EcosistemaItem {
-  termino_id: string;
-  naturaleza: string;
-}
-
-interface VisitaHistorial {
-  id: string;
-  fecha: string;
-  tipo_visita: string | null;
-  objetivo: string | null;
-  estado_captura: string;
-}
+import { cargarEcosistemaCliente } from '@/lib/ecosistema';
+import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
+import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
+import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
+import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
+import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
@@ -68,22 +43,12 @@ interface PrevisualizacionBorradoCliente extends PrevisualizacionBorrado {
 export function FichaCliente() {
   const { clienteId } = useParams<{ clienteId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // ← vuelve a donde se vino (listado, buscador, una visita…) o al listado.
+  const volver = useVolverA('/clientes');
   const { comercial } = useSesionActual();
-  const { iniciarVisita } = useVisitaActivaContext();
   const { encolar } = useSyncQueue(undefined);
   const queryClient = useQueryClient();
-
-  // Ventana "¿A qué vas?" antes de arrancar una visita sobre la marcha — el
-  // objetivo es obligatorio también aquí, igual que al planificar. Antes, si
-  // ya hay una visita en curso con este cliente, se avisa (enCursoModal).
-  const [objetivoAdHocAbierto, setObjetivoAdHocAbierto] = useState(false);
-  const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
-  const { data: visitaEnCurso } = useVisitaEnCursoCliente(clienteId);
-
-  function pedirIniciarVisitaAdHoc() {
-    if (visitaEnCurso) setEnCursoModalAbierto(true);
-    else setObjetivoAdHocAbierto(true);
-  }
 
   const [ecoTodos, setEcoTodos] = useState(false);
   const ECO_VISIBLE = 10;
@@ -93,32 +58,95 @@ export function FichaCliente() {
   const borrandoCliente = useAccionAsync();
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
-  // ?planificar=1 → se llega aquí desde "Nuevo cliente" con la intención de
-  // planificar una visita: el formulario se abre solo.
-  const [searchParams] = useSearchParams();
-  const [planificando, setPlanificando] = useState(searchParams.get('planificar') === '1');
-  const planificarRef = useRef<HTMLDivElement>(null);
-  const [fechaPlan, setFechaPlan] = useState('');
-  const [horaPlan, setHoraPlan] = useState('');
-  // Solo se usa cuando no hay hora: '' = sin hora fija, 'manana' | 'tarde' =
-  // franja sin hora concreta.
-  const [franjaPlan, setFranjaPlan] = useState<'' | 'manana' | 'tarde'>('');
-  const [objetivoPlan, setObjetivoPlan] = useState('');
-  const [comercialPlan, setComercialPlan] = useState('');
-  const [planificadaPara, setPlanificadaPara] = useState<string | null>(null);
-  const planificacion = useAccionAsync();
-  const hoyISO = new Date().toISOString().slice(0, 10);
 
-  // Cambiar responsable del cliente (Fase 6b) — solo Dirección Comercial.
+  // Cambiar responsable del cliente — solo Dirección Comercial.
   const [cambiandoResp, setCambiandoResp] = useState(false);
   const [respNuevo, setRespNuevo] = useState('');
   const cambioResp = useAccionAsync();
 
-  // Solo Dirección Comercial: lista de comerciales activos para "planificar
-  // para otro" y para "cambiar responsable".
+  // Nuevo proyecto (línea de negocio) — cualquier comercial activo.
+  const [creandoProyecto, setCreandoProyecto] = useState(false);
+  const [nombreProyecto, setNombreProyecto] = useState('');
+  const creacionProyecto = useAccionAsync();
+
+  // "Ver terminados" — los proyectos terminados van plegados en la lista.
+  const [verTerminados, setVerTerminados] = useState(false);
+
+  // Interlocutores del cliente: se gestionan en una hoja superior que se abre
+  // con un icono en la cabecera (igual que en la visita en curso).
+  const [interlocutoresHojaAbierta, setInterlocutoresHojaAbierta] = useState(false);
+
+  // Editar datos del cliente (nombre, sector, tamaño, ubicación general) —
+  // el comercial responsable o Dirección. Sin cola offline: es un UPDATE
+  // directo, requiere conexión.
+  const TAMANOS = ['Pequeña', 'Mediana', 'Grande'] as const;
+  const [editandoDatos, setEditandoDatos] = useState(false);
+  const [formNombre, setFormNombre] = useState('');
+  const [formSector, setFormSector] = useState('');
+  const [formTamano, setFormTamano] = useState('');
+  const [formUbicacion, setFormUbicacion] = useState('');
+  const guardadoDatos = useAccionAsync();
+
+  const { data: sectores } = useQuery({
+    queryKey: ['sectores-activos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sector')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('orden');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  function abrirEditarDatos() {
+    setFormNombre(cliente?.nombre ?? '');
+    setFormSector(cliente?.sector ?? '');
+    setFormTamano(cliente?.tamano_aprox ?? '');
+    setFormUbicacion(cliente?.ubicacion_general ?? '');
+    guardadoDatos.limpiarError();
+    setEditandoDatos(true);
+  }
+
+  async function guardarDatos() {
+    if (!clienteId || !formNombre.trim()) return;
+    if (!navigator.onLine) {
+      guardadoDatos.establecerError('Necesitas conexión para editar los datos del cliente.');
+      return;
+    }
+    await guardadoDatos.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update(
+                {
+                  nombre: formNombre.trim(),
+                  sector: formSector || null,
+                  tamano_aprox: formTamano || null,
+                  ubicacion_general: formUbicacion.trim() || null,
+                },
+                { count: 'exact' }
+              )
+              .eq('id', clienteId),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          setEditandoDatos(false);
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+        },
+      }
+    );
+  }
+
   const { data: comercialesActivos } = useQuery({
     queryKey: ['comerciales-activos'],
-    enabled: esDireccionComercial && (planificando || cambiandoResp),
+    enabled: esDireccionComercial && cambiandoResp,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('comercial')
@@ -130,73 +158,6 @@ export function FichaCliente() {
     },
   });
 
-  async function planificarVisita() {
-    await planificacion.ejecutar(
-      async () => {
-        if (!cliente || !comercial) {
-          throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-        }
-        if (!fechaPlan) throw new Error('Elige una fecha para la visita.');
-        if (!objetivoPlan.trim()) throw new Error('Escribe el objetivo de la visita.');
-        const responsableId = esDireccionComercial && comercialPlan ? comercialPlan : comercial.id;
-        // Llamada directa, NO por la cola offline: planificar una visita para
-        // otro día se hace organizando, con conexión. Si fuera por la cola,
-        // la visita tardaría en llegar al servidor y no aparecería en "Hoy"
-        // hasta que algo volviera a pedir la lista — daba sensación de que
-        // no se guardaba.
-        const visitaId = uuid();
-        const { error } = await crearVisitaConResponsable({
-          pVisitaId: visitaId,
-          pClienteId: cliente.id,
-          pComercialId: responsableId,
-          // `fecha` siempre lleva hora (para ordenar). Si el comercial no
-          // metió una, se usa 09:00 de relleno y se marca hora_definida=false
-          // — la agenda la mostrará como "sin hora".
-          pFecha: new Date(`${fechaPlan}T${horaPlan || '09:00'}:00`).toISOString(),
-          pEstadoCaptura: 'agendada',
-        });
-        if (error) throw new Error(error);
-        // La RPC no conoce `hora_definida`, `franja` ni `objetivo`: un UPDATE
-        // posterior los fija — hora/franja solo si no hay hora concreta, el
-        // objetivo siempre (es obligatorio, ya validado arriba).
-        const parche: {
-          objetivo?: string;
-          hora_definida?: boolean;
-          franja?: string | null;
-        } = { objetivo: objetivoPlan.trim() };
-        if (!horaPlan) {
-          parche.hora_definida = false;
-          parche.franja = franjaPlan || null;
-        }
-        if (Object.keys(parche).length) {
-          const { error: errParche } = await supabase.from('visita').update(parche).eq('id', visitaId);
-          if (errParche) throw new Error(errParche.message);
-        }
-        return fechaPlan;
-      },
-      {
-        onExito: (fecha) => {
-          setPlanificadaPara(fecha);
-          setPlanificando(false);
-          setFechaPlan('');
-          setHoraPlan('');
-          setFranjaPlan('');
-          setObjetivoPlan('');
-          setComercialPlan('');
-          for (const k of [
-            ['historial-visitas', clienteId],
-            ['visitas-hoy'],
-            ['visitas-proximas'],
-            ['visitas-atrasadas'],
-            ['num-grupos-duplicados'],
-          ]) {
-            queryClient.invalidateQueries({ queryKey: k });
-          }
-        },
-      }
-    );
-  }
-
   async function cambiarResponsable() {
     if (!respNuevo) return;
     await cambioResp.ejecutar(() => reasignarCliente(clienteId!, respNuevo), {
@@ -205,7 +166,6 @@ export function FichaCliente() {
         setRespNuevo('');
         queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
         queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-        queryClient.invalidateQueries({ queryKey: ['historial-visitas', clienteId] });
       },
       mensajeError: (e) => (e instanceof Error ? e.message : 'No se pudo cambiar el responsable.'),
     });
@@ -250,122 +210,69 @@ export function FichaCliente() {
     },
   });
 
-  const { data: oportunidades } = useQuery({
-    queryKey: ['oportunidades-activas', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<OportunidadActiva[]> => {
-      const { data, error } = await supabase
-        .from('oportunidad')
-        .select('id, titulo, prioridad, etapa, valor_estimado')
-        .eq('cliente_id', clienteId!)
-        .not('etapa', 'in', '(ganada,perdida,descartada)')
-        .order('creado_en', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  const { data: proyectos } = useProyectosCliente(clienteId);
 
-  const { data: proximosPasos } = useQuery({
-    queryKey: ['proximos-pasos-cliente', clienteId],
+  // Solo el recuento, para el badge del icono de Interlocutores en la
+  // cabecera. Clave propia (no la del directorio, que trae más columnas) para
+  // no cruzar cachés — ver [[primesuite-query-key-colision]].
+  const { data: nInterlocutores = 0 } = useQuery({
+    queryKey: ['interlocutores-cliente-count', clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<ProximoPasoPendiente[]> => {
-      const { data, error } = await supabase
-        .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, visita:visita_id!inner(cliente_id)')
-        .eq('visita.cliente_id', clienteId!)
-        .eq('estado', 'pendiente')
-        .order('fecha_objetivo', { ascending: true })
-        .limit(3);
+    queryFn: async (): Promise<number> => {
+      const { count, error } = await supabase
+        .from('interlocutor')
+        .select('id', { count: 'exact', head: true })
+        .eq('cliente_id', clienteId!)
+        .eq('activo', true);
       if (error) throw error;
-      return (data ?? []) as unknown as ProximoPasoPendiente[];
+      return count ?? 0;
     },
   });
 
   const { data: ecosistema } = useQuery({
     queryKey: ['ecosistema-completo', clienteId],
     enabled: !!clienteId,
-    queryFn: async (): Promise<Array<EcosistemaItem & { nombre: string }>> => {
-      const { data: items, error } = await supabase
-        .from('vw_ecosistema_actual_cliente')
-        .select('termino_id, naturaleza')
-        .eq('cliente_id', clienteId!);
-      if (error) throw error;
-
-      const itemsValidos = (items ?? []).filter(
-        (i): i is { termino_id: string; naturaleza: string } =>
-          i.termino_id !== null && i.naturaleza !== null
-      );
-      if (!itemsValidos.length) return [];
-
-      const { data: terminos, error: errorTerminos } = await supabase
-        .from('termino')
-        .select('id, nombre')
-        .in('id', itemsValidos.map((i) => i.termino_id));
-      if (errorTerminos) throw errorTerminos;
-
-      const nombreById = new Map((terminos ?? []).map((t) => [t.id, t.nombre]));
-      return itemsValidos.map((i) => ({ ...i, nombre: nombreById.get(i.termino_id) ?? i.termino_id }));
-    },
+    queryFn: () => cargarEcosistemaCliente(clienteId!),
   });
 
-  // La lanza la ventana "¿A qué vas?" (ObjetivoVisitaModal) — de ahí llega
-  // el `objetivo`, ya validado como no vacío. Lanza en caso de fallo para
-  // que la propia ventana muestre el error; si va bien, navega y la ventana
-  // se desmonta con la pantalla.
-  async function iniciarVisitaAdHoc(objetivo: string) {
-    if (!cliente || !comercial) {
-      throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
-    }
-    const visitaId = uuid();
-    await encolar(visitaId, 'visita', {
-      clienteId: cliente.id,
-      comercialResponsableId: comercial.id,
-      tipoVisita: null,
-      objetivo,
-    });
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
-    navigate(`/visita/${visitaId}`);
+  // Con red: INSERT directo (instantáneo, la ficha ya es navegable) — mismo
+  // criterio que crearCliente() en alta-rapida-cliente.tsx. Sin red: se
+  // encola (P14) y se sincroniza luego; entrar en su ficha antes de que
+  // sincronice no encontraría la fila todavía, así que solo se navega si se
+  // pudo confirmar al momento.
+  async function crearProyecto() {
+    if (!nombreProyecto.trim() || !comercial || !clienteId) return;
+    await creacionProyecto.ejecutar(
+      async () => {
+        const proyectoId = uuid();
+        const nombreLimpio = nombreProyecto.trim();
+
+        if (navigator.onLine) {
+          const { data, error } = await supabase
+            .from('proyecto')
+            .insert({ id: proyectoId, cliente_id: clienteId, nombre: nombreLimpio })
+            .select('id')
+            .single();
+          if (!error && data) return { id: data.id, enCola: false };
+          const esFalloDeRed =
+            !navigator.onLine || /fetch|network|load failed/i.test(error?.message ?? '');
+          if (!esFalloDeRed) throw new Error(error?.message ?? 'No se pudo crear el proyecto.');
+        }
+
+        await encolar(proyectoId, 'proyecto', { clienteId, nombre: nombreLimpio });
+        return { id: proyectoId, enCola: true };
+      },
+      {
+        onExito: ({ id, enCola }) => {
+          setCreandoProyecto(false);
+          setNombreProyecto('');
+          queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
+          if (enCola) return;
+          navigate(`/clientes/${clienteId}/proyectos/${id}`, { state: desde(location) });
+        },
+      }
+    );
   }
-
-  const { data: historialVisitas } = useQuery({
-    queryKey: ['historial-visitas', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<VisitaHistorial[]> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('id, fecha, tipo_visita, objetivo, estado_captura')
-        .eq('cliente_id', clienteId!)
-        .order('fecha', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  // Aviso suave si ya hay una visita planificada (hoy o futura) con este
-  // cliente — para no acumular planes duplicados sin querer. No bloquea.
-  const visitaYaPlanificada = historialVisitas?.find(
-    (v) => v.estado_captura === 'agendada' && new Date(v.fecha).getTime() >= new Date().setHours(0, 0, 0, 0)
-  );
-
-  // Ficha "vacía" = nada que un comercial haya registrado (ni oportunidades,
-  // ni próximos pasos, ni ecosistema, ni visitas). Las secciones vacías no
-  // se dibujan — antes cada una metía una fila "Sin …" de relleno. Si TODO
-  // está vacío, una sola línea con presencia (EstadoLista). `listasCargadas`
-  // evita el parpadeo de "vacía" mientras las cuatro queries resuelven.
-  const listasCargadas =
-    oportunidades !== undefined &&
-    proximosPasos !== undefined &&
-    ecosistema !== undefined &&
-    historialVisitas !== undefined;
-  const fichaVacia =
-    !oportunidades?.length &&
-    !proximosPasos?.length &&
-    !ecosistema?.length &&
-    !historialVisitas?.length;
-  const hayBasicos =
-    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
   // Línea de contexto de la cabecera ("lo de un vistazo"). Todo sale de
   // datos ya guardados — no se pide rellenar nada.
@@ -376,15 +283,18 @@ export function FichaCliente() {
     ? nombresComerciales?.[cliente.creado_por] ?? null
     : null;
   const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
-  const hoyMs = new Date().setHours(0, 0, 0, 0);
+  const hayBasicos =
+    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
-  // Al llegar con ?planificar=1 el formulario ya está abierto, pero vive al
-  // final de la pantalla — se acerca a la vista para que se vea.
-  useEffect(() => {
-    if (planificando && searchParams.get('planificar') === '1') {
-      planificarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [planificando, searchParams]);
+  // Todo cliente tiene ≥1 proyecto y todos son fila navegable, con nombre.
+  // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
+  // del día a día. Activos y pausados se listan siempre.
+  const proyectosVigentes = (proyectos ?? []).filter((p) => p.estado !== 'terminado');
+  const proyectosTerminados = (proyectos ?? []).filter((p) => p.estado === 'terminado');
+  // Proyecto de partida para la barra "Iniciar visita / Planificar": el
+  // primero vigente (con 2+ proyectos, la ventana "¿A qué vas?" pregunta a
+  // cuál va la visita).
+  const proyectoBase = proyectosVigentes[0] ?? proyectos?.[0] ?? null;
 
   async function pedirBorradoCliente() {
     setConfirmandoBorrarCliente(true);
@@ -444,247 +354,357 @@ export function FichaCliente() {
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
         ayuda="ficha-cliente"
-        subtitulo={
-          cliente
-            ? `${cliente.estado_relacion}${cliente.sector ? ` · ${cliente.sector}` : ''}`
-            : undefined
+        subtitulo={cliente?.sector || undefined}
+        avatar={cliente?.nombre}
+        volverA={volver}
+        derecha={
+          <>
+            {clienteId && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label={`Interlocutores${nInterlocutores ? ` (${nInterlocutores})` : ''}`}
+                title={`Interlocutores${nInterlocutores ? ` (${nInterlocutores})` : ''}`}
+                onClick={() => setInterlocutoresHojaAbierta(true)}
+              >
+                <Icono nombre="interlocutor" size={18} />
+                {nInterlocutores > 0 && (
+                  <span className="boton-icono__badge">{nInterlocutores}</span>
+                )}
+              </button>
+            )}
+            {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+                title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
+                aria-expanded={editandoDatos}
+                onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
+              >
+                <Icono nombre="editar" size={16} />
+              </button>
+            )}
+          </>
         }
-        volverA="/clientes"
-        derecha={semaforo ? <EtiquetaSemaforo valor={semaforo.semaforo} /> : undefined}
       />
 
       <div className="screen__scroll">
-       {ultimaVisitaRel && (
-         <div className="ficha-vitals">
-           <span>Última visita <b>{ultimaVisitaRel}</b></span>
+       {(ultimaVisitaRel || semaforo) && (
+         <div className="ficha-vitals" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+           {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}
+           {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
          </div>
        )}
+       {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
+       {/* Acción: lo esporádico como chip, no como fila de lista ni botón
+           ancho — regla 3 del modelo de 10 reglas. */}
+       {/* Regla #13: un chip que abre su panel debajo se ve activo mientras
+           está abierto (chip--on, como "Marcar zonas" en la visita) — si no,
+           "toco y no pasa nada". */}
+       {/* "Editar datos" = lápiz de la cabecera. "Nuevo proyecto" = el "+" de
+           la sección Proyectos. Aquí solo queda "Responsable" (dirección). */}
+       {esDireccionComercial && (
+         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
+           <button
+             type="button"
+             className={`chip${cambiandoResp ? ' chip--on' : ''}`}
+             aria-expanded={cambiandoResp}
+             onClick={() => {
+               if (cambiandoResp) {
+                 setCambiandoResp(false);
+                 return;
+               }
+               setRespNuevo(cliente?.responsable_id ?? '');
+               setCambiandoResp(true);
+             }}
+           >
+             Responsable: {responsableNombre ?? 'sin asignar'}
+           </button>
+         </div>
+       )}
+
+       {cambiandoResp && (
+         <div className="card">
+           <div className="label" style={{ marginTop: 0 }}>Responsable del cliente</div>
+           <select
+             className="field"
+             value={respNuevo}
+             onChange={(e) => setRespNuevo(e.target.value)}
+           >
+             <option value="">— elige un comercial —</option>
+             {comercialesActivos?.map((c) => (
+               <option key={c.id} value={c.id}>
+                 {c.nombre}
+               </option>
+             ))}
+           </select>
+           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
+             Sus visitas planificadas y próximos pasos pendientes de este cliente pasan también. El historial
+             no cambia.
+           </div>
+           {cambioResp.error && (
+             <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+           )}
+           <div className="fila-btns" style={{ marginTop: 10 }}>
+             <button
+               className="btn btn-secondary"
+               disabled={cambioResp.cargando}
+               onClick={() => {
+                 setCambiandoResp(false);
+                 cambioResp.limpiarError();
+               }}
+             >
+               Cancelar
+             </button>
+             <button
+               className="btn btn-primary"
+               disabled={cambioResp.cargando || !respNuevo || respNuevo === cliente?.responsable_id}
+               onClick={cambiarResponsable}
+             >
+               {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
+             </button>
+           </div>
+         </div>
+       )}
+
+       {editandoDatos && (
+         <div className="card">
+           <div className="label" style={{ marginTop: 0 }}>Datos del cliente</div>
+           <input
+             className="field"
+             autoFocus
+             // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
+             // contacto" en un campo de nombre de EMPRESA, "nope" sí.
+             autoComplete="nope"
+             value={formNombre}
+             onChange={(e) => setFormNombre(e.target.value)}
+             placeholder="razón social"
+           />
+           <div className="label">Sector</div>
+           <select className="field" value={formSector} onChange={(e) => setFormSector(e.target.value)}>
+             <option value="">— sin especificar —</option>
+             {sectores?.map((s) => (
+               <option key={s.id} value={s.nombre}>{s.nombre}</option>
+             ))}
+             {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
+                 no se pierde al abrir el formulario. */}
+             {formSector && !sectores?.some((s) => s.nombre === formSector) && (
+               <option value={formSector}>{formSector}</option>
+             )}
+           </select>
+           <div className="label">Tamaño</div>
+           <select className="field" value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
+             <option value="">— sin especificar —</option>
+             {TAMANOS.map((t) => (
+               <option key={t} value={t}>{t}</option>
+             ))}
+           </select>
+           <div className="label">Ubicación general</div>
+           <input
+             className="field"
+             autoComplete="off"
+             value={formUbicacion}
+             onChange={(e) => setFormUbicacion(e.target.value)}
+             placeholder="p. ej. Polígono Norte, Sevilla"
+           />
+           {guardadoDatos.error && (
+             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoDatos.error}</div>
+           )}
+           <div className="fila-btns" style={{ marginTop: 10 }}>
+             <button
+               className="btn btn-secondary"
+               disabled={guardadoDatos.cargando}
+               onClick={() => {
+                 setEditandoDatos(false);
+                 guardadoDatos.limpiarError();
+               }}
+             >
+               Cancelar
+             </button>
+             <button
+               className="btn btn-primary"
+               disabled={guardadoDatos.cargando || !formNombre.trim()}
+               onClick={guardarDatos}
+             >
+               {guardadoDatos.cargando ? 'Guardando…' : 'Guardar'}
+             </button>
+           </div>
+         </div>
+       )}
+
        <div className="lista-agrupada">
-        {(hayBasicos || responsableNombre || esDireccionComercial) && (
+        {(hayBasicos || (responsableNombre && !esDireccionComercial)) && (
           <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
               <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
             )}
             {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
-            {esDireccionComercial ? (
-              <FilaNavegable
-                titulo="Responsable"
-                valor={responsableNombre ?? 'Sin asignar'}
-                valorTenue={!responsableNombre}
-                chevron
-                onClick={() => {
-                  setRespNuevo(cliente?.responsable_id ?? '');
-                  setCambiandoResp(true);
-                }}
-              />
-            ) : (
-              responsableNombre && <FilaDato etiqueta="Responsable" valor={responsableNombre} />
+            {responsableNombre && !esDireccionComercial && (
+              <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
           </SeccionLista>
         )}
 
-        {cambiandoResp && (
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>Responsable del cliente</div>
-            <select
-              className="field"
-              value={respNuevo}
-              onChange={(e) => setRespNuevo(e.target.value)}
-            >
-              <option value="">— elige un comercial —</option>
-              {comercialesActivos?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-              Sus visitas planificadas y próximos pasos pendientes de este cliente pasan también. El historial
-              no cambia.
-            </div>
-            {cambioResp.error && (
-              <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+        {/* Proyectos — una sección con su título y un "+" al lado para dar de
+            alta uno. Todos los proyectos del cliente son fila navegable a su
+            ficha; los terminados se pliegan tras "Ver terminados (N)". */}
+        {proyectos && (
+          <SeccionLista
+            titulo="Proyectos"
+            prominencia="principal"
+            accion={
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Nuevo proyecto"
+                title="Nuevo proyecto"
+                aria-expanded={creandoProyecto}
+                onClick={() => setCreandoProyecto((v) => !v)}
+              >
+                <Icono nombre="mas" size={18} />
+              </button>
+            }
+          >
+            {proyectosVigentes.map((p) => (
+              <FilaNavegable
+                key={p.id}
+                titulo={p.nombre}
+                subtitulo={
+                  p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined
+                }
+                to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                state={desde(location)}
+              />
+            ))}
+            {proyectosTerminados.length > 0 && (
+              <FilaNavegable
+                titulo={
+                  verTerminados
+                    ? 'Ocultar terminados'
+                    : `Ver terminados (${proyectosTerminados.length})`
+                }
+                chevron={false}
+                valorTenue
+                onClick={() => setVerTerminados((v) => !v)}
+              />
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {verTerminados &&
+              proyectosTerminados.map((p) => (
+                <FilaNavegable
+                  key={p.id}
+                  icono="check-circulo"
+                  titulo={p.nombre}
+                  valor="terminado"
+                  valorTenue
+                  densidad="compacta"
+                  to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                  state={desde(location)}
+                />
+              ))}
+          </SeccionLista>
+        )}
+
+        {creandoProyecto && (
+          <div className="card">
+            <div className="label" style={{ marginTop: 0 }}>Nuevo proyecto</div>
+            <input
+              className={`field${creacionProyecto.error ? ' field--error' : ''}`}
+              autoFocus
+              autoComplete="off"
+              value={nombreProyecto}
+              onChange={(e) => setNombreProyecto(e.target.value)}
+              placeholder="mantenimiento, obra nueva, postventa…"
+            />
+            {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
+            <div className="fila-btns" style={{ marginTop: 8 }}>
               <button
                 className="btn btn-secondary"
-                disabled={cambioResp.cargando}
+                disabled={creacionProyecto.cargando}
                 onClick={() => {
-                  setCambiandoResp(false);
-                  cambioResp.limpiarError();
+                  setCreandoProyecto(false);
+                  setNombreProyecto('');
+                  creacionProyecto.limpiarError();
                 }}
               >
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
-                disabled={cambioResp.cargando || !respNuevo || respNuevo === cliente?.responsable_id}
-                onClick={cambiarResponsable}
+                disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+                onClick={crearProyecto}
               >
-                {cambioResp.cargando ? 'Cambiando…' : 'Cambiar responsable'}
+                {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
               </button>
             </div>
           </div>
         )}
 
-        {listasCargadas && fichaVacia ? (
-          <EstadoLista
-            estado="vacio"
-            mensaje="Todavía no hay nada registrado. Empieza una visita para llenar la ficha."
-          />
-        ) : (
-          <>
-            {!!oportunidades?.length && (
-              <SeccionLista titulo="Oportunidades activas" prominencia="principal">
-                {oportunidades.map((o) => (
-                  <FilaNavegable
-                    key={o.id}
-                    titulo={o.titulo}
-                    subtitulo={
-                      [
-                        o.etapa ? etiqueta(ETAPA_LABEL, o.etapa) : null,
-                        o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || undefined
-                    }
-                    valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
-                    to={`/oportunidades/${o.id}`}
-                  />
+        {clienteId && <HistorialVisitasCliente clienteId={clienteId} />}
+
+        {!!ecosistema?.length && (
+          <SeccionLista titulo="Ecosistema">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+              {/* Ya viene ordenado (términos antes que categorías sueltas).
+                  Se recorta a ECO_VISIBLE. */}
+              {ecosistema
+                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
+                .map((item) => (
+                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
                 ))}
-              </SeccionLista>
-            )}
-
-            {!!proximosPasos?.length && (
-              <SeccionLista titulo="Próximos pasos">
-                {proximosPasos.map((p) => {
-                  const vencido =
-                    !!p.fecha_objetivo && new Date(p.fecha_objetivo).getTime() < hoyMs;
-                  return (
-                    <FilaNavegable
-                      key={p.id}
-                      titulo={p.descripcion}
-                      tono={vencido ? 'riesgo' : 'neutral'}
-                      valor={
-                        p.fecha_objetivo
-                          ? vencido
-                            ? `vencido ${haceRelativo(p.fecha_objetivo)}`
-                            : fechaCorta(p.fecha_objetivo)
-                          : undefined
-                      }
-                      valorTenue={!vencido}
-                      to={`/proximos-pasos/${p.id}`}
-                    />
-                  );
-                })}
-              </SeccionLista>
-            )}
-
-            {!!ecosistema?.length && (
-              <SeccionLista titulo="Ecosistema">
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-                  {/* Riesgos y oportunidades primero — es lo que mira el
-                      comercial de un vistazo. Se recorta a ECO_VISIBLE. */}
-                  {[...ecosistema]
-                    .sort(
-                      (a, b) =>
-                        (a.naturaleza === 'riesgo' ? 0 : a.naturaleza === 'oportunidad' ? 1 : 2) -
-                        (b.naturaleza === 'riesgo' ? 0 : b.naturaleza === 'oportunidad' ? 1 : 2)
-                    )
-                    .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
-                    .map((item) => (
-                      <EcoTag key={item.termino_id} nombre={item.nombre} naturaleza={item.naturaleza} />
-                    ))}
-                  {ecosistema.length > ECO_VISIBLE && (
-                    <button type="button" className="btn-enlace" onClick={() => setEcoTodos((v) => !v)}>
-                      {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
-                    </button>
-                  )}
-                </div>
-              </SeccionLista>
-            )}
-
-            {!!historialVisitas?.length && (
-              <SeccionLista titulo="Historial de visitas">
-                {historialVisitas.map((v) => {
-                  // La fila solo navega. Descargar informe y Borrar viven
-                  // dentro de la visita (detalle / Visita Activa) — así el
-                  // historial no es un muro de botones.
-                  const estadoLegible =
-                    v.estado_captura === 'agendada'
-                      ? 'planificada'
-                      : v.estado_captura === 'en_curso'
-                        ? 'en curso'
-                        : 'cerrada';
-                  const accion =
-                    v.estado_captura === 'agendada'
-                      ? 'gestionar'
-                      : v.estado_captura === 'en_curso'
-                        ? 'continuar visita'
-                        : 'ver contenido';
-                  const to =
-                    v.estado_captura === 'agendada'
-                      ? `/visita/${v.id}/planificada`
-                      : v.estado_captura === 'en_curso'
-                        ? `/visita/${v.id}`
-                        : `/visita/${v.id}/detalle`;
-                  return (
-                    <FilaNavegable
-                      key={v.id}
-                      titulo={fechaCorta(v.fecha)}
-                      subtitulo={`${v.objetivo ? `${v.objetivo} · ` : ''}${estadoLegible}`}
-                      valor={accion}
-                      valorTenue
-                      to={to}
-                    />
-                  );
-                })}
-              </SeccionLista>
-            )}
-          </>
+              {ecosistema.length > ECO_VISIBLE && (
+                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
+                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
+                </button>
+              )}
+            </div>
+          </SeccionLista>
         )}
-
-        <SeccionLista titulo="Más" prominencia="tenue">
-          <FilaNavegable titulo="Ubicaciones" to={`/clientes/${clienteId}/ubicaciones`} />
-        </SeccionLista>
 
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}
 
         {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
-            la app (detalle de visita, "Cerrar sesión" en Yo). */}
-        {confirmandoBorrarCliente ? (
-          <div className="card" style={{ borderColor: 'var(--risk-600)' }}>
+            la app (detalle de visita, "Cerrar sesión" en Yo). Solo se
+            OFRECE a quien realmente puede: mismo criterio que el backend
+            (eliminar_cliente_completo: creado_por = auth.uid() OR
+            dirección) — antes se mostraba a cualquier comercial aunque el
+            servidor fuera a rechazarlo (hallazgo de la auditoría 2026-09-05:
+            Borja veía "Borrar cliente" en una ficha ajena). */}
+        {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
+        confirmandoBorrarCliente ? (
+          <div className="card card--riesgo">
             {previsualizandoCliente.cargando || !previsualizacionCliente ? (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
             ) : (
               <div>
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                  Este cliente arrastra: {previsualizacionCliente.num_visitas} visita(s) completas,{' '}
-                  {previsualizacionCliente.num_fotos} foto(s), {previsualizacionCliente.num_audios} audio(s),{' '}
-                  {previsualizacionCliente.num_notas} nota(s), {previsualizacionCliente.num_hallazgos} hallazgo(s),{' '}
-                  {previsualizacionCliente.num_oportunidades} oportunidad(es), {' '}
-                  {previsualizacionCliente.num_proximos_pasos} próximo(s) paso(s) y{' '}
-                  {previsualizacionCliente.num_ubicaciones} ubicación(es). Todo eso se borrará también,
-                  para siempre. No se puede deshacer.
+                  Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+                  {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+                  {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+                  {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+                  {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+                  {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+                  {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+                  {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
+                  borrará también, para siempre. No se puede deshacer.
                 </div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
                   Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
                   antes desde "mi espacio".
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
                     Cancelar
                   </button>
                   <button
-                    className="btn btn-primary"
-                    style={{ background: 'var(--risk-600)' }}
+                    className="btn btn-peligro"
                     onClick={confirmarBorradoCliente}
                     disabled={borrandoCliente.cargando}
                   >
-                    {borrandoCliente.cargando ? 'Borrando…' : 'Confirmar borrado del cliente completo'}
+                    {borrandoCliente.cargando ? 'Borrando…' : 'Sí, borrar el cliente entero'}
                   </button>
                 </div>
                 {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
@@ -701,155 +721,24 @@ export function FichaCliente() {
               onClick={pedirBorradoCliente}
             />
           </SeccionLista>
+        )
         )}
        </div>
       </div>
 
-      {planificadaPara && !planificando && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>
-          Visita planificada para el{' '}
-          {fechaCorta(`${planificadaPara}T09:00:00`)}
-          . Aparecerá en «Hoy» ese día.
-        </div>
-      )}
-
-      {planificando ? (
-        <div className="card" ref={planificarRef}>
-          {visitaYaPlanificada && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning-600)', marginBottom: 8 }}>
-              Ya tienes una visita planificada con este cliente el{' '}
-              {fechaCorta(visitaYaPlanificada.fecha)}. Puedes
-              planificar otra igualmente.
-            </div>
-          )}
-          <div className="label" style={{ marginTop: 0 }}>Fecha de la visita</div>
-          <input
-            type="date"
-            className="field"
-            min={hoyISO}
-            value={fechaPlan}
-            onChange={(e) => setFechaPlan(e.target.value)}
-          />
-          <div className="label">Objetivo</div>
-          <textarea
-            className="field"
-            style={{ height: 'auto', padding: 8 }}
-            rows={2}
-            placeholder="a qué vas: cerrar pedido, presentar gama, primera toma de contacto…"
-            value={objetivoPlan}
-            onChange={(e) => setObjetivoPlan(e.target.value)}
-          />
-          <div className="label">Hora (opcional)</div>
-          <input
-            type="time"
-            className="field"
-            value={horaPlan}
-            onChange={(e) => setHoraPlan(e.target.value)}
-          />
-          {!horaPlan && (
-            <>
-              <div className="label">Sin hora concreta, ¿cuándo?</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {([
-                  ['manana', 'Mañana'],
-                  ['tarde', 'Tarde'],
-                  ['', 'Sin hora fija'],
-                ] as const).map(([val, txt]) => (
-                  <button
-                    key={val || 'sin'}
-                    type="button"
-                    className={`chip${franjaPlan === val ? ' chip--on' : ''}`}
-                    onClick={() => setFranjaPlan(val)}
-                  >
-                    {txt}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {esDireccionComercial && (
-            <>
-              <div className="label">Para</div>
-              <select
-                className="field"
-                value={comercialPlan}
-                onChange={(e) => setComercialPlan(e.target.value)}
-              >
-                <option value="">Yo ({comercial?.nombre ?? '—'})</option>
-                {comercialesActivos
-                  ?.filter((c) => c.id !== comercial?.id)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-              </select>
-            </>
-          )}
-          {planificacion.error && <div className="field-error-text" style={{ marginTop: 8 }}>{planificacion.error}</div>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button
-              className="btn btn-secondary"
-              disabled={planificacion.cargando}
-              onClick={() => {
-                setPlanificando(false);
-                planificacion.limpiarError();
-              }}
-            >
-              Cancelar
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={planificacion.cargando || !fechaPlan || !objetivoPlan.trim()}
-              onClick={planificarVisita}
-            >
-              {planificacion.cargando ? 'Planificando…' : 'Planificar'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          className="btn btn-secondary"
-          onClick={() => {
-            setPlanificadaPara(null);
-            setPlanificando(true);
-          }}
-        >
-          Planificar visita para otro día
-        </button>
-      )}
-
-      {/* Con un panel inline abierto (planificar / cambiar responsable /
-          confirmar borrado), ese panel es el foco: "Iniciar visita ahora"
-          baja a secundario para dejar un solo primario azul en pantalla. */}
-      <button
-        className={`btn ${
-          planificando || cambiandoResp || confirmandoBorrarCliente ? 'btn-secondary' : 'btn-primary'
-        }`}
-        onClick={pedirIniciarVisitaAdHoc}
-      >
-        Iniciar visita ahora
-        <Icono nombre="chevron" size={18} />
-      </button>
-
-      {enCursoModalAbierto && visitaEnCurso && (
-        <VisitaEnCursoModal
+      {proyectoBase && clienteId && (
+        <AccionesProyecto
+          clienteId={clienteId}
+          proyectoId={proyectoBase.id}
           clienteNombre={cliente?.nombre}
-          objetivo={visitaEnCurso.objetivo}
-          onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
-          onEmpezarOtra={() => {
-            setEnCursoModalAbierto(false);
-            setObjetivoAdHocAbierto(true);
-          }}
-          onCerrar={() => setEnCursoModalAbierto(false)}
+          proyectos={proyectos}
         />
       )}
 
-      {objetivoAdHocAbierto && (
-        <ObjetivoVisitaModal
-          clienteNombre={cliente?.nombre}
-          onConfirmar={iniciarVisitaAdHoc}
-          onCerrar={() => setObjetivoAdHocAbierto(false)}
+      {interlocutoresHojaAbierta && clienteId && (
+        <InterlocutoresClienteHoja
+          clienteId={clienteId}
+          onCerrar={() => setInterlocutoresHojaAbierta(false)}
         />
       )}
     </div>

@@ -9,6 +9,13 @@ export interface PrevisualizacionBorrado {
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
+  // INCIDENTE 2026-09-12 (SAPA borrada con 2 oportunidades abiertas por
+  // "Borrar esta visita"): num_oportunidades cuenta TODAS, no distingue
+  // abiertas de cerradas — no servía para bloquear nada. eliminar_visita_
+  // completa() ahora rechaza el borrado en el propio servidor si esto es
+  // > 0 (candado real, no solo de cliente); este campo es para avisar
+  // ANTES de que el usuario confirme y la llamada de verdad falle.
+  num_oportunidades_abiertas: number;
   num_proximos_pasos: number;
   rutas_storage: string[] | null;
 }
@@ -46,6 +53,27 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
     borrando.limpiarError();
   }
 
+  // Refrescar todo lo que lista visitas (prefijo, para las claves con
+  // clienteId/fecha dentro).
+  function invalidarListasDeVisitas() {
+    for (const k of [
+      ['visitas-hoy'],
+      ['visitas-proximas'],
+      ['visitas-atrasadas'],
+      ['visitas-en-curso'],
+      ['otras-visitas-en-curso'],
+      ['visitas-sin-cerrar'],
+      ['aviso-visita-en-curso'],
+      ['agenda-planificadas'],
+      ['historial-visitas'],
+      ['listado-clientes'],
+      ['semaforo-cliente'],
+      ['num-grupos-duplicados'],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: k });
+    }
+  }
+
   async function confirmar() {
     if (!visitaBorrarId) return;
     const rutas = previsualizacion?.rutas_storage ?? [];
@@ -64,25 +92,33 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
         onExito: () => {
           setVisitaBorrarId(null);
           setPrevisualizacion(null);
-          // Refrescar todo lo que lista visitas (prefijo, para las claves
-          // con clienteId/fecha dentro).
-          for (const k of [
-            ['visitas-hoy'],
-            ['visitas-proximas'],
-            ['visitas-atrasadas'],
-            ['agenda-planificadas'],
-            ['historial-visitas'],
-            ['listado-clientes'],
-            ['semaforo-cliente'],
-            ['num-grupos-duplicados'],
-          ]) {
-            queryClient.invalidateQueries({ queryKey: k });
-          }
+          invalidarListasDeVisitas();
           opts?.onBorrada?.();
         },
       }
     );
   }
 
-  return { visitaBorrarId, previsualizacion, previsualizando, borrando, pedir, cancelar, confirmar };
+  // Descarte en lote (modo "Seleccionar" de "También en curso" y del panel de
+  // visitas sin cerrar). Sin previsualización por visita: la confirmación la
+  // pone el contenedor con un <ConfirmacionBorrado> de "N visitas".
+  async function borrarVarias(ids: string[]) {
+    if (!ids.length) return;
+    await borrando.ejecutar(
+      async () => {
+        for (const id of ids) {
+          const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
+          if (error) throw new Error(error.message);
+        }
+      },
+      {
+        onExito: () => {
+          invalidarListasDeVisitas();
+          opts?.onBorrada?.();
+        },
+      }
+    );
+  }
+
+  return { visitaBorrarId, previsualizacion, previsualizando, borrando, pedir, cancelar, confirmar, borrarVarias };
 }

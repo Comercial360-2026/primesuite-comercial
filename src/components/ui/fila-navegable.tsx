@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Icono, type NombreIcono } from './iconos';
+import { Avatar } from './avatar';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 import { useSwipeFila } from '@/hooks/use-swipe-fila';
 
@@ -34,6 +35,11 @@ type Tono = 'neutral' | 'aviso' | 'riesgo' | 'ok' | 'alerta';
 
 interface PropsBase {
   icono?: NombreIcono;
+  /** La fila representa a una PERSONA (comercial/cliente): pinta su
+   *  `Avatar` (iniciales + color por hash del nombre) en vez de `icono`.
+   *  Si se pasan los dos, `icono` gana — es una señal de estado real
+   *  (p. ej. ⚠ "de baja") y pesa más que la identidad. */
+  avatar?: string;
   /** Normalmente un string. Acepta ReactNode para casos como el nombre de
    *  cliente + una etiqueta "Heredado" al lado. El recorte a 2 líneas
    *  (`.fila__titulo`) sigue aplicando sobre el conjunto. */
@@ -59,6 +65,10 @@ interface PropsBase {
   /** Deslizar la fila a la izquierda revela esta acción (gesto táctil; se
    *  ignora con ratón y en modo seleccionar). */
   swipe?: AccionSwipe;
+  /** `state` para el `<Link>` cuando se navega con `to` — se usa para
+   *  estampar el origen (`desde(location)`) y que el ← de la pantalla de
+   *  destino vuelva aquí (regla #14). Sin efecto con `onClick`. */
+  state?: object;
 }
 
 type Props = PropsBase &
@@ -66,6 +76,7 @@ type Props = PropsBase &
 
 export function FilaNavegable({
   icono,
+  avatar,
   titulo,
   subtitulo,
   valor,
@@ -77,6 +88,7 @@ export function FilaNavegable({
   disabled,
   seleccion,
   swipe,
+  state,
   to,
   onClick,
 }: Props) {
@@ -99,10 +111,12 @@ export function FilaNavegable({
   const contenido = (
     <>
       {seleccionando && <FilaToggle marcada={seleccion!.marcada} />}
-      {icono && (
+      {icono ? (
         <span className="fila__icono">
           <Icono nombre={icono} size={tamIcono} />
         </span>
+      ) : (
+        avatar && <Avatar nombre={avatar} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>
@@ -153,6 +167,7 @@ export function FilaNavegable({
     to != null ? (
       <Link
         to={to}
+        state={state}
         className={clases}
         style={estiloSwipe}
         onClick={clicSwipe}
