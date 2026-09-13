@@ -20,6 +20,7 @@ import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
 import { ParticipantesHoja } from './participantes-hoja';
+import { BriefingHoja } from './briefing-hoja';
 import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
@@ -388,6 +389,7 @@ export function VisitaActiva() {
   const [pasoAbierto, setPasoAbierto] = useState(false);
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
   const [participantesAbierto, setParticipantesAbierto] = useState(false);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   const [grabando, setGrabando] = useState(false);
   // Segundos que lleva la grabación — el botón "Detener" enseña mm:ss
   // corriendo, para que se vea de un vistazo que está grabando (no solo
@@ -1624,6 +1626,16 @@ export function VisitaActiva() {
               <Icono nombre="equipo" size={18} />
               <span className="boton-icono__badge">{nombresEquipo.length + 1}</span>
             </button>
+            <button
+              type="button"
+              className="boton-icono"
+              onClick={() => setBriefingAbierto(true)}
+              disabled={!visitaLocal?.clienteId}
+              aria-label="Briefing de Jira"
+              title="Briefing de Jira del cliente"
+            >
+              <Icono nombre="briefing" size={18} />
+            </button>
           </>
         }
       />
@@ -2408,6 +2420,13 @@ export function VisitaActiva() {
           visitaId={visitaId}
           clienteId={visitaLocal.clienteId}
           onCerrar={() => setInterlocutoresAbierto(false)}
+        />
+      )}
+      {briefingAbierto && visitaLocal?.clienteId && cliente?.nombre && (
+        <BriefingHoja
+          clienteId={visitaLocal.clienteId}
+          clienteNombre={cliente.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
       {participantesAbierto && visitaId && (
