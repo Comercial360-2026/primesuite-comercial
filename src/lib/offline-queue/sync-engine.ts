@@ -21,6 +21,14 @@ const INTERVALO_REINTENTO_MS = 60_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
 let sincronizandoAhora = false;
+// Si llega una petición de sincronizar mientras ya hay una pasada en curso
+// (p. ej. una foto grande subiendo con mala conexión) y se descartaba sin
+// más, la SIGUIENTE captura no arrancaba a subir hasta el ciclo automático
+// de 60s — parecía que el guardado se había quedado colgado más de lo que
+// realmente hacía falta (bug real, dos capturas seguidas: la segunda
+// tardaba mucho más que la primera). Ahora se apunta y se relanza en
+// cuanto la pasada actual termina, en vez de perderse.
+let pendienteReejecucion: { incluirErrores: boolean } | null = null;
 
 export function iniciarMotorSincronizacion(): void {
   window.addEventListener('online', () => void procesarCola());
@@ -54,11 +62,16 @@ export function detenerMotorSincronizacion(): void {
 // en vez de esperar a su propio intervalo.
 export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
 
-export async function procesarCola(): Promise<void> {
-  if (sincronizandoAhora || !navigator.onLine) return;
+export async function procesarCola(opciones?: { incluirErrores?: boolean }): Promise<void> {
+  const incluirErrores = opciones?.incluirErrores ?? false;
+  if (sincronizandoAhora) {
+    if (!pendienteReejecucion || incluirErrores) pendienteReejecucion = { incluirErrores };
+    return;
+  }
+  if (!navigator.onLine) return;
   sincronizandoAhora = true;
   try {
-    const pendientes = await obtenerPendientes();
+    const pendientes = await obtenerPendientes(incluirErrores);
     for (const operacion of pendientes) {
       await procesarOperacion(operacion);
     }
@@ -66,6 +79,11 @@ export async function procesarCola(): Promise<void> {
     sincronizandoAhora = false;
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event(EVENTO_COLA_PROCESADA));
+    }
+    if (pendienteReejecucion) {
+      const siguiente = pendienteReejecucion;
+      pendienteReejecucion = null;
+      void procesarCola(siguiente);
     }
   }
 }

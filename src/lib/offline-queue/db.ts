@@ -179,11 +179,21 @@ export async function obtenerOperacion(id: string): Promise<OperacionPendiente |
 // ('pendiente'/'error' — nunca 'completado' ni 'subiendo'), que es un
 // subconjunto pequeño y estable frente al histórico completo; se ordena en
 // JS porque ese subconjunto ya es pequeño.
-export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
+// `incluirErrores` por defecto en `false`: una operación en 'error' ya
+// agotó sus MAX_INTENTOS y el motor automático (intervalo de 60s, evento
+// 'online', arranque de app) NO debe seguir reintentándola sola para
+// siempre — así es como una operación con un dato mal formado de verdad
+// (p. ej. sin `proyecto_id`, que nunca va a poder insertarse) se ha estado
+// reintentando en segundo plano miles de veces sin que nadie lo supiera
+// (encontrado en real: 1140 intentos desde hace 2 días). El único sitio
+// que debe pasar `true` es "Reintentar ahora" en Yo (acción explícita del
+// comercial sobre SUS errores visibles) — ver `procesarCola` en
+// sync-engine.ts.
+export async function obtenerPendientes(incluirErrores = false): Promise<OperacionPendiente[]> {
   const [pendientes, conError] = await conDb((db) =>
     Promise.all([
       db.getAllFromIndex('operaciones', 'by-estado', 'pendiente'),
-      db.getAllFromIndex('operaciones', 'by-estado', 'error'),
+      incluirErrores ? db.getAllFromIndex('operaciones', 'by-estado', 'error') : Promise.resolve([]),
     ])
   );
   return [...pendientes, ...conError].sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));

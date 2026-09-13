@@ -250,7 +250,10 @@ export function Yo() {
 
   async function reintentarAhora() {
     setReintentandoCola(true);
-    await procesarCola();
+    // El motor automático (60s/online/arranque) ya NO reintenta solo lo que
+    // está en 'error' — solo esta acción explícita lo hace (ver
+    // obtenerPendientes en db.ts).
+    await procesarCola({ incluirErrores: true });
     queryClient.invalidateQueries({ queryKey: ['operaciones-con-error'] });
     setReintentandoCola(false);
   }
