@@ -16,23 +16,68 @@ interface ColaOfflineDB extends DBSchema {
       'by-estado': EstadoOperacion;
       'by-entidad': EntidadSincronizable;
       'by-creado-en': string;
+      // v2: qué visita referencia esta operación (denormalizado, ver
+      // calcularVisitaId). Sin esto, obtenerPorVisita tenía que leer TODA
+      // la cola local (todas las visitas, con todos sus blobs de fotos/
+      // audios) y filtrar en memoria — el escaneo completo es lo que
+      // causaba el retraso real (~5s en dispositivos con historial) al
+      // recargar la visita activa tras cualquier cambio en la cola.
+      'by-visita-id': string;
     };
   };
 }
 
 const DB_NAME = 'primesuite-cola-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+
+// Qué visita referencia una operación, la misma regla que ya usaban
+// obtenerPorVisita/obtenerVisitasConPendientes filtrando en memoria —
+// ahora se calcula UNA VEZ al guardar (encolar/actualizar) y UNA VEZ al
+// migrar lo ya guardado, para poder indexarlo. 'cliente'/'proyecto'/
+// 'ubicacion' no cuelgan de una visita → undefined (fuera del índice).
+function calcularVisitaId(op: OperacionPendiente): string | undefined {
+  if (op.entidad === 'visita') return op.id;
+  if (op.entidad === 'oportunidad') {
+    return (op.payload as { visitaOrigenId?: string }).visitaOrigenId;
+  }
+  if (op.entidad === 'cliente' || op.entidad === 'proyecto' || op.entidad === 'ubicacion') {
+    return undefined;
+  }
+  return (op.payload as { visitaId?: string }).visitaId;
+}
 
 let dbPromise: Promise<IDBPDatabase<ColaOfflineDB>> | null = null;
 
 function getDb() {
   if (!dbPromise) {
     dbPromise = openDB<ColaOfflineDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        const store = db.createObjectStore('operaciones', { keyPath: 'id' });
-        store.createIndex('by-estado', 'estado');
-        store.createIndex('by-entidad', 'entidad');
-        store.createIndex('by-creado-en', 'creadoEn');
+      upgrade(db, oldVersion, _newVersion, transaction) {
+        const store =
+          oldVersion < 1
+            ? db.createObjectStore('operaciones', { keyPath: 'id' })
+            : transaction.objectStore('operaciones');
+        if (oldVersion < 1) {
+          store.createIndex('by-estado', 'estado');
+          store.createIndex('by-entidad', 'entidad');
+          store.createIndex('by-creado-en', 'creadoEn');
+        }
+        if (oldVersion < 2) {
+          store.createIndex('by-visita-id', 'visitaId');
+          // Migración retroactiva: lo ya guardado en el dispositivo antes de
+          // esta versión no tiene `visitaId` — sin esto, el índice nuevo
+          // simplemente no las encontraría y "desaparecerían" de
+          // obtenerPorVisita para visitas con capturas ya en cola.
+          if (oldVersion >= 1) {
+            store.openCursor().then(function recorrer(cursor): unknown {
+              if (!cursor) return;
+              const op = cursor.value as OperacionPendiente;
+              if (op.visitaId === undefined) {
+                cursor.update({ ...op, visitaId: calcularVisitaId(op) });
+              }
+              return cursor.continue().then(recorrer);
+            });
+          }
+        }
       },
       terminated() {
         // Safari en iPhone (y otros navegadores bajo presión de memoria, o
@@ -77,8 +122,9 @@ async function conDb<T>(fn: (db: IDBPDatabase<ColaOfflineDB>) => Promise<T>): Pr
 }
 
 export async function encolarOperacion(operacion: OperacionPendiente): Promise<void> {
+  const conVisitaId = { ...operacion, visitaId: calcularVisitaId(operacion) };
   try {
-    await conDb((db) => db.put('operaciones', operacion));
+    await conDb((db) => db.put('operaciones', conVisitaId));
   } catch (err) {
     // QuotaExceededError no se propagaba con ningún mensaje útil — llegaba
     // tal cual del navegador ("The quota has been exceeded.", en inglés,
@@ -107,7 +153,10 @@ export async function actualizarOperacion(
     // pueda verificar que el resultado sigue perteneciendo a un único
     // miembro válido, aunque en tiempo de ejecución sea correcto (mismo
     // patrón ya resuelto en sync-engine.ts con las funciones de sincronización).
-    await db.put('operaciones', { ...existente, ...cambios } as unknown as OperacionPendiente);
+    const actualizado = { ...existente, ...cambios } as unknown as OperacionPendiente;
+    // `cambios` puede traer un `payload` nuevo — recalcular por si acaso,
+    // aunque en la práctica una operación no cambia de visita a mitad de camino.
+    await db.put('operaciones', { ...actualizado, visitaId: calcularVisitaId(actualizado) });
   });
 }
 
@@ -146,17 +195,15 @@ export async function eliminarOperacion(id: string): Promise<void> {
 
 // Usado por la UI (badges de estado_subida en Cierre de visita, etc.) para
 // leer en tiempo real qué hay todavía sin subir de una visita concreta.
+// BUG real (12 sept): antes leía TODA la tabla (todas las visitas de
+// siempre, con sus blobs de fotos/audios) y filtraba en memoria — el
+// escaneo completo tardaba ~5s en un dispositivo con historial cada vez
+// que se recargaba la cola de la visita activa (p. ej. al volver tras
+// asignar una zona a una foto, que dispara EVENTO_COLA_PROCESADA).
+// Ahora usa el índice `by-visita-id` (ver calcularVisitaId): solo lee lo
+// que de verdad es de esta visita.
 export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendiente[]> {
-  const todas = await conDb((db) => db.getAll('operaciones'));
-  return todas.filter((op) => {
-    if (op.entidad === 'visita') return op.id === visitaId;
-    if (op.entidad === 'oportunidad') {
-      const payload = op.payload as { visitaOrigenId?: string };
-      return payload.visitaOrigenId === visitaId;
-    }
-    const payload = op.payload as { visitaId?: string };
-    return payload.visitaId === visitaId;
-  });
+  return conDb((db) => db.getAllFromIndex('operaciones', 'by-visita-id', visitaId));
 }
 
 // Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —

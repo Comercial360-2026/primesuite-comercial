@@ -184,6 +184,12 @@ type CamposComunes = {
   intentos: number;
   ultimoError?: string;
   creadoEn: string; // ISO timestamp
+  // Denormalizado por encolarOperacion() (db.ts) a partir de la entidad/
+  // payload — nunca lo rellena quien llama a encolar(). Existe SOLO para
+  // poder indexar "todo lo de esta visita" en IndexedDB sin escanear la
+  // tabla entera (obtenerPorVisita/obtenerVisitasConPendientes). No existe
+  // para 'cliente'/'proyecto'/'ubicacion' (no cuelgan de una visita).
+  visitaId?: string;
 };
 
 export type OperacionPendiente<E extends EntidadSincronizable = EntidadSincronizable> = {
