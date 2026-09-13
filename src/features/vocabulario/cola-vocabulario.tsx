@@ -285,7 +285,7 @@ export function ColaVocabulario() {
     queryKey: ['catalogo-completo-agrupado'],
     enabled: vista === 'catalogo',
     queryFn: async (): Promise<CategoriaConTerminos[]> => {
-      const [cats, terms, usoH, usoO] = await Promise.all([
+      const [cats, terms, usoTermino] = await Promise.all([
         supabase.from('categoria_vocabulario').select('id, nombre').order('orden').order('nombre'),
         supabase
           .from('termino')
@@ -293,20 +293,20 @@ export function ColaVocabulario() {
           .neq('estado_gobierno', 'descartado')
           .order('orden')
           .order('nombre'),
-        // Uso en hallazgos y oportunidades: por las tablas puente
-        // `hallazgo_area` / `oportunidad_area` (mismo mecanismo desde la
-        // migración 111); solo cuentan las filas de tipo término.
-        supabase.from('hallazgo_area').select('termino_id').not('termino_id', 'is', null),
-        supabase.from('oportunidad_area').select('termino_id').not('termino_id', 'is', null),
+        // Uso en hallazgos y oportunidades: agregado en servidor por
+        // `vw_uso_termino` (migración 117) — antes traía TODAS las filas de
+        // `hallazgo_area`/`oportunidad_area` de la empresa entera para
+        // contar en JS; el agregado crece con el nº de términos usados, no
+        // con el nº de hallazgos/oportunidades acumulados desde siempre.
+        supabase.from('vw_uso_termino').select('termino_id, usos'),
       ]);
       if (cats.error) throw cats.error;
       if (terms.error) throw terms.error;
+      if (usoTermino.error) throw usoTermino.error;
 
-      // Recuento de uso: cuántos hallazgos + oportunidades apuntan a cada término.
       const usos = new Map<string, number>();
-      for (const r of [...(usoH.data ?? []), ...(usoO.data ?? [])]) {
-        const id = (r as { termino_id: string | null }).termino_id;
-        if (id) usos.set(id, (usos.get(id) ?? 0) + 1);
+      for (const r of usoTermino.data ?? []) {
+        if (r.termino_id) usos.set(r.termino_id, r.usos ?? 0);
       }
 
       const nodos: TerminoNodo[] = (terms.data ?? []).map((t) => ({

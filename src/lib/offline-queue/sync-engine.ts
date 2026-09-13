@@ -4,6 +4,7 @@ import {
   obtenerPendientes,
   actualizarOperacion,
   obtenerOperacion,
+  purgarCompletadasAntiguas,
 } from './db';
 import type { OperacionPendiente } from './types';
 
@@ -29,6 +30,10 @@ export function iniciarMotorSincronizacion(): void {
   // Intento inicial al arrancar la app, por si ya hay red y cola pendiente
   // de una sesión anterior.
   void procesarCola();
+  // Mantenimiento ligero, una vez por arranque de app: purga lo
+  // 'completado' hace más de 30 días. No bloquea nada de lo anterior — si
+  // falla, no impide sincronizar.
+  void purgarCompletadasAntiguas().catch(() => {});
 }
 
 export function detenerMotorSincronizacion(): void {

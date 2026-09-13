@@ -62,13 +62,32 @@ export function Deduplicacion() {
     },
   });
 
-  // Conteos: se traen todas las filas de una columna y se cuentan en el
-  // cliente. Es una tabla pequeña y una sola columna — más simple que una
-  // consulta agregada por cada ficha.
+  // Candidatos a duplicado por nombre — SOLO estos ids necesitan conteo.
+  // Antes las 4 consultas de abajo traían la columna cliente_id de TODA la
+  // tabla (todas las visitas/oportunidades/interlocutores/ubicaciones de la
+  // empresa, para siempre) y contaban en JS; con `.in()` restringido a los
+  // candidatos, el servidor solo devuelve filas de fichas que ya se sabe
+  // que están duplicadas por nombre — normalmente un puñado, no la empresa
+  // entera.
+  const candidatosIds = useMemo(() => {
+    if (!clientes) return [];
+    const porClave: Record<string, string[]> = {};
+    for (const c of clientes) (porClave[claveDuplicado(c.nombre)] ??= []).push(c.id);
+    return Object.values(porClave)
+      .filter((ids) => ids.length >= 2)
+      .flat();
+  }, [clientes]);
+
+  const hayCandidatos = candidatosIds.length > 0;
+
   const { data: conteoVisitas } = useQuery({
-    queryKey: ['dedup-conteo-visitas'],
+    queryKey: ['dedup-conteo-visitas', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('visita').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('visita')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const v of data ?? []) m[v.cliente_id] = (m[v.cliente_id] ?? 0) + 1;
@@ -77,9 +96,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoOportunidades } = useQuery({
-    queryKey: ['dedup-conteo-oportunidades'],
+    queryKey: ['dedup-conteo-oportunidades', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('oportunidad').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('oportunidad')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const o of data ?? []) m[o.cliente_id] = (m[o.cliente_id] ?? 0) + 1;
@@ -88,9 +111,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoInterlocutores } = useQuery({
-    queryKey: ['dedup-conteo-interlocutores'],
+    queryKey: ['dedup-conteo-interlocutores', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('interlocutor').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('interlocutor')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const i of data ?? []) m[i.cliente_id] = (m[i.cliente_id] ?? 0) + 1;
@@ -99,9 +126,13 @@ export function Deduplicacion() {
   });
 
   const { data: conteoUbicaciones } = useQuery({
-    queryKey: ['dedup-conteo-ubicaciones'],
+    queryKey: ['dedup-conteo-ubicaciones', candidatosIds],
+    enabled: hayCandidatos,
     queryFn: async () => {
-      const { data, error: err } = await supabase.from('ubicacion').select('cliente_id');
+      const { data, error: err } = await supabase
+        .from('ubicacion')
+        .select('cliente_id')
+        .in('cliente_id', candidatosIds);
       if (err) throw err;
       const m: Record<string, number> = {};
       for (const u of data ?? []) m[u.cliente_id] = (m[u.cliente_id] ?? 0) + 1;
@@ -185,10 +216,7 @@ export function Deduplicacion() {
 
   const cargando =
     !clientes ||
-    !conteoVisitas ||
-    !conteoOportunidades ||
-    !conteoInterlocutores ||
-    !conteoUbicaciones;
+    (hayCandidatos && (!conteoVisitas || !conteoOportunidades || !conteoInterlocutores || !conteoUbicaciones));
 
   return (
     <div className="screen">

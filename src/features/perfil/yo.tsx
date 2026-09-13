@@ -142,6 +142,16 @@ export function Yo() {
   // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
   // fila — que Dirección Comercial vea que hay algo que revisar sin tener
   // que entrar.
+  //
+  // Se deja sin llevar a SQL (13 sept, barrido de patrón "trae la tabla
+  // entera y filtra en JS" junto con deduplicacion.tsx/cola-vocabulario.tsx):
+  // `claveDuplicado` (nombres-cliente.ts) normaliza a propósito en JS, sin
+  // `unaccent` en la base de datos — duplicar esa lógica en SQL arriesga que
+  // las dos copias diverjan en silencio y la pantalla de fusión (acción
+  // irreversible) decida "duplicado" con un criterio distinto al que ve
+  // Dirección Comercial aquí. Menor impacto que los otros dos: solo 2
+  // columnas de `cliente` (crece mucho más despacio que visita/hallazgo), y
+  // solo para el rol Dirección Comercial.
   const { data: numGruposDuplicados } = useQuery({
     queryKey: ['num-grupos-duplicados'],
     refetchOnMount: 'always',

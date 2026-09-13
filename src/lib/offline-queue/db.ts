@@ -168,9 +168,25 @@ export async function obtenerOperacion(id: string): Promise<OperacionPendiente |
 // intenta sincronizar antes que sus `hallazgo`/`captura_libre`, siempre que
 // se hayan encolado en el orden en que ocurrieron (que es el caso natural:
 // no se puede capturar nada sin haber iniciado la visita primero).
+//
+// BUG real (13 sept): usaba `getAllFromIndex('by-creado-en')` sin rango —
+// el índice solo ordena, no acota, así que en la práctica leía la cola
+// ENTERA (incluidas las operaciones 'completado' de siempre, con sus blobs
+// de foto/audio) cada vez que se llamaba. El motor de sincronización llama
+// a esto cada 60s automáticamente (`sync-engine.ts`), con o sin pantalla
+// abierta — con el volumen acumulado por uso real, esto es lo que hizo que
+// un ciclo pasase de ~5s a ~34s. Ahora se lee solo por `by-estado`
+// ('pendiente'/'error' — nunca 'completado' ni 'subiendo'), que es un
+// subconjunto pequeño y estable frente al histórico completo; se ordena en
+// JS porque ese subconjunto ya es pequeño.
 export async function obtenerPendientes(): Promise<OperacionPendiente[]> {
-  const todas = await conDb((db) => db.getAllFromIndex('operaciones', 'by-creado-en'));
-  return todas.filter((op) => op.estado === 'pendiente' || op.estado === 'error');
+  const [pendientes, conError] = await conDb((db) =>
+    Promise.all([
+      db.getAllFromIndex('operaciones', 'by-estado', 'pendiente'),
+      db.getAllFromIndex('operaciones', 'by-estado', 'error'),
+    ])
+  );
+  return [...pendientes, ...conError].sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
 }
 
 // Para el aviso global en Yo — "N elementos no se han podido sincronizar".
@@ -209,11 +225,21 @@ export async function obtenerPorVisita(visitaId: string): Promise<OperacionPendi
 // Igual que `obtenerPorVisita` pero para TODAS las visitas de una vez —
 // evita recorrer la cola local una vez por visita marcada en el borrado por
 // lotes de Mi espacio (candado "cola sin subir" del punto 6 del backlog).
+//
+// Mismo bug que `obtenerPendientes` (13 sept): `db.getAll()` leía la cola
+// entera, blobs de 'completado' incluidos. Como aquí ya se descartaba todo
+// lo 'completado' en memoria, basta con no traerlo — se lee por
+// `by-estado` ('pendiente'/'error'/'subiendo', nunca 'completado').
 export async function obtenerVisitasConPendientes(): Promise<Set<string>> {
-  const todas = await conDb((db) => db.getAll('operaciones'));
+  const [pendientes, subiendo, conError] = await conDb((db) =>
+    Promise.all([
+      db.getAllFromIndex('operaciones', 'by-estado', 'pendiente'),
+      db.getAllFromIndex('operaciones', 'by-estado', 'subiendo'),
+      db.getAllFromIndex('operaciones', 'by-estado', 'error'),
+    ])
+  );
   const ids = new Set<string>();
-  for (const op of todas) {
-    if (op.estado === 'completado') continue;
+  for (const op of [...pendientes, ...subiendo, ...conError]) {
     if (op.entidad === 'visita') {
       ids.add(op.id);
       continue;
@@ -240,4 +266,36 @@ export async function obtenerUbicacionesPorCliente(
     db.getAllFromIndex('operaciones', 'by-entidad', 'ubicacion')
   )) as OperacionPendiente<'ubicacion'>[];
   return todas.filter((op) => op.payload.clienteId === clienteId);
+}
+
+const DIAS_RETENCION_COMPLETADAS = 30;
+
+// La raíz de la regresión de rendimiento (13 sept): una operación
+// 'completado' no se borra nunca (se conserva a propósito para que la UI
+// no parpadee, ver comentario en sync-engine.ts), y con uso real en
+// producción esto crece sin límite — registro Y blob de foto/audio
+// incluidos. Cualquier arreglo de índice (obtenerPendientes,
+// obtenerVisitasConPendientes) vuelve a degradarse con el tiempo si la
+// cola en sí no deja de crecer. Se purga por cursor sobre `by-estado`
+// ('completado' únicamente, nunca escanea el resto) y se borra el registro
+// entero — eso libera el Blob también, no hace falta tocarlo aparte.
+export async function purgarCompletadasAntiguas(
+  diasAntiguedad: number = DIAS_RETENCION_COMPLETADAS
+): Promise<number> {
+  const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
+  return conDb(async (db) => {
+    const tx = db.transaction('operaciones', 'readwrite');
+    const indice = tx.store.index('by-estado');
+    let borradas = 0;
+    let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
+    while (cursor) {
+      if (cursor.value.creadoEn < limite) {
+        await cursor.delete();
+        borradas++;
+      }
+      cursor = await cursor.continue();
+    }
+    await tx.done;
+    return borradas;
+  });
 }

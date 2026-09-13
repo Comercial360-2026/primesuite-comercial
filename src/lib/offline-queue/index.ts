@@ -9,6 +9,7 @@ export {
   obtenerUbicacionesPorCliente,
   contarPendientesPorEntidad,
   eliminarOperacion,
+  purgarCompletadasAntiguas,
 } from './db';
 export {
   iniciarMotorSincronizacion,

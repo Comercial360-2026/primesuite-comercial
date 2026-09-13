@@ -2072,6 +2072,13 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_uso_termino: {
+        Row: {
+          termino_id: string | null
+          usos: number | null
+        }
+        Relationships: []
+      }
       vw_vocabulario_pendiente_revision: {
         Row: {
           categoria: string | null
