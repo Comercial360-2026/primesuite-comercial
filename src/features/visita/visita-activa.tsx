@@ -1453,17 +1453,7 @@ export function VisitaActiva() {
   // visita a completar un sitio, ves lo que ya hay ahí sin rebuscar entre
   // todo. El ✕ de la banda quita la zona y vuelve a verse todo.
   // `zonaParaCaptura` es `zonaActual.trim() || undefined`.
-  //
-  // BUG real (13 sept, reportado por Cesar): con una zona marcada, editar
-  // algo a OTRA zona y volver aquí lo hacía desaparecer de golpe de la
-  // lista — el filtro haciendo lo que tiene que hacer, pero justo lo
-  // último que se espera ver nada más terminar de editarlo. `detalle-
-  // captura.tsx` manda el id al volver (`idRecienEditado`) para que ese
-  // elemento concreto se siga viendo esta vez, aunque no encaje con el
-  // filtro — una sola vez, no cambia el filtro para el resto.
-  const idRecienEditado = (location.state as { idRecienEditado?: string } | null)?.idRecienEditado;
-  const enZona = (z: string | null | undefined, id?: string) =>
-    !zonaParaCaptura || (z ?? '') === zonaParaCaptura || (!!id && id === idRecienEditado);
+  const enZona = (z: string | null | undefined) => !zonaParaCaptura || (z ?? '') === zonaParaCaptura;
   const zTexto = (op: { payload: unknown }) => (op.payload as { zonaTexto?: string }).zonaTexto;
   // Zona real si ya se conoce (aunque sea "ninguna" — por eso `in`, no `??`:
   // una zona real vacía no debe caer de vuelta a la de la cola local), si no
@@ -1478,12 +1468,12 @@ export function VisitaActiva() {
   const subZonaHora = (op: OperacionPendiente) => {
     return [zonaReal(op), op.creadoEn ? hora(op.creadoEn) : undefined].filter(Boolean).join(' · ') || undefined;
   };
-  const fotosOwnV = fotosOwn.filter((c) => enZona(zonaReal(c), c.id));
-  const audiosOwnV = audiosOwn.filter((c) => enZona(zonaReal(c), c.id));
-  const notasOwnV = notasOwn.filter((c) => enZona(zonaReal(c), c.id));
-  const hallazgosV = hallazgos.filter((c) => enZona(zonaReal(c), c.id));
-  const oportunidadesV = oportunidades.filter((c) => enZona(zonaReal(c), c.id));
-  const pasosV = pasos.filter((c) => enZona(zonaReal(c), c.id));
+  const fotosOwnV = fotosOwn.filter((c) => enZona(zonaReal(c)));
+  const audiosOwnV = audiosOwn.filter((c) => enZona(zonaReal(c)));
+  const notasOwnV = notasOwn.filter((c) => enZona(zonaReal(c)));
+  const hallazgosV = hallazgos.filter((c) => enZona(zonaReal(c)));
+  const oportunidadesV = oportunidades.filter((c) => enZona(zonaReal(c)));
+  const pasosV = pasos.filter((c) => enZona(zonaReal(c)));
   const fotosCompanerosV = fotosCompaneros.filter((c) => enZona(c.zona_texto));
   const audiosCompanerosV = audiosCompaneros.filter((c) => enZona(c.zona_texto));
   const notasCompanerosV = notasCompaneros.filter((c) => enZona(c.zona_texto));
