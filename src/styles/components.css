@@ -741,11 +741,18 @@ textarea.field {
 }
 .visor-fotos__img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .visor-fotos__nodisp { color: var(--ink-200); font-size: var(--text-sm); }
-.visor-fotos__cerrar {
+.visor-fotos__superior {
   position: absolute; top: 6px; right: 8px;
-  border: none; background: none; color: var(--surface-1);
-  font-size: 28px; line-height: 1; padding: 6px; cursor: pointer;
+  display: flex; align-items: center; gap: var(--space-1);
 }
+.visor-fotos__cerrar, .visor-fotos__editar {
+  border: none; background: none; color: var(--surface-1);
+  padding: 6px; cursor: pointer;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+.visor-fotos__cerrar { font-size: 28px; line-height: 1; }
+.visor-fotos__editar { display: flex; }
+.visor-fotos__cerrar:active, .visor-fotos__editar:active { opacity: 0.5; }
 .visor-fotos__inferior {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: var(--space-3) var(--space-4);
@@ -759,14 +766,18 @@ textarea.field {
 .visor-fotos__acciones { display: flex; gap: var(--space-4); }
 .visor-fotos__accion {
   border: none; background: none; padding: 0; cursor: pointer;
-  color: var(--surface-1); font-size: var(--text-sm); text-decoration: underline;
+  color: var(--surface-1); font-size: var(--text-sm);
   display: inline-flex; align-items: center; gap: 4px;
+  transition: opacity var(--motion-fast) var(--motion-ease);
 }
+.visor-fotos__accion:active { opacity: 0.5; }
 .visor-fotos__nav { display: flex; align-items: center; gap: var(--space-5); }
 .visor-fotos__nav button {
   border: none; background: none; color: var(--surface-1);
   display: flex; padding: var(--space-2); cursor: pointer;
+  transition: opacity var(--motion-fast) var(--motion-ease);
 }
+.visor-fotos__nav button:active:not(:disabled) { opacity: 0.5; }
 .visor-fotos__nav button:disabled { color: var(--ink-700); cursor: default; }
 .visor-fotos__cuenta { color: var(--surface-1); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .visor-fotos__flecha-izq { display: flex; transform: scaleX(-1); }

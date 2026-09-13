@@ -66,9 +66,27 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar, onEditar }: Pro
         else if (dx < 0 && haySiguiente) onCambiar(indice + 1);
       }}
     >
-      <button type="button" className="visor-fotos__cerrar" onClick={onCerrar} aria-label="cerrar">
-        ×
-      </button>
+      <div className="visor-fotos__superior">
+        {/* Editar es una acción de modo (como en Fotos de iOS: arriba, junto
+            a cerrar, separada de los metadatos) — antes vivía abajo como
+            icono+texto subrayado, el mismo antipatrón de .btn-enlace pero
+            con clase propia. Solo icono, igual que el resto de "editar" en
+            la app (.boton-icono en las cabeceras). */}
+        {onEditar && (
+          <button
+            type="button"
+            className="visor-fotos__editar"
+            onClick={() => onEditar(foto.id)}
+            aria-label="Editar"
+            title="Editar"
+          >
+            <Icono nombre="editar" size={20} />
+          </button>
+        )}
+        <button type="button" className="visor-fotos__cerrar" onClick={onCerrar} aria-label="cerrar">
+          ×
+        </button>
+      </div>
 
       {foto.url ? (
         <img className="visor-fotos__img" src={foto.url} alt={foto.titulo ?? 'foto'} />
@@ -78,23 +96,16 @@ export function VisorFotos({ fotos, indice, onCerrar, onCambiar, onEditar }: Pro
 
       <div className="visor-fotos__inferior">
         {pie && <div className="visor-fotos__pie">{pie}</div>}
-        {(tieneCoords || onEditar) && (
+        {tieneCoords && (
           <div className="visor-fotos__acciones">
-            {tieneCoords && (
-              <a
-                className="visor-fotos__accion"
-                href={enlaceMapa(foto.latitud!, foto.longitud!)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Icono nombre="ubicacion" size={14} /> Abrir en el mapa
-              </a>
-            )}
-            {onEditar && (
-              <button type="button" className="visor-fotos__accion" onClick={() => onEditar(foto.id)}>
-                <Icono nombre="editar" size={14} /> Editar
-              </button>
-            )}
+            <a
+              className="visor-fotos__accion"
+              href={enlaceMapa(foto.latitud!, foto.longitud!)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Icono nombre="ubicacion" size={14} /> Abrir en el mapa
+            </a>
           </div>
         )}
         <div className="visor-fotos__nav">
