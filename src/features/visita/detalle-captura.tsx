@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -51,6 +51,39 @@ interface CapturaVista {
   latitud?: number | null;
   longitud?: number | null;
   storagePath?: string | null;
+}
+
+// BUG real (13 sept, reportado por Cesar: "casi 2 minutos" para ver una
+// zona editada, aunque el guardado en el servidor era instantáneo).
+// `invalidateQueries` solo obliga a refrescarse YA a las consultas que
+// están montadas en ESE momento; `mis-zonas-reales-visita` y
+// `zonas-usadas-visita` viven en Visita activa (otra pantalla, normalmente
+// desmontada mientras se edita aquí), así que quedaban solo "marcadas
+// como caducadas" hasta el próximo sondeo de 20s (`refetchInterval`) — o
+// varios, según cuándo se volviera a montar esa pantalla. Escribir el
+// valor ya conocido directamente en la caché deja la vista "por zona"
+// correcta al instante, sin depender de ningún refetch ni de que esa
+// pantalla esté abierta.
+function escribirZonaEnCache(
+  queryClient: QueryClient,
+  visitaId: string,
+  capturaId: string,
+  comercialId: string | undefined,
+  zonaNueva: string | undefined
+) {
+  queryClient.setQueryData<string[]>(['zonas-usadas-visita', visitaId], (anteriores) => {
+    if (!zonaNueva) return anteriores;
+    const lista = anteriores ?? [];
+    return lista.some((z) => z.toLocaleLowerCase('es') === zonaNueva.toLocaleLowerCase('es'))
+      ? lista
+      : [...lista, zonaNueva];
+  });
+  if (comercialId) {
+    queryClient.setQueryData<Record<string, string | null>>(
+      ['mis-zonas-reales-visita', visitaId, comercialId],
+      (anteriores) => ({ ...(anteriores ?? {}), [capturaId]: zonaNueva ?? null })
+    );
+  }
 }
 
 // Pantalla de solo-una-captura: nota (con edición), foto o audio.
@@ -220,6 +253,7 @@ export function DetalleCaptura() {
           'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
         );
         if (captura.visitaId) {
+          escribirZonaEnCache(queryClient, captura.visitaId, captura.id, comercial?.id, zonaNueva);
           // Se espera el refetch: sin esto, «cambiar» podía reabrir el
           // buscador con la lista de zonas todavía vieja (carrera
           // invalidar/repintar).
@@ -230,6 +264,18 @@ export function DetalleCaptura() {
           // agrupada con la zona vieja en esa vista hasta que tocara el
           // refresco automático: parecía que el guardado no había hecho
           // nada durante ese rato (bug real reportado en vivo).
+          //
+          // BUG real (13 sept, reportado por Cesar tras el primer arreglo):
+          // `invalidateQueries` solo dispara un refetch INMEDIATO si esa
+          // consulta está montada en ese instante (Visita activa activa);
+          // si no, se queda solo "marcada como caducada" hasta el próximo
+          // sondeo de 20s — o varios, según cuándo se vuelva a montar.
+          // Parecía que el guardado tardaba hasta 2 minutos cuando en
+          // realidad ya estaba hecho en el servidor en menos de un
+          // segundo. `escribirZonaEnCache` de arriba ya deja el valor
+          // correcto puesto al instante, sin depender de ningún refetch —
+          // esto de aquí es solo para que cuadre con el servidor en cuanto
+          // haya red, no lo único que hace visible el cambio.
           queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
         }
       }
@@ -337,6 +383,7 @@ export function DetalleCaptura() {
           );
           setGuardadoConExito(true);
           if (captura.visitaId) {
+            escribirZonaEnCache(queryClient, captura.visitaId, captura.id, comercial?.id, zonaEdit.trim() || undefined);
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
             await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', captura.visitaId] });
             queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', captura.visitaId] });
