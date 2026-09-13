@@ -12,18 +12,41 @@ import { supabase } from '@/lib/supabase-client';
 // un permiso real. Devuelve el resultado final por si el llamador necesita
 // leer `count` (p. ej. para un mensaje de "N de M").
 //
-// Un solo reintento no bastaba (13 sept, reportado por Cesar: foto + zona
-// justo al volver de la cámara nativa — el caso exacto que motivó este
-// mecanismo — seguía fallando y hacía falta pulsar "Guardar" varias veces
-// a mano para que colara). Cada pulsación manual daba tiempo de más para
-// que la sesión terminase de refrescarse en segundo plano; ahora ese
-// tiempo lo da el propio reintento, con una pequeña espera entre intentos
-// en vez de encadenarlos sin pausa.
-const MAX_INTENTOS = 3;
+// BUG real (13 sept, reportado por Cesar con mala cobertura): ninguna
+// llamada de red de aquí tenía timeout — con conexión lenta/intermitente,
+// `ejecutar()` o `refreshSession()` podían quedarse colgados literalmente
+// minutos (el navegador espera lo que haga falta), sin ningún feedback, y
+// el mensaje final ("falta permiso") era engañoso: el problema era la
+// cobertura, no el permiso — de hecho el UPDATE podía acabar aplicándose
+// igual mucho después, cuando ya se había mostrado el error. Cada llamada
+// de red ahora corta a los 10s con un mensaje claro de conexión en vez de
+// esperar indefinidamente o confundir "sin red" con "sin permiso".
+const MAX_INTENTOS = 2;
 const ESPERA_ENTRE_INTENTOS_MS = 400;
+const TIMEOUT_RED_MS = 10_000;
+const MENSAJE_SIN_RED =
+  'La conexión está tardando demasiado para guardar. Comprueba tu cobertura o wifi y vuelve a intentarlo.';
 
 function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class ErrorTimeoutRed extends Error {}
+
+function conTimeout<T>(promesa: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new ErrorTimeoutRed('timeout de red')), ms);
+    Promise.resolve(promesa).then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(id);
+        reject(err);
+      }
+    );
+  });
 }
 
 export async function conReintentoDeSesion<
@@ -33,12 +56,23 @@ export async function conReintentoDeSesion<
   mensajeSinFilas: string | ((resultado: T) => string),
   esFallo: (resultado: T) => boolean = (resultado) => !resultado.count
 ): Promise<T> {
-  let resultado = await ejecutar();
+  let resultado: T;
+  try {
+    resultado = await conTimeout(ejecutar(), TIMEOUT_RED_MS);
+  } catch (err) {
+    if (err instanceof ErrorTimeoutRed) throw new Error(MENSAJE_SIN_RED);
+    throw err;
+  }
   if (resultado.error) throw new Error(resultado.error.message);
   for (let intento = 2; esFallo(resultado) && intento <= MAX_INTENTOS; intento++) {
     await esperar(ESPERA_ENTRE_INTENTOS_MS);
-    await supabase.auth.refreshSession();
-    resultado = await ejecutar();
+    try {
+      await conTimeout(supabase.auth.refreshSession(), TIMEOUT_RED_MS);
+      resultado = await conTimeout(ejecutar(), TIMEOUT_RED_MS);
+    } catch (err) {
+      if (err instanceof ErrorTimeoutRed) throw new Error(MENSAJE_SIN_RED);
+      throw err;
+    }
     if (resultado.error) throw new Error(resultado.error.message);
   }
   if (esFallo(resultado)) {
