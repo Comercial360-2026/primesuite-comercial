@@ -474,7 +474,9 @@ export function FichaCliente() {
            <input
              className="field"
              autoFocus
-             autoComplete="off"
+             // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
+             // contacto" en un campo de nombre de EMPRESA, "nope" sí.
+             autoComplete="nope"
              value={formNombre}
              onChange={(e) => setFormNombre(e.target.value)}
              placeholder="razón social"

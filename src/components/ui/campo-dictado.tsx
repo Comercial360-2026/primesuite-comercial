@@ -1,7 +1,32 @@
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Dispatch, InputHTMLAttributes, SetStateAction, TextareaHTMLAttributes } from 'react';
 import { Icono } from './iconos';
 import { useCampoDictado } from '@/hooks/use-campo-dictado';
+
+// Al abrir con autoFocus dentro de una hoja (p. ej. "Resumen" en cierre de
+// visita), Safari en iOS decide por su cuenta cuánto hace scroll para dejar
+// visible el campo al abrir el teclado — con la barra de accesorios del
+// teclado añadida encima, ese cálculo deja el campo pegado al borde y tapa
+// lo que hay justo debajo (avisos, botones). Se corrige a mano: cuando de
+// verdad hay teclado abierto (visualViewport reducido, no en escritorio),
+// se centra el campo en el espacio visible que queda, dando margen a los
+// dos lados en vez de dejarlo pegado abajo. El timeout espera a que acabe
+// la animación de apertura del teclado (~300ms en iOS); antes de eso el
+// viewport todavía no está reducido y el cálculo saldría mal.
+function useEncajarConTeclado(activo: boolean | undefined) {
+  const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  useEffect(() => {
+    if (!activo) return;
+    const id = setTimeout(() => {
+      const vv = window.visualViewport;
+      const hayTeclado = !!vv && vv.height < window.innerHeight * 0.85;
+      if (hayTeclado) ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 350);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return ref;
+}
 
 // Botón de dictado DENTRO del campo (esquina del textarea, o a la derecha
 // en un input de una línea) — no un botón aparte debajo, como WhatsApp o el
@@ -65,12 +90,14 @@ export const TextareaDictado = forwardRef<RefCampoDictado, PropsTextarea>(functi
 ) {
   const d = useCampoDictado(valor, onCambio);
   useImperativeHandle(ref, () => ({ consolidar: d.consolidar }), [d.consolidar]);
+  const elementoRef = useEncajarConTeclado(resto.autoFocus);
 
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>
       <textarea
         autoComplete="off"
         {...resto}
+        ref={elementoRef}
         className={`field${className ? ` ${className}` : ''}`}
         value={d.valorEnVivo}
         onChange={(e) => onCambio(e.target.value)}
@@ -91,12 +118,14 @@ export const InputDictado = forwardRef<RefCampoDictado, PropsInput>(function Inp
 ) {
   const d = useCampoDictado(valor, onCambio);
   useImperativeHandle(ref, () => ({ consolidar: d.consolidar }), [d.consolidar]);
+  const elementoRef = useEncajarConTeclado(resto.autoFocus);
 
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>
       <input
         autoComplete="off"
         {...resto}
+        ref={elementoRef}
         type="text"
         className={`field${className ? ` ${className}` : ''}`}
         value={d.valorEnVivo}

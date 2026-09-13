@@ -316,7 +316,12 @@ export function AltaRapidaCliente() {
           <input
             className={`field${creacionCliente.error ? ' field--error' : ''}`}
             autoFocus
-            autoComplete="off"
+            // `autoComplete="off"` no basta aquí: iOS igual ofrece "Autorrellenar
+            // contacto" (tu propia ficha) porque interpreta "Nombre del cliente"
+            // como un campo de nombre de persona — confirmado en el móvil real
+            // (13 sept). Es el nombre de una EMPRESA, no de un contacto. Un valor
+            // no reconocido ("nope") evita que Safari lo empareje con ese patrón.
+            autoComplete="nope"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="razón social"
