@@ -12,6 +12,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
@@ -619,8 +620,18 @@ export function FichaCliente() {
         )}
 
         {creandoProyecto && (
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>Nuevo proyecto</div>
+          // HojaSuperior, no tarjeta suelta en el scroll — antes competía por
+          // espacio con la barra fija "Iniciar visita"/"Planificar otro día":
+          // con el teclado abierto casi no quedaba sitio (Cesar, 14 sept). La
+          // hoja tapa esa barra mientras se escribe, como el resto de la app.
+          <HojaSuperior
+            titulo="Nuevo proyecto"
+            onCerrar={() => {
+              setCreandoProyecto(false);
+              setNombreProyecto('');
+              creacionProyecto.limpiarError();
+            }}
+          >
             <input
               className={`field${creacionProyecto.error ? ' field--error' : ''}`}
               autoFocus
@@ -630,27 +641,15 @@ export function FichaCliente() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
-            <div className="fila-btns" style={{ marginTop: 8 }}>
-              <button
-                className="btn btn-secondary"
-                disabled={creacionProyecto.cargando}
-                onClick={() => {
-                  setCreandoProyecto(false);
-                  setNombreProyecto('');
-                  creacionProyecto.limpiarError();
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
-                onClick={crearProyecto}
-              >
-                {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
-              </button>
-            </div>
-          </div>
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: 12, width: '100%' }}
+              disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+              onClick={crearProyecto}
+            >
+              {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
+            </button>
+          </HojaSuperior>
         )}
 
         {/* Con 2+ proyectos, mezclar sus visitas en una sola lista confundía
