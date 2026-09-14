@@ -12,6 +12,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useEspacioProyecto } from '@/hooks/use-espacio-proyecto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
@@ -451,8 +452,17 @@ export function FichaProyecto() {
         )}
 
         {editandoNombre && (
-          <div className="card">
-            <div className="label" style={{ marginTop: 0 }}>Nombre del proyecto</div>
+          // HojaSuperior, no tarjeta suelta — mismo fallo que "Nuevo
+          // proyecto" en la ficha de cliente (Cesar, 14 sept): competía con
+          // la barra fija de AccionesProyecto, casi sin sitio con el
+          // teclado abierto.
+          <HojaSuperior
+            titulo="Nombre del proyecto"
+            onCerrar={() => {
+              setEditandoNombre(false);
+              guardadoNombre.limpiarError();
+            }}
+          >
             <input
               className={`field${guardadoNombre.error ? ' field--error' : ''}`}
               autoFocus
@@ -462,26 +472,15 @@ export function FichaProyecto() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {guardadoNombre.error && <div className="field-error-text">{guardadoNombre.error}</div>}
-            <div className="fila-btns" style={{ marginTop: 10 }}>
-              <button
-                className="btn btn-secondary"
-                disabled={guardadoNombre.cargando}
-                onClick={() => {
-                  setEditandoNombre(false);
-                  guardadoNombre.limpiarError();
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-primary"
-                disabled={guardadoNombre.cargando || !formNombre.trim()}
-                onClick={guardarNombre}
-              >
-                {guardadoNombre.cargando ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
+            <button
+              className="btn btn-primary"
+              style={{ marginTop: 12, width: '100%' }}
+              disabled={guardadoNombre.cargando || !formNombre.trim()}
+              onClick={guardarNombre}
+            >
+              {guardadoNombre.cargando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </HojaSuperior>
         )}
 
         <div className="lista-agrupada">
