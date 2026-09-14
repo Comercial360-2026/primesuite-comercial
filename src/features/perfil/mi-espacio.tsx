@@ -347,7 +347,18 @@ function MisVisitas() {
       )}
 
       {!!visitas?.length && !seleccionando && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingInline: 'var(--fila-pad-x)' }}>
+        // `.segmentado` no encoge (flex-shrink: 0, a propósito para no
+        // apelmazar sus opciones) y aquí las etiquetas son largas ("Más
+        // antiguas primero"/"Las que más ocupan"): en pantalla estrecha no
+        // cabe junto a "Seleccionar" en la misma línea — bug real visto en
+        // el móvil (Cesar, 14 sept), el botón se salía de la pantalla. Con
+        // wrap, "Seleccionar" baja a su propia línea en vez de desaparecer.
+        <div
+          style={{
+            display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 8, alignItems: 'center',
+            paddingInline: 'var(--fila-pad-x)',
+          }}
+        >
           <Segmentado
             opciones={
               [

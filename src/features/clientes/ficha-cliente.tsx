@@ -4,7 +4,7 @@ import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
-import { haceRelativo } from '@/lib/fechas';
+import { haceRelativo, fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { plural } from '@/lib/texto';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -567,17 +567,29 @@ export function FichaCliente() {
               </button>
             }
           >
-            {proyectosVigentes.map((p) => (
-              <FilaNavegable
-                key={p.id}
-                titulo={p.nombre}
-                subtitulo={
-                  p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : undefined
-                }
-                to={`/clientes/${clienteId}/proyectos/${p.id}`}
-                state={desde(location)}
-              />
-            ))}
+            {proyectosVigentes.map((p) => {
+              // Remate de una línea con la actividad de ESTE proyecto — para
+              // no tener que entrar a cada uno a saber si tiene algo abierto.
+              // El historial completo (por visita) vive dentro del propio
+              // proyecto, no aquí (ver historial-visitas-cliente.tsx).
+              const estadoTxt =
+                p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : null;
+              const actividadTxt = p.visitaEnCurso
+                ? 'Visita en curso'
+                : p.ultimaVisitaFecha
+                  ? `Última visita ${fechaCorta(p.ultimaVisitaFecha)}`
+                  : 'Sin visitas todavía';
+              return (
+                <FilaNavegable
+                  key={p.id}
+                  titulo={p.nombre}
+                  subtitulo={[estadoTxt, actividadTxt].filter(Boolean).join(' · ')}
+                  tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
+                  to={`/clientes/${clienteId}/proyectos/${p.id}`}
+                  state={desde(location)}
+                />
+              );
+            })}
             {proyectosTerminados.length > 0 && (
               <FilaNavegable
                 titulo={
@@ -641,7 +653,13 @@ export function FichaCliente() {
           </div>
         )}
 
-        {clienteId && <HistorialVisitasCliente clienteId={clienteId} />}
+        {/* Con 2+ proyectos, mezclar sus visitas en una sola lista confundía
+            de qué proyecto era cada una (Cesar, 14 sept) — cada proyecto
+            enseña ya su propio historial al entrar. Con uno solo, el paso
+            intermedio no aporta nada: se sigue mostrando aquí directo. */}
+        {clienteId && proyectos && proyectos.length === 1 && (
+          <HistorialVisitasCliente clienteId={clienteId} />
+        )}
 
         {!!ecosistema?.length && (
           <SeccionLista titulo="Ecosistema">
