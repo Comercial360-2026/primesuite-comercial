@@ -3,6 +3,7 @@ import { desde } from '@/lib/volver-a';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { useAvisosGestion } from '@/hooks/use-avisos-gestion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useTourGuiado } from '@/hooks/use-tour-guiado';
 import { TourNavegacionContext } from '@/hooks/use-tour-navegacion-context';
@@ -31,11 +32,15 @@ export function LayoutShell() {
     (pathname === `/visita/${visitaEnCurso.id}` ||
       pathname.startsWith(`/visita/${visitaEnCurso.id}/`));
   // Avisos que encienden el punto de la pestaña "Yo": el "libera espacio"
-  // que Dirección me haya mandado (su LÍNEA la pinta <AvisoEspacio />), y
-  // las invitaciones a visitas de equipo pendientes de aceptar/rechazar
-  // o los rechazos que aún no he visto.
+  // que Dirección me haya mandado (su LÍNEA la pinta <AvisoEspacio />), las
+  // invitaciones a visitas de equipo pendientes de aceptar/rechazar o los
+  // rechazos que aún no he visto, y — solo para Dirección Comercial — algo
+  // pendiente en "Gestión" (peticiones de acceso, solicitudes de ayuda,
+  // clientes duplicados). Antes esto último solo se veía entrando en Yo
+  // (Cesar, 14 sept: "entras y no te das cuenta").
   const { aviso: avisoLiberar } = useAvisoLiberar();
   const { hayAvisos: hayAvisosParticipacion } = useAvisosParticipacion();
+  const { hayAvisos: hayAvisosGestion } = useAvisosGestion();
 
   // Tour de bienvenida (4 pasos, uno por pestaña) — se dispara solo una vez
   // por comercial, en cualquier ruta (el bottom nav es el mismo en todas).
@@ -100,7 +105,7 @@ export function LayoutShell() {
               <>
                 <IconoYo activo={isActive} />
                 Yo
-                {(avisoLiberar || hayAvisosParticipacion) && (
+                {(avisoLiberar || hayAvisosParticipacion || hayAvisosGestion) && (
                   <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
                 )}
               </>

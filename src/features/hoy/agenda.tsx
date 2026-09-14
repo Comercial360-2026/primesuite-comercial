@@ -323,7 +323,11 @@ export function Agenda() {
       />
 
       {!seleccionando && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        // flexWrap por el mismo motivo que en Mi espacio: `.segmentado` no
+        // encoge, así que un "Seleccionar" al lado se sale de la pantalla
+        // en vez de bajar de línea si algún día no cabe (fuente accesible
+        // grande, pantalla estrecha).
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, rowGap: 8, alignItems: 'center' }}>
           <Segmentado
             opciones={
               [

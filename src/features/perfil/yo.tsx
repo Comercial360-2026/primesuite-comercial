@@ -6,12 +6,12 @@ import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
-import { claveDuplicado } from '@/lib/nombres-cliente';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
+import { useAvisosGestion } from '@/hooks/use-avisos-gestion';
 import { useTourGuiado } from '@/hooks/use-tour-guiado';
 import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
@@ -122,66 +122,10 @@ export function Yo() {
   );
   const tourNavControl = useTourNavegacionControl();
 
-  const { data: numSolicitudesPendientes } = useQuery({
-    queryKey: ['num-solicitudes-reasignacion-pendientes'],
-    refetchOnMount: 'always',
-    enabled: esDireccionComercial,
-    queryFn: async () => {
-      const { count, error: err } = await supabase
-        .from('solicitud_reasignacion')
-        .select('id', { count: 'exact', head: true })
-        .eq('estado', 'pendiente');
-      if (err) throw err;
-      return count ?? 0;
-    },
-  });
-
-  // Comerciales que han pulsado "He perdido el acceso" en el login y
-  // esperan que Dirección les reenvíe el enlace.
-  const { data: numPeticionesAcceso } = useQuery({
-    queryKey: ['num-solicitudes-acceso'],
-    refetchOnMount: 'always',
-    enabled: esDireccionComercial,
-    queryFn: async () => {
-      const { count, error: err } = await supabase
-        .from('solicitud_acceso')
-        .select('id', { count: 'exact', head: true })
-        .eq('estado', 'pendiente');
-      if (err) throw err;
-      return count ?? 0;
-    },
-  });
-
-  // Nº de grupos de fichas de cliente duplicadas (mismo criterio de
-  // agrupación que la pantalla de deduplicación). Sirve para el aviso en la
-  // fila — que Dirección Comercial vea que hay algo que revisar sin tener
-  // que entrar.
-  //
-  // Se deja sin llevar a SQL (13 sept, barrido de patrón "trae la tabla
-  // entera y filtra en JS" junto con deduplicacion.tsx/cola-vocabulario.tsx):
-  // `claveDuplicado` (nombres-cliente.ts) normaliza a propósito en JS, sin
-  // `unaccent` en la base de datos — duplicar esa lógica en SQL arriesga que
-  // las dos copias diverjan en silencio y la pantalla de fusión (acción
-  // irreversible) decida "duplicado" con un criterio distinto al que ve
-  // Dirección Comercial aquí. Menor impacto que los otros dos: solo 2
-  // columnas de `cliente` (crece mucho más despacio que visita/hallazgo), y
-  // solo para el rol Dirección Comercial.
-  const { data: numGruposDuplicados } = useQuery({
-    queryKey: ['num-grupos-duplicados'],
-    refetchOnMount: 'always',
-    enabled: esDireccionComercial,
-    queryFn: async () => {
-      const { data, error: err } = await supabase.from('cliente').select('nombre, estado_fusion');
-      if (err) throw err;
-      const cuenta: Record<string, number> = {};
-      for (const c of data ?? []) {
-        if (c.estado_fusion !== 'activo') continue;
-        const k = claveDuplicado(c.nombre);
-        cuenta[k] = (cuenta[k] ?? 0) + 1;
-      }
-      return Object.values(cuenta).filter((n) => n >= 2).length;
-    },
-  });
+  // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
+  // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
+  // LayoutShell, ver use-avisos-gestion.ts.
+  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados } = useAvisosGestion();
 
   // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
   // visitas de equipo), no en una pantalla aparte.
