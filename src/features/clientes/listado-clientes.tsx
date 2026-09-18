@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,34 +30,29 @@ export function ListadoClientes() {
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
   const buscador = useBuscador(!!busqueda);
-  // Decisión de producto (29/8/2026, ajustada 2026-09-05): un comercial
-  // normal ve por defecto solo su cartera — el interruptor "Todos" es
-  // exclusivo de Dirección. PERO al escribir en el buscador cualquiera
+  // Decisión de producto (29/8/2026, ajustada 2026-09-05, abierta a todos
+  // 2026-09-18): cualquier comercial ve por defecto solo su cartera, con
+  // un interruptor "Todos" para ver la de sus compañeros — ya no es
+  // exclusivo de Dirección. Al escribir en el buscador cualquiera
   // encuentra cualquier cliente (cubrir a un compañero, no crear
-  // duplicados). No es una restricción de permisos (la BD lo permite a
-  // todos), es qué se muestra por defecto en esta pantalla.
-  const esDireccionComercial = comercial?.rol === 'direccion_comercial';
+  // duplicados) independientemente de este interruptor. No es una
+  // restricción de permisos (la BD lo permite a todos), es qué se
+  // muestra por defecto en esta pantalla.
   // Filtro en la URL (?vista=todos), no solo en memoria: si viviera en un
   // useState a secas, volver desde la ficha de un cliente remonta esta
   // pantalla y el filtro nace siempre en "mios" — igual que ya se
   // resolvió en mi-espacio.tsx (?vista=equipo), aquí faltaba aplicarlo.
   const [searchParams, setSearchParams] = useSearchParams();
-  const [vistaDireccion, setVistaDireccionState] = useState<'mios' | 'todos'>(
-    esDireccionComercial && searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
+  const [vista, setVista] = useState<'mios' | 'todos'>(
+    searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
   );
-  // El rol puede resolverse después del primer render (arranque en frío):
-  // si venías con ?vista=todos, respétalo en cuanto sepamos que sí diriges.
-  useEffect(() => {
-    if (esDireccionComercial && searchParams.get('vista') === 'todos') setVistaDireccionState('todos');
-    else if (!esDireccionComercial) setVistaDireccionState('mios');
-  }, [esDireccionComercial, searchParams]);
 
-  function cambiarVistaDireccion(v: 'mios' | 'todos') {
-    setVistaDireccionState(v);
+  function cambiarVista(v: 'mios' | 'todos') {
+    setVista(v);
     setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
   }
 
-  const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
+  const soloMios = vista === 'mios';
   const queryClient = useQueryClient();
 
   const queryKey = ['listado-clientes', busqueda];
@@ -123,8 +118,8 @@ export function ListadoClientes() {
 
   // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
   // compañero, comprobar antes de dar de alta un duplicado) — un buscador
-  // que esconde coincidencias confunde. Sin búsqueda, un comercial normal
-  // ve solo su cartera y Dirección respeta su interruptor "Solo míos".
+  // que esconde coincidencias confunde. Sin búsqueda, cada comercial ve
+  // solo su cartera salvo que active "Todos".
   const buscando = !!busqueda.trim();
   const restringirACartera = soloMios && !buscando;
   const clientesFiltrados = clientes?.filter(
@@ -175,18 +170,16 @@ export function ListadoClientes() {
         />
       )}
 
-      {esDireccionComercial && (
-        <Segmentado
-          opciones={
-            [
-              { valor: 'mios', etiqueta: 'Solo míos' },
-              { valor: 'todos', etiqueta: 'Todos' },
-            ] as const
-          }
-          valor={vistaDireccion}
-          onCambio={cambiarVistaDireccion}
-        />
-      )}
+      <Segmentado
+        opciones={
+          [
+            { valor: 'mios', etiqueta: 'Solo míos' },
+            { valor: 'todos', etiqueta: 'Todos' },
+          ] as const
+        }
+        valor={vista}
+        onCambio={cambiarVista}
+      />
 
       {!!clientesFiltrados?.length && (
         <div className="contador">
@@ -221,7 +214,7 @@ export function ListadoClientes() {
               const sinResponsable = !soloMios && !respId;
               const subtitulo =
                 [
-                  // En "Todos" (Dirección): quién lleva la cuenta, o el aviso.
+                  // En "Todos": quién lleva la cuenta, o el aviso.
                   !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : 'Sin responsable') : null,
                   heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
                   c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
