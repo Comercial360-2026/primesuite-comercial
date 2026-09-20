@@ -910,6 +910,32 @@ export function VisitaActiva() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grabando]);
 
+  // `visibilitychange` solo salta al ocultar la pestaña, no al navegar
+  // dentro de la SPA: pulsar "Cerrar visita" (u otra salida) con una
+  // grabación en curso, sin pasar antes por "Detener", dejaba el
+  // MediaRecorder, el micrófono y el wake lock activos indefinidamente
+  // (o hasta el límite de 10 min) tras desmontarse esta pantalla. La nota a
+  // medio grabar ya no se puede completar sin este componente montado, pero
+  // al menos se libera el micrófono y la pantalla vuelve a poder apagarse
+  // sola en vez de arrastrar la grabación en segundo plano.
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== 'inactive') recorder.stop();
+        recorder.stream.getTracks().forEach((t) => t.stop());
+      }
+      soltarWakeLock();
+      if (timeoutAudioRef.current) {
+        clearTimeout(timeoutAudioRef.current);
+        timeoutAudioRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Cronómetro de la grabación.
   useEffect(() => {
     if (!grabando) {
