@@ -24,7 +24,10 @@ export function PanelVisitasAbiertas({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const borrar = useBorrarVisita();
+  // `onBorrada` (no un `await` seguido de cerrar a ciegas): si un lote falla
+  // a mitad, el panel de confirmación (donde se ve el error) se queda
+  // abierto en vez de cerrarse dando a entender que se borró todo.
+  const borrar = useBorrarVisita({ onBorrada: () => salirSeleccion() });
   const online = typeof navigator === 'undefined' ? true : navigator.onLine;
 
   const [seleccionando, setSeleccionando] = useState(false);
@@ -128,10 +131,7 @@ export function PanelVisitasAbiertas({
               cargando={borrar.borrando.cargando}
               error={borrar.borrando.error}
               onCancelar={() => setConfirmandoDescarte(false)}
-              onConfirmar={async () => {
-                await borrar.borrarVarias(marcadasArr);
-                salirSeleccion();
-              }}
+              onConfirmar={() => borrar.borrarVarias(marcadasArr)}
             >
               Se descartan {marcadasArr.length} {marcadasArr.length === 1 ? 'visita' : 'visitas'} y todo su
               contenido (fotos, audios, notas, hallazgos, oportunidades…).
