@@ -12,6 +12,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useEspacioProyecto } from '@/hooks/use-espacio-proyecto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -54,8 +55,19 @@ export function FichaProyecto() {
     },
   });
 
-  const { data: proyectos } = useProyectosCliente(clienteId);
+  const {
+    data: proyectos,
+    isLoading: cargandoProyecto,
+    isError: errorProyecto,
+    isPaused: pausadoProyecto,
+    refetch: refetchProyecto,
+  } = useProyectosCliente(clienteId);
   const proyecto = proyectos?.find((p) => p.id === proyectoId);
+  const sinConexionProyecto = pausadoProyecto && proyectos === undefined;
+  function reintentarProyecto() {
+    queryClient.resetQueries({ queryKey: ['proyectos-cliente', clienteId] });
+    refetchProyecto();
+  }
 
   // Informe PDF del proyecto (cronología de sus visitas cerradas). Mismo
   // hook que el informe de visita, con tipo 'proyecto'.
@@ -396,6 +408,17 @@ export function FichaProyecto() {
       />
 
       <div className="screen__scroll">
+        {cargandoProyecto && <EstadoLista estado="cargando" />}
+        {sinConexionProyecto && (
+          <EstadoLista estado="sin-conexion" onReintentar={reintentarProyecto} />
+        )}
+        {errorProyecto && (
+          <EstadoLista
+            estado="error"
+            mensaje="No se ha podido cargar este proyecto."
+            onReintentar={reintentarProyecto}
+          />
+        )}
         {contextoLinea && (
           <div className="ficha-vitals">
             <span>{contextoLinea}</span>
