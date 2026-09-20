@@ -1017,6 +1017,14 @@ export function VisitaActiva() {
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Sin esto, un fallo de red a mitad (típico con mala cobertura en
+      // campo) quedaba como excepción no capturada: el spinner se apagaba y
+      // el panel se cerraba como si nada, sin que el comercial supiera si la
+      // operación se completó, quedó a medias, o no hizo nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1045,6 +1053,10 @@ export function VisitaActiva() {
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1107,6 +1119,13 @@ export function VisitaActiva() {
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Este borrado es irreversible y en varios pasos (cola local + filas +
+      // Storage + oportunidades); sin este catch, un fallo a mitad dejaba al
+      // comercial sin saber si se borró todo, parte, o nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
