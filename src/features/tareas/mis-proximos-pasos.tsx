@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { desde } from '@/lib/volver-a';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -29,6 +30,7 @@ interface ProximoPaso {
 // una pieza del modelo sin flujo de creación en UI todavía.
 export function MisProximosPasos() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
   // Filtro en la URL (?filtro=completado), no solo en memoria — mismo bug
@@ -172,6 +174,7 @@ export function MisProximosPasos() {
           titulo={p.descripcion}
           subtitulo={subtitulo}
           to={`/proximos-pasos/${p.id}`}
+          state={desde(location)}
         />
       );
     }
@@ -191,7 +194,7 @@ export function MisProximosPasos() {
         titulo={p.descripcion}
         subtitulo={subtitulo}
         tono={vencido ? 'riesgo' : 'neutral'}
-        onClick={() => navigate(`/proximos-pasos/${p.id}`)}
+        onClick={() => navigate(`/proximos-pasos/${p.id}`, { state: desde(location) })}
         acciones={[completar]}
       />
     );

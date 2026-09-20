@@ -407,23 +407,28 @@ export function AgendaDelDia() {
   const borrar = useBorrarVisita({ onBorrada: () => salirSelEnCurso() });
 
   function abrirVisita(visita: VisitaAgenda) {
+    // Regla #14: estampar el origen en las 4 ramas — la pestaña "Agenda" de
+    // este mismo fichero ya lo hacía, pero estas no. Sin esto, volver desde
+    // cualquier visita abierta desde "También en curso"/"Atrasadas"/
+    // "Próximas" caía siempre en el fallback fijo y perdía en silencio el
+    // filtro "Todas" (?vista=todas) que Dirección hubiera activado.
     if (visita.estado_captura === 'en_curso') {
-      navigate(`/visita/${visita.id}`);
+      navigate(`/visita/${visita.id}`, { state: desde(location) });
       return;
     }
     if (visita.estado_captura === 'consolidada') {
-      navigate(`/visita/${visita.id}/detalle`);
+      navigate(`/visita/${visita.id}/detalle`, { state: desde(location) });
       return;
     }
     // Planificada para OTRO día (atrasada o futura) → pantalla de gestión
     // (empezar / reprogramar / anular), no el repaso.
     if (!esDeHoy(visita.fecha)) {
-      navigate(`/visita/${visita.id}/planificada`);
+      navigate(`/visita/${visita.id}/planificada`, { state: desde(location) });
       return;
     }
     // Planificada para hoy → repaso rápido antes de entrar.
     if (visita.cliente) {
-      navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`);
+      navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`, { state: desde(location) });
     }
   }
 
