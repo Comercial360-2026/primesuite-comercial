@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
-import { desde } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -76,6 +76,11 @@ type Vista = 'mias' | 'equipo';
 export function MiEspacio() {
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
+  // "/yo" solo acierta como origen si esta pantalla se alcanza SIEMPRE desde
+  // ahí — el aviso global de espacio (AvisoEspacio, en la cáscara de la app)
+  // puede llevar aquí desde Hoy o desde una visita en curso; con volverA fijo
+  // el ← aterrizaba siempre en "/yo" en vez de volver a donde estaba.
+  const volver = useVolverA('/yo');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [vista, setVista] = useState<Vista>(
@@ -100,9 +105,9 @@ export function MiEspacio() {
   return (
     <div className="screen">
       {vistaEquipo ? (
-        <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" ayuda="consumo-comerciales" />
+        <CabeceraDetalle titulo="Consumo por comercial" volverA={volver} ayuda="consumo-comerciales" />
       ) : (
-        <CabeceraDetalle titulo="Mi espacio" volverA="/yo" ayuda="mi-espacio" />
+        <CabeceraDetalle titulo="Mi espacio" volverA={volver} ayuda="mi-espacio" />
       )}
 
       <div className="lista-agrupada">
