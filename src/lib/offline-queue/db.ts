@@ -263,6 +263,24 @@ export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]
   return regs.map((r) => desdeAlmacenada(r));
 }
 
+// Una operación solo pasa a 'subiendo' justo antes de la llamada de red
+// (`sync-engine.ts`) y de ahí a 'completado' o 'error' — nunca queda en
+// 'subiendo' por diseño. Si la app se cierra a mitad de esa llamada (batería,
+// iOS descargando la pestaña en segundo plano), la operación se queda en
+// 'subiendo' para siempre: `obtenerPendientes()` solo lee 'pendiente'/'error',
+// así que nunca se vuelve a intentar. Se llama una vez al arrancar el motor
+// de sincronización para reponer a 'pendiente' cualquier operación atascada
+// así — solo pudo llegar a ese estado por una interrupción, nunca por diseño.
+export async function reponerOperacionesAtascadas(): Promise<number> {
+  return conDb(async (db) => {
+    const atascadas = await db.getAllFromIndex('operaciones', 'by-estado', 'subiendo');
+    for (const reg of atascadas) {
+      await db.put('operaciones', { ...reg, estado: 'pendiente' });
+    }
+    return atascadas.length;
+  });
+}
+
 export async function contarPendientesPorEntidad(
   entidad: EntidadSincronizable
 ): Promise<number> {
