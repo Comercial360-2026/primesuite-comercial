@@ -334,8 +334,24 @@ export function FichaCliente() {
             supabase.storage.from('audios-visita').remove(rutas),
           ]);
         }
-        const { error } = await supabase.rpc('eliminar_cliente_completo', { p_cliente_id: clienteId! });
-        if (error) throw new Error(error.message);
+        // A partir de aquí los adjuntos ya no existen en Storage: un fallo
+        // de red justo en esta llamada dejaría el cliente vivo pero sin sus
+        // fotos/audios — un borrado parcial irreversible. Se reintenta un
+        // par de veces antes de rendirse, y si aun así falla el mensaje
+        // deja claro que los adjuntos ya se han ido, para no repetir el
+        // borrado pensando que no hizo nada.
+        let ultimoError: string | null = null;
+        for (let intento = 1; intento <= 3; intento++) {
+          const { error } = await supabase.rpc('eliminar_cliente_completo', { p_cliente_id: clienteId! });
+          if (!error) return;
+          ultimoError = error.message;
+          if (intento < 3) await new Promise((r) => setTimeout(r, 500));
+        }
+        throw new Error(
+          rutas.length
+            ? `Las fotos y audios ya se han borrado, pero el cliente no se pudo eliminar del todo (${ultimoError}). Vuelve a intentarlo.`
+            : ultimoError!
+        );
       },
       {
         onExito: () => {
