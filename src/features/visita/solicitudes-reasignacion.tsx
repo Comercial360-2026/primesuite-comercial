@@ -8,6 +8,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Avatar } from '@/components/ui/avatar';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 
 interface SolicitudPendiente {
   id: string;
@@ -27,6 +28,7 @@ interface SolicitudPendiente {
 export function SolicitudesReasignacion() {
   const queryClient = useQueryClient();
   const [asignandoId, setAsignandoId] = useState<string | null>(null);
+  const [confirmandoDescarteId, setConfirmandoDescarteId] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [procesando, setProcesando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +131,7 @@ export function SolicitudesReasignacion() {
       return;
     }
     setProcesando(null);
+    setConfirmandoDescarteId(null);
     invalidar();
   }
 
@@ -195,6 +198,22 @@ export function SolicitudesReasignacion() {
                 );
               }
 
+              if (confirmandoDescarteId === s.id) {
+                return (
+                  <div key={s.id} className="fila-confirmacion">
+                    <ConfirmacionBorrado
+                      onCancelar={() => setConfirmandoDescarteId(null)}
+                      onConfirmar={() => descartar(s.id)}
+                      cargando={procesando === s.id}
+                      confirmar="Sí, descartar"
+                      cargandoTexto="Descartando…"
+                    >
+                      ¿Descartar la solicitud de ayuda de {s.solicitante_nombre} para {s.cliente_nombre}?
+                    </ConfirmacionBorrado>
+                  </div>
+                );
+              }
+
               return (
                 <FilaAccion
                   key={s.id}
@@ -211,7 +230,7 @@ export function SolicitudesReasignacion() {
                       icono: 'borrar',
                       etiqueta: 'Descartar la solicitud',
                       tono: 'riesgo',
-                      onClick: () => descartar(s.id),
+                      onClick: () => setConfirmandoDescarteId(s.id),
                       disabled: procesando === s.id,
                     },
                   ]}
