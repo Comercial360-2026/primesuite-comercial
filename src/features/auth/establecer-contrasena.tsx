@@ -27,7 +27,25 @@ export function EstablecerContrasena() {
   const [password, setPassword] = useState('');
   const [repite, setRepite] = useState('');
 
+  // Esta ruta está fuera de RequireSession a propósito, para funcionar sin
+  // sesión previa — pero eso también la deja alcanzable por alguien con una
+  // sesión NORMAL ya abierta (dispositivo compartido), que podría fijar una
+  // contraseña nueva sin que le pidan la actual. `getSession()` no
+  // distingue una sesión de recuperación de una normal; el único rastro de
+  // "vengo de un enlace de recuperación" es el `type=recovery` que Supabase
+  // añade al hash de la URL. Se captura en el primer render (síncrono, antes
+  // de que Supabase lo procese y limpie de la URL) y solo entonces se acepta
+  // la sesión que resuelva `getSession()`/`onAuthStateChange`.
+  const [esRecuperacion] = useState(
+    () => window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')
+  );
+
   useEffect(() => {
+    if (!esRecuperacion) {
+      setNombre(null);
+      return;
+    }
+
     let vivo = true;
 
     async function comprobar() {
