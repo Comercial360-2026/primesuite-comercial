@@ -216,6 +216,7 @@ export function Yo() {
 
   const ETIQUETA_ENTIDAD: Record<string, string> = {
     visita: 'visita',
+    visita_objetivo: 'objetivo de visita',
     hallazgo: 'hallazgo',
     captura_libre: 'captura',
     oportunidad: 'oportunidad',

@@ -138,6 +138,9 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
       case 'visita':
         await sincronizarVisita(actual);
         break;
+      case 'visita_objetivo':
+        await sincronizarObjetivoVisita(actual);
+        break;
       case 'cliente':
       case 'proyecto':
       case 'oportunidad':
@@ -209,6 +212,17 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
       'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
     );
   }
+}
+
+// Editar el objetivo de una visita ya sincronizada (VisitaObjetivoPayload,
+// types.ts) — a diferencia de las demás entidades, no crea una fila: `id` es
+// el de esta operación de cola, la fila a tocar es `payload.visitaId`.
+async function sincronizarObjetivoVisita(operacion: OperacionPendiente<'visita_objetivo'>): Promise<void> {
+  const { visitaId, objetivo } = operacion.payload;
+  await conReintentoDeSesion(
+    () => supabase.from('visita').update({ objetivo }, { count: 'exact' }).eq('id', visitaId),
+    'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
+  );
 }
 
 // Oportunidad y Próximo paso son INSERT directos — no tienen el problema de

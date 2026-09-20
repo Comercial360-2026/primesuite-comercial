@@ -3,7 +3,6 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo, desdeHace, hora } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
@@ -933,7 +932,6 @@ export function VisitaActiva() {
         timeoutAudioRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cronómetro de la grabación.
@@ -954,13 +952,25 @@ export function VisitaActiva() {
         const nuevo = nuevoConsolidado;
         // El objetivo es obligatorio: no se permite dejarlo en blanco.
         if (!nuevo) throw new Error('El objetivo de la visita no puede quedar vacío.');
-        await conReintentoDeSesion(
-          () => supabase.from('visita').update({ objetivo: nuevo }, { count: 'exact' }).eq('id', visitaId!),
-          'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
-        );
+        // Offline-first, igual que guardarNota/guardarHallazgo/guardarOportunidad/
+        // guardarPaso — antes era el único UPDATE directo de esta pantalla: sin
+        // red, el cambio se perdía sin quedar en ningún sitio para reintentar.
+        // `objetivoEditable` (= !!visitaServidor) garantiza que la visita ya
+        // existe en el servidor, así que no hace falta `dependeDe`.
+        await encolar(uuid(), 'visita_objetivo', { visitaId: visitaId!, objetivo: nuevo });
       },
       {
-        onExito: () => queryClient.invalidateQueries({ queryKey: objetivoQueryKey }),
+        onExito: () => {
+          // Optimista: sin esto, con la visita encolada pero aún sin subir
+          // (sin red), invalidateQueries no tiene nada nuevo que traer y el
+          // campo volvería a mostrar el valor viejo hasta que sincronizara.
+          queryClient.setQueryData(
+            objetivoQueryKey,
+            (prev: { objetivo: string | null; estado_captura: string } | null | undefined) =>
+              prev ? { ...prev, objetivo: nuevoConsolidado } : prev
+          );
+          queryClient.invalidateQueries({ queryKey: objetivoQueryKey });
+        },
         mensajeError: 'No se pudo guardar el objetivo.',
       }
     );

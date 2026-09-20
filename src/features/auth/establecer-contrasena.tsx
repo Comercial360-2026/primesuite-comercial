@@ -76,7 +76,7 @@ export function EstablecerContrasena() {
       sub.subscription.unsubscribe();
       clearTimeout(t);
     };
-  }, []);
+  }, [esRecuperacion]);
 
   const cortas = password.length > 0 && password.length < MIN_LARGO;
   const noCoincide = repite.length > 0 && repite !== password;
