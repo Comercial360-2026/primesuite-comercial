@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from '@/app/routes';
 import { iniciarMotorSincronizacion } from '@/lib/offline-queue';
+import { reanudarConsolidacionesPendientes } from '@/lib/consolidar-cierre-pendiente';
 import { supabase } from '@/lib/supabase-client';
 import '@/styles/tokens.css';
 import '@/styles/components.css';
@@ -58,6 +59,7 @@ const queryClient = new QueryClient({
 // sesión anterior en cuanto detecta red, sin esperar a que el comercial
 // abra Visita activa (09_arquitectura_tecnica.md §4).
 iniciarMotorSincronizacion();
+reanudarConsolidacionesPendientes();
 
 // SOLO DESARROLLO — no hay pantalla de login construida todavía (no forma
 // parte de las 11 pantallas del flujo crítico). Expone el cliente Supabase

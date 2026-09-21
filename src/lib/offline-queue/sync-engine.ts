@@ -5,6 +5,7 @@ import {
   actualizarOperacion,
   obtenerOperacion,
   purgarCompletadasAntiguas,
+  reponerOperacionesAtascadas,
 } from './db';
 import type { OperacionPendiente } from './types';
 
@@ -41,6 +42,12 @@ export function iniciarMotorSincronizacion(): void {
   if (!intervaloId) {
     intervaloId = setInterval(() => void procesarCola(), INTERVALO_REINTENTO_MS);
   }
+  // Una operación solo debería estar en 'subiendo' mientras la llamada de
+  // red está en vuelo; si la app se cerró a mitad (batería, iOS descargando
+  // la pestaña en segundo plano) se queda ahí para siempre, porque
+  // `obtenerPendientes()` no la vuelve a leer. Repuesta a 'pendiente' antes
+  // del primer intento de esta sesión, para que el motor la recoja.
+  void reponerOperacionesAtascadas().catch(() => {});
   // Intento inicial al arrancar la app, por si ya hay red y cola pendiente
   // de una sesión anterior.
   void procesarCola();
