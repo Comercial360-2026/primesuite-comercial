@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
-import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { fechaCorta, haceRelativo, esFechaVencida } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -132,8 +132,7 @@ export function MisProximosPasos() {
   const en7dias = inicioHoy + 7 * 86_400_000;
 
   function esVencido(fechaObjetivo: string | null) {
-    if (!fechaObjetivo) return false;
-    return new Date(fechaObjetivo).getTime() < inicioHoy;
+    return esFechaVencida(fechaObjetivo);
   }
 
   // Fecha de la primera visita planificada del cliente de este paso, o

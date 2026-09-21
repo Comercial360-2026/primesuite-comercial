@@ -545,46 +545,52 @@ export function CierreVisita() {
         </div>
       )}
 
-      {prechequeoCierre &&
-        (prechequeoCierre.nInterlocutores === 0 ||
-          prechequeoCierre.sinDatosCliente ||
-          pasos.length === 0 ||
-          oportunidades.length === 0) && (
+      {/* Dos de las cuatro condiciones (pasos/oportunidades) ya se calculan
+          en local desde la cola offline — antes el bloque entero dependía
+          de que `prechequeoCierre` (una query de red) resolviera, así que
+          cerrando sin cobertura el comercial nunca veía "no has apuntado
+          ningún próximo paso", justo cuando ese recordatorio es más útil
+          porque no puede volver fácilmente. Ahora se muestran igual, y las
+          dos que sí necesitan red (interlocutores/datos del cliente) se
+          añaden en cuanto `prechequeoCierre` resuelve. */}
+      {(pasos.length === 0 ||
+        oportunidades.length === 0 ||
+        (prechequeoCierre && (prechequeoCierre.nInterlocutores === 0 || prechequeoCierre.sinDatosCliente))) && (
           <Aviso tipo="atencion" titulo="Antes de cerrar">
             <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-              {prechequeoCierre.nInterlocutores === 0 && (
+              {prechequeoCierre?.nInterlocutores === 0 && (
                 <li>
-                  No has registrado con quién hablaste.{' '}
-                  <button
-                    type="button"
-                    className="btn-enlace"
-                    style={{ padding: 0 }}
-                    onClick={() => navigate(`/visita/${visitaId}`)}
-                  >
-                    Volver a la visita
-                  </button>{' '}
-                  para añadir interlocutores.
+                  No has registrado con quién hablaste. Para añadir interlocutores:
+                  <div style={{ marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn--compacto"
+                      onClick={() => navigate(`/visita/${visitaId}`)}
+                    >
+                      Volver a la visita
+                    </button>
+                  </div>
                 </li>
               )}
               {pasos.length === 0 && (
                 <li>
                   No has apuntado ningún próximo paso. Si acordasteis algo (mandar oferta, llamar,
-                  otra visita),{' '}
-                  <button
-                    type="button"
-                    className="btn-enlace"
-                    style={{ padding: 0 }}
-                    onClick={() => navigate(`/visita/${visitaId}`)}
-                  >
-                    vuelve a la visita
-                  </button>{' '}
-                  para dejarlo anotado.
+                  otra visita), déjalo anotado:
+                  <div style={{ marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn--compacto"
+                      onClick={() => navigate(`/visita/${visitaId}`)}
+                    >
+                      Volver a la visita
+                    </button>
+                  </div>
                 </li>
               )}
               {oportunidades.length === 0 && (
                 <li>No has registrado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.</li>
               )}
-              {prechequeoCierre.sinDatosCliente && (
+              {prechequeoCierre?.sinDatosCliente && (
                 <li>
                   Este cliente no tiene sector, tamaño ni ubicación. Salen en la cabecera de cada
                   informe — complétalos desde su ficha cuando puedas.

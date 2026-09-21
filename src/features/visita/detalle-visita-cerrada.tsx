@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaCorta, esFechaVencida } from '@/lib/fechas';
 import {
   ETAPA_LABEL,
   PRIORIDAD_LABEL,
@@ -67,10 +67,8 @@ interface DetalleVisita {
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
 
 function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
-  if (!p.fecha_objetivo || p.estado !== 'pendiente') return false;
-  const f = new Date(p.fecha_objetivo);
-  f.setHours(0, 0, 0, 0);
-  return f < new Date(new Date().toDateString());
+  if (p.estado !== 'pendiente') return false;
+  return esFechaVencida(p.fecha_objetivo);
 }
 
 export function DetalleVisitaCerrada() {
