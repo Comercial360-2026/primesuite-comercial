@@ -570,10 +570,11 @@ export function ColaVocabulario() {
   async function borrarCategoriaTraspasando(id: string, destinoId: string) {
     setErrorPorCategoria(null);
     setCorriendoLote(true);
-    const { error: errMover } = await supabase
+    const { data: movidos, error: errMover } = await supabase
       .from('termino')
       .update({ categoria_id: destinoId })
-      .eq('categoria_id', id);
+      .eq('categoria_id', id)
+      .select('id');
     if (errMover) {
       setCorriendoLote(false);
       setErrorPorCategoria({ id, msg: `No se han podido mover los términos: ${errMover.message}` });
@@ -585,6 +586,14 @@ export function ColaVocabulario() {
         'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (errBorrar) {
+      // Las dos escrituras no son una transacción: si el borrado falla
+      // después de mover los términos, se deshace el traspaso (por id
+      // exacto, no por categoría destino — no tocar lo que ya hubiera allí)
+      // para no dejar el borrado a medias.
+      const idsMovidos = (movidos ?? []).map((t) => t.id);
+      if (idsMovidos.length) {
+        await supabase.from('termino').update({ categoria_id: id }).in('id', idsMovidos);
+      }
       setCorriendoLote(false);
       setErrorPorCategoria({
         id,
@@ -721,9 +730,16 @@ export function ColaVocabulario() {
   async function quitarLote() {
     // Descartar un término padre arrastra sus modelos.
     const marcados = new Set(marcadosTerm);
+    const padreDeHijo = new Map<string, string>();
+    const nombrePorId = new Map<string, string>();
     for (const c of catalogoAgrupado ?? []) {
       for (const t of c.terminos) {
+        nombrePorId.set(t.id, t.nombre);
         if (marcados.has(t.id)) for (const h of t.hijos) marcados.add(h.id);
+        for (const h of t.hijos) {
+          padreDeHijo.set(h.id, t.id);
+          nombrePorId.set(h.id, h.nombre);
+        }
       }
     }
     const ids = [...marcados];
@@ -733,22 +749,26 @@ export function ColaVocabulario() {
     setResultadoLote(null);
     setErrorCatalogo(null);
     let ok = 0;
-    let fallo = 0;
+    const fallidos: string[] = [];
     for (let i = 0; i < ids.length; i++) {
       setProgresoLote({ hecho: i, total: ids.length });
       const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
         p_termino_id: ids[i],
         p_accion: 'descartar',
       });
-      if (err) fallo++;
+      if (err) fallidos.push(ids[i]);
       else ok++;
     }
     setProgresoLote(null);
     setCorriendoLote(false);
     invalidarCatalogo();
-    if (fallo) {
-      setResultadoLote(`Quitados ${ok} · ${fallo} con error.`);
-      setMarcadosTerm(new Set());
+    if (fallidos.length) {
+      // Nombra qué falló (no solo cuántos) y deja marcado para reintentar
+      // solo eso — antes vaciaba la selección entera y no había forma de
+      // saber cuáles de los N habían quedado sin quitar.
+      const nombres = fallidos.map((id) => nombrePorId.get(id) ?? id).join(', ');
+      setResultadoLote(`Quitados ${ok} · ${fallidos.length} con error: ${nombres}.`);
+      setMarcadosTerm(new Set(fallidos.map((id) => padreDeHijo.get(id) ?? id)));
     } else {
       salirEditar();
     }

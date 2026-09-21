@@ -188,7 +188,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     queryClient.invalidateQueries({ queryKey: ['num-solicitudes-reasignacion-pendientes'] });
   }
 
-  async function añadir(comercialId: string) {
+  async function añadir(comercialId: string): Promise<boolean> {
     setError(null);
     // Si te añade otro, la fila nace 'pendiente' y a ese comercial le sale
     // un aviso en "Yo" para aceptar o rechazar. Si te añades a ti mismo,
@@ -209,7 +209,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     );
     if (err) {
       setError(err.message);
-      return;
+      return false;
     }
     for (const clave of [
       ['participantes-visita', visitaId],
@@ -222,6 +222,7 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     ]) {
       queryClient.invalidateQueries({ queryKey: clave });
     }
+    return true;
   }
 
   function alternarSeleccion(id: string) {
@@ -244,10 +245,25 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
     if (seleccionados.size === 0 || añadiendoLote) return;
     setAñadiendoLote(true);
     setError(null);
+    const total = seleccionados.size;
+    const fallidos = new Set<string>();
     for (const id of seleccionados) {
-      await añadir(id);
+      const ok = await añadir(id);
+      if (!ok) fallidos.add(id);
     }
     setAñadiendoLote(false);
+    // Best-effort por diseño (upsert individual, no hay transacción por
+    // lote): si algo falla, se queda marcado y a la vista en vez de cerrar
+    // como si hubiera ido todo bien — así se sabe a quién reintentar.
+    if (fallidos.size > 0) {
+      setSeleccionados(fallidos);
+      setError(
+        fallidos.size === total
+          ? 'No se ha podido añadir a nadie. Vuelve a intentarlo.'
+          : `${fallidos.size} de ${total} no se han podido añadir — se quedan marcados para reintentar.`
+      );
+      return;
+    }
     salirModoAñadir();
   }
 
