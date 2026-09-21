@@ -30,6 +30,7 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
 import { deduplicarZonas, listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
 import type {
@@ -119,6 +120,11 @@ interface CapturasPorUbicacionProps {
   // `misZonasReales`. Si un id no está aquí (aún sin subir), se usa la
   // zona que quedó en la cola local.
   zonasReales: Record<string, string | null>;
+  // Mismo mapa que ya calcula el padre para el visor a pantalla completa
+  // (mismos blobs, mismos ids) — se pasa en vez de recalcularlo aquí con su
+  // propia instancia de useMapaUrlsBlobEstable: dos ObjectURL vivos por foto
+  // mientras esta vista está abierta, el doble de memoria para lo mismo.
+  urlPorFotoId: Map<string, string>;
 }
 
 // Vista "En esta visita" agrupada por zona (conmutador "ver por zona" de
@@ -134,11 +140,8 @@ function CapturasPorUbicacion({
   onAbrirFoto,
   onAbrirHallazgo,
   zonasReales,
+  urlPorFotoId,
 }: CapturasPorUbicacionProps) {
-  const urlPorFotoId = useMapaUrlsBlobEstable(
-    useMemo(() => capturas.map((c) => ({ id: c.id, blob: c.archivoLocal as Blob | undefined })), [capturas])
-  );
-
   // Clave de agrupación por zona. Si ya se conoce la zona real (subido y
   // refrescado de la BD), manda ella — así una zona editada después de
   // capturar (desde la propia ficha del hallazgo/captura) se ve aquí sin
@@ -221,20 +224,24 @@ function CapturasPorUbicacion({
               const url = urlPorFotoId.get(f.id);
               const titulo = (f.payload as { titulo?: string }).titulo;
               const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
-              return url ? (
-                <img
+              return (
+                <button
                   key={f.id}
-                  src={url}
-                  alt={titulo ?? 'foto'}
+                  type="button"
                   onClick={abrir}
-                  style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-                />
-              ) : (
-                <div
-                  key={f.id}
-                  onClick={abrir}
-                  style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-                />
+                  style={{
+                    width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
+                    border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
+                  }}
+                >
+                  {url && (
+                    <img
+                      src={url}
+                      alt={titulo ?? 'foto'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                    />
+                  )}
+                </button>
               );
             })}
           </div>
@@ -397,6 +404,12 @@ export function VisitaActiva() {
   const [segsGrabando, setSegsGrabando] = useState(0);
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
+  // Corte automático (límite de 10 min) o forzado (pantalla bloqueada/cambio
+  // de app) de una grabación: CONFIRMA que se guardó hasta ese punto, no es
+  // un fallo — antes se mandaba por `capturaAudio.establecerError`, el mismo
+  // canal que un error real, y salía en rojo sin icono como si el audio se
+  // hubiera perdido.
+  const [avisoAudio, setAvisoAudio] = useState<string | null>(null);
   // Mismo bug de fuga que en las miniaturas (ver fotosVisor/urlPorFotoId
   // más abajo): `URL.createObjectURL()` puesto directo en el `src` del
   // JSX se repetía en cada tecla del título (cada repintado de la hoja),
@@ -445,7 +458,6 @@ export function VisitaActiva() {
   // coordenadas. Un ref, no estado: solo se lee al confirmar.
   const coordsFotoRef = useRef<{ lat: number; lng: number } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   // Clave distinta de ['cliente', clienteId] (la de Ficha de cliente, con
@@ -747,6 +759,7 @@ export function VisitaActiva() {
     setZonaPendiente(undefined);
     capturaFoto.limpiarError();
     capturaAudio.limpiarError();
+    setAvisoAudio(null);
   }
 
   async function confirmarCapturaPendiente() {
@@ -823,19 +836,24 @@ export function VisitaActiva() {
         capturaAudio.establecerError(MSG_ESPACIO_LLENO);
         return;
       }
+      setAvisoAudio(null);
       await capturaAudio.ejecutar(
         async () => {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const tipo = elegirTipoAudio();
           const recorder = new MediaRecorder(stream, tipo ? { mimeType: tipo } : undefined);
-          audioChunksRef.current = [];
+          // Local a esta grabación, no un ref compartido: si el `onstop` de
+          // una grabación anterior llegara tarde (ventana estrecha: parar y
+          // arrancar otra casi de inmediato), leería sus propios chunks, no
+          // los ya reseteados por la siguiente grabación.
+          const audioChunks: Blob[] = [];
           recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            if (e.data.size > 0) audioChunks.push(e.data);
           };
           recorder.onstop = () => {
             // El tipo real que ha usado el navegador — NO uno inventado.
-            const tipoReal = recorder.mimeType || tipo || audioChunksRef.current[0]?.type || 'audio/mp4';
-            const blob = new Blob(audioChunksRef.current, { type: tipoReal });
+            const tipoReal = recorder.mimeType || tipo || audioChunks[0]?.type || 'audio/mp4';
+            const blob = new Blob(audioChunks, { type: tipoReal });
             flushSync(() => {
               setAudioPendiente(blob);
               setTituloPendiente('');
@@ -868,7 +886,7 @@ export function VisitaActiva() {
             if (mediaRecorderRef.current?.state === 'recording') {
               mediaRecorderRef.current.stop();
               setGrabando(false);
-              capturaAudio.establecerError('Grabación detenida automáticamente a los 10 minutos. Se ha guardado hasta ese punto.');
+              setAvisoAudio('Grabación detenida automáticamente a los 10 minutos. Se ha guardado hasta ese punto.');
             }
           }, DURACION_MAXIMA_AUDIO_MS);
         },
@@ -900,14 +918,13 @@ export function VisitaActiva() {
           clearTimeout(timeoutAudioRef.current);
           timeoutAudioRef.current = null;
         }
-        capturaAudio.establecerError(
+        setAvisoAudio(
           'La grabación se detuvo al bloquearse la pantalla o cambiar de app. Se ha guardado lo grabado hasta ahí. Una app web no puede grabar en segundo plano.'
         );
       }
     };
     document.addEventListener('visibilitychange', alOcultarse);
     return () => document.removeEventListener('visibilitychange', alOcultarse);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grabando]);
 
   // Cronómetro de la grabación.
@@ -1114,7 +1131,7 @@ export function VisitaActiva() {
 
   async function planificarVisitaDesdePaso({
     fecha,
-    hora,
+    hora: horaTexto,
     franja,
     objetivo,
   }: {
@@ -1134,13 +1151,13 @@ export function VisitaActiva() {
       pClienteId: visitaLocal.clienteId,
       pComercialId: comercial.id,
       pProyectoId: visitaLocal.proyectoId,
-      pFecha: new Date(`${fecha}T${hora || '09:00'}:00`).toISOString(),
+      pFecha: new Date(`${fecha}T${horaTexto || '09:00'}:00`).toISOString(),
       pEstadoCaptura: 'agendada',
     });
     if (error) throw new Error(error);
     const parche: { objetivo?: string; hora_definida?: boolean; franja?: string | null } = {};
     if (objetivo.trim()) parche.objetivo = objetivo.trim();
-    if (!hora) {
+    if (!horaTexto) {
       parche.hora_definida = false;
       parche.franja = franja || null;
     }
@@ -2015,31 +2032,17 @@ export function VisitaActiva() {
                     )}
 
                     {zonaGestionModo === 'borrar' && (
-                      <div className="card card--riesgo" style={{ marginTop: 8 }}>
-                        <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+                      <div style={{ marginTop: 8 }}>
+                        <ConfirmacionBorrado
+                          onCancelar={() => setZonaGestionModo('menu')}
+                          onConfirmar={() => void borrarLoMioDeZona(zonaGestion)}
+                          cargando={borrandoZona}
+                          confirmar={`Sí, borrar ${c.mio}`}
+                        >
                           ¿Borrar {c.mio} cosa{c.mio === 1 ? '' : 's'} tuya{c.mio === 1 ? '' : 's'} de «
                           {zonaGestion}»?
-                          {c.comp > 0 && ` Lo de tus compañeros (${c.comp}) se queda.`} No se puede
-                          deshacer.
-                        </p>
-                        <div className="fila-btns" style={{ marginTop: 8 }}>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => setZonaGestionModo('menu')}
-                            disabled={borrandoZona}
-                          >
-                            No
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-peligro"
-                            disabled={borrandoZona}
-                            onClick={() => void borrarLoMioDeZona(zonaGestion)}
-                          >
-                            {borrandoZona ? 'Borrando…' : `Sí, borrar ${c.mio}`}
-                          </button>
-                        </div>
+                          {c.comp > 0 && ` Lo de tus compañeros (${c.comp}) se queda.`}
+                        </ConfirmacionBorrado>
                       </div>
                     )}
 
@@ -2116,6 +2119,7 @@ export function VisitaActiva() {
 
         {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
         {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+        {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
         {grabando && (
           <Aviso tipo="atencion" titulo="Grabando">
             No bloquees la pantalla ni cambies de app o la grabación se cortará.
@@ -2213,6 +2217,7 @@ export function VisitaActiva() {
                 onAbrirFoto={setFotoVisorId}
                 onAbrirHallazgo={(id) => navigate(`/hallazgos/${id}`, { state: origen })}
                 zonasReales={misZonasReales ?? {}}
+                urlPorFotoId={urlPorFotoId}
               />
             ) : (
               // Una sola lista fundida con subcabecera por tipo — antes eran
@@ -2227,20 +2232,24 @@ export function VisitaActiva() {
                         {[...fotosOwnV].reverse().map((f) => {
                           const url = urlPorFotoId.get(f.id);
                           const titulo = (f.payload as { titulo?: string }).titulo;
-                          return url ? (
-                            <img
+                          return (
+                            <button
                               key={f.id}
-                              src={url}
-                              alt={titulo ?? 'foto'}
+                              type="button"
                               onClick={() => setFotoVisorId(f.id)}
-                              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer' }}
-                            />
-                          ) : (
-                            <div
-                              key={f.id}
-                              onClick={() => setFotoVisorId(f.id)}
-                              style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--surface-1)', flexShrink: 0, cursor: 'pointer' }}
-                            />
+                              style={{
+                                width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
+                                border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
+                              }}
+                            >
+                              {url && (
+                                <img
+                                  src={url}
+                                  alt={titulo ?? 'foto'}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                                />
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -2369,7 +2378,8 @@ export function VisitaActiva() {
                         p.id,
                         'paso',
                         capitalizarFrase(p.descripcion),
-                        `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`
+                        `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · de ${nombresComerciales?.[p.comercial_responsable_id] ?? '…'}`,
+                        () => navigate(`/proximos-pasos/${p.id}`, { state: origen })
                       )
                     )}
                   </>
