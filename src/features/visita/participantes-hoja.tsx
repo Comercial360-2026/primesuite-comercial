@@ -8,6 +8,7 @@ import { Icono } from '@/components/ui/iconos';
 import { FilaToggle } from '@/components/ui/fila-toggle';
 import { Avatar } from '@/components/ui/avatar';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface ParticipantesHojaProps {
   visitaId: string;
@@ -397,11 +398,9 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
               </div>
             );
           })}
-          {participantesCrudos == null && (
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>
-          )}
+          {participantesCrudos == null && <EstadoLista estado="cargando" />}
           {participantesCrudos != null && participantes.length === 0 && (
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Ya no participas en esta visita.</span>
+            <EstadoLista estado="vacio" mensaje="Ya no participas en esta visita." />
           )}
         </div>
 

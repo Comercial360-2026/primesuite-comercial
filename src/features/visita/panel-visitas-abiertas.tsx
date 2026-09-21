@@ -6,6 +6,7 @@ import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { BotonVerMas } from '@/components/ui/boton-ver-mas';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaVisitaAbierta, type VisitaAbierta } from './fila-visita-abierta';
 
 const TOPE = 3;
@@ -84,9 +85,7 @@ export function PanelVisitasAbiertas({
       }
     >
       {ordenadas.length === 0 ? (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', margin: '10px 0 4px' }}>
-          Ya no queda ninguna visita abierta.
-        </div>
+        <EstadoLista estado="vacio" mensaje="Ya no queda ninguna visita abierta." />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
           {!online && (

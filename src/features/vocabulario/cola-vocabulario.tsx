@@ -907,7 +907,12 @@ export function ColaVocabulario() {
             <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
               Cancelar
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => renombrarTermino(t.id)}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!textoRenombrarTermino.trim()}
+              onClick={() => renombrarTermino(t.id)}
+            >
               Guardar
             </button>
           </div>
@@ -1488,7 +1493,12 @@ export function ColaVocabulario() {
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreandoCategoria(false); setNuevaCategoriaTexto(''); }}>
                   Cancelar
                 </button>
-                <button type="button" className="btn btn-primary" onClick={crearCategoria}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!nuevaCategoriaTexto.trim() || categoriaDuplicada(nuevaCategoriaTexto)}
+                  onClick={crearCategoria}
+                >
                   Crear
                 </button>
               </div>
@@ -1630,7 +1640,12 @@ export function ColaVocabulario() {
                       <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
                         Cancelar
                       </button>
-                      <button type="button" className="btn btn-primary" onClick={() => renombrarCategoria(cat.categoria_id)}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!textoRenombrarCategoria.trim()}
+                        onClick={() => renombrarCategoria(cat.categoria_id)}
+                      >
                         Guardar
                       </button>
                     </div>

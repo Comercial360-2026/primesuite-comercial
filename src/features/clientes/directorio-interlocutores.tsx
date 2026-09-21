@@ -43,6 +43,9 @@ interface PresenciaProps {
   visitaId: string;
   presentesIds: string[];
   onTogglePresencia: (interlocutorId: string, presente: boolean) => Promise<void>;
+  /** Id del interlocutor cuyo toggle está en vuelo — deshabilita esa fila
+   *  para evitar un doble-toque que dispare dos INSERT/DELETE seguidos. */
+  trabajandoId?: string | null;
 }
 
 interface Props {
@@ -408,6 +411,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                   type="button"
                   className={`interlocutor-fila__cuerpo${presente ? ' interlocutor-fila__cuerpo--presente' : ''}`}
                   onClick={() => presencia.onTogglePresencia(i.id, presente)}
+                  disabled={!!presencia.trabajandoId}
                   aria-pressed={presente}
                 >
                   <Avatar nombre={i.nombre} />
