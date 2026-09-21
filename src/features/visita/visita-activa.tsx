@@ -103,9 +103,54 @@ const COLOR_TIPO_ITEM: Partial<Record<NombreIcono, string>> = {
   oportunidad: 'var(--signal-600)',
 };
 
+// Formas de las filas "de compañeros" — mismo `select()` que `deCompaneros`
+// en VisitaActiva (captura_libre/hallazgo/proximo_paso/oportunidad).
+interface CompaneroCaptura {
+  id: string;
+  tipo: string;
+  titulo: string | null;
+  contenido_texto: string | null;
+  comercial_autor_id: string;
+  creado_en: string;
+  zona_texto: string | null;
+}
+interface CompaneroHallazgo {
+  id: string;
+  nota: string | null;
+  comercial_autor_id: string;
+  zona_texto: string | null;
+}
+interface CompaneroPaso {
+  id: string;
+  descripcion: string;
+  fecha_objetivo: string | null;
+  comercial_responsable_id: string;
+  zona_texto: string | null;
+}
+interface CompaneroOportunidad {
+  id: string;
+  titulo: string;
+  etapa: string;
+  comercial_autor_id: string;
+  zona_texto: string | null;
+}
+
 interface CapturasPorUbicacionProps {
   capturas: OperacionPendiente[];
   hallazgos: OperacionPendiente[];
+  // D5 (14 sept, Cesar: "cambio una zona... no aparece en Zona"): antes
+  // oportunidades y próximos pasos no se listaban aquí en absoluto (ni lo
+  // propio ni lo de compañeros) — no es que tardaran, es que esta vista no
+  // los conocía. Ahora llega el mismo dato que ya recibe la vista "Tipo".
+  oportunidades: OperacionPendiente[];
+  pasos: OperacionPendiente[];
+  fotosCompaneros: CompaneroCaptura[];
+  audiosCompaneros: CompaneroCaptura[];
+  notasCompaneros: CompaneroCaptura[];
+  hallazgosCompaneros: CompaneroHallazgo[];
+  oportunidadesCompaneros: CompaneroOportunidad[];
+  pasosCompaneros: CompaneroPaso[];
+  nombresComerciales: Record<string, string> | undefined;
   nombresUbicaciones: Record<string, string>;
   onTocarCaptura: (id: string) => void;
   // Las fotos abren el visor a pantalla completa en vez de `onTocarCaptura`
@@ -117,6 +162,8 @@ interface CapturasPorUbicacionProps {
   // fila de hallazgo sin enganchar NINGÚN toque (ni éste ni onTocarCaptura,
   // que habría llevado a la ruta equivocada).
   onAbrirHallazgo: (id: string) => void;
+  onAbrirOportunidad: (id: string) => void;
+  onAbrirPaso: (id: string) => void;
   // Zona real (BD) de lo que ya se subió, por id — ver comentario en
   // `misZonasReales`. Si un id no está aquí (aún sin subir), se usa la
   // zona que quedó en la cola local.
@@ -131,32 +178,55 @@ interface CapturasPorUbicacionProps {
 // Vista "En esta visita" agrupada por zona (conmutador "ver por zona" de
 // Visita activa): "General de la visita" arriba y abierta, luego una
 // sección plegable por cada zona anotada, la más reciente también abierta.
-// Las oportunidades tienen su propia sección en Visita activa, no se listan
-// aquí.
+// Mismos 6 tipos (+ lo de compañeros) que la vista "Tipo", solo que
+// agrupados por zona en vez de por tipo.
 function CapturasPorUbicacion({
   capturas,
   hallazgos,
+  oportunidades,
+  pasos,
+  fotosCompaneros,
+  audiosCompaneros,
+  notasCompaneros,
+  hallazgosCompaneros,
+  oportunidadesCompaneros,
+  pasosCompaneros,
+  nombresComerciales,
   nombresUbicaciones,
   onTocarCaptura,
   onAbrirFoto,
   onAbrirHallazgo,
+  onAbrirOportunidad,
+  onAbrirPaso,
   zonasReales,
   urlPorFotoId,
 }: CapturasPorUbicacionProps) {
   // Clave de agrupación por zona. Si ya se conoce la zona real (subido y
   // refrescado de la BD), manda ella — así una zona editada después de
-  // capturar (desde la propia ficha del hallazgo/captura) se ve aquí sin
-  // esperar a cerrar y reabrir la visita. Si no, la copia de la cola
-  // local: `zonaTexto` (etiqueta libre) o, en visitas antiguas, `ubicacionId`.
+  // capturar (desde la propia ficha del hallazgo/captura/oportunidad/paso)
+  // se ve aquí sin esperar a cerrar y reabrir la visita. Si no, la copia de
+  // la cola local: `zonaTexto` (etiqueta libre) o, en visitas antiguas,
+  // `ubicacionId`.
   const claveDe = (op: OperacionPendiente) => {
     if (op.id in zonasReales) return zonasReales[op.id] || 'sin-ubicacion';
     const p = op.payload as { zonaTexto?: string; ubicacionId?: string };
     return p.zonaTexto ?? p.ubicacionId ?? 'sin-ubicacion';
   };
+  // Lo de compañeros ya viene de Supabase (siempre "real") — su zona es
+  // directamente `zona_texto`, sin cola local que consultar.
+  const claveDeCompanero = (zonaTexto: string | null) => zonaTexto || 'sin-ubicacion';
   const tipoDe = (c: OperacionPendiente) => (c.payload as { tipo: string }).tipo;
 
   const claves = new Set<string>();
-  [...capturas, ...hallazgos].forEach((op) => claves.add(claveDe(op)));
+  [...capturas, ...hallazgos, ...oportunidades, ...pasos].forEach((op) => claves.add(claveDe(op)));
+  [
+    ...fotosCompaneros,
+    ...audiosCompaneros,
+    ...notasCompaneros,
+    ...hallazgosCompaneros,
+    ...oportunidadesCompaneros,
+    ...pasosCompaneros,
+  ].forEach((c) => claves.add(claveDeCompanero(c.zona_texto)));
 
   // Fila de un elemento capturado dentro de una zona / "General": icono a la
   // izquierda (foto/audio/nota/hallazgo), texto, y una coletilla gris
@@ -193,79 +263,128 @@ function CapturasPorUbicacion({
     const audios = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'audio');
     const notas = capturas.filter((c) => claveDe(c) === clave && tipoDe(c) === 'nota');
     const hz = hallazgos.filter((h) => claveDe(h) === clave);
-    const total = fotos.length + audios.length + notas.length + hz.length;
+    const op = oportunidades.filter((o) => claveDe(o) === clave);
+    const pp = pasos.filter((p) => claveDe(p) === clave);
+    const fotosC = fotosCompaneros.filter((c) => claveDeCompanero(c.zona_texto) === clave);
+    const audiosC = audiosCompaneros.filter((c) => claveDeCompanero(c.zona_texto) === clave);
+    const notasC = notasCompaneros.filter((c) => claveDeCompanero(c.zona_texto) === clave);
+    const hzC = hallazgosCompaneros.filter((h) => claveDeCompanero(h.zona_texto) === clave);
+    const opC = oportunidadesCompaneros.filter((o) => claveDeCompanero(o.zona_texto) === clave);
+    const ppC = pasosCompaneros.filter((p) => claveDeCompanero(p.zona_texto) === clave);
+    const nFotos = fotos.length + fotosC.length;
+    const nAudios = audios.length + audiosC.length;
+    const nNotas = notas.length + notasC.length;
+    const nHz = hz.length + hzC.length;
+    const nOp = op.length + opC.length;
+    const nPp = pp.length + ppC.length;
+    const total = nFotos + nAudios + nNotas + nHz + nOp + nPp;
     const reciente = Math.max(
       0,
-      ...[...fotos, ...audios, ...notas, ...hz].map((o) =>
+      ...[...fotos, ...audios, ...notas, ...hz, ...op, ...pp].map((o) =>
         new Date((o as { creadoEn?: string }).creadoEn ?? 0).getTime()
-      )
+      ),
+      ...[...fotosC, ...audiosC, ...notasC].map((c) => new Date(c.creado_en).getTime())
     );
     const resumen = [
-      fotos.length && `${fotos.length} foto${fotos.length > 1 ? 's' : ''}`,
-      audios.length && `${audios.length} audio${audios.length > 1 ? 's' : ''}`,
-      notas.length && `${notas.length} nota${notas.length > 1 ? 's' : ''}`,
-      hz.length && `${hz.length} hallazgo${hz.length > 1 ? 's' : ''}`,
+      nFotos && `${nFotos} foto${nFotos > 1 ? 's' : ''}`,
+      nAudios && `${nAudios} audio${nAudios > 1 ? 's' : ''}`,
+      nNotas && `${nNotas} nota${nNotas > 1 ? 's' : ''}`,
+      nHz && `${nHz} hallazgo${nHz > 1 ? 's' : ''}`,
+      nOp && `${nOp} oportunidad${nOp > 1 ? 'es' : ''}`,
+      nPp && `${nPp} próximo${nPp > 1 ? 's pasos' : ' paso'}`,
     ]
       .filter(Boolean)
       .join(' · ');
-    return { fotos, audios, notas, hz, total, resumen, reciente };
+    return { fotos, audios, notas, hz, op, pp, fotosC, audiosC, notasC, hzC, opC, ppC, total, resumen, reciente };
   };
 
   // Dentro de cada zona, subcabecera por tipo (Fotos/Audios/Notas/
   // Hallazgos) — mismo criterio que la vista "por tipo": una zona con
   // varios tipos mezclados se leía como un bloque único, solo el color del
   // borde los distinguía.
+  // "de Fulano" — misma coletilla que usa la vista "Tipo" en sus filas de
+  // compañeros.
+  const deQuien = (id: string) => `de ${nombresComerciales?.[id] ?? '…'}`;
+
   const renderItems = (c: ReturnType<typeof contenidoDe>) => (
     <>
-      {c.fotos.length > 0 && (
+      {(c.fotos.length > 0 || c.fotosC.length > 0) && (
         <>
           <div className="seccion-lista__subcabecera">Fotos</div>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
-            {[...c.fotos].reverse().map((f) => {
-              const url = urlPorFotoId.get(f.id);
-              const titulo = (f.payload as { titulo?: string }).titulo;
-              const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={abrir}
-                  style={{
-                    width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
-                    border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
-                  }}
-                >
-                  {url && (
-                    <img
-                      src={url}
-                      alt={titulo ?? 'foto'}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-      {c.audios.length > 0 && (
-        <>
-          <div className="seccion-lista__subcabecera">Audios</div>
-          {c.audios.map((a) =>
-            itemFila(a.id, 'audio', (a.payload as { titulo?: string }).titulo || 'sin título', undefined, () => onTocarCaptura(a.id))
+          {c.fotos.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
+              {[...c.fotos].reverse().map((f) => {
+                const url = urlPorFotoId.get(f.id);
+                const titulo = (f.payload as { titulo?: string }).titulo;
+                const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={abrir}
+                    style={{
+                      width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
+                      border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
+                    }}
+                  >
+                    {url && (
+                      <img
+                        src={url}
+                        alt={titulo ?? 'foto'}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* Fotos de compañeros: fila de texto, no miniatura — el binario
+              está en Storage, no en la cola local de este dispositivo.
+              Mismo criterio que la vista "Tipo" (B4). */}
+          {c.fotosC.map((f) =>
+            itemFila(f.id, 'foto', capitalizarFrase(f.titulo || 'foto'), deQuien(f.comercial_autor_id), () =>
+              onTocarCaptura(f.id)
+            )
           )}
         </>
       )}
-      {c.notas.length > 0 && (
+      {(c.audios.length > 0 || c.audiosC.length > 0) && (
+        <>
+          <div className="seccion-lista__subcabecera">Audios</div>
+          {c.audios.map((a) =>
+            itemFila(a.id, 'audio', (a.payload as { titulo?: string }).titulo || 'sin título', hora(a.creadoEn), () =>
+              onTocarCaptura(a.id)
+            )
+          )}
+          {c.audiosC.map((a) =>
+            itemFila(a.id, 'audio', capitalizarFrase(a.titulo || 'sin título'), deQuien(a.comercial_autor_id), () =>
+              onTocarCaptura(a.id)
+            )
+          )}
+        </>
+      )}
+      {(c.notas.length > 0 || c.notasC.length > 0) && (
         <>
           <div className="seccion-lista__subcabecera">Notas</div>
           {c.notas.map((n) => {
             const p = n.payload as { titulo?: string; contenidoTexto?: string };
-            return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', undefined, () => onTocarCaptura(n.id));
+            return itemFila(n.id, 'nota', p.titulo || p.contenidoTexto || '(nota vacía)', hora(n.creadoEn), () =>
+              onTocarCaptura(n.id)
+            );
           })}
+          {c.notasC.map((n) =>
+            itemFila(
+              n.id,
+              'nota',
+              capitalizarFrase(n.titulo || n.contenido_texto || '(nota vacía)'),
+              deQuien(n.comercial_autor_id),
+              () => onTocarCaptura(n.id)
+            )
+          )}
         </>
       )}
-      {c.hz.length > 0 && (
+      {(c.hz.length > 0 || c.hzC.length > 0) && (
         <>
           <div className="seccion-lista__subcabecera">Hallazgos</div>
           {c.hz.map((h) => {
@@ -275,8 +394,46 @@ function CapturasPorUbicacion({
             // "cargando"/error si aún no existe en el servidor. Antes se
             // dejaba la fila sin ningún toque enganchado hasta sincronizar —
             // clase de bug encontrada en vivo: parecía simplemente rota.
-            return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota), undefined, () => onAbrirHallazgo(h.id));
+            return itemFila(h.id, 'hallazgo', tituloHallazgo(p.nota), hora(h.creadoEn), () => onAbrirHallazgo(h.id));
           })}
+          {c.hzC.map((h) =>
+            itemFila(h.id, 'hallazgo', tituloHallazgo(h.nota), deQuien(h.comercial_autor_id), () =>
+              onAbrirHallazgo(h.id)
+            )
+          )}
+        </>
+      )}
+      {(c.op.length > 0 || c.opC.length > 0) && (
+        <>
+          <div className="seccion-lista__subcabecera">Oportunidades</div>
+          {c.op.map((o) => {
+            const p = o.payload as { titulo: string; prioridad?: string };
+            return itemFila(o.id, 'oportunidad', capitalizarFrase(p.titulo), p.prioridad, () => onAbrirOportunidad(o.id));
+          })}
+          {c.opC.map((o) =>
+            itemFila(o.id, 'oportunidad', capitalizarFrase(o.titulo), deQuien(o.comercial_autor_id), () =>
+              onAbrirOportunidad(o.id)
+            )
+          )}
+        </>
+      )}
+      {(c.pp.length > 0 || c.ppC.length > 0) && (
+        <>
+          <div className="seccion-lista__subcabecera">Próximos pasos</div>
+          {c.pp.map((p) => {
+            const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
+            const fecha = payload.fechaObjetivo ? fechaCorta(payload.fechaObjetivo) : 'sin fecha objetivo';
+            return itemFila(p.id, 'paso', capitalizarFrase(payload.descripcion), fecha, () => onAbrirPaso(p.id));
+          })}
+          {c.ppC.map((p) =>
+            itemFila(
+              p.id,
+              'paso',
+              capitalizarFrase(p.descripcion),
+              `${p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha'} · ${deQuien(p.comercial_responsable_id)}`,
+              () => onAbrirPaso(p.id)
+            )
+          )}
         </>
       )}
     </>
@@ -2358,10 +2515,21 @@ export function VisitaActiva() {
               <CapturasPorUbicacion
                 capturas={capturas}
                 hallazgos={hallazgos}
+                oportunidades={oportunidades}
+                pasos={pasos}
+                fotosCompaneros={fotosCompaneros}
+                audiosCompaneros={audiosCompaneros}
+                notasCompaneros={notasCompaneros}
+                hallazgosCompaneros={hallazgosCompaneros}
+                oportunidadesCompaneros={oportunidadesCompaneros}
+                pasosCompaneros={pasosCompaneros}
+                nombresComerciales={nombresComerciales}
                 nombresUbicaciones={nombresUbicacionesVisita}
                 onTocarCaptura={(id) => navigate(`/capturas/${id}`)}
                 onAbrirFoto={setFotoVisorId}
                 onAbrirHallazgo={(id) => navigate(`/hallazgos/${id}`, { state: origen })}
+                onAbrirOportunidad={(id) => navigate(`/oportunidades/${id}`, { state: origen })}
+                onAbrirPaso={(id) => navigate(`/proximos-pasos/${id}`, { state: origen })}
                 zonasReales={misZonasReales ?? {}}
                 urlPorFotoId={urlPorFotoId}
               />
