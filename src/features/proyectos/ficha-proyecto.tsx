@@ -12,12 +12,14 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { useEspacioProyecto } from '@/hooks/use-espacio-proyecto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -54,8 +56,19 @@ export function FichaProyecto() {
     },
   });
 
-  const { data: proyectos } = useProyectosCliente(clienteId);
+  const {
+    data: proyectos,
+    isLoading: cargandoProyecto,
+    isError: errorProyecto,
+    isPaused: pausadoProyecto,
+    refetch: refetchProyecto,
+  } = useProyectosCliente(clienteId);
   const proyecto = proyectos?.find((p) => p.id === proyectoId);
+  const sinConexionProyecto = pausadoProyecto && proyectos === undefined;
+  function reintentarProyecto() {
+    queryClient.resetQueries({ queryKey: ['proyectos-cliente', clienteId] });
+    refetchProyecto();
+  }
 
   // Informe PDF del proyecto (cronología de sus visitas cerradas). Mismo
   // hook que el informe de visita, con tipo 'proyecto'.
@@ -396,6 +409,17 @@ export function FichaProyecto() {
       />
 
       <div className="screen__scroll">
+        {cargandoProyecto && <EstadoLista estado="cargando" />}
+        {sinConexionProyecto && (
+          <EstadoLista estado="sin-conexion" onReintentar={reintentarProyecto} />
+        )}
+        {errorProyecto && (
+          <EstadoLista
+            estado="error"
+            mensaje="No se ha podido cargar este proyecto."
+            onReintentar={reintentarProyecto}
+          />
+        )}
         {contextoLinea && (
           <div className="ficha-vitals">
             <span>{contextoLinea}</span>
@@ -421,7 +445,7 @@ export function FichaProyecto() {
             </button>
           ))}
         </div>
-        {cambioEstado.error && <div className="field-error-text">{cambioEstado.error}</div>}
+        {cambioEstado.error && <Aviso tipo="error">{cambioEstado.error}</Aviso>}
         {terminado && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
@@ -770,10 +794,12 @@ function FilaVisitaViva({
       {confirmandoCancelar ? (
         <div>
           {oportunidadesAbiertas > 0 ? (
-            <div className="field-error-text" style={{ marginBottom: 6 }}>
-              No se puede cancelar: tiene{' '}
-              {plural(oportunidadesAbiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin cerrar.
-              Ciérrala{oportunidadesAbiertas > 1 ? 's' : ''} antes.
+            <div style={{ marginBottom: 6 }}>
+              <Aviso tipo="error">
+                No se puede cancelar: tiene{' '}
+                {plural(oportunidadesAbiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin cerrar.
+                Ciérrala{oportunidadesAbiertas > 1 ? 's' : ''} antes.
+              </Aviso>
             </div>
           ) : (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-700)', marginBottom: 6 }}>
@@ -782,7 +808,7 @@ function FilaVisitaViva({
                 : 'Se borra la visita planificada. No se puede deshacer.'}
             </div>
           )}
-          {cancelar.error && <div className="field-error-text">{cancelar.error}</div>}
+          {cancelar.error && <Aviso tipo="error">{cancelar.error}</Aviso>}
           <div className="fila-btns">
             <button
               type="button"
@@ -841,7 +867,7 @@ function FilaVisitaViva({
               Cancelar visita
             </button>
           </div>
-          {mover.error && <div className="field-error-text">{mover.error}</div>}
+          {mover.error && <Aviso tipo="error">{mover.error}</Aviso>}
         </>
       )}
     </div>

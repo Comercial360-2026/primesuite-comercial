@@ -13,6 +13,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -20,6 +21,8 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -173,7 +176,13 @@ export function FichaCliente() {
     });
   }
 
-  const { data: cliente } = useQuery({
+  const {
+    data: cliente,
+    isLoading: cargandoCliente,
+    isError: errorCliente,
+    isPaused: pausadoCliente,
+    refetch: refetchCliente,
+  } = useQuery({
     queryKey: ['cliente', clienteId],
     enabled: !!clienteId,
     queryFn: async () => {
@@ -186,6 +195,11 @@ export function FichaCliente() {
       return data;
     },
   });
+  const sinConexionCliente = pausadoCliente && cliente === undefined;
+  function reintentarCliente() {
+    queryClient.resetQueries({ queryKey: ['cliente', clienteId] });
+    refetchCliente();
+  }
 
   // Nombres de responsable y creador de la ficha — para la línea de
   // contexto de la cabecera y "ficha creada por X". Una sola consulta.
@@ -333,8 +347,24 @@ export function FichaCliente() {
             supabase.storage.from('audios-visita').remove(rutas),
           ]);
         }
-        const { error } = await supabase.rpc('eliminar_cliente_completo', { p_cliente_id: clienteId! });
-        if (error) throw new Error(error.message);
+        // A partir de aquí los adjuntos ya no existen en Storage: un fallo
+        // de red justo en esta llamada dejaría el cliente vivo pero sin sus
+        // fotos/audios — un borrado parcial irreversible. Se reintenta un
+        // par de veces antes de rendirse, y si aun así falla el mensaje
+        // deja claro que los adjuntos ya se han ido, para no repetir el
+        // borrado pensando que no hizo nada.
+        let ultimoError: string | null = null;
+        for (let intento = 1; intento <= 3; intento++) {
+          const { error } = await supabase.rpc('eliminar_cliente_completo', { p_cliente_id: clienteId! });
+          if (!error) return;
+          ultimoError = error.message;
+          if (intento < 3) await new Promise((r) => setTimeout(r, 500));
+        }
+        throw new Error(
+          rutas.length
+            ? `Las fotos y audios ya se han borrado, pero el cliente no se pudo eliminar del todo (${ultimoError}). Vuelve a intentarlo.`
+            : ultimoError!
+        );
       },
       {
         onExito: () => {
@@ -390,6 +420,15 @@ export function FichaCliente() {
       />
 
       <div className="screen__scroll">
+       {cargandoCliente && <EstadoLista estado="cargando" />}
+       {sinConexionCliente && <EstadoLista estado="sin-conexion" onReintentar={reintentarCliente} />}
+       {errorCliente && (
+         <EstadoLista
+           estado="error"
+           mensaje="No se ha podido cargar este cliente."
+           onReintentar={reintentarCliente}
+         />
+       )}
        {(ultimaVisitaRel || semaforo) && (
          <div className="ficha-vitals" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
            {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}
@@ -444,7 +483,9 @@ export function FichaCliente() {
              no cambia.
            </div>
            {cambioResp.error && (
-             <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+             <div style={{ marginTop: 8 }}>
+               <Aviso tipo="error">{cambioResp.error}</Aviso>
+             </div>
            )}
            <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
@@ -509,7 +550,9 @@ export function FichaCliente() {
              placeholder="p. ej. Polígono Norte, Sevilla"
            />
            {guardadoDatos.error && (
-             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoDatos.error}</div>
+             <div style={{ marginTop: 8 }}>
+               <Aviso tipo="error">{guardadoDatos.error}</Aviso>
+             </div>
            )}
            <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
@@ -691,42 +734,36 @@ export function FichaCliente() {
             Borja veía "Borrar cliente" en una ficha ajena). */}
         {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
         confirmandoBorrarCliente ? (
-          <div className="card card--riesgo">
-            {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+          previsualizandoCliente.cargando || !previsualizacionCliente ? (
+            <div className="card card--riesgo">
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                  Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
-                  {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
-                  {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
-                  {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
-                  {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
-                  {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
-                  {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
-                  {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
-                  borrará también, para siempre. No se puede deshacer.
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                  Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
-                  antes desde "mi espacio".
-                </div>
-                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-                  <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn btn-peligro"
-                    onClick={confirmarBorradoCliente}
-                    disabled={borrandoCliente.cargando}
-                  >
-                    {borrandoCliente.cargando ? 'Borrando…' : 'Sí, borrar el cliente entero'}
-                  </button>
-                </div>
-                {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
+            </div>
+          ) : (
+            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
+            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
+            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
+            <ConfirmacionBorrado
+              onCancelar={cancelarBorradoCliente}
+              onConfirmar={confirmarBorradoCliente}
+              cargando={borrandoCliente.cargando}
+              error={borrandoCliente.error}
+              confirmar="Sí, borrar el cliente entero"
+            >
+              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
+              borrará también, para siempre.
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                antes desde "mi espacio".
               </div>
-            )}
-          </div>
+            </ConfirmacionBorrado>
+          )
         ) : (
           <SeccionLista>
             <FilaNavegable

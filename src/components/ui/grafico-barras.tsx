@@ -22,7 +22,7 @@ interface Props {
 // Barras horizontales — sustituye una tabla de números sueltos por algo con
 // lectura de un vistazo, sin librería externa (coherente con "sin
 // dependencias visuales" del sistema: son <div> con ancho en %, mismo
-// lenguaje que `.medidor__barra`, ya usado en Mi espacio). La etiqueta de
+// lenguaje que `.tarjeta-accion__barra`, ya usado en Mi espacio). La etiqueta de
 // cada fila hace de leyenda — no hace falta una leyenda aparte cuando cada
 // barra ya lleva su nombre al lado. El valor siempre se ve en texto: el
 // color nunca es la única forma de leer el dato (accesibilidad, daltónico).

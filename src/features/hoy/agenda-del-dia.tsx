@@ -371,6 +371,11 @@ export function AgendaDelDia() {
     setMarcadasEnCurso(new Set());
     setConfirmandoDescarte(false);
   }
+  // Pasado como `onBorrada` a useBorrarVisita (abajo): el panel solo se
+  // cierra si `borrarVarias` de verdad tuvo éxito. Antes se llamaba aquí
+  // mismo tras el `await`, sin mirar el resultado — un lote de 3 con el 2º
+  // fallido cerraba igual el panel de confirmación (donde se vería el
+  // error), dando a entender que las 3 se habían borrado.
   function toggleMarcadaEnCurso(id: string) {
     setMarcadasEnCurso((prev) => {
       const n = new Set(prev);
@@ -422,26 +427,31 @@ export function AgendaDelDia() {
   // "Descartar" una visita en curso apilada por error (patrón de borrado de
   // visita común: previsualiza qué arrastra → confirma). El propio hook
   // invalida ['visitas-en-curso'].
-  const borrar = useBorrarVisita();
+  const borrar = useBorrarVisita({ onBorrada: () => salirSelEnCurso() });
 
   function abrirVisita(visita: VisitaAgenda) {
+    // Regla #14: estampar el origen en las 4 ramas — la pestaña "Agenda" de
+    // este mismo fichero ya lo hacía, pero estas no. Sin esto, volver desde
+    // cualquier visita abierta desde "También en curso"/"Atrasadas"/
+    // "Próximas" caía siempre en el fallback fijo y perdía en silencio el
+    // filtro "Todas" (?vista=todas) que Dirección hubiera activado.
     if (visita.estado_captura === 'en_curso') {
-      navigate(`/visita/${visita.id}`);
+      navigate(`/visita/${visita.id}`, { state: desde(location) });
       return;
     }
     if (visita.estado_captura === 'consolidada') {
-      navigate(`/visita/${visita.id}/detalle`);
+      navigate(`/visita/${visita.id}/detalle`, { state: desde(location) });
       return;
     }
     // Planificada para OTRO día (atrasada o futura) → pantalla de gestión
     // (empezar / reprogramar / anular), no el repaso.
     if (!esDeHoy(visita.fecha)) {
-      navigate(`/visita/${visita.id}/planificada`);
+      navigate(`/visita/${visita.id}/planificada`, { state: desde(location) });
       return;
     }
     // Planificada para hoy → repaso rápido antes de entrar.
     if (visita.cliente) {
-      navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`);
+      navigate(`/clientes/${visita.cliente.id}/repaso?visitaId=${visita.id}`, { state: desde(location) });
     }
   }
 
@@ -615,10 +625,7 @@ export function AgendaDelDia() {
                       cargando={borrar.borrando.cargando}
                       error={borrar.borrando.error}
                       onCancelar={() => setConfirmandoDescarte(false)}
-                      onConfirmar={async () => {
-                        await borrar.borrarVarias(marcadasArr);
-                        salirSelEnCurso();
-                      }}
+                      onConfirmar={() => borrar.borrarVarias(marcadasArr)}
                     >
                       Se descartan {marcadasArr.length} {marcadasArr.length === 1 ? 'visita' : 'visitas'} y todo
                       su contenido (fotos, audios, notas, hallazgos, oportunidades…).

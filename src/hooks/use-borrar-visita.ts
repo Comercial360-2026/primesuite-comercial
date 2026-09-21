@@ -107,8 +107,26 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
     await borrando.ejecutar(
       async () => {
         for (const id of ids) {
+          // Mismo candado de fotos/audios que el borrado individual
+          // (confirmar, arriba): sin esto, "Descartar (N)" hacía
+          // desaparecer las visitas de la app pero dejaba sus adjuntos
+          // huérfanos en Storage para siempre — no hay previsualización por
+          // visita en el borrado en lote, así que se resuelve aquí.
+          const { data: previa, error: errPrevia } = await supabase
+            .rpc('previsualizar_borrado_visita', { p_visita_id: id })
+            .single();
+          if (errPrevia) throw new Error(errPrevia.message);
+          const rutas = (previa as PrevisualizacionBorrado | null)?.rutas_storage ?? [];
+
           const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
           if (error) throw new Error(error.message);
+
+          if (rutas.length) {
+            await Promise.all([
+              supabase.storage.from('fotos-visita').remove(rutas),
+              supabase.storage.from('audios-visita').remove(rutas),
+            ]);
+          }
         }
       },
       {

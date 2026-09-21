@@ -152,6 +152,7 @@ export function DetalleVisitaPlanificada() {
           invalidarListas();
           navigate(volver);
         },
+        mensajeError: 'No se pudo anular la visita. Inténtalo de nuevo.',
       }
     );
   }

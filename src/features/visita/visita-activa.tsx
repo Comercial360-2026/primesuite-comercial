@@ -31,13 +31,14 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
-import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
+import { actualizarOperacion, eliminarOperacion, obtenerOperacion } from '@/lib/offline-queue';
 import { deduplicarZonas, listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
 import type {
   OperacionPendiente,
   HallazgoPayload,
   OportunidadPayload,
   ProximoPasoPayload,
+  CapturaLibrePayload,
 } from '@/lib/offline-queue/types';
 
 // Mapa id → URL de blob: una URL por Blob, revocada solo cuando ese Blob
@@ -410,6 +411,13 @@ export function VisitaActiva() {
   // canal que un error real, y salía en rojo sin icono como si el audio se
   // hubiera perdido.
   const [avisoAudio, setAvisoAudio] = useState<string | null>(null);
+  // Id de la operación de cola ya encolada para la foto/audio en curso de
+  // titular — se encola en cuanto se captura (ver capturarFoto / onstop de
+  // audio), con título vacío, para no perder el binario si Safari iOS
+  // recicla la pestaña en segundo plano antes de que el comercial llegue a
+  // ponerle título. confirmarCapturaPendiente/descartarPendiente completan
+  // o retiran esa misma operación, en vez de encolar una nueva.
+  const capturaPendienteIdRef = useRef<string | null>(null);
   // Mismo bug de fuga que en las miniaturas (ver fotosVisor/urlPorFotoId
   // más abajo): `URL.createObjectURL()` puesto directo en el `src` del
   // JSX se repetía en cada tecla del título (cada repintado de la hoja),
@@ -747,12 +755,43 @@ export function VisitaActiva() {
       setTituloPendiente('');
       setZonaPendiente(zonaParaCaptura); // B6 · zona del momento del disparo
     });
+    // Se encola YA, con título vacío — antes vivía solo en memoria de React
+    // hasta confirmarCapturaPendiente(); si Safari iOS reciclaba la pestaña
+    // en segundo plano justo después del disparo (llamada entrante, cambio
+    // de app), la foto se perdía sin dejar rastro pese a que el comercial ya
+    // había visto la hoja de confirmación.
+    const idCaptura = uuid();
+    capturaPendienteIdRef.current = idCaptura;
+    void encolar(
+      idCaptura,
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: 'foto',
+        zonaTexto: zonaParaCaptura,
+      },
+      { dependeDe: visitaId, archivoLocal: archivoComprimido }
+    );
+  }
+
+  // Borra en el servidor una captura que ya sincronizó con título vacío
+  // antes de que el comercial la descartara/completara — mismo orden que el
+  // resto de borrados (fila primero, Storage después, ver detalle-captura.tsx).
+  async function borrarCapturaYaSincronizada(id: string) {
+    const { data: fila } = await supabase.from('captura_libre').select('storage_path, tipo').eq('id', id).single();
+    await supabase.from('captura_libre').delete().eq('id', id);
+    if (fila?.storage_path) {
+      const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+      await supabase.storage.from(bucket).remove([fila.storage_path]);
+    }
   }
 
   // Cerrar la hoja de Foto/Audio sin guardar = descartar el binario que se
   // acaba de capturar (mismo efecto que el botón "Descartar"). Se usa
   // también como `onCerrar` de la hoja (×, Esc, tocar fuera).
   function descartarPendiente() {
+    const id = capturaPendienteIdRef.current;
     setFotoPendiente(null);
     setAudioPendiente(null);
     setTituloPendiente('');
@@ -760,62 +799,69 @@ export function VisitaActiva() {
     capturaFoto.limpiarError();
     capturaAudio.limpiarError();
     setAvisoAudio(null);
+    if (!id) return;
+    capturaPendienteIdRef.current = null;
+    void (async () => {
+      const op = await obtenerOperacion(id);
+      if (op?.estado === 'completado') {
+        await borrarCapturaYaSincronizada(id).catch(() => {});
+      } else {
+        await eliminarOperacion(id);
+      }
+    })();
   }
 
   async function confirmarCapturaPendiente() {
     const tituloConsolidado = (refDictadoTituloPendiente.current?.consolidar() ?? tituloPendiente).trim();
-    if (fotoPendiente) {
-      await capturaFoto.ejecutar(
-        () =>
-          encolar(
-            uuid(),
-            'captura_libre',
-            {
-              visitaId: visitaId!,
-              comercialAutorId: comercial!.id,
-              tipo: 'foto',
-              titulo: tituloConsolidado || undefined,
-              zonaTexto: zonaPendiente,
-              latitud: coordsFotoRef.current?.lat,
-              longitud: coordsFotoRef.current?.lng,
-            },
-            { dependeDe: visitaId, archivoLocal: fotoPendiente }
-          ),
-        {
-          mensajeError: 'No se pudo guardar la foto. Inténtalo de nuevo.',
-          onExito: () => {
-            setFotoPendiente(null);
-            setTituloPendiente('');
-            setZonaPendiente(undefined);
-            coordsFotoRef.current = null;
-          },
+    const id = capturaPendienteIdRef.current;
+    const tipo: 'foto' | 'audio' | null = fotoPendiente ? 'foto' : audioPendiente ? 'audio' : null;
+    if (!id || !tipo) return;
+    const accion = tipo === 'foto' ? capturaFoto : capturaAudio;
+    await accion.ejecutar(
+      async () => {
+        const latitud = tipo === 'foto' ? coordsFotoRef.current?.lat : undefined;
+        const longitud = tipo === 'foto' ? coordsFotoRef.current?.lng : undefined;
+        // El binario ya se encoló al capturar (capturarFoto / onstop de
+        // audio) — aquí solo se completa el título y la zona. Si para
+        // entonces ya sincronizó con el servidor (placeholder sin título),
+        // se corrige con un UPDATE directo: tocar solo la cola local ya no
+        // serviría de nada.
+        const op = await obtenerOperacion(id);
+        if (op?.estado === 'completado') {
+          await conReintentoDeSesion(
+            () =>
+              supabase
+                .from('captura_libre')
+                .update(
+                  { titulo: tituloConsolidado || null, zona_texto: zonaPendiente ?? null, latitud, longitud },
+                  { count: 'exact' }
+                )
+                .eq('id', id),
+            'La captura se guardó, pero no se ha podido completar el título (0 filas afectadas).'
+          );
+        } else if (op?.entidad === 'captura_libre') {
+          const payload: CapturaLibrePayload = {
+            ...op.payload,
+            titulo: tituloConsolidado || undefined,
+            zonaTexto: zonaPendiente,
+            ...(tipo === 'foto' ? { latitud, longitud } : {}),
+          };
+          await actualizarOperacion(id, { payload });
         }
-      );
-    } else if (audioPendiente) {
-      await capturaAudio.ejecutar(
-        () =>
-          encolar(
-            uuid(),
-            'captura_libre',
-            {
-              visitaId: visitaId!,
-              comercialAutorId: comercial!.id,
-              tipo: 'audio',
-              titulo: tituloConsolidado || undefined,
-              zonaTexto: zonaPendiente,
-            },
-            { dependeDe: visitaId, archivoLocal: audioPendiente }
-          ),
-        {
-          mensajeError: 'No se pudo guardar el audio grabado. Inténtalo de nuevo.',
-          onExito: () => {
-            setAudioPendiente(null);
-            setTituloPendiente('');
-            setZonaPendiente(undefined);
-          },
-        }
-      );
-    }
+      },
+      {
+        mensajeError:
+          tipo === 'foto' ? 'No se pudo guardar la foto. Inténtalo de nuevo.' : 'No se pudo guardar el audio grabado. Inténtalo de nuevo.',
+        onExito: () => {
+          setFotoPendiente(null);
+          setAudioPendiente(null);
+          setTituloPendiente('');
+          setZonaPendiente(undefined);
+          coordsFotoRef.current = null;
+          capturaPendienteIdRef.current = null;
+        },
+      }
+    );
   }
 
   const timeoutAudioRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -858,6 +904,22 @@ export function VisitaActiva() {
               setAudioPendiente(blob);
               setTituloPendiente('');
             });
+            // Mismo motivo que en capturarFoto: se encola ya, con título
+            // vacío, para no depender de que la pantalla siga viva hasta que
+            // el comercial titule el audio.
+            const idCaptura = uuid();
+            capturaPendienteIdRef.current = idCaptura;
+            void encolar(
+              idCaptura,
+              'captura_libre',
+              {
+                visitaId: visitaId!,
+                comercialAutorId: comercial!.id,
+                tipo: 'audio',
+                zonaTexto: zonaParaCaptura,
+              },
+              { dependeDe: visitaId, archivoLocal: blob }
+            );
             stream.getTracks().forEach((t) => t.stop());
             soltarWakeLock();
             if (timeoutAudioRef.current) {
@@ -927,6 +989,31 @@ export function VisitaActiva() {
     return () => document.removeEventListener('visibilitychange', alOcultarse);
   }, [grabando]);
 
+  // `visibilitychange` solo salta al ocultar la pestaña, no al navegar
+  // dentro de la SPA: pulsar "Cerrar visita" (u otra salida) con una
+  // grabación en curso, sin pasar antes por "Detener", dejaba el
+  // MediaRecorder, el micrófono y el wake lock activos indefinidamente
+  // (o hasta el límite de 10 min) tras desmontarse esta pantalla. La nota a
+  // medio grabar ya no se puede completar sin este componente montado, pero
+  // al menos se libera el micrófono y la pantalla vuelve a poder apagarse
+  // sola en vez de arrastrar la grabación en segundo plano.
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== 'inactive') recorder.stop();
+        recorder.stream.getTracks().forEach((t) => t.stop());
+      }
+      soltarWakeLock();
+      if (timeoutAudioRef.current) {
+        clearTimeout(timeoutAudioRef.current);
+        timeoutAudioRef.current = null;
+      }
+    };
+  }, []);
+
   // Cronómetro de la grabación.
   useEffect(() => {
     if (!grabando) {
@@ -945,13 +1032,30 @@ export function VisitaActiva() {
         const nuevo = nuevoConsolidado;
         // El objetivo es obligatorio: no se permite dejarlo en blanco.
         if (!nuevo) throw new Error('El objetivo de la visita no puede quedar vacío.');
-        await conReintentoDeSesion(
-          () => supabase.from('visita').update({ objetivo: nuevo }, { count: 'exact' }).eq('id', visitaId!),
-          'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
-        );
+        // Offline-first, igual que guardarNota/guardarHallazgo/guardarOportunidad/
+        // guardarPaso — antes era el único UPDATE directo de esta pantalla: sin
+        // red, el cambio se perdía sin quedar en ningún sitio para reintentar.
+        // `objetivoEditable` (= !!visitaServidor) garantiza que la visita ya
+        // existe en el servidor, así que no hace falta `dependeDe`.
+        await encolar(uuid(), 'visita_objetivo', { visitaId: visitaId!, objetivo: nuevo });
       },
       {
-        onExito: () => queryClient.invalidateQueries({ queryKey: objetivoQueryKey }),
+        onExito: () => {
+          // Solo el parche optimista, SIN invalidateQueries aquí: encolar()
+          // no espera a que la sincronización real termine (puede tardar
+          // segundos, o esperar a que vuelva la red) — un invalidate
+          // inmediato dispara un refetch que en ese hueco todavía lee el
+          // valor VIEJO del servidor y pisa este parche, haciendo que el
+          // campo "vuelva atrás" un instante (bug real encontrado probando
+          // este mismo cambio). El refetchInterval que ya tiene esta query
+          // (más EVENTO_COLA_PROCESADA en otras pantallas) se encarga de
+          // traer el valor real en cuanto la cola sincronice de verdad.
+          queryClient.setQueryData(
+            objetivoQueryKey,
+            (prev: { objetivo: string | null; estado_captura: string } | null | undefined) =>
+              prev ? { ...prev, objetivo: nuevoConsolidado } : prev
+          );
+        },
         mensajeError: 'No se pudo guardar el objetivo.',
       }
     );
@@ -1025,15 +1129,23 @@ export function VisitaActiva() {
         });
       }
       await Promise.all([
-        supabase.from('captura_libre').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
-        supabase.from('hallazgo').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
-        supabase.from('oportunidad').update({ zona_texto: null }).eq('visita_origen_id', visitaId).eq('zona_texto', zona),
-        supabase.from('proximo_paso').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
+        supabase.from('captura_libre').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('hallazgo').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('oportunidad').update({ zona_texto: null }).eq('visita_origen_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('proximo_paso').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
       ]);
       if (zonaActual.trim() === zona) setZonaActual('');
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Sin esto, un fallo de red a mitad (típico con mala cobertura en
+      // campo) quedaba como excepción no capturada: el spinner se apagaba y
+      // el panel se cerraba como si nada, sin que el comercial supiera si la
+      // operación se completó, quedó a medias, o no hizo nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1053,15 +1165,19 @@ export function VisitaActiva() {
         });
       }
       await Promise.all([
-        supabase.from('captura_libre').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('hallazgo').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('oportunidad').update({ zona_texto: nueva }).eq('visita_origen_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('proximo_paso').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
+        supabase.from('captura_libre').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('hallazgo').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('oportunidad').update({ zona_texto: nueva }).eq('visita_origen_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('proximo_paso').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
       ]);
       if (zonaActual.trim() === zonaVieja) setZonaActual(nueva);
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1085,11 +1201,13 @@ export function VisitaActiva() {
         .select('id, tipo, storage_path')
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       for (const c of caps ?? []) {
         if (c.storage_path) {
           const bucket = c.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
-          await supabase.storage.from(bucket).remove([c.storage_path]);
+          const { error: errStorage } = await supabase.storage.from(bucket).remove([c.storage_path]);
+          if (errStorage) throw errStorage;
         }
       }
       await supabase
@@ -1097,33 +1215,45 @@ export function VisitaActiva() {
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       await supabase
         .from('hallazgo')
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       await supabase
         .from('proximo_paso')
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_responsable_id', comercial.id);
+        .eq('comercial_responsable_id', comercial.id)
+        .throwOnError();
       // Oportunidades: cascada por RPC (una a una).
       const { data: ops } = await supabase
         .from('oportunidad')
         .select('id')
         .eq('visita_origen_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       for (const o of ops ?? []) {
-        await supabase.rpc('eliminar_oportunidad_completa', { p_oportunidad_id: o.id });
+        const { error: errRpc } = await supabase.rpc('eliminar_oportunidad_completa', { p_oportunidad_id: o.id });
+        if (errRpc) throw errRpc;
       }
       if (zonaActual.trim() === zona) setZonaActual('');
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Este borrado es irreversible y en varios pasos (cola local + filas +
+      // Storage + oportunidades); sin este catch, un fallo a mitad dejaba al
+      // comercial sin saber si se borró todo, parte, o nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1806,7 +1936,9 @@ export function VisitaActiva() {
               </button>
             </div>
             {guardadoObjetivo.error && (
-              <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+              <div style={{ marginTop: 6 }}>
+                <Aviso tipo="error">{guardadoObjetivo.error}</Aviso>
+              </div>
             )}
           </div>
         )}
@@ -2058,8 +2190,8 @@ export function VisitaActiva() {
                     )}
 
                     {zonaGestionError && (
-                      <div className="field-error-text" style={{ marginTop: 8 }}>
-                        {zonaGestionError}
+                      <div style={{ marginTop: 8 }}>
+                        <Aviso tipo="error">{zonaGestionError}</Aviso>
                       </div>
                     )}
                   </div>
@@ -2128,8 +2260,8 @@ export function VisitaActiva() {
           </Aviso>
         )}
 
-        {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
-        {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+        {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
+        {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
         {grabando && (
           <Aviso tipo="atencion" titulo="Grabando">
@@ -2505,7 +2637,9 @@ export function VisitaActiva() {
             </button>
           </div>
           {(capturaFoto.error || capturaAudio.error) && (
-            <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
+            <div style={{ marginTop: 8 }}>
+              <Aviso tipo="error">{capturaFoto.error || capturaAudio.error}</Aviso>
+            </div>
           )}
         </HojaSuperior>
       )}

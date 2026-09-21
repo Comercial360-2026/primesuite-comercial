@@ -22,41 +22,12 @@ import { Icono } from '@/components/ui/iconos';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
+import { guardarConsolidacionPendiente } from '@/lib/consolidar-cierre-pendiente';
 
-// Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
-// cola offline (db.ts/sync-engine.ts) solo modela creación de registros
-// nuevos (ver 09_arquitectura_tecnica.md §4 y la decisión ya cerrada de no
-// tocar más infraestructura). Para no reabrir esa capa, este único caso se
-// resuelve aquí con un intento directo + reintento ligero en localStorage
-// si no hay red en el momento del cierre — es una corrección puntual, no
-// una ampliación del motor de sincronización.
 interface ParcheCierre {
   estado_captura: 'consolidada';
   resumen_texto?: string;
   resumen_origen?: 'reglas';
-}
-
-function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
-  localStorage.setItem(`consolidar-pendiente-${visitaId}`, JSON.stringify(parche));
-  const reintentar = async () => {
-    const clave = `consolidar-pendiente-${visitaId}`;
-    const pendiente = localStorage.getItem(clave);
-    if (!pendiente) return;
-    // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría éxito"
-    // con 0 filas: se borraría el pendiente de localStorage y se dejaría
-    // de reintentar, pero la visita nunca se habría consolidado de
-    // verdad — y aquí no hay pantalla donde avisar de eso. Mejor seguir
-    // reintentando (no se pierde el dato) que darlo por hecho en falso.
-    const { error, count } = await supabase
-      .from('visita')
-      .update(JSON.parse(pendiente), { count: 'exact' })
-      .eq('id', visitaId);
-    if (!error && count) {
-      localStorage.removeItem(clave);
-      window.removeEventListener('online', reintentar);
-    }
-  };
-  window.addEventListener('online', reintentar);
 }
 
 export function CierreVisita() {
@@ -287,7 +258,7 @@ export function CierreVisita() {
           );
           return { sincronizada: true };
         } else {
-          intentarConsolidarOffline(visitaId, parche);
+          guardarConsolidacionPendiente(visitaId, parche);
           return { sincronizada: false };
         }
       },

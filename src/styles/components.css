@@ -294,6 +294,9 @@ button.interlocutor-fila__cuerpo--presente:hover {
   color: #fff; font-weight: 600;
 }
 .chip--on::before { content: "✓"; font-size: 0.95em; margin-right: 1px; }
+/* Confirmación inline de una acción de riesgo (p. ej. "¿Salir?" con chips
+   Sí/No) — mismo tono que .btn-secondary--riesgo, en formato chip. */
+.chip--riesgo { color: var(--risk-600); border-color: var(--risk-600); }
 
 /* Opción de "qué es, además de una nota" en la hoja Anotar (prompt maestro
    11): dos botones grandes en fila —icono + palabra en grande + matiz
@@ -929,24 +932,6 @@ textarea.field {
   flex-shrink: 0; text-align: right; min-width: 34px;
   font-size: var(--text-xs); font-weight: 600; color: var(--ink-700);
 }
-
-/* Medidor de espacio del equipo (pantalla Mi espacio). Barra con
-   presencia, no un sliver; cifra en positivo. */
-.medidor {
-  background: var(--surface-1);
-  border: 1px solid var(--ink-100);
-  border-radius: var(--radius-control);
-  padding: var(--space-3) var(--space-4);
-  box-shadow: var(--shadow-card);
-}
-.medidor__lb { font-size: var(--text-xs); color: var(--ink-400); }
-.medidor__barra {
-  height: 12px; margin: var(--space-2) 0 6px;
-  border-radius: var(--radius-chip);
-  background: var(--ink-100); overflow: hidden;
-}
-.medidor__relleno { height: 100%; border-radius: var(--radius-chip); }
-.medidor__cifra { font-size: var(--text-sm); font-weight: 500; }
 
 /* Bloque "ahora" de la pantalla Hoy — la acción principal al entrar.
    Ver src/features/hoy/bloque-ahora.tsx. */
@@ -1591,7 +1576,7 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 .ayuda-item:first-child { border-top: none; }
 .ayuda-item__tit {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
-  width: 100%; padding: var(--space-3) var(--fila-pad-x);
+  width: 100%; min-height: var(--fila-min-h); box-sizing: border-box; padding: var(--space-3) var(--fila-pad-x);
   border: none; background: none; font-family: var(--font-sans);
   font-size: var(--text-base); font-weight: 600; color: var(--ink-900);
   text-align: left; cursor: pointer;
@@ -1675,6 +1660,7 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 .tarjeta-accion__barra > span { display: block; height: 100%; border-radius: var(--radius-chip); background: var(--ink-400); }
 .tarjeta-accion--aviso .tarjeta-accion__barra > span { background: var(--warning-600); }
 .tarjeta-accion--riesgo .tarjeta-accion__barra > span { background: var(--risk-600); }
+.tarjeta-accion--positivo .tarjeta-accion__barra > span { background: var(--success-600); }
 
 /* BarraSeleccion — cabecera del modo seleccionar. Arriba de la lista,
    dentro del .screen. Ver 08_sistema_diseno.md §"Sistema de filas". */
