@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
+import { esSinRed } from '@/lib/red';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -168,9 +169,7 @@ export function AltaRapidaCliente() {
       }
       // Si el fallo no parece de red (RLS, validación de la RPC…), se muestra
       // tal cual — encolarlo solo lo escondería. Si parece de red, se encola.
-      const esFalloDeRed =
-        !navigator.onLine || /fetch|network|load failed/i.test(errorCliente?.message ?? '');
-      if (!esFalloDeRed) {
+      if (!esSinRed(errorCliente?.message)) {
         throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente.');
       }
     }
