@@ -20,6 +20,7 @@ import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -713,46 +714,36 @@ export function FichaCliente() {
             Borja veía "Borrar cliente" en una ficha ajena). */}
         {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
         confirmandoBorrarCliente ? (
-          <div className="card card--riesgo">
-            {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+          previsualizandoCliente.cargando || !previsualizacionCliente ? (
+            <div className="card card--riesgo">
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-                  Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
-                  {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
-                  {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
-                  {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
-                  {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
-                  {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
-                  {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
-                  {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
-                  borrará también, para siempre. No se puede deshacer.
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-                  Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
-                  antes desde "mi espacio".
-                </div>
-                <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
-                  <button className="btn btn-secondary" onClick={cancelarBorradoCliente} disabled={borrandoCliente.cargando}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn btn-peligro"
-                    onClick={confirmarBorradoCliente}
-                    disabled={borrandoCliente.cargando}
-                  >
-                    {borrandoCliente.cargando ? 'Borrando…' : 'Sí, borrar el cliente entero'}
-                  </button>
-                </div>
-                {borrandoCliente.error && (
-                  <div style={{ marginTop: 8 }}>
-                    <Aviso tipo="error">{borrandoCliente.error}</Aviso>
-                  </div>
-                )}
+            </div>
+          ) : (
+            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
+            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
+            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
+            <ConfirmacionBorrado
+              onCancelar={cancelarBorradoCliente}
+              onConfirmar={confirmarBorradoCliente}
+              cargando={borrandoCliente.cargando}
+              error={borrandoCliente.error}
+              confirmar="Sí, borrar el cliente entero"
+            >
+              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
+              borrará también, para siempre.
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                antes desde "mi espacio".
               </div>
-            )}
-          </div>
+            </ConfirmacionBorrado>
+          )
         ) : (
           <SeccionLista>
             <FilaNavegable

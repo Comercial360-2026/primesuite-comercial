@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { fechaLarga } from '@/lib/fechas';
 import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -502,7 +503,7 @@ function DetalleCapturaPorId() {
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-        {new Date(captura.creadoEn).toLocaleString('es-ES')}
+        {fechaLarga(captura.creadoEn)}
         {mostrarEstadoSync ? ` · ${ESTADO_SYNC_TEXTO[captura.estadoSync] ?? captura.estadoSync}` : ''}
       </div>
 
