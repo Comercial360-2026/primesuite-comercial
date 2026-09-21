@@ -10,6 +10,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Aviso } from '@/components/ui/aviso';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
@@ -224,9 +225,7 @@ export function MisProximosPasos() {
         />
       )}
 
-      {errorGuardado && (
-        <p style={{ color: 'var(--risk-600)', fontSize: 'var(--text-xs)' }}>{errorGuardado}</p>
-      )}
+      {errorGuardado && <Aviso tipo="error">{errorGuardado}</Aviso>}
 
       {!sinConexion && !isError && !!pasos?.length && (
         <div className="lista-agrupada">
