@@ -12,6 +12,7 @@ import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
 import { CalendarioMes } from '@/features/hoy/calendario-mes';
 import { franjaDe, ordenFranja } from '@/lib/franja-visita';
 import { desde } from '@/lib/volver-a';
@@ -376,13 +377,11 @@ export function Agenda() {
               },
             ]}
           />
-          {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
+          {resultadoLote && <Aviso tipo="error">{resultadoLote}</Aviso>}
         </>
       )}
 
-      {!seleccionando && resultadoLote && (
-        <div className="field-error-text">{resultadoLote}</div>
-      )}
+      {!seleccionando && resultadoLote && <Aviso tipo="error">{resultadoLote}</Aviso>}
 
       <div className="screen__scroll">
         {isLoading && <EstadoLista estado="cargando" />}

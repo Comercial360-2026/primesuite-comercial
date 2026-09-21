@@ -1814,7 +1814,9 @@ export function VisitaActiva() {
               </button>
             </div>
             {guardadoObjetivo.error && (
-              <div className="field-error-text" style={{ marginTop: 6 }}>{guardadoObjetivo.error}</div>
+              <div style={{ marginTop: 6 }}>
+                <Aviso tipo="error">{guardadoObjetivo.error}</Aviso>
+              </div>
             )}
           </div>
         )}
@@ -2080,8 +2082,8 @@ export function VisitaActiva() {
                     )}
 
                     {zonaGestionError && (
-                      <div className="field-error-text" style={{ marginTop: 8 }}>
-                        {zonaGestionError}
+                      <div style={{ marginTop: 8 }}>
+                        <Aviso tipo="error">{zonaGestionError}</Aviso>
                       </div>
                     )}
                   </div>
@@ -2150,8 +2152,8 @@ export function VisitaActiva() {
           </Aviso>
         )}
 
-        {capturaFoto.error && <div className="field-error-text">{capturaFoto.error}</div>}
-        {capturaAudio.error && <div className="field-error-text">{capturaAudio.error}</div>}
+        {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
+        {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {grabando && (
           <Aviso tipo="atencion" titulo="Grabando">
             No bloquees la pantalla ni cambies de app o la grabación se cortará.
@@ -2520,7 +2522,9 @@ export function VisitaActiva() {
             </button>
           </div>
           {(capturaFoto.error || capturaAudio.error) && (
-            <div className="field-error-text" style={{ marginTop: 8 }}>{capturaFoto.error || capturaAudio.error}</div>
+            <div style={{ marginTop: 8 }}>
+              <Aviso tipo="error">{capturaFoto.error || capturaAudio.error}</Aviso>
+            </div>
           )}
         </HojaSuperior>
       )}

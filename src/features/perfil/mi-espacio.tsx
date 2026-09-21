@@ -417,7 +417,7 @@ function MisVisitas() {
               </div>
             </div>
           )}
-          {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
+          {resultadoLote && <Aviso tipo="error">{resultadoLote}</Aviso>}
         </div>
       )}
 

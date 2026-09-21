@@ -19,6 +19,7 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -461,7 +462,9 @@ export function FichaCliente() {
              no cambia.
            </div>
            {cambioResp.error && (
-             <div className="field-error-text" style={{ marginTop: 8 }}>{cambioResp.error}</div>
+             <div style={{ marginTop: 8 }}>
+               <Aviso tipo="error">{cambioResp.error}</Aviso>
+             </div>
            )}
            <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
@@ -526,7 +529,9 @@ export function FichaCliente() {
              placeholder="p. ej. Polígono Norte, Sevilla"
            />
            {guardadoDatos.error && (
-             <div className="field-error-text" style={{ marginTop: 8 }}>{guardadoDatos.error}</div>
+             <div style={{ marginTop: 8 }}>
+               <Aviso tipo="error">{guardadoDatos.error}</Aviso>
+             </div>
            )}
            <div className="fila-btns" style={{ marginTop: 10 }}>
              <button
@@ -740,7 +745,11 @@ export function FichaCliente() {
                     {borrandoCliente.cargando ? 'Borrando…' : 'Sí, borrar el cliente entero'}
                   </button>
                 </div>
-                {borrandoCliente.error && <div className="field-error-text" style={{ marginTop: 8 }}>{borrandoCliente.error}</div>}
+                {borrandoCliente.error && (
+                  <div style={{ marginTop: 8 }}>
+                    <Aviso tipo="error">{borrandoCliente.error}</Aviso>
+                  </div>
+                )}
               </div>
             )}
           </div>
