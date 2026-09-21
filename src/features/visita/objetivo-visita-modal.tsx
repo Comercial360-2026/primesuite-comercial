@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { esSinRed } from '@/lib/red';
 import { Modal } from '@/components/ui/modal';
 import { Icono } from '@/components/ui/iconos';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
@@ -85,8 +86,8 @@ export function ObjetivoVisitaModal({
       setProyectoId(id);
       setCreando(false);
       setNombreNuevo('');
-    } catch (err) {
-      setErrorNuevo(err instanceof Error ? err.message : 'No se pudo crear el proyecto.');
+    } catch {
+      setErrorNuevo('No se pudo crear el proyecto. Inténtalo de nuevo.');
     } finally {
       setCreandoCarga(false);
     }
@@ -107,8 +108,8 @@ export function ObjetivoVisitaModal({
       await onConfirmar(objetivoConsolidado, proyectoId);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? `No se pudo empezar la visita: ${err.message}`
+        esSinRed(err)
+          ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
           : 'No se pudo empezar la visita. Inténtalo de nuevo.'
       );
       setArrancando(false);

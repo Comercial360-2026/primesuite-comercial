@@ -386,7 +386,7 @@ export function ColaVocabulario() {
     });
     setProcesandoId(null);
     if (err) {
-      setError(err.message);
+      setError('No se pudo resolver el término. Inténtalo de nuevo.');
       return;
     }
     setFusionandoId(null);
@@ -485,7 +485,8 @@ export function ColaVocabulario() {
       );
     } catch (err) {
       setGuardandoAjuste(false);
-      setErrorAjuste(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo guardar el ajuste de clasificación detallada:', err);
+      setErrorAjuste('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setGuardandoAjuste(false);
@@ -504,7 +505,8 @@ export function ColaVocabulario() {
       .from('categoria_vocabulario')
       .insert({ nombre: nuevaCategoriaTexto.trim(), orden: ordenNueva });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear la categoría:', err);
+      setErrorCatalogo('No se pudo crear la categoría. Inténtalo de nuevo.');
       return;
     }
     setNuevaCategoriaTexto('');
@@ -522,7 +524,8 @@ export function ColaVocabulario() {
         'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo renombrar la categoría:', err);
+      setErrorCatalogo('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setRenombrandoCategoriaId(null);
@@ -555,7 +558,8 @@ export function ColaVocabulario() {
         'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorPorCategoria({ id, msg: err instanceof Error ? err.message : 'No se pudo borrar.' });
+      console.error('No se pudo borrar la categoría:', err);
+      setErrorPorCategoria({ id, msg: 'No se pudo borrar. Inténtalo de nuevo.' });
       return;
     }
     cerrarPanelBorrarCat();
@@ -660,9 +664,8 @@ export function ColaVocabulario() {
       );
     setGuardandoOrden(false);
     if (err) {
-      setErrorCatalogo(
-        `No se ha podido guardar el orden: ${err.message}. Solo Dirección Comercial puede editar las categorías.`
-      );
+      console.error('No se pudo guardar el orden de categorías:', err);
+      setErrorCatalogo('No se ha podido guardar el orden. Solo Dirección Comercial puede editar las categorías.');
       return;
     }
     invalidarCatalogo();
@@ -679,7 +682,8 @@ export function ColaVocabulario() {
         'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo renombrar el término:', err);
+      setErrorCatalogo('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setRenombrandoTerminoId(null);
@@ -808,7 +812,8 @@ export function ColaVocabulario() {
       orden: ordenNuevo,
     });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear el término:', err);
+      setErrorCatalogo('No se pudo crear el término. Inténtalo de nuevo.');
       return;
     }
     setNuevoTerminoPorCategoria((prev) => ({ ...prev, [categoriaId]: '' }));
@@ -831,7 +836,8 @@ export function ColaVocabulario() {
       orden: ordenNuevo,
     });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear el modelo:', err);
+      setErrorCatalogo('No se pudo crear el modelo. Inténtalo de nuevo.');
       return;
     }
     setNuevoModeloPorPadre((prev) => ({ ...prev, [padre.id]: '' }));
@@ -860,7 +866,8 @@ export function ColaVocabulario() {
     );
     setGuardandoOrden(false);
     if (err) {
-      setErrorCatalogo(`No se ha podido guardar el orden: ${err.message}`);
+      console.error('No se pudo guardar el orden de términos:', err);
+      setErrorCatalogo('No se ha podido guardar el orden. Inténtalo de nuevo.');
       return;
     }
     invalidarCatalogo();

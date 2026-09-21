@@ -182,7 +182,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
       .eq('id', editandoId);
     setGuardando(false);
     if (err) {
-      setError(err.message);
+      setError('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setEditandoId(null);

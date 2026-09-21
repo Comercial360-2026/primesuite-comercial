@@ -325,7 +325,7 @@ export function Yo() {
     const { error: err } = await supabase.auth.signOut();
     setCerrando(false);
     if (err) {
-      setError(err.message);
+      setError('No se pudo cerrar la sesión. Inténtalo de nuevo.');
       return;
     }
     // El logout no recarga la página (navegación de React, no un F5 real),
