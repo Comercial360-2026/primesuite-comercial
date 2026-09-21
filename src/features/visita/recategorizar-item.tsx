@@ -129,7 +129,7 @@ export function RecategorizarItem({ id, tipoActual, visitaId, origen, sinSubir, 
           <div className="fila-btns" style={{ marginTop: 8 }}>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-secondary"
               disabled={trabajando}
               onClick={() => setConfirmando(null)}
             >
@@ -137,7 +137,7 @@ export function RecategorizarItem({ id, tipoActual, visitaId, origen, sinSubir, 
             </button>
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-primary"
               disabled={trabajando}
               onClick={confirmar}
             >

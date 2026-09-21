@@ -122,7 +122,7 @@ export function ListadoClientes() {
   // "heredado" (traspasado a mí) y se marca. Cualquiera puede seguir viendo
   // y trabajando el cliente de otro.
   const idsClientes = clientes?.map((c) => c.cliente_id) ?? [];
-  const { data: meta } = useQuery({
+  const { data: meta, isLoading: metaCargando } = useQuery({
     queryKey: ['meta-clientes', idsClientes.join(',')],
     enabled: idsClientes.length > 0,
     queryFn: async (): Promise<Record<string, { creado_por: string | null; responsable_id: string | null }>> => {
@@ -152,6 +152,10 @@ export function ListadoClientes() {
   const clientesFiltrados = clientes?.filter(
     (c) => !restringirACartera || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );
+  // Mientras "meta" sigue en vuelo, el filtro de arriba da longitud 0 por un
+  // `undefined === id` — sin esto, cualquier comercial veía un parpadeo real
+  // de "Todavía no tienes clientes" antes de que apareciera su cartera.
+  const cargandoDeVerdad = isLoading || (restringirACartera && idsClientes.length > 0 && metaCargando);
 
   const sinConexion = isPaused && clientes === undefined;
   // reintentar() en vez de refetch() a secas: una consulta "paused" no
@@ -217,7 +221,7 @@ export function ListadoClientes() {
       )}
 
       <div className="screen__scroll">
-      {isLoading && <EstadoLista estado="cargando" />}
+      {cargandoDeVerdad && <EstadoLista estado="cargando" />}
 
       {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
 
@@ -277,7 +281,7 @@ export function ListadoClientes() {
         </div>
       )}
 
-      {!isLoading && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
+      {!cargandoDeVerdad && !isError && !sinConexion && clientesFiltrados?.length === 0 && (
         <EstadoLista
           estado="vacio"
           mensaje={

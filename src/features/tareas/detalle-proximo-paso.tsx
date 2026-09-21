@@ -51,6 +51,7 @@ export function DetalleProximoPaso() {
   const [planificando, setPlanificando] = useState(false);
   const [visitaPlanificada, setVisitaPlanificada] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
+  const [marcandoHecho, setMarcandoHecho] = useState(false);
 
   const { data: paso, isLoading, isError, refetch } = useQuery({
     queryKey: ['proximo-paso', pasoId],
@@ -268,7 +269,12 @@ export function DetalleProximoPaso() {
   }
 
   async function marcarHecho() {
-    if (!pasoId) return;
+    // A diferencia de marcarCompletado en mis-proximos-pasos.tsx (mismo tipo
+    // de acción), esto no bloqueaba el doble toque ni mostraba "guardando…"
+    // — en campo, con conexión intermitente, tocar dos veces sin feedback
+    // disparaba dos UPDATE.
+    if (!pasoId || marcandoHecho) return;
+    setMarcandoHecho(true);
     // Mismo encargo técnico que `guardar()`: sin permiso, Supabase no da
     // error — comprobar `count` es la única forma de no navegar como si
     // se hubiera marcado, sin haber tocado nada.
@@ -278,6 +284,7 @@ export function DetalleProximoPaso() {
         'No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.'
       );
     } catch (errMarcar) {
+      setMarcandoHecho(false);
       setError(errMarcar instanceof Error ? errMarcar.message : 'No se pudo marcar.');
       return;
     }
@@ -314,14 +321,12 @@ export function DetalleProximoPaso() {
 
   return (
     <div className="screen">
-      <div style={{ position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
-        <CabeceraDetalle
-          titulo="Próximo paso"
-          ayuda="proximo-paso"
-          subtitulo={contextoCliente || undefined}
-          onVolver={alVolver}
-        />
-      </div>
+      <CabeceraDetalle
+        titulo="Próximo paso"
+        ayuda="proximo-paso"
+        subtitulo={contextoCliente || undefined}
+        onVolver={alVolver}
+      />
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
       <TextareaDictado
@@ -354,7 +359,13 @@ export function DetalleProximoPaso() {
         visitaPlanificada ? (
           <TarjetaAccion
             titulo="Revisita"
-            accion={{ etiqueta: 'Marcar este paso como hecho', icono: 'check', onClick: marcarHecho }}
+            accion={{
+              etiqueta: 'Marcar este paso como hecho',
+              icono: 'check',
+              onClick: marcarHecho,
+              cargando: marcandoHecho,
+              etiquetaCargando: 'Marcando…',
+            }}
           >
             Visita planificada para el {fechaCorta(fechaObjetivo)}. Está en la Agenda.
           </TarjetaAccion>

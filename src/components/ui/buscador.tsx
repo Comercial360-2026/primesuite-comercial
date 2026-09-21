@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icono } from './iconos';
 
 // Buscar no ocupa sitio hasta que se usa: por defecto es solo la lupa —
@@ -36,15 +36,30 @@ interface CampoBuscarProps {
   onCerrar: () => void;
 }
 
+// Debounce de 300ms: sin esto, cada tecla disparaba de golpe el filtro (una
+// consulta ilike completa contra Supabase en listado-clientes.tsx). El campo
+// en sí sigue instantáneo (estado local `texto`); solo `onChange` al padre
+// se retrasa.
+const DEBOUNCE_MS = 300;
+
 export function CampoBuscar({ value, onChange, placeholder, onCerrar }: CampoBuscarProps) {
+  const [texto, setTexto] = useState(value);
+  useEffect(() => setTexto(value), [value]);
+  useEffect(() => {
+    if (texto === value) return;
+    const t = setTimeout(() => onChange(texto), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [texto]);
+
   return (
     <div className="buscador-campo">
       <input
         className="field"
         autoFocus
         autoComplete="off"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
         placeholder={placeholder}
       />
       <button

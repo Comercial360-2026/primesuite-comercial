@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
+import { esSinRed } from '@/lib/red';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { Aviso } from '@/components/ui/aviso';
@@ -92,8 +93,10 @@ export function EstablecerContrasena() {
       },
       {
         onExito: () => navigate('/', { replace: true }),
-        mensajeError: () =>
-          'No se pudo guardar la contraseña. El enlace puede haber caducado — pide a tu responsable que te reenvíe uno.',
+        mensajeError: (err) =>
+          esSinRed(err)
+            ? 'Sin conexión. Conéctate a internet para guardar la contraseña.'
+            : 'No se pudo guardar la contraseña. El enlace puede haber caducado — pide a tu responsable que te reenvíe uno.',
       }
     );
   }

@@ -91,6 +91,12 @@ body {
    overflow del que tiene al lado. */
 .fila-btns { display: flex; gap: var(--space-2); }
 .fila-btns > .btn { flex: 1; width: auto; min-width: 0; }
+/* Barra de "Iniciar visita"/"Planificar otro día" (AccionesProyecto): va
+   pegada al fondo de `.screen`, único caso sin margen de zona segura de
+   iPhone — a diferencia de .bottom-nav y .visor-fotos__inferior, que sí lo
+   aplican. En un iPhone con home indicator quedaba cerca del gesto de
+   sistema de deslizar hacia arriba. */
+.fila-btns--pie { padding-bottom: env(safe-area-inset-bottom); }
 
 /* Acción DESTRUCTIVA — ver 08_sistema_diseno.md §"Botones".
    - `.btn-peligro`: relleno borgoña, SOLO para el botón que consuma el
@@ -224,6 +230,7 @@ body {
 .interlocutor-fila:first-child { border-top: 0; }
 .interlocutor-fila__cuerpo {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  min-height: var(--fila-min-h); box-sizing: border-box;
   padding: 8px 4px; border: 0; background: none; text-align: left;
   font-family: var(--font-sans); color: var(--ink-900);
 }
@@ -355,11 +362,13 @@ button.interlocutor-fila__cuerpo--presente:hover {
   margin-left: auto; flex-shrink: 0;
   border: none; background: rgba(255, 255, 255, 0.2); color: #fff;
   font: inherit; font-size: var(--text-xs); font-weight: 600;
-  padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  min-height: var(--fila-accion-size); padding: 0 12px; border-radius: 999px; cursor: pointer;
 }
 .zona-banda__x {
   flex-shrink: 0; border: none; background: none; color: #fff;
-  cursor: pointer; padding: 2px; display: flex; font-size: 15px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  min-width: var(--fila-accion-size); min-height: var(--fila-accion-size);
+  font-size: 15px; line-height: 1;
 }
 
 /* Badge de recuento sobre un boton-icono de la cabecera (Interlocutores /
@@ -477,6 +486,7 @@ button.interlocutor-fila__cuerpo--presente:hover {
 }
 .card--acento { border-color: var(--brand-600); border-width: 1.5px; }
 .card--riesgo { border-color: var(--risk-600); }
+.card--advertencia { border-color: var(--warning-600); }
 .card--oportunidad { border-color: var(--signal-600); }
 .card--aviso { border-color: var(--warning-600); }
 
@@ -628,7 +638,8 @@ textarea.field {
 .modal-titulo { font-size: var(--text-md); font-weight: 600; }
 .modal-cerrar {
   border: none; background: none; cursor: pointer;
-  font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
+  min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1; color: var(--ink-700);
 }
 
 /* Cabecera compartida por la hoja (título + ×). Solo hay hoja SUPERIOR: la
@@ -641,7 +652,8 @@ textarea.field {
 .hoja-titulo { font-size: var(--text-md); font-weight: 600; }
 .hoja-cerrar {
   border: none; background: none; cursor: pointer;
-  font-size: 20px; line-height: 1; padding: 4px; color: var(--ink-700);
+  min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 20px; line-height: 1; color: var(--ink-700);
 }
 
 /* Hoja SUPERIOR — panel que baja desde el borde de arriba, con cabecera

@@ -592,7 +592,10 @@ export function PlanificarVisita() {
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoAbierto(false);
-            void lanzarVisitaAhora(objetivo.trim());
+            // Mismo consolidar() que empezarAhora(): sin esto, seguir
+            // dictando con este modal ya abierto perdía la frase a medias.
+            const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivo).trim();
+            void lanzarVisitaAhora(objetivoConsolidado);
           }}
           onCerrar={() => setEnCursoAbierto(false)}
         />

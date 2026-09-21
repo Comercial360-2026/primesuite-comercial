@@ -70,7 +70,30 @@ export function AgendaDelDia() {
   const location = useLocation();
   const { comercial } = useSesionActual();
   const { visitaEnCurso, cerrarVisita } = useVisitaActivaContext();
-  const { inicio, fin } = useMemo(rangoDeHoy, []);
+  // Antes se calculaba una sola vez al montar (useMemo con deps []) y
+  // quedaba incrustado en la query key para siempre — una tablet o sesión
+  // dejada abierta toda la noche seguía filtrando por el rango de AYER
+  // hasta que algo forzara un remonte. Se recalcula al volver a la pestaña
+  // (focus/visibilitychange); si cambió el día, `inicio` cambia de valor y
+  // eso ya basta para que la query key (más abajo) sea otra y TanStack
+  // Query la trate como una consulta nueva.
+  const [rango, setRango] = useState(rangoDeHoy);
+  useEffect(() => {
+    function comprobar() {
+      if (document.visibilityState !== 'visible') return;
+      setRango((prev) => {
+        const nuevo = rangoDeHoy();
+        return prev.inicio === nuevo.inicio ? prev : nuevo;
+      });
+    }
+    document.addEventListener('visibilitychange', comprobar);
+    window.addEventListener('focus', comprobar);
+    return () => {
+      document.removeEventListener('visibilitychange', comprobar);
+      window.removeEventListener('focus', comprobar);
+    };
+  }, []);
+  const { inicio, fin } = rango;
   const queryClient = useQueryClient();
   // Decisión de producto (29/8/2026): mismo criterio que en Clientes — un
   // comercial normal ve siempre solo sus propias visitas de hoy, sin poder

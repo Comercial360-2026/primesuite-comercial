@@ -4,6 +4,7 @@ import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { esSinRed } from '@/lib/red';
 import { haceRelativo, fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
 import { plural } from '@/lib/texto';
@@ -269,9 +270,7 @@ export function FichaCliente() {
             .select('id')
             .single();
           if (!error && data) return { id: data.id, enCola: false };
-          const esFalloDeRed =
-            !navigator.onLine || /fetch|network|load failed/i.test(error?.message ?? '');
-          if (!esFalloDeRed) throw new Error(error?.message ?? 'No se pudo crear el proyecto.');
+          if (!esSinRed(error?.message)) throw new Error(error?.message ?? 'No se pudo crear el proyecto.');
         }
 
         await encolar(proyectoId, 'proyecto', { clienteId, nombre: nombreLimpio });

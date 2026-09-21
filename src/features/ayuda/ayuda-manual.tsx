@@ -110,9 +110,13 @@ export function AyudaManual() {
 
   const visible = (e: { soloDireccion?: boolean }) => esDireccion || !e.soloDireccion;
 
+  // `clave` es la clave real del Record (p. ej. "ficha-cliente"), no el
+  // título — antes se indexaba "abierto"/la key de React por título, frágil
+  // si dos entradas de Pantallas/Conceptos llegaran a compartir texto.
   const pantallas = useMemo(
     () =>
-      Object.values(PANTALLAS)
+      Object.entries(PANTALLAS)
+        .map(([clave, e]) => ({ clave, ...e }))
         .filter(visible)
         .filter((e) => !q || normaliza(`${e.titulo} ${e.queEs} ${e.cuando} ${e.ojo ?? ''}`).includes(q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +124,8 @@ export function AyudaManual() {
   );
   const conceptos = useMemo(
     () =>
-      Object.values(CONCEPTOS)
+      Object.entries(CONCEPTOS)
+        .map(([clave, e]) => ({ clave, ...e }))
         .filter(visible)
         .filter(
           (e) => !q || normaliza(`${e.titulo} ${e.queEs} ${e.cuando ?? ''} ${e.ejemplo ?? ''}`).includes(q)
@@ -130,9 +135,9 @@ export function AyudaManual() {
   );
 
   const nada = pantallas.length === 0 && conceptos.length === 0;
-  const estaAbierto = (titulo: string) => buscando || abiertoId === titulo;
-  const alternar = (titulo: string) =>
-    setAbiertoId((prev) => (prev === titulo ? null : titulo));
+  const estaAbierto = (clave: string) => buscando || abiertoId === clave;
+  const alternar = (clave: string) =>
+    setAbiertoId((prev) => (prev === clave ? null : clave));
 
   return (
     <div className="screen screen--split">
@@ -172,10 +177,10 @@ export function AyudaManual() {
                   <div className="ayuda-manual__grupo seccion-lista__grupo">
                     {items.map((e) => (
                       <ItemAyuda
-                        key={e.titulo}
+                        key={e.clave}
                         titulo={e.titulo}
-                        abierto={estaAbierto(e.titulo)}
-                        onToggle={() => alternar(e.titulo)}
+                        abierto={estaAbierto(e.clave)}
+                        onToggle={() => alternar(e.clave)}
                         respuesta={e.queEs}
                         bloques={[{ lb: 'Cuándo', texto: e.cuando }]}
                         ojo={e.ojo}
@@ -203,10 +208,10 @@ export function AyudaManual() {
                   <div className="ayuda-manual__grupo seccion-lista__grupo">
                     {items.map((e) => (
                       <ItemAyuda
-                        key={e.titulo}
+                        key={e.clave}
                         titulo={e.titulo}
-                        abierto={estaAbierto(e.titulo)}
-                        onToggle={() => alternar(e.titulo)}
+                        abierto={estaAbierto(e.clave)}
+                        onToggle={() => alternar(e.clave)}
                         respuesta={e.queEs}
                         bloques={[
                           ...(e.cuando ? [{ lb: 'Cuándo', texto: e.cuando }] : []),

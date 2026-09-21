@@ -90,7 +90,13 @@ export function useVisitasSinCerrar(args: {
           clienteNombre: f.cliente?.nombre ?? 'Cliente',
           proyectoNombre: f.proyecto?.nombre ?? null,
           desde: f.en_curso_desde,
-          esMia: !r || !comercialId || r.id === comercialId,
+          // Antes `!r` (no se pudo leer el responsable — típicamente porque
+          // RLS bloquea verlo en una visita ajena, justo el caso que
+          // habilita "Ver todos") contaba como "es mía". Con esa cartera
+          // ajena visible, la UI ofrecía Cerrar/Descartar como si fueran
+          // acciones propias aunque el servidor las fuera a rechazar. Sin
+          // dato fiable de quién es responsable, se asume que NO es mía.
+          esMia: !!r && (!comercialId || r.id === comercialId),
           responsableNombre: r?.nombre || null,
           oportunidadesAbiertas: oportunidadesAbiertasPorVisita[f.id] ?? 0,
         };

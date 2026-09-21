@@ -404,15 +404,28 @@ export async function purgarCompletadasAntiguas(
   const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
   const inicio = Date.now();
   let totalBorradas = 0;
+  // Clave de continuación real entre lotes (cada lote es su propia
+  // transacción — un cursor no sobrevive entre transacciones). Sin esto,
+  // cada lote reabría el cursor desde el principio del índice: en un
+  // empate de `estado` IndexedDB ordena por PK (UUID aleatorio, no por
+  // antigüedad), así que si las primeras LOTE_PURGA filas en ese orden
+  // eran todas demasiado jóvenes para purgar, cada lote las revisitaba sin
+  // avanzar nunca hasta las viejas.
+  let ultimaClave: string | undefined;
   while (Date.now() - inicio < PRESUPUESTO_TIEMPO_MS) {
-    const { borradas, hayMas } = await conDb(async (db) => {
+    const { borradas, hayMas, siguienteClave } = await conDb(async (db) => {
       const tx = db.transaction('operaciones', 'readwrite');
       const indice = tx.store.index('by-estado');
       let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
+      if (cursor && ultimaClave !== undefined) {
+        cursor = await cursor.continuePrimaryKey('completado', ultimaClave);
+      }
       let visitadasLote = 0;
       let borradasLote = 0;
+      let clave = ultimaClave;
       while (cursor && visitadasLote < LOTE_PURGA) {
         visitadasLote++;
+        clave = cursor.primaryKey;
         if (cursor.value.creadoEn < limite) {
           await cursor.delete();
           borradasLote++;
@@ -420,9 +433,10 @@ export async function purgarCompletadasAntiguas(
         cursor = await cursor.continue();
       }
       await tx.done;
-      return { borradas: borradasLote, hayMas: !!cursor };
+      return { borradas: borradasLote, hayMas: !!cursor, siguienteClave: clave };
     });
     totalBorradas += borradas;
+    ultimaClave = siguienteClave;
     if (!hayMas) break;
     await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
   }

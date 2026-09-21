@@ -28,6 +28,12 @@ const REINTENTO_RAPIDO_BASE_MS = 3_000;
 const REINTENTO_RAPIDO_MAX_MS = 30_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
+// Guardado con nombre (no una arrow inline) para poder quitarlo en
+// detenerMotorSincronizacion() — sin esto, detenerMotorSincronizacion no
+// tenía forma de hacer removeEventListener del listener 'online' (fuga
+// latente, sin caller hoy pero real en cuanto se use). De paso evita añadir
+// un segundo listener si se llama a iniciarMotorSincronizacion() dos veces.
+let alReconectarGlobal: (() => void) | null = null;
 let sincronizandoAhora = false;
 // Si llega una petición de sincronizar mientras ya hay una pasada en curso
 // (p. ej. una foto grande subiendo con mala conexión) y se descartaba sin
@@ -39,7 +45,10 @@ let sincronizandoAhora = false;
 let pendienteReejecucion: { incluirErrores: boolean } | null = null;
 
 export function iniciarMotorSincronizacion(): void {
-  window.addEventListener('online', () => void procesarCola());
+  if (!alReconectarGlobal) {
+    alReconectarGlobal = () => void procesarCola();
+    window.addEventListener('online', alReconectarGlobal);
+  }
   if (!intervaloId) {
     intervaloId = setInterval(() => void procesarCola(), INTERVALO_REINTENTO_MS);
   }
@@ -69,12 +78,26 @@ export function detenerMotorSincronizacion(): void {
     clearInterval(intervaloId);
     intervaloId = null;
   }
+  if (alReconectarGlobal) {
+    window.removeEventListener('online', alReconectarGlobal);
+    alReconectarGlobal = null;
+  }
 }
 
 // Evento en `window` al terminar una pasada de la cola: la UI que muestra
 // "N sin sincronizar" (pantalla Yo) lo escucha para refrescarse al instante
 // en vez de esperar a su propio intervalo.
 export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
+
+// `sincronizandoAhora` solo sirve dentro de ESTA pestaña — es una variable
+// de módulo con alcance por pestaña, pero todas comparten la misma
+// IndexedDB. Dos pestañas del mismo dispositivo que recuperan red casi a la
+// vez podían procesar el mismo id a la vez cada una por su lado, chocando
+// con el mismo problema que el INSERT idempotente de arriba amortigua pero
+// no evita del todo. Web Locks serializa de verdad entre pestañas: si otra
+// ya tiene el lock, esta espera a que termine y entonces su propio
+// obtenerPendientes() ya no ve lo que la otra acaba de subir.
+const NOMBRE_LOCK_SYNC = 'primesuite-sync-cola';
 
 export async function procesarCola(opciones?: { incluirErrores?: boolean }): Promise<void> {
   const incluirErrores = opciones?.incluirErrores ?? false;
@@ -85,9 +108,18 @@ export async function procesarCola(opciones?: { incluirErrores?: boolean }): Pro
   if (!navigator.onLine) return;
   sincronizandoAhora = true;
   try {
-    const pendientes = await obtenerPendientes(incluirErrores);
-    for (const operacion of pendientes) {
-      await procesarOperacion(operacion);
+    const pasada = async () => {
+      const pendientes = await obtenerPendientes(incluirErrores);
+      for (const operacion of pendientes) {
+        await procesarOperacion(operacion);
+      }
+    };
+    // Sin soporte de Web Locks (navegador antiguo), sigue sin serializar
+    // entre pestañas — igual que antes de este cambio.
+    if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+      await navigator.locks.request(NOMBRE_LOCK_SYNC, pasada);
+    } else {
+      await pasada();
     }
   } finally {
     sincronizandoAhora = false;

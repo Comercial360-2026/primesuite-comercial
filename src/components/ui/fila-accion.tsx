@@ -54,8 +54,9 @@ interface Props {
   /** Desactiva el `onClick` del cuerpo (no las acciones). */
   disabled?: boolean;
   acciones?: AccionFila[];
-  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones. */
-  badge?: string;
+  /** Insignia corta a la derecha del cuerpo, antes del grupo de acciones.
+   *  No se dibuja si es 0 o vacío — mismo criterio que FilaNavegable. */
+  badge?: string | number;
   /** Modo seleccionar. Con `activa`, el cuerpo marca/desmarca en vez de su
    *  `onClick` (que se ignora); `acciones` se sigue pintando igual — un modo
    *  "Editar" puede combinar checkbox + flechas de orden en la misma fila
@@ -108,7 +109,7 @@ export function FilaAccion({
           <span className={`fila__subtitulo${subtituloConTono ? ' fila__subtitulo--tono' : ''}`}>{subtitulo}</span>
         )}
       </span>
-      {badge != null && <span className="fila__badge">{badge}</span>}
+      {!!badge && <span className="fila__badge">{badge}</span>}
     </>
   );
 

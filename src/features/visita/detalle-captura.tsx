@@ -530,6 +530,9 @@ function DetalleCapturaPorId() {
         <img src={urlMedia} alt="captura" style={{ width: '100%', borderRadius: 12 }} />
       )}
 
+      {/* Excepción documentada a "nada de .btn-enlace como acción": esto es
+          un hipervínculo externo genuino (abre Google Maps en otra
+          pestaña), no una acción de la app disfrazada de texto tenue. */}
       {captura.tipo === 'foto' && captura.latitud != null && captura.longitud != null && (
         <a
           className="btn-enlace"
