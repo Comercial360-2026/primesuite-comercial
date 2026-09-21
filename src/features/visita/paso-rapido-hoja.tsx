@@ -47,6 +47,14 @@ export function PasoRapidoHoja({
   const [objetivoVisita, setObjetivoVisita] = useState('');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
 
+  // Valor EN VIVO de cada campo dictado (incluye lo provisional aún sin
+  // consolidar) — `puedeGuardar` los usa en vez de `descripcion`/
+  // `objetivoVisita` a secas: si no, "Guardar"/"Planificar visita" se
+  // quedaba gris con el texto ya dictado visible en el campo, hasta que el
+  // motor de reconocimiento terminaba de afinar la frase.
+  const [descripcionEnVivo, setDescripcionEnVivo] = useState('');
+  const [objetivoEnVivo, setObjetivoEnVivo] = useState('');
+
   const [guardando, setGuardando] = useState(false);
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,8 +101,8 @@ export function PasoRapidoHoja({
 
   const puedeGuardar =
     modo === 'tarea'
-      ? !!descripcion.trim()
-      : !!fechaVisita && !!objetivoVisita.trim();
+      ? !!descripcionEnVivo.trim()
+      : !!fechaVisita && !!objetivoEnVivo.trim();
 
   return (
     <HojaSuperior titulo="Qué queda pendiente" onCerrar={onCerrar}>
@@ -124,6 +132,7 @@ export function PasoRapidoHoja({
               rows={2}
               valor={descripcion}
               onCambio={setDescripcion}
+              onValorEnVivo={setDescripcionEnVivo}
               placeholder="volver a llamar en dos semanas, enviar propuesta…"
               autoFocus
             />
@@ -155,6 +164,7 @@ export function PasoRapidoHoja({
               placeholder="a qué vuelves: cerrar el pedido, revisar la instalación…"
               valor={objetivoVisita}
               onCambio={setObjetivoVisita}
+              onValorEnVivo={setObjetivoEnVivo}
             />
             <div className="label">Hora (opcional)</div>
             <input

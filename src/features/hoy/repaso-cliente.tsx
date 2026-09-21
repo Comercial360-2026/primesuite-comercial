@@ -79,10 +79,15 @@ export function RepasoCliente() {
     queryKey: ['proyectos-cliente-repaso', clienteId],
     enabled: !!clienteId,
     queryFn: async (): Promise<Array<{ id: string; nombre: string; estado: string }>> => {
+      // Excluye 'terminado' del selector de objetivo — mismo filtro que ya
+      // aplican empezar-visita-hoja.tsx y planificar-visita.tsx al mismo
+      // destino; sin él, un proyecto terminado más antiguo podía quedar
+      // preseleccionado por defecto sobre uno activo más reciente.
       const { data, error } = await supabase
         .from('proyecto')
         .select('id, nombre, estado')
         .eq('cliente_id', clienteId!)
+        .neq('estado', 'terminado')
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return data ?? [];

@@ -15,7 +15,10 @@ import { Icono, type NombreIcono } from './iconos';
 // Aspecto en components.css (.tarjeta-accion*). Ver 08_sistema_diseno.md
 // §"Sistema de filas".
 
-type Tono = 'neutral' | 'aviso' | 'riesgo';
+// 'positivo' es solo para la barra (verde cuando hay holgura de verdad, p.
+// ej. el medidor de espacio del equipo) — no tiñe título/estado como
+// aviso/riesgo, ese texto ya es neutral cuando todo va bien.
+type Tono = 'neutral' | 'aviso' | 'riesgo' | 'positivo';
 
 export interface AccionTarjeta {
   etiqueta: string;

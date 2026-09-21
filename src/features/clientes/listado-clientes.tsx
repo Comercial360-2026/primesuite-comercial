@@ -60,7 +60,14 @@ export function ListadoClientes() {
   const soloMios = esDireccionComercial ? vistaDireccion === 'mios' : true;
   const queryClient = useQueryClient();
 
-  const queryKey = ['listado-clientes', busqueda];
+  // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
+  // compañero, comprobar antes de dar de alta un duplicado) — un buscador
+  // que esconde coincidencias confunde. Sin búsqueda, un comercial normal
+  // ve solo su cartera y Dirección respeta su interruptor "Solo míos".
+  const buscando = !!busqueda.trim();
+  const restringirACartera = soloMios && !buscando;
+
+  const queryKey = ['listado-clientes', busqueda, restringirACartera, comercial?.id];
   const {
     data: clientes,
     isLoading,
@@ -76,6 +83,21 @@ export function ListadoClientes() {
     // problema de fondo que el punto 1 del encargo quería resolver, en
     // un caso que ninguna de las tres condiciones originales cubría.
     queryFn: async (): Promise<ClienteConSemaforo[]> => {
+      // "Solo míos" antes traía SIEMPRE la cartera completa de la empresa
+      // desde vw_semaforo_cliente (la vista no tiene responsable_id) y
+      // filtraba en el cliente — con 5 comerciales pasaba desapercibido,
+      // pero cada apertura de "Clientes" descargaba dos veces la cartera
+      // entera aunque el comercial solo viera la suya. Si la restricción
+      // aplica, se resuelve antes la lista (mucho más pequeña) de IDs de mi
+      // cartera contra `cliente`, y se filtra el listado por esos IDs.
+      let idsCartera: string[] | null = null;
+      if (restringirACartera && comercial?.id) {
+        const { data, error } = await supabase.from('cliente').select('id').eq('responsable_id', comercial.id);
+        if (error) throw error;
+        idsCartera = (data ?? []).map((c) => c.id);
+        if (idsCartera.length === 0) return [];
+      }
+
       let query = supabase
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre, semaforo, ultima_visita')
@@ -83,6 +105,9 @@ export function ListadoClientes() {
 
       if (busqueda.trim()) {
         query = query.ilike('cliente_nombre', `%${busqueda.trim()}%`);
+      }
+      if (idsCartera) {
+        query = query.in('cliente_id', idsCartera);
       }
 
       const { data, error } = await query;
@@ -121,12 +146,9 @@ export function ListadoClientes() {
     },
   });
 
-  // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
-  // compañero, comprobar antes de dar de alta un duplicado) — un buscador
-  // que esconde coincidencias confunde. Sin búsqueda, un comercial normal
-  // ve solo su cartera y Dirección respeta su interruptor "Solo míos".
-  const buscando = !!busqueda.trim();
-  const restringirACartera = soloMios && !buscando;
+  // El servidor ya filtra por cartera cuando `restringirACartera` está
+  // activo (arriba); este filtro se queda como red de seguridad ante un
+  // resultado en caché de otra vista mientras cambia `meta`.
   const clientesFiltrados = clientes?.filter(
     (c) => !restringirACartera || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );

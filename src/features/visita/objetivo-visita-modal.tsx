@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { esSinRed } from '@/lib/red';
 import { Modal } from '@/components/ui/modal';
 import { Icono } from '@/components/ui/iconos';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
@@ -53,6 +54,17 @@ export function ObjetivoVisitaModal({
   const [arrancando, setArrancando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // `proyectos` puede llegar undefined en el primer render y resolverse un
+  // instante después (p. ej. alta-rapida-cliente.tsx, donde la ventana nace
+  // siempre con `proyectos` sin resolver todavía). Sin esto, `proyectoId`
+  // se quedaba en '' para siempre — la visita se creaba con proyecto_id
+  // vacío camino de la cola offline, un fallo que solo aparecía en segundo
+  // plano al sincronizar, ya lejos de la acción del comercial.
+  useEffect(() => {
+    if (!proyectoId && opciones[0]?.id) setProyectoId(opciones[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opciones]);
+
   // «+ Nuevo proyecto» inline.
   const [creando, setCreando] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState('');
@@ -74,8 +86,8 @@ export function ObjetivoVisitaModal({
       setProyectoId(id);
       setCreando(false);
       setNombreNuevo('');
-    } catch (err) {
-      setErrorNuevo(err instanceof Error ? err.message : 'No se pudo crear el proyecto.');
+    } catch {
+      setErrorNuevo('No se pudo crear el proyecto. Inténtalo de nuevo.');
     } finally {
       setCreandoCarga(false);
     }
@@ -84,14 +96,20 @@ export function ObjetivoVisitaModal({
   async function empezar() {
     const objetivoConsolidado = (refDictado.current?.consolidar() ?? objetivo).trim();
     if (!objetivoConsolidado || arrancando) return;
+    // Validación explícita: sin proyecto elegido no se arranca, en vez de
+    // dejar que la visita se cree con proyecto_id vacío camino de la cola.
+    if (!proyectoId) {
+      setError('Elige un proyecto antes de empezar.');
+      return;
+    }
     setArrancando(true);
     setError(null);
     try {
       await onConfirmar(objetivoConsolidado, proyectoId);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? `No se pudo empezar la visita: ${err.message}`
+        esSinRed(err)
+          ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
           : 'No se pudo empezar la visita. Inténtalo de nuevo.'
       );
       setArrancando(false);

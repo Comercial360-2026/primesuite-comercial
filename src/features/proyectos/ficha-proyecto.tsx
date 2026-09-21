@@ -19,6 +19,7 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
+import { Aviso } from '@/components/ui/aviso';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -444,7 +445,7 @@ export function FichaProyecto() {
             </button>
           ))}
         </div>
-        {cambioEstado.error && <div className="field-error-text">{cambioEstado.error}</div>}
+        {cambioEstado.error && <Aviso tipo="error">{cambioEstado.error}</Aviso>}
         {terminado && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
@@ -793,10 +794,12 @@ function FilaVisitaViva({
       {confirmandoCancelar ? (
         <div>
           {oportunidadesAbiertas > 0 ? (
-            <div className="field-error-text" style={{ marginBottom: 6 }}>
-              No se puede cancelar: tiene{' '}
-              {plural(oportunidadesAbiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin cerrar.
-              Ciérrala{oportunidadesAbiertas > 1 ? 's' : ''} antes.
+            <div style={{ marginBottom: 6 }}>
+              <Aviso tipo="error">
+                No se puede cancelar: tiene{' '}
+                {plural(oportunidadesAbiertas, 'oportunidad abierta', 'oportunidades abiertas')} sin cerrar.
+                Ciérrala{oportunidadesAbiertas > 1 ? 's' : ''} antes.
+              </Aviso>
             </div>
           ) : (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-700)', marginBottom: 6 }}>
@@ -805,7 +808,7 @@ function FilaVisitaViva({
                 : 'Se borra la visita planificada. No se puede deshacer.'}
             </div>
           )}
-          {cancelar.error && <div className="field-error-text">{cancelar.error}</div>}
+          {cancelar.error && <Aviso tipo="error">{cancelar.error}</Aviso>}
           <div className="fila-btns">
             <button
               type="button"
@@ -864,7 +867,7 @@ function FilaVisitaViva({
               Cancelar visita
             </button>
           </div>
-          {mover.error && <div className="field-error-text">{mover.error}</div>}
+          {mover.error && <Aviso tipo="error">{mover.error}</Aviso>}
         </>
       )}
     </div>

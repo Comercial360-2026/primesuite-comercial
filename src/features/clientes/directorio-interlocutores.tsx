@@ -202,8 +202,8 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             .eq('id', editandoId!),
         'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar.');
+    } catch {
+      setError('No se pudo guardar. Inténtalo de nuevo.');
       setGuardando(false);
       return;
     }
