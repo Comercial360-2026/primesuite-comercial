@@ -260,7 +260,13 @@ export function AltaRapidaCliente() {
     await creacionCliente.ejecutar(crearCliente, {
       onExito: (cliente) => {
         if (cliente.enCola) {
-          creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
+          // El cliente (y su proyecto) YA se han guardado — en la cola local,
+          // por un fallo de red al confirmar. Decir "inténtalo de nuevo" aquí
+          // invitaba a repetir el alta entera y crear un cliente duplicado
+          // con el mismo nombre en cuanto sincronizara el primero.
+          creacionCliente.establecerError(
+            'El cliente ya se ha guardado (pendiente de sincronizar) — no repitas el alta. Para planificar una visita necesitas conexión: vuelve a intentarlo desde su ficha cuando tengas red.'
+          );
           return;
         }
         navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${cliente.proyectoId}`);
