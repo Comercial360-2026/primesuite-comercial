@@ -81,6 +81,16 @@ export function detenerMotorSincronizacion(): void {
 // en vez de esperar a su propio intervalo.
 export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
 
+// `sincronizandoAhora` solo sirve dentro de ESTA pestaña — es una variable
+// de módulo con alcance por pestaña, pero todas comparten la misma
+// IndexedDB. Dos pestañas del mismo dispositivo que recuperan red casi a la
+// vez podían procesar el mismo id a la vez cada una por su lado, chocando
+// con el mismo problema que el INSERT idempotente de arriba amortigua pero
+// no evita del todo. Web Locks serializa de verdad entre pestañas: si otra
+// ya tiene el lock, esta espera a que termine y entonces su propio
+// obtenerPendientes() ya no ve lo que la otra acaba de subir.
+const NOMBRE_LOCK_SYNC = 'primesuite-sync-cola';
+
 export async function procesarCola(opciones?: { incluirErrores?: boolean }): Promise<void> {
   const incluirErrores = opciones?.incluirErrores ?? false;
   if (sincronizandoAhora) {
@@ -90,9 +100,18 @@ export async function procesarCola(opciones?: { incluirErrores?: boolean }): Pro
   if (!navigator.onLine) return;
   sincronizandoAhora = true;
   try {
-    const pendientes = await obtenerPendientes(incluirErrores);
-    for (const operacion of pendientes) {
-      await procesarOperacion(operacion);
+    const pasada = async () => {
+      const pendientes = await obtenerPendientes(incluirErrores);
+      for (const operacion of pendientes) {
+        await procesarOperacion(operacion);
+      }
+    };
+    // Sin soporte de Web Locks (navegador antiguo), sigue sin serializar
+    // entre pestañas — igual que antes de este cambio.
+    if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+      await navigator.locks.request(NOMBRE_LOCK_SYNC, pasada);
+    } else {
+      await pasada();
     }
   } finally {
     sincronizandoAhora = false;

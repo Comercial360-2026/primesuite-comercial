@@ -319,7 +319,7 @@ export function FichaProyecto() {
     if (!proyectoId) return;
     const destino = destinoBorrado || destinosBorrado[0]?.id;
     if (!destino) {
-      borrado.establecerError('Es el único proyecto del cliente; no se puede borrar.');
+      borrado.establecerError('No hay otro proyecto activo al que mover su actividad; no se puede borrar.');
       return;
     }
     if (!navigator.onLine) {
@@ -559,7 +559,7 @@ export function FichaProyecto() {
                 icono="borrar"
                 titulo="Borrar proyecto"
                 subtitulo={
-                  destinosBorrado.length === 0 ? 'Es el único proyecto del cliente' : undefined
+                  destinosBorrado.length === 0 ? 'No hay otro proyecto activo del cliente' : undefined
                 }
                 tono="riesgo"
                 chevron={false}

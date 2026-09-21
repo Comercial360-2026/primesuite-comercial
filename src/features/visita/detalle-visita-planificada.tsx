@@ -231,7 +231,7 @@ export function DetalleVisitaPlanificada() {
 
           {/* Empezar */}
           {confirmando === 'empezar' ? (
-            <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
+            <div className="card card--advertencia">
               <div style={{ fontSize: 'var(--text-sm)' }}>
                 Esta visita es para el{' '}
                 {fechaCorta(fechaVisita!)}. ¿Empezarla ahora

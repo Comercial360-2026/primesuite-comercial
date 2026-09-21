@@ -1184,11 +1184,13 @@ export function VisitaActiva() {
 
   // Lo que hay en `operaciones` es SOLO la cola local de este dispositivo
   // (por diseño, para que la visita siga funcionando sin conexión) — nunca
-  // incluye lo que un compañero haya capturado desde el suyo. Sin esto, dos
-  // comerciales trabajando la misma visita a la vez no se veían el uno al
-  // otro hasta cerrarla y consultar el detalle aparte. Se pide directo a
-  // Supabase, excluyendo lo mío (eso ya está cubierto por la cola local),
-  // y se refresca cada 20s mientras la pantalla está abierta.
+  // incluye lo que un compañero haya capturado desde el suyo, NI lo que yo
+  // mismo haya capturado desde OTRO dispositivo a mitad de la misma visita
+  // (esa cola local tampoco se comparte entre mis propios dispositivos). Se
+  // pide directo a Supabase SIN excluir por autor, y lo que ya está en la
+  // cola local se descarta más abajo por id para no duplicar — así lo propio
+  // de otro dispositivo no se queda invisible. Se refresca cada 20s mientras
+  // la pantalla está abierta.
   const { data: deCompaneros } = useQuery({
     queryKey: ['capturas-companeros', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial,
@@ -1198,23 +1200,19 @@ export function VisitaActiva() {
         supabase
           .from('captura_libre')
           .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto')
-          .eq('visita_id', visitaId!)
-          .neq('comercial_autor_id', comercial!.id),
+          .eq('visita_id', visitaId!),
         supabase
           .from('hallazgo')
           .select('id, nota, comercial_autor_id, zona_texto')
-          .eq('visita_id', visitaId!)
-          .neq('comercial_autor_id', comercial!.id),
+          .eq('visita_id', visitaId!),
         supabase
           .from('proximo_paso')
           .select('id, descripcion, fecha_objetivo, comercial_responsable_id, zona_texto')
-          .eq('visita_id', visitaId!)
-          .neq('comercial_responsable_id', comercial!.id),
+          .eq('visita_id', visitaId!),
         supabase
           .from('oportunidad')
           .select('id, titulo, etapa, comercial_autor_id, zona_texto')
-          .eq('visita_origen_id', visitaId!)
-          .neq('comercial_autor_id', comercial!.id),
+          .eq('visita_origen_id', visitaId!),
       ]);
       return {
         capturas: capturasRes.data ?? [],
@@ -1281,16 +1279,29 @@ export function VisitaActiva() {
     enabled: !!visitaId,
     queryFn: () => listarZonasUsadasEnVisita(visitaId!),
   });
-  const notasCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'nota') ?? [];
-  const audiosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'audio') ?? [];
+  // Descarta por id lo que ya está en la cola local (mío, en este
+  // dispositivo) para no duplicarlo entre la sección "mía" y esta.
+  const idsCapturasLocales = new Set(capturas.map((c) => c.id));
+  const idsHallazgosLocales = new Set(hallazgos.map((h) => h.id));
+  const idsPasosLocales = new Set(pasos.map((p) => p.id));
+  const idsOportunidadesLocales = new Set(oportunidades.map((o) => o.id));
+  const capturasServidorSinLocales = (deCompaneros?.capturas ?? []).filter(
+    (c) => !idsCapturasLocales.has(c.id)
+  );
+  const notasCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'nota');
+  const audiosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'audio');
   // B4 · Las fotos de compañeros también cuentan y se listan (antes se
   // pedían pero no se pintaban). Van como fila de texto —igual que sus
   // notas/audios—, no como miniatura: el binario está en Storage, no en la
   // cola local, y abrir el detalle ya enseña la foto.
-  const fotosCompaneros = deCompaneros?.capturas.filter((c) => c.tipo === 'foto') ?? [];
-  const hallazgosCompaneros = deCompaneros?.hallazgos ?? [];
-  const pasosCompaneros = deCompaneros?.pasos ?? [];
-  const oportunidadesCompaneros = deCompaneros?.oportunidades ?? [];
+  const fotosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'foto');
+  const hallazgosCompaneros = (deCompaneros?.hallazgos ?? []).filter(
+    (h) => !idsHallazgosLocales.has(h.id)
+  );
+  const pasosCompaneros = (deCompaneros?.pasos ?? []).filter((p) => !idsPasosLocales.has(p.id));
+  const oportunidadesCompaneros = (deCompaneros?.oportunidades ?? []).filter(
+    (o) => !idsOportunidadesLocales.has(o.id)
+  );
 
   const hayCompaneros =
     notasCompaneros.length +

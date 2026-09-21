@@ -56,7 +56,8 @@ export function Deduplicacion() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('cliente')
-        .select('id, nombre, creado_por, creado_en, estado_fusion, sector, ubicacion_general');
+        .select('id, nombre, creado_por, creado_en, estado_fusion, sector, ubicacion_general')
+        .order('id', { ascending: true });
       if (err) throw err;
       return (data ?? []).filter((c) => c.estado_fusion === 'activo');
     },
