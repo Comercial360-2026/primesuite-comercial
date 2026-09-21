@@ -90,8 +90,20 @@ export function Yo() {
   const [errorExportacion, setErrorExportacion] = useState<string | null>(null);
   const [reportando, setReportando] = useState(false);
 
-  const { invitaciones, rechazos, expulsiones, aceptar, rechazar, marcarRechazoVisto, marcarExpulsionVista } =
-    useAvisosParticipacion();
+  const {
+    invitaciones,
+    rechazos,
+    expulsiones,
+    solicitudesReapertura,
+    rechazosReapertura,
+    aceptar,
+    rechazar,
+    marcarRechazoVisto,
+    marcarExpulsionVista,
+    aceptarReapertura,
+    rechazarReapertura,
+    marcarRechazoReaperturaVisto,
+  } = useAvisosParticipacion();
   const [procesandoAviso, setProcesandoAviso] = useState<string | null>(null);
   const [errorAviso, setErrorAviso] = useState<string | null>(null);
 
@@ -417,9 +429,63 @@ export function Yo() {
           </div>
         )}
 
-        {(invitaciones.length > 0 || rechazos.length > 0 || expulsiones.length > 0) && (
+        {(invitaciones.length > 0 ||
+          rechazos.length > 0 ||
+          expulsiones.length > 0 ||
+          solicitudesReapertura.length > 0 ||
+          rechazosReapertura.length > 0) && (
           <div className="card">
             <div className="label" style={{ marginTop: 0 }}>Visitas de equipo</div>
+
+            {solicitudesReapertura.map((sol) => (
+              <div key={sol.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  {sol.solicitadoPorNombre} quiere reabrir la visita de {sol.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(sol.fechaVisita)}
+                </div>
+                <div className="fila-btns" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={procesandoAviso === sol.id}
+                    onClick={() => resolverAviso(sol.id, () => aceptarReapertura(sol.id))}
+                  >
+                    {procesandoAviso === sol.id ? 'Guardando…' : 'Aceptar'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === sol.id}
+                    onClick={() => resolverAviso(sol.id, () => rechazarReapertura(sol.id))}
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {rechazosReapertura.map((r) => (
+              <div key={r.id} style={{ marginTop: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  Te han rechazado reabrir la visita de {r.clienteNombre}
+                </div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 2 }}>
+                  {fechaCorta(r.fechaVisita)}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={procesandoAviso === r.id}
+                    onClick={() => resolverAviso(r.id, () => marcarRechazoReaperturaVisto(r.id))}
+                  >
+                    {procesandoAviso === r.id ? 'Guardando…' : 'Entendido'}
+                  </button>
+                </div>
+              </div>
+            ))}
 
             {invitaciones.map((inv) => (
               <div key={inv.id} style={{ marginTop: 'var(--space-3)' }}>

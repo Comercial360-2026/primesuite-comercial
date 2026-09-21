@@ -26,6 +26,7 @@ import { guardarConsolidacionPendiente } from '@/lib/consolidar-cierre-pendiente
 
 interface ParcheCierre {
   estado_captura: 'consolidada';
+  cerrada_en: string;
   resumen_texto?: string;
   resumen_origen?: 'reglas';
 }
@@ -239,7 +240,7 @@ export function CierreVisita() {
     // El resumen "por reglas" se guarda junto con el cierre. `resumen_origen`
     // nace 'reglas' por defecto en la BD; solo se fija explícito para dejar
     // claro el origen aunque cambie el default.
-    const parche: ParcheCierre = { estado_captura: 'consolidada' };
+    const parche: ParcheCierre = { estado_captura: 'consolidada', cerrada_en: new Date().toISOString() };
     if (resumenReglas) {
       parche.resumen_texto = resumenReglas;
       parche.resumen_origen = 'reglas';
