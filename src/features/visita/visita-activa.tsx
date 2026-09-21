@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo, desdeHace, hora } from '@/lib/fechas';
 import { capitalizarFrase } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
@@ -29,13 +30,14 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { Segmentado } from '@/components/ui/segmentado';
-import { actualizarOperacion, eliminarOperacion } from '@/lib/offline-queue';
+import { actualizarOperacion, eliminarOperacion, obtenerOperacion } from '@/lib/offline-queue';
 import { deduplicarZonas, listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
 import type {
   OperacionPendiente,
   HallazgoPayload,
   OportunidadPayload,
   ProximoPasoPayload,
+  CapturaLibrePayload,
 } from '@/lib/offline-queue/types';
 
 // Mapa id → URL de blob: una URL por Blob, revocada solo cuando ese Blob
@@ -396,6 +398,13 @@ export function VisitaActiva() {
   const [segsGrabando, setSegsGrabando] = useState(0);
   const [fotoPendiente, setFotoPendiente] = useState<Blob | null>(null);
   const [audioPendiente, setAudioPendiente] = useState<Blob | null>(null);
+  // Id de la operación de cola ya encolada para la foto/audio en curso de
+  // titular — se encola en cuanto se captura (ver capturarFoto / onstop de
+  // audio), con título vacío, para no perder el binario si Safari iOS
+  // recicla la pestaña en segundo plano antes de que el comercial llegue a
+  // ponerle título. confirmarCapturaPendiente/descartarPendiente completan
+  // o retiran esa misma operación, en vez de encolar una nueva.
+  const capturaPendienteIdRef = useRef<string | null>(null);
   // Mismo bug de fuga que en las miniaturas (ver fotosVisor/urlPorFotoId
   // más abajo): `URL.createObjectURL()` puesto directo en el `src` del
   // JSX se repetía en cada tecla del título (cada repintado de la hoja),
@@ -734,74 +743,112 @@ export function VisitaActiva() {
       setTituloPendiente('');
       setZonaPendiente(zonaParaCaptura); // B6 · zona del momento del disparo
     });
+    // Se encola YA, con título vacío — antes vivía solo en memoria de React
+    // hasta confirmarCapturaPendiente(); si Safari iOS reciclaba la pestaña
+    // en segundo plano justo después del disparo (llamada entrante, cambio
+    // de app), la foto se perdía sin dejar rastro pese a que el comercial ya
+    // había visto la hoja de confirmación.
+    const idCaptura = uuid();
+    capturaPendienteIdRef.current = idCaptura;
+    void encolar(
+      idCaptura,
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: 'foto',
+        zonaTexto: zonaParaCaptura,
+      },
+      { dependeDe: visitaId, archivoLocal: archivoComprimido }
+    );
+  }
+
+  // Borra en el servidor una captura que ya sincronizó con título vacío
+  // antes de que el comercial la descartara/completara — mismo orden que el
+  // resto de borrados (fila primero, Storage después, ver detalle-captura.tsx).
+  async function borrarCapturaYaSincronizada(id: string) {
+    const { data: fila } = await supabase.from('captura_libre').select('storage_path, tipo').eq('id', id).single();
+    await supabase.from('captura_libre').delete().eq('id', id);
+    if (fila?.storage_path) {
+      const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+      await supabase.storage.from(bucket).remove([fila.storage_path]);
+    }
   }
 
   // Cerrar la hoja de Foto/Audio sin guardar = descartar el binario que se
   // acaba de capturar (mismo efecto que el botón "Descartar"). Se usa
   // también como `onCerrar` de la hoja (×, Esc, tocar fuera).
   function descartarPendiente() {
+    const id = capturaPendienteIdRef.current;
     setFotoPendiente(null);
     setAudioPendiente(null);
     setTituloPendiente('');
     setZonaPendiente(undefined);
     capturaFoto.limpiarError();
     capturaAudio.limpiarError();
+    if (!id) return;
+    capturaPendienteIdRef.current = null;
+    void (async () => {
+      const op = await obtenerOperacion(id);
+      if (op?.estado === 'completado') {
+        await borrarCapturaYaSincronizada(id).catch(() => {});
+      } else {
+        await eliminarOperacion(id);
+      }
+    })();
   }
 
   async function confirmarCapturaPendiente() {
     const tituloConsolidado = (refDictadoTituloPendiente.current?.consolidar() ?? tituloPendiente).trim();
-    if (fotoPendiente) {
-      await capturaFoto.ejecutar(
-        () =>
-          encolar(
-            uuid(),
-            'captura_libre',
-            {
-              visitaId: visitaId!,
-              comercialAutorId: comercial!.id,
-              tipo: 'foto',
-              titulo: tituloConsolidado || undefined,
-              zonaTexto: zonaPendiente,
-              latitud: coordsFotoRef.current?.lat,
-              longitud: coordsFotoRef.current?.lng,
-            },
-            { dependeDe: visitaId, archivoLocal: fotoPendiente }
-          ),
-        {
-          mensajeError: 'No se pudo guardar la foto. Inténtalo de nuevo.',
-          onExito: () => {
-            setFotoPendiente(null);
-            setTituloPendiente('');
-            setZonaPendiente(undefined);
-            coordsFotoRef.current = null;
-          },
+    const id = capturaPendienteIdRef.current;
+    const tipo: 'foto' | 'audio' | null = fotoPendiente ? 'foto' : audioPendiente ? 'audio' : null;
+    if (!id || !tipo) return;
+    const accion = tipo === 'foto' ? capturaFoto : capturaAudio;
+    await accion.ejecutar(
+      async () => {
+        const latitud = tipo === 'foto' ? coordsFotoRef.current?.lat : undefined;
+        const longitud = tipo === 'foto' ? coordsFotoRef.current?.lng : undefined;
+        // El binario ya se encoló al capturar (capturarFoto / onstop de
+        // audio) — aquí solo se completa el título y la zona. Si para
+        // entonces ya sincronizó con el servidor (placeholder sin título),
+        // se corrige con un UPDATE directo: tocar solo la cola local ya no
+        // serviría de nada.
+        const op = await obtenerOperacion(id);
+        if (op?.estado === 'completado') {
+          await conReintentoDeSesion(
+            () =>
+              supabase
+                .from('captura_libre')
+                .update(
+                  { titulo: tituloConsolidado || null, zona_texto: zonaPendiente ?? null, latitud, longitud },
+                  { count: 'exact' }
+                )
+                .eq('id', id),
+            'La captura se guardó, pero no se ha podido completar el título (0 filas afectadas).'
+          );
+        } else if (op?.entidad === 'captura_libre') {
+          const payload: CapturaLibrePayload = {
+            ...op.payload,
+            titulo: tituloConsolidado || undefined,
+            zonaTexto: zonaPendiente,
+            ...(tipo === 'foto' ? { latitud, longitud } : {}),
+          };
+          await actualizarOperacion(id, { payload });
         }
-      );
-    } else if (audioPendiente) {
-      await capturaAudio.ejecutar(
-        () =>
-          encolar(
-            uuid(),
-            'captura_libre',
-            {
-              visitaId: visitaId!,
-              comercialAutorId: comercial!.id,
-              tipo: 'audio',
-              titulo: tituloConsolidado || undefined,
-              zonaTexto: zonaPendiente,
-            },
-            { dependeDe: visitaId, archivoLocal: audioPendiente }
-          ),
-        {
-          mensajeError: 'No se pudo guardar el audio grabado. Inténtalo de nuevo.',
-          onExito: () => {
-            setAudioPendiente(null);
-            setTituloPendiente('');
-            setZonaPendiente(undefined);
-          },
-        }
-      );
-    }
+      },
+      {
+        mensajeError:
+          tipo === 'foto' ? 'No se pudo guardar la foto. Inténtalo de nuevo.' : 'No se pudo guardar el audio grabado. Inténtalo de nuevo.',
+        onExito: () => {
+          setFotoPendiente(null);
+          setAudioPendiente(null);
+          setTituloPendiente('');
+          setZonaPendiente(undefined);
+          coordsFotoRef.current = null;
+          capturaPendienteIdRef.current = null;
+        },
+      }
+    );
   }
 
   const timeoutAudioRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -839,6 +886,22 @@ export function VisitaActiva() {
               setAudioPendiente(blob);
               setTituloPendiente('');
             });
+            // Mismo motivo que en capturarFoto: se encola ya, con título
+            // vacío, para no depender de que la pantalla siga viva hasta que
+            // el comercial titule el audio.
+            const idCaptura = uuid();
+            capturaPendienteIdRef.current = idCaptura;
+            void encolar(
+              idCaptura,
+              'captura_libre',
+              {
+                visitaId: visitaId!,
+                comercialAutorId: comercial!.id,
+                tipo: 'audio',
+                zonaTexto: zonaParaCaptura,
+              },
+              { dependeDe: visitaId, archivoLocal: blob }
+            );
             stream.getTracks().forEach((t) => t.stop());
             soltarWakeLock();
             if (timeoutAudioRef.current) {
