@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import type { Database } from '@/types/database';
 
@@ -28,19 +28,25 @@ function guardarComercialCacheado(comercial: Comercial | null) {
   }
 }
 
-// Lee el registro `comercial` correspondiente al usuario autenticado en
-// Supabase Auth (comercial.id === auth.users.id, ver 02_auth_rls.sql §1).
-// Se resuelve una sola vez por sesión y se mantiene en memoria — las
-// políticas RLS ya validan el rol en cada consulta, esto es solo para que
-// la UI (bottom nav, RequireRole) sepa qué mostrar sin re-consultar.
-export function useSesionActual() {
-  // BUG CORREGIDO: el estado en memoria (useState) no sobrevive a un
-  // recargado completo de la página — si eso pasa sin conexión (frecuente
-  // al activar modo avión, o si el móvil mata la pestaña), el comercial
-  // volvía a null en el arranque y no había red para recuperarlo, expulsando
-  // a /login pese a tener una sesión guardada válida. Se hidrata el estado
-  // inicial desde una copia en localStorage, actualizada en cada carga con
-  // éxito, para que el arranque en frío sin red no se quede sin nada.
+interface SesionActual {
+  comercial: Comercial | null;
+  cargando: boolean;
+}
+
+// Sin contexto compartido, cada uno de los ~30 sitios que necesitan saber
+// "quién es el comercial actual" (RequireRole, RequireSession, layout-shell,
+// hooks de avisos...) abría su PROPIA suscripción a onAuthStateChange y su
+// propia consulta a `comercial` — un evento de auth (refresco de token,
+// reconexión) disparaba todas a la vez, y cada guard anidado (p. ej.
+// RequireRole dentro de RequireSession) arrancaba de nuevo en `cargando:
+// true` aunque el guard exterior ya hubiera resuelto la sesión, causando un
+// parpadeo en blanco en cada navegación entre pantallas de Dirección. Un
+// único `<SesionActualProvider>` en la raíz resuelve la sesión UNA vez;
+// `useSesionActual()` sigue teniendo la misma firma de siempre, así que
+// ningún consumidor cambia.
+const SesionActualContext = createContext<SesionActual | null>(null);
+
+export function SesionActualProvider({ children }: { children: ReactNode }) {
   const [comercial, setComercial] = useState<Comercial | null>(() => leerComercialCacheado());
   const [cargando, setCargando] = useState(true);
 
@@ -114,5 +120,19 @@ export function useSesionActual() {
     };
   }, []);
 
-  return { comercial, cargando };
+  return (
+    <SesionActualContext.Provider value={{ comercial, cargando }}>
+      {children}
+    </SesionActualContext.Provider>
+  );
+}
+
+// Lee la sesión ya resuelta por <SesionActualProvider>, montado una vez en
+// la raíz de la app (main.tsx) — ver 09_arquitectura_tecnica.md §1.
+export function useSesionActual(): SesionActual {
+  const ctx = useContext(SesionActualContext);
+  if (!ctx) {
+    throw new Error('useSesionActual() debe usarse dentro de <SesionActualProvider>.');
+  }
+  return ctx;
 }

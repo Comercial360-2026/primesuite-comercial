@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
+import { esSinRed } from '@/lib/red';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { Aviso } from '@/components/ui/aviso';
@@ -27,7 +28,25 @@ export function EstablecerContrasena() {
   const [password, setPassword] = useState('');
   const [repite, setRepite] = useState('');
 
+  // Esta ruta está fuera de RequireSession a propósito, para funcionar sin
+  // sesión previa — pero eso también la deja alcanzable por alguien con una
+  // sesión NORMAL ya abierta (dispositivo compartido), que podría fijar una
+  // contraseña nueva sin que le pidan la actual. `getSession()` no
+  // distingue una sesión de recuperación de una normal; el único rastro de
+  // "vengo de un enlace de recuperación" es el `type=recovery` que Supabase
+  // añade al hash de la URL. Se captura en el primer render (síncrono, antes
+  // de que Supabase lo procese y limpie de la URL) y solo entonces se acepta
+  // la sesión que resuelva `getSession()`/`onAuthStateChange`.
+  const [esRecuperacion] = useState(
+    () => window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')
+  );
+
   useEffect(() => {
+    if (!esRecuperacion) {
+      setNombre(null);
+      return;
+    }
+
     let vivo = true;
 
     async function comprobar() {
@@ -58,7 +77,7 @@ export function EstablecerContrasena() {
       sub.subscription.unsubscribe();
       clearTimeout(t);
     };
-  }, []);
+  }, [esRecuperacion]);
 
   const cortas = password.length > 0 && password.length < MIN_LARGO;
   const noCoincide = repite.length > 0 && repite !== password;
@@ -74,8 +93,10 @@ export function EstablecerContrasena() {
       },
       {
         onExito: () => navigate('/', { replace: true }),
-        mensajeError: () =>
-          'No se pudo guardar la contraseña. El enlace puede haber caducado — pide a tu responsable que te reenvíe uno.',
+        mensajeError: (err) =>
+          esSinRed(err)
+            ? 'Sin conexión. Conéctate a internet para guardar la contraseña.'
+            : 'No se pudo guardar la contraseña. El enlace puede haber caducado — pide a tu responsable que te reenvíe uno.',
       }
     );
   }

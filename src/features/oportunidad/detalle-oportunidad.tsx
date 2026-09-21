@@ -115,15 +115,21 @@ export function DetalleOportunidad() {
     .filter(Boolean)
     .join(' · ');
 
+  // Guard con ref (mismo patrón que detalle-hallazgo.tsx): sin esto, CUALQUIER
+  // refetch en segundo plano (foco de ventana, staleTime 60s) volvía a sembrar
+  // los campos con los valores del servidor y sobrescribía sin aviso lo que el
+  // comercial llevaba editado — el guard "areas" ya lo tenía, este no.
+  const camposSembradosRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!oportunidad) return;
+    if (!oportunidad || camposSembradosRef.current === oportunidadId) return;
     setTitulo(oportunidad.titulo);
     setEtapa(oportunidad.etapa);
     setPrioridad(oportunidad.prioridad);
     setHorizonte(oportunidad.horizonte_decision ?? '');
     setDescripcion(oportunidad.descripcion ?? '');
     setZonaTexto(oportunidad.zona_texto ?? '');
-  }, [oportunidad]);
+    camposSembradosRef.current = oportunidadId ?? null;
+  }, [oportunidad, oportunidadId]);
 
   // Áreas (categoría/término) — igual que Hallazgo: se cargan aparte y se
   // siembran UNA sola vez por oportunidad (guard con ref), para no borrar
@@ -281,10 +287,15 @@ export function DetalleOportunidad() {
       setError(errGuardar instanceof Error ? errGuardar.message : 'No se pudo guardar.');
       return;
     }
-    setGuardando(false);
+    // `guardando` se mantiene hasta el final del todo (como en detalle-
+    // hallazgo.tsx) — liberarlo aquí, antes de guardar las áreas, dejaba el
+    // botón "Guardar" pulsable de nuevo mientras ese guardado seguía en
+    // vuelo: con red lenta, un segundo toque disparaba una segunda
+    // ejecución completa en paralelo.
     try {
       await guardarAreasDeOportunidad(oportunidadId!, areas);
     } catch (errAreas) {
+      setGuardando(false);
       setError(errAreas instanceof Error ? errAreas.message : 'No se pudieron guardar las áreas.');
       return;
     }
@@ -315,6 +326,7 @@ export function DetalleOportunidad() {
       await queryClient.invalidateQueries({ queryKey: ['zonas-usadas-visita', oportunidad.visita_origen_id] });
       queryClient.invalidateQueries({ queryKey: ['mis-zonas-reales-visita', oportunidad.visita_origen_id] });
     }
+    setGuardando(false);
     setGuardadoConExito(true);
     setTimeout(() => navigate(volver), 700);
   }

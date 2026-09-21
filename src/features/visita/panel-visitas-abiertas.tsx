@@ -6,6 +6,7 @@ import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { BotonVerMas } from '@/components/ui/boton-ver-mas';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaVisitaAbierta, type VisitaAbierta } from './fila-visita-abierta';
 
 const TOPE = 3;
@@ -24,7 +25,10 @@ export function PanelVisitasAbiertas({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const borrar = useBorrarVisita();
+  // `onBorrada` (no un `await` seguido de cerrar a ciegas): si un lote falla
+  // a mitad, el panel de confirmación (donde se ve el error) se queda
+  // abierto en vez de cerrarse dando a entender que se borró todo.
+  const borrar = useBorrarVisita({ onBorrada: () => salirSeleccion() });
   const online = typeof navigator === 'undefined' ? true : navigator.onLine;
 
   const [seleccionando, setSeleccionando] = useState(false);
@@ -84,9 +88,7 @@ export function PanelVisitasAbiertas({
       }
     >
       {ordenadas.length === 0 ? (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)', margin: '10px 0 4px' }}>
-          Ya no queda ninguna visita abierta.
-        </div>
+        <EstadoLista estado="vacio" mensaje="Ya no queda ninguna visita abierta." />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
           {!online && (
@@ -128,10 +130,7 @@ export function PanelVisitasAbiertas({
               cargando={borrar.borrando.cargando}
               error={borrar.borrando.error}
               onCancelar={() => setConfirmandoDescarte(false)}
-              onConfirmar={async () => {
-                await borrar.borrarVarias(marcadasArr);
-                salirSeleccion();
-              }}
+              onConfirmar={() => borrar.borrarVarias(marcadasArr)}
             >
               Se descartan {marcadasArr.length} {marcadasArr.length === 1 ? 'visita' : 'visitas'} y todo su
               contenido (fotos, audios, notas, hallazgos, oportunidades…).

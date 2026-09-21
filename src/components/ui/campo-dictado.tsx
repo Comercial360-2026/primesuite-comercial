@@ -79,18 +79,28 @@ function AvisoPermiso({ mostrar }: { mostrar: boolean }) {
 interface PropsComunes {
   valor: string;
   onCambio: Dispatch<SetStateAction<string>>;
+  /** Valor EN VIVO en cada cambio, incluida la frase provisional que el
+   *  motor de dictado aún no ha consolidado. `onCambio` no se entera de lo
+   *  provisional (solo de lo ya consolidado) — un botón que decide si
+   *  habilitarse mirando el valor del campo (p. ej. "Enviar") debe usar
+   *  esto, no `valor`, o se queda deshabilitado con texto ya visible en
+   *  pantalla hasta que el motor consolide la frase. */
+  onValorEnVivo?: (v: string) => void;
 }
 
 type PropsTextarea = PropsComunes &
   Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'style' | 'readOnly'>;
 
 export const TextareaDictado = forwardRef<RefCampoDictado, PropsTextarea>(function TextareaDictado(
-  { valor, onCambio, className, ...resto },
+  { valor, onCambio, className, onValorEnVivo, ...resto },
   ref
 ) {
   const d = useCampoDictado(valor, onCambio);
   useImperativeHandle(ref, () => ({ consolidar: d.consolidar }), [d.consolidar]);
   const elementoRef = useEncajarConTeclado(resto.autoFocus);
+  useEffect(() => {
+    onValorEnVivo?.(d.valorEnVivo);
+  }, [d.valorEnVivo, onValorEnVivo]);
 
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>
@@ -113,12 +123,15 @@ type PropsInput = PropsComunes &
   Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'style' | 'readOnly'>;
 
 export const InputDictado = forwardRef<RefCampoDictado, PropsInput>(function InputDictado(
-  { valor, onCambio, className, ...resto },
+  { valor, onCambio, className, onValorEnVivo, ...resto },
   ref
 ) {
   const d = useCampoDictado(valor, onCambio);
   useImperativeHandle(ref, () => ({ consolidar: d.consolidar }), [d.consolidar]);
   const elementoRef = useEncajarConTeclado(resto.autoFocus);
+  useEffect(() => {
+    onValorEnVivo?.(d.valorEnVivo);
+  }, [d.valorEnVivo, onValorEnVivo]);
 
   return (
     <div className={`campo-dictado${d.soportado ? ' campo-dictado--con-boton' : ''}`}>

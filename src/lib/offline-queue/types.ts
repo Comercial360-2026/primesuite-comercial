@@ -7,6 +7,7 @@ export type EntidadSincronizable =
   | 'cliente'
   | 'proyecto'
   | 'visita'
+  | 'visita_objetivo'
   | 'hallazgo'
   | 'captura_libre'
   | 'oportunidad'
@@ -64,6 +65,18 @@ export interface VisitaPayload {
   // estos, la visita nace 'en_curso' con fecha = now(), como siempre.
   fecha?: string; // ISO
   agendada?: boolean;
+}
+
+// Editar "a qué vienes" de una visita YA sincronizada (la UI solo permite
+// tocarlo una vez existe `visitaServidor`, ver visita-activa.tsx). Antes era
+// un UPDATE directo fuera de la cola — la única acción de captura que no era
+// offline-first: sin red, el cambio se perdía sin quedar en ningún sitio
+// para reintentar. `id` aquí es el de esta operación de cola, no el de la
+// visita (que va en el payload) — a diferencia de las demás entidades, no
+// crea una fila nueva.
+export interface VisitaObjetivoPayload {
+  visitaId: string;
+  objetivo: string;
 }
 
 // El "área" de un hallazgo (prompt maestro 11, Fase 2): o una categoría del
@@ -161,6 +174,7 @@ export type PayloadPorEntidad = {
   cliente: ClientePayload;
   proyecto: ProyectoPayload;
   visita: VisitaPayload;
+  visita_objetivo: VisitaObjetivoPayload;
   hallazgo: HallazgoPayload;
   captura_libre: CapturaLibrePayload;
   oportunidad: OportunidadPayload;

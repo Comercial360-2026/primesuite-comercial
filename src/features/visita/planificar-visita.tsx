@@ -12,6 +12,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
+import { Aviso } from '@/components/ui/aviso';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { desde, useVolverA } from '@/lib/volver-a';
@@ -536,7 +537,9 @@ export function PlanificarVisita() {
                   </>
                 )}
                 {guardado.error && (
-                  <div className="field-error-text" style={{ marginTop: 8 }}>{guardado.error}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <Aviso tipo="error">{guardado.error}</Aviso>
+                  </div>
                 )}
                 <button
                   className="btn btn-primary"
@@ -559,7 +562,9 @@ export function PlanificarVisita() {
             {cuando === 'ahora' && (
               <>
                 {errorAhora && (
-                  <div className="field-error-text" style={{ marginTop: 8 }}>{errorAhora}</div>
+                  <div style={{ marginTop: 8 }}>
+                    <Aviso tipo="error">{errorAhora}</Aviso>
+                  </div>
                 )}
                 <button
                   className="btn btn-primary"
@@ -587,7 +592,10 @@ export function PlanificarVisita() {
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoAbierto(false);
-            void lanzarVisitaAhora(objetivo.trim());
+            // Mismo consolidar() que empezarAhora(): sin esto, seguir
+            // dictando con este modal ya abierto perdía la frase a medias.
+            const objetivoConsolidado = (refDictadoObjetivo.current?.consolidar() ?? objetivo).trim();
+            void lanzarVisitaAhora(objetivoConsolidado);
           }}
           onCerrar={() => setEnCursoAbierto(false)}
         />

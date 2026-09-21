@@ -1,6 +1,7 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
+import { desde } from '@/lib/volver-a';
 
 // Banner en la cáscara de la app. Aparece cuando:
 //   - Dirección Comercial te ha pedido que liberes espacio (tiene prioridad
@@ -11,13 +12,14 @@ import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 
 export function AvisoEspacio() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { estado } = useEspacioEquipo();
   const { aviso: peticion } = useAvisoLiberar();
 
   if (peticion) {
     return (
       <div
-        onClick={() => navigate('/mi-espacio')}
+        onClick={() => navigate('/mi-espacio', { state: desde(location) })}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -47,7 +49,7 @@ export function AvisoEspacio() {
 
   return (
     <div
-      onClick={() => navigate('/mi-espacio')}
+      onClick={() => navigate('/mi-espacio', { state: desde(location) })}
       style={{
         display: 'flex',
         alignItems: 'center',

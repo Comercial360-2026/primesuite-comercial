@@ -263,6 +263,24 @@ export async function obtenerOperacionesConError(): Promise<OperacionPendiente[]
   return regs.map((r) => desdeAlmacenada(r));
 }
 
+// Una operación solo pasa a 'subiendo' justo antes de la llamada de red
+// (`sync-engine.ts`) y de ahí a 'completado' o 'error' — nunca queda en
+// 'subiendo' por diseño. Si la app se cierra a mitad de esa llamada (batería,
+// iOS descargando la pestaña en segundo plano), la operación se queda en
+// 'subiendo' para siempre: `obtenerPendientes()` solo lee 'pendiente'/'error',
+// así que nunca se vuelve a intentar. Se llama una vez al arrancar el motor
+// de sincronización para reponer a 'pendiente' cualquier operación atascada
+// así — solo pudo llegar a ese estado por una interrupción, nunca por diseño.
+export async function reponerOperacionesAtascadas(): Promise<number> {
+  return conDb(async (db) => {
+    const atascadas = await db.getAllFromIndex('operaciones', 'by-estado', 'subiendo');
+    for (const reg of atascadas) {
+      await db.put('operaciones', { ...reg, estado: 'pendiente' });
+    }
+    return atascadas.length;
+  });
+}
+
 export async function contarPendientesPorEntidad(
   entidad: EntidadSincronizable
 ): Promise<number> {
@@ -386,15 +404,28 @@ export async function purgarCompletadasAntiguas(
   const limite = new Date(Date.now() - diasAntiguedad * 24 * 60 * 60 * 1000).toISOString();
   const inicio = Date.now();
   let totalBorradas = 0;
+  // Clave de continuación real entre lotes (cada lote es su propia
+  // transacción — un cursor no sobrevive entre transacciones). Sin esto,
+  // cada lote reabría el cursor desde el principio del índice: en un
+  // empate de `estado` IndexedDB ordena por PK (UUID aleatorio, no por
+  // antigüedad), así que si las primeras LOTE_PURGA filas en ese orden
+  // eran todas demasiado jóvenes para purgar, cada lote las revisitaba sin
+  // avanzar nunca hasta las viejas.
+  let ultimaClave: string | undefined;
   while (Date.now() - inicio < PRESUPUESTO_TIEMPO_MS) {
-    const { borradas, hayMas } = await conDb(async (db) => {
+    const { borradas, hayMas, siguienteClave } = await conDb(async (db) => {
       const tx = db.transaction('operaciones', 'readwrite');
       const indice = tx.store.index('by-estado');
       let cursor = await indice.openCursor(IDBKeyRange.only('completado'));
+      if (cursor && ultimaClave !== undefined) {
+        cursor = await cursor.continuePrimaryKey('completado', ultimaClave);
+      }
       let visitadasLote = 0;
       let borradasLote = 0;
+      let clave = ultimaClave;
       while (cursor && visitadasLote < LOTE_PURGA) {
         visitadasLote++;
+        clave = cursor.primaryKey;
         if (cursor.value.creadoEn < limite) {
           await cursor.delete();
           borradasLote++;
@@ -402,9 +433,10 @@ export async function purgarCompletadasAntiguas(
         cursor = await cursor.continue();
       }
       await tx.done;
-      return { borradas: borradasLote, hayMas: !!cursor };
+      return { borradas: borradasLote, hayMas: !!cursor, siguienteClave: clave };
     });
     totalBorradas += borradas;
+    ultimaClave = siguienteClave;
     if (!hayMas) break;
     await new Promise((resolve) => setTimeout(resolve, PAUSA_ENTRE_LOTES_MS));
   }

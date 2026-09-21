@@ -53,6 +53,16 @@ Estas reglas son de cumplimiento estricto y prevalecen sobre cualquier otra paut
    Sin ese texto literal no hay autorización. Un "ya está bien", "adelante", "mergea",
    "súbelo" o similar **no** cuenta.
 
+## Cambios mínimos (permanente)
+
+- Buscar primero implementaciones similares en el repositorio.
+- Reutilizar código y componentes existentes antes de crear nuevos.
+- Minimizar el tamaño de los diffs; priorizar cambios quirúrgicos y PRs pequeños.
+- Evitar abstracciones sin necesidad inmediata.
+- No hacer refactors oportunistas. Arreglar todos los sitios de una misma clase
+  de bug (ver método abajo) **no** es un refactor oportunista.
+- No añadir dependencias nuevas sin justificación explícita en el PR.
+
 ## Método al corregir un bug (obligatorio, sin que se pida)
 
 Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:

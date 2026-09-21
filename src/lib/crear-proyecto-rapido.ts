@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
+import { esSinRed } from '@/lib/red';
 import type { useSyncQueue } from '@/hooks/use-sync-queue';
 
 type Encolar = ReturnType<typeof useSyncQueue>['encolar'];
@@ -24,8 +25,7 @@ export async function crearProyectoRapido(
       .insert({ id, cliente_id: clienteId, nombre: nombreLimpio });
     if (!error) return id;
     // Fallo que no parece de red (RLS, constraint…): se muestra tal cual.
-    const esFalloDeRed = /fetch|network|load failed/i.test(error.message ?? '');
-    if (!esFalloDeRed) throw new Error(error.message);
+    if (!esSinRed(error.message)) throw new Error(error.message);
   }
 
   await encolar(id, 'proyecto', { clienteId, nombre: nombreLimpio });
