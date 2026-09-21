@@ -33,8 +33,9 @@ const SUFIJOS = new Set([
 export function claveDuplicado(nombre: string): string {
   const norm = normalizarNombre(nombre);
   const palabras = norm.split(' ');
-  // Prueba a quitar 1, 2 o 3 palabras finales y ver si forman una coletilla.
-  for (let n = 3; n >= 1; n--) {
+  // Prueba a quitar 1 a 4 palabras finales y ver si forman una coletilla
+  // ("s l n e" son 4 tras normalizar — con tope 3 nunca se reconocía).
+  for (let n = 4; n >= 1; n--) {
     if (palabras.length > n) {
       const cola = palabras.slice(-n).join(' ');
       if (SUFIJOS.has(cola)) {

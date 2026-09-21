@@ -108,7 +108,12 @@ export function ActividadComerciales() {
             />
 
             <SeccionLista titulo="Por comercial">
-              {actividad?.map((c) => (
+              {/* Mismo orden que el gráfico de arriba (más actividad primero)
+                  — antes la lista usaba el orden crudo de la RPC (alfabético
+                  por nombre), así que un comercial con mucha actividad pero
+                  nombre tardío alfabéticamente aparecía al final aunque el
+                  gráfico lo mostrara con la barra más alta. */}
+              {[...(actividad ?? [])].sort((a, b) => b.num_visitas - a.num_visitas).map((c) => (
                 <FilaNavegable
                   key={c.comercial_id}
                   avatar={c.nombre}

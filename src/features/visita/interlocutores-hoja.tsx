@@ -20,6 +20,11 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
+  // Sin esto, un doble-toque rápido (antes de que invalide la query) podía
+  // disparar dos INSERT/DELETE seguidos — mismo guard que ya tienen
+  // participantes-hoja.tsx y solicitudes-reasignacion.tsx para la misma
+  // clase de acción.
+  const [trabajandoId, setTrabajandoId] = useState<string | null>(null);
 
   const { data: presentesIds } = useQuery({
     queryKey: ['interlocutores-presentes', visitaId],
@@ -36,33 +41,39 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
   });
 
   async function alternarPresencia(interlocutorId: string, presente: boolean) {
+    if (trabajandoId) return;
+    setTrabajandoId(interlocutorId);
     setError(null);
-    if (presente) {
-      try {
-        await conReintentoDeSesion(
-          () =>
-            supabase
-              .from('visita_interlocutor')
-              .delete({ count: 'exact' })
-              .eq('visita_id', visitaId)
-              .eq('interlocutor_id', interlocutorId),
-          'No se ha podido quitar (0 filas afectadas). Puede que no tengas permiso.'
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'No se pudo quitar.');
-        return;
+    try {
+      if (presente) {
+        try {
+          await conReintentoDeSesion(
+            () =>
+              supabase
+                .from('visita_interlocutor')
+                .delete({ count: 'exact' })
+                .eq('visita_id', visitaId)
+                .eq('interlocutor_id', interlocutorId),
+            'No se ha podido quitar (0 filas afectadas). Puede que no tengas permiso.'
+          );
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'No se pudo quitar.');
+          return;
+        }
+      } else {
+        const { error: err } = await supabase
+          .from('visita_interlocutor')
+          .insert({ visita_id: visitaId, interlocutor_id: interlocutorId });
+        if (err) {
+          setError(err.message);
+          return;
+        }
       }
-    } else {
-      const { error: err } = await supabase
-        .from('visita_interlocutor')
-        .insert({ visita_id: visitaId, interlocutor_id: interlocutorId });
-      if (err) {
-        setError(err.message);
-        return;
-      }
+      queryClient.invalidateQueries({ queryKey: ['interlocutores-presentes', visitaId] });
+      queryClient.invalidateQueries({ queryKey: ['interlocutores-count', visitaId] });
+    } finally {
+      setTrabajandoId(null);
     }
-    queryClient.invalidateQueries({ queryKey: ['interlocutores-presentes', visitaId] });
-    queryClient.invalidateQueries({ queryKey: ['interlocutores-count', visitaId] });
   }
 
   return (
@@ -85,7 +96,7 @@ export function InterlocutoresHoja({ visitaId, clienteId, onCerrar }: Interlocut
     >
       <DirectorioInterlocutores
         clienteId={clienteId}
-        presencia={{ visitaId, presentesIds: presentesIds ?? [], onTogglePresencia: alternarPresencia }}
+        presencia={{ visitaId, presentesIds: presentesIds ?? [], onTogglePresencia: alternarPresencia, trabajandoId }}
         crearNuevo={{ abierto: creando, onCambio: setCreando }}
       />
       {error && (

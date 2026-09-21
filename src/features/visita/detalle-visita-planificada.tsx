@@ -152,6 +152,7 @@ export function DetalleVisitaPlanificada() {
           invalidarListas();
           navigate(volver);
         },
+        mensajeError: 'No se pudo anular la visita. Inténtalo de nuevo.',
       }
     );
   }
@@ -177,7 +178,16 @@ export function DetalleVisitaPlanificada() {
 
   return (
     <div className="screen">
-      <CabeceraDetalle titulo="Visita planificada" ayuda="visita-planificada" volverA={volver} />
+      {/* Nombre del cliente como título, no un rótulo genérico — mismo
+          criterio que detalle-visita-cerrada.tsx (ambas se listan juntas en
+          Hoy; saltar de una a otra perdía la referencia de "a quién estoy
+          mirando" si aquí el cliente solo salía como una fila más). */}
+      <CabeceraDetalle
+        titulo={data?.cliente_nombre ?? 'Visita planificada'}
+        ayuda="visita-planificada"
+        volverA={volver}
+        subtitulo={data && fechaVisita ? fechaCorta(fechaVisita) : undefined}
+      />
 
       {isLoading && <EstadoLista estado="cargando" />}
       {(isError || isPaused) && (
@@ -197,10 +207,6 @@ export function DetalleVisitaPlanificada() {
                 titulo={data.cliente_nombre}
                 to={`/clientes/${data.cliente_id}`}
                 state={desde(location)}
-              />
-              <FilaDato
-                etiqueta="Fecha"
-                valor={fechaCorta(fechaVisita!)}
               />
               <FilaDato
                 etiqueta="Cuándo"
@@ -226,7 +232,7 @@ export function DetalleVisitaPlanificada() {
 
           {/* Empezar */}
           {confirmando === 'empezar' ? (
-            <div className="card" style={{ borderColor: 'var(--warning-600)' }}>
+            <div className="card card--advertencia">
               <div style={{ fontSize: 'var(--text-sm)' }}>
                 Esta visita es para el{' '}
                 {fechaCorta(fechaVisita!)}. ¿Empezarla ahora

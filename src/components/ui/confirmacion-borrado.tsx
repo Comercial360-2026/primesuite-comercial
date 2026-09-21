@@ -27,6 +27,15 @@ interface ConfirmacionBorradoProps {
   confirmar?: string;
   /** Texto del botón de confirmar mientras trabaja. Por defecto "Borrando…". */
   cargandoTexto?: string;
+  /** Contenido intermedio entre el aviso y los botones — p. ej. un
+   *  `<select>` de traspaso antes de dar de baja a alguien con cartera.
+   *  Sin este slot, pantallas con ese caso reescribían el panel entero a
+   *  mano (dos textos de aviso y dos parejas de botones que mantener
+   *  sincronizados). */
+  extra?: ReactNode;
+  /** Además de `cargando`, otra condición que bloquea confirmar — p. ej.
+   *  "hay cartera que traspasar pero no se ha elegido destino". */
+  confirmarDeshabilitado?: boolean;
 }
 
 export function ConfirmacionBorrado({
@@ -38,6 +47,8 @@ export function ConfirmacionBorrado({
   error,
   confirmar = 'Sí, borrar',
   cargandoTexto = 'Borrando…',
+  extra,
+  confirmarDeshabilitado = false,
 }: ConfirmacionBorradoProps) {
   return (
     <div className="card card--riesgo">
@@ -46,6 +57,7 @@ export function ConfirmacionBorrado({
         {children ? ' ' : ''}
         {reversible ?? 'No se puede deshacer.'}
       </div>
+      {extra}
       {error && (
         <div className="field-error-text" style={{ marginTop: 8 }}>
           {error}
@@ -55,7 +67,12 @@ export function ConfirmacionBorrado({
         <button type="button" className="btn btn-secondary" onClick={onCancelar} disabled={cargando}>
           Cancelar
         </button>
-        <button type="button" className="btn btn-peligro" onClick={onConfirmar} disabled={cargando}>
+        <button
+          type="button"
+          className="btn btn-peligro"
+          onClick={onConfirmar}
+          disabled={cargando || confirmarDeshabilitado}
+        >
           {cargando ? cargandoTexto : confirmar}
         </button>
       </div>
