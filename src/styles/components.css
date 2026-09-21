@@ -287,6 +287,9 @@ button.interlocutor-fila__cuerpo--presente:hover {
   color: #fff; font-weight: 600;
 }
 .chip--on::before { content: "✓"; font-size: 0.95em; margin-right: 1px; }
+/* Confirmación inline de una acción de riesgo (p. ej. "¿Salir?" con chips
+   Sí/No) — mismo tono que .btn-secondary--riesgo, en formato chip. */
+.chip--riesgo { color: var(--risk-600); border-color: var(--risk-600); }
 
 /* Opción de "qué es, además de una nota" en la hoja Anotar (prompt maestro
    11): dos botones grandes en fila —icono + palabra en grande + matiz

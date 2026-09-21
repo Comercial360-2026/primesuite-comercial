@@ -356,8 +356,8 @@ export function ParticipantesHoja({ visitaId, onCerrar }: ParticipantesHojaProps
                     </span>
                     <button
                       type="button"
-                      className="chip"
-                      style={{ fontSize: 11, color: 'var(--risk-600)' }}
+                      className="chip chip--riesgo"
+                      style={{ fontSize: 11 }}
                       disabled={quitandoId === p.comercial_id}
                       onClick={() => quitar(p.comercial_id)}
                     >
