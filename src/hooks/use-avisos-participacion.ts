@@ -362,12 +362,20 @@ export function useAvisosParticipacion(): {
     [invalidar]
   );
 
+  // `fn_resolver_solicitud_reapertura` es un RPC que no devuelve filas
+  // afectadas (`returns void`): `conReintentoDeSesion` no sirve aquí (su
+  // `esFallo` por defecto mira `count`, que en un RPC así siempre es null —
+  // habría dado "no se pudo" incluso cuando la función funciona; la propia
+  // función ya lanza excepción real si no autoriza o no encuentra la
+  // solicitud, así que basta con comprobar `error` a mano, igual que el
+  // resto de RPCs de la app (`eliminar_visita_completa`, etc.).
   const aceptarReapertura = useCallback(
     async (id: string) => {
-      await conReintentoDeSesion(
-        () => supabase.rpc('fn_resolver_solicitud_reapertura', { p_solicitud_id: id, p_aprobar: true }),
-        'No se ha podido aceptar la reapertura.'
-      );
+      const { error } = await supabase.rpc('fn_resolver_solicitud_reapertura', {
+        p_solicitud_id: id,
+        p_aprobar: true,
+      });
+      if (error) throw new Error(error.message);
       invalidarReapertura();
     },
     [invalidarReapertura]
@@ -375,10 +383,11 @@ export function useAvisosParticipacion(): {
 
   const rechazarReapertura = useCallback(
     async (id: string) => {
-      await conReintentoDeSesion(
-        () => supabase.rpc('fn_resolver_solicitud_reapertura', { p_solicitud_id: id, p_aprobar: false }),
-        'No se ha podido rechazar la reapertura.'
-      );
+      const { error } = await supabase.rpc('fn_resolver_solicitud_reapertura', {
+        p_solicitud_id: id,
+        p_aprobar: false,
+      });
+      if (error) throw new Error(error.message);
       invalidarReapertura();
     },
     [invalidarReapertura]
