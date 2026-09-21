@@ -4,11 +4,13 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { supabase } from '@/lib/supabase-client';
 import { obtenerOperacion, actualizarOperacion, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { fechaLarga } from '@/lib/fechas';
 import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
@@ -419,10 +421,7 @@ function DetalleCapturaPorId() {
         const enServidor = captura.fuente === 'servidor' || captura.estadoSync === 'completado';
 
         if (enServidor) {
-          // Si tiene binario (foto/audio), primero se borra el archivo de
-          // Storage y luego la fila — en ese orden, para no dejar la fila
-          // borrada apuntando a un archivo que ya no se puede limpiar. La
-          // cola local nunca guarda `storage_path`, así que se lee de
+          // La cola local nunca guarda `storage_path`, así que se lee de
           // Supabase cuando la fuente es la cola.
           let storagePath = captura.storagePath ?? null;
           let tipo = captura.tipo;
@@ -437,21 +436,26 @@ function DetalleCapturaPorId() {
             tipo = (fila?.tipo as CapturaVista['tipo']) ?? tipo;
           }
 
-          if (storagePath) {
-            const bucket = tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
-            const { error: errStorage } = await supabase.storage.from(bucket).remove([storagePath]);
-            if (errStorage) {
-              console.error(
-                'No se pudo borrar el archivo de Storage, se continúa con el borrado de la fila:',
-                errStorage.message
-              );
-            }
-          }
-
+          // Primero la fila (RLS decide de verdad si hay permiso — 0 filas
+          // afectadas lo deja claro) y solo si eso confirma el borrado se
+          // toca Storage. Al revés (como estaba antes) el archivo podía
+          // borrarse aunque la política del bucket no replicara exactamente
+          // la RLS de la tabla: un comercial sin permiso borraría el
+          // archivo aunque el DELETE de la fila fuera rechazado, dejando
+          // una fila huérfana apuntando a nada — la misma clase del
+          // incidente ya cerrado de "foto rota".
           await conReintentoDeSesion(
             () => supabase.from('captura_libre').delete({ count: 'exact' }).eq('id', captura.id),
             'No se ha podido borrar (0 filas afectadas). Puede que no tengas permiso — solo el autor o Dirección Comercial pueden borrar una captura.'
           );
+
+          if (storagePath) {
+            const bucket = tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+            const { error: errStorage } = await supabase.storage.from(bucket).remove([storagePath]);
+            if (errStorage) {
+              console.error('No se pudo borrar el archivo de Storage tras borrar la fila:', errStorage.message);
+            }
+          }
         }
 
         if (captura.fuente === 'cola') {
@@ -472,18 +476,30 @@ function DetalleCapturaPorId() {
     );
   }
 
-  if (cargandoInicial) return null;
+  if (cargandoInicial) {
+    return (
+      <div className="screen">
+        <CabeceraDetalle titulo="Captura" ayuda="detalle-captura" volverA={volver} />
+        <EstadoLista estado="cargando" />
+      </div>
+    );
+  }
 
   if (!captura) {
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Captura" ayuda="detalle-captura" volverA={volver} />
-        <p style={{ color: 'var(--ink-400)' }}>No se ha encontrado esta captura.</p>
+        <EstadoLista estado="vacio" mensaje="No se ha encontrado esta captura." />
       </div>
     );
   }
 
   const mostrarEstadoSync = captura.fuente === 'cola' && captura.estadoSync !== 'completado';
+  // Mismo criterio que ya usa RecategorizarItem en esta pantalla: solo el
+  // autor o Dirección Comercial pueden editar/borrar. Antes el botón
+  // "Borrar" se mostraba a cualquiera que viera la captura (la RLS del
+  // DELETE lo rechazaba sin avisar); ahora ni se ofrece.
+  const puedeGestionar = comercial?.rol === 'direccion_comercial' || captura.autorId === comercial?.id;
 
   return (
     <div className="screen">
@@ -495,7 +511,7 @@ function DetalleCapturaPorId() {
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-        {new Date(captura.creadoEn).toLocaleString('es-ES')}
+        {fechaLarga(captura.creadoEn)}
         {mostrarEstadoSync ? ` · ${ESTADO_SYNC_TEXTO[captura.estadoSync] ?? captura.estadoSync}` : ''}
       </div>
 
@@ -506,11 +522,7 @@ function DetalleCapturaPorId() {
           visitaId={captura.visitaId}
           origen={{ from: volver }}
           sinSubir={captura.fuente === 'cola' && captura.estadoSync !== 'completado'}
-          motivoBloqueo={
-            comercial?.rol === 'direccion_comercial' || captura.autorId === comercial?.id
-              ? undefined
-              : 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'
-          }
+          motivoBloqueo={puedeGestionar ? undefined : 'Solo el autor o Dirección Comercial pueden cambiarlo de tipo.'}
         />
       )}
 
@@ -518,6 +530,9 @@ function DetalleCapturaPorId() {
         <img src={urlMedia} alt="captura" style={{ width: '100%', borderRadius: 12 }} />
       )}
 
+      {/* Excepción documentada a "nada de .btn-enlace como acción": esto es
+          un hipervínculo externo genuino (abre Google Maps en otra
+          pestaña), no una acción de la app disfrazada de texto tenue. */}
       {captura.tipo === 'foto' && captura.latitud != null && captura.longitud != null && (
         <a
           className="btn-enlace"
@@ -596,7 +611,7 @@ function DetalleCapturaPorId() {
         )}
       </button>
 
-      {!confirmandoBorrado ? (
+      {!puedeGestionar ? null : !confirmandoBorrado ? (
         <FilaNavegable
           icono="borrar"
           titulo={`Borrar ${captura.tipo}`}

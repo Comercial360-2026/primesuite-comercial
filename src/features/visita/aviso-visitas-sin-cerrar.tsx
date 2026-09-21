@@ -59,7 +59,8 @@ export function AvisoVisitasSinCerrar({
           style={{
             flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
             color: 'var(--brand-600)', font: 'inherit', fontSize: 'var(--text-xs)',
-            display: 'inline-flex', alignItems: 'center', gap: 2, padding: 2,
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+            minHeight: 'var(--fila-accion-size)', padding: '0 var(--space-2)',
           }}
         >
           {una ? 'Abrir' : 'Verlas'}

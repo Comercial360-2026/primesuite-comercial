@@ -238,7 +238,7 @@ const _PANTALLAS = {
       'Algo que has observado en el cliente y quieres dejar registrado: su texto, una o varias categorías del catálogo (Hardware, Software…, o si Dirección ha activado la clasificación detallada, también un término o modelo concreto), en qué zona estaba y, si aplica, una fecha relevante.',
     cuando:
       'Para completar o corregir un hallazgo. Se crea durante la visita desde «Anotar»; la clasificación del catálogo es opcional (puedes marcar varias) y la puedes cambiar aquí después. Con «Esto es» puedes devolverlo a nota o pasarlo a oportunidad —el texto y todo lo demás se conservan; la clasificación pasa directamente a ser la de la oportunidad, o se guarda en la sombra y vuelve si lo marcas otra vez como hallazgo—. «Marcar como resuelto» lo saca de la lista de hallazgos del proyecto cuando ya no es vigente, sin borrarlo —sigue en su visita y en el informe de esa visita— y se puede volver a marcar como vigente.',
-    ojo: 'Marcar como resuelto, borrar y cambiar de tipo solo los puede hacer el autor del hallazgo o Dirección Comercial. Editar y borrar sigue disponible con la visita cerrada.',
+    ojo: 'Marcar como resuelto, borrar y cambiar de tipo solo los puede hacer el autor del hallazgo o Dirección Comercial. Editar y borrar sigue disponible con la visita cerrada. Si sales con algo sin guardar, la app te avisa.',
   },
   'detalle-oportunidad': {
     grupo: 'registro',
@@ -256,6 +256,7 @@ const _PANTALLAS = {
       'Algo que quedó pendiente de una visita: qué hay que hacer, si quieres para cuándo, y en qué zona. Aparece en «Próximos pasos».',
     cuando:
       'Para editarlo, marcarlo como hecho, o —si en realidad es volver a ver al cliente— convertirlo en una visita planificada para su fecha.',
+    ojo: 'Si sales con algo sin guardar, la app te avisa.',
   },
 
   // — Si diriges el equipo —

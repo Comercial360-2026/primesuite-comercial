@@ -16,6 +16,7 @@ import {
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -28,6 +29,11 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 ];
 
 export function DetalleComercial() {
+  // volverA="/comerciales" fijo (no useVolverA/Regla #14): hoy esta ficha
+  // solo se alcanza desde listado-comerciales.tsx, un único punto de
+  // entrada — la excepción válida que la propia Regla #14 contempla. Si en
+  // el futuro se enlaza desde otro sitio, el ← se rompería en silencio;
+  // revisar entonces.
   const { comercialId } = useParams<{ comercialId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -448,46 +454,33 @@ export function DetalleComercial() {
         {error && <Aviso tipo="error">{error}</Aviso>}
 
         {activo && modo === 'baja' && (
-          <div className="card card--riesgo">
-            {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--risk-600)', fontWeight: 500 }}>
-              {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan. Se
-              puede reactivar más tarde.
-            </div>
-            {totalCartera > 0 && (
+          <ConfirmacionBorrado
+            onCancelar={() => { setModo(null); setTraspasoA(''); }}
+            onConfirmar={() => cambiarEstado(false)}
+            cargando={cambiandoEstado}
+            cargandoTexto="Dando de baja…"
+            confirmar={totalCartera > 0 ? 'Traspasar y dar de baja' : 'Sí, dar de baja'}
+            confirmarDeshabilitado={totalCartera > 0 && !traspasoA}
+            reversible="Se puede reactivar más tarde."
+            extra={
               <>
-                <div className="label">Traspasar todo a</div>
-                <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
-                  <option value="">— elige un comercial —</option>
-                  {destinos.map((d) => (
-                    <option key={d.id} value={d.id}>{d.nombre}</option>
-                  ))}
-                </select>
+                {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
+                {totalCartera > 0 && (
+                  <>
+                    <div className="label">Traspasar todo a</div>
+                    <select className="field" value={traspasoA} onChange={(e) => setTraspasoA(e.target.value)}>
+                      <option value="">— elige un comercial —</option>
+                      {destinos.map((d) => (
+                        <option key={d.id} value={d.id}>{d.nombre}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
               </>
-            )}
-            <div className="fila-btns" style={{ marginTop: 10 }}>
-              <button
-                className="btn btn-secondary"
-                style={{ flex: 1 }}
-                disabled={cambiandoEstado}
-                onClick={() => { setModo(null); setTraspasoA(''); }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn btn-peligro"
-                style={{ flex: 1 }}
-                disabled={cambiandoEstado || (totalCartera > 0 && !traspasoA)}
-                onClick={() => cambiarEstado(false)}
-              >
-                {cambiandoEstado
-                  ? 'Dando de baja…'
-                  : totalCartera > 0
-                    ? 'Traspasar y dar de baja'
-                    : 'Sí, dar de baja'}
-              </button>
-            </div>
-          </div>
+            }
+          >
+            {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan.
+          </ConfirmacionBorrado>
         )}
 
         {activo && modo !== 'baja' && (

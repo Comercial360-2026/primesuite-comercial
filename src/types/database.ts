@@ -1727,6 +1727,7 @@ export type Database = {
       visita: {
         Row: {
           actualizado_en: string
+          cerrada_en: string | null
           cliente_id: string
           creado_en: string
           en_curso_desde: string | null
@@ -1737,6 +1738,8 @@ export type Database = {
           id: string
           objetivo: string | null
           proyecto_id: string
+          reabierta_en: string | null
+          reabierta_por: string | null
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null
@@ -1744,6 +1747,7 @@ export type Database = {
         }
         Insert: {
           actualizado_en?: string
+          cerrada_en?: string | null
           cliente_id: string
           creado_en?: string
           en_curso_desde?: string | null
@@ -1754,6 +1758,8 @@ export type Database = {
           id?: string
           objetivo?: string | null
           proyecto_id: string
+          reabierta_en?: string | null
+          reabierta_por?: string | null
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null
@@ -1761,6 +1767,7 @@ export type Database = {
         }
         Update: {
           actualizado_en?: string
+          cerrada_en?: string | null
           cliente_id?: string
           creado_en?: string
           en_curso_desde?: string | null
@@ -1771,6 +1778,8 @@ export type Database = {
           id?: string
           objetivo?: string | null
           proyecto_id?: string
+          reabierta_en?: string | null
+          reabierta_por?: string | null
           resumen?: string | null
           resumen_origen?: string | null
           resumen_texto?: string | null
@@ -1797,6 +1806,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "proyecto"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_reabierta_por_fkey"
+            columns: ["reabierta_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_reabierta_por_fkey"
+            columns: ["reabierta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_reabierta_por_fkey"
+            columns: ["reabierta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_reabierta_por_fkey"
+            columns: ["reabierta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
           },
         ]
       }
@@ -1920,6 +1957,103 @@ export type Database = {
           },
           {
             foreignKeyName: "visita_participante_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visita_solicitud_reapertura: {
+        Row: {
+          creado_en: string
+          estado: string
+          id: string
+          rechazo_visto: boolean
+          resuelta_en: string | null
+          resuelta_por: string | null
+          solicitado_por: string
+          visita_id: string
+        }
+        Insert: {
+          creado_en?: string
+          estado?: string
+          id?: string
+          rechazo_visto?: boolean
+          resuelta_en?: string | null
+          resuelta_por?: string | null
+          solicitado_por: string
+          visita_id: string
+        }
+        Update: {
+          creado_en?: string
+          estado?: string
+          id?: string
+          rechazo_visto?: boolean
+          resuelta_en?: string | null
+          resuelta_por?: string | null
+          solicitado_por?: string
+          visita_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visita_solicitud_reapertura_resuelta_por_fkey"
+            columns: ["resuelta_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_resuelta_por_fkey"
+            columns: ["resuelta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_resuelta_por_fkey"
+            columns: ["resuelta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_resuelta_por_fkey"
+            columns: ["resuelta_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "comercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "vw_actividad_comercial"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "vw_comercial_resuelto"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "vw_pipeline_oportunidades"
+            referencedColumns: ["comercial_id"]
+          },
+          {
+            foreignKeyName: "visita_solicitud_reapertura_visita_id_fkey"
             columns: ["visita_id"]
             isOneToOne: false
             referencedRelation: "visita"
@@ -2154,6 +2288,7 @@ export type Database = {
         }
         Returns: {
           actualizado_en: string
+          cerrada_en: string | null
           cliente_id: string
           creado_en: string
           en_curso_desde: string | null
@@ -2164,6 +2299,8 @@ export type Database = {
           id: string
           objetivo: string | null
           proyecto_id: string
+          reabierta_en: string | null
+          reabierta_por: string | null
           resumen: string | null
           resumen_origen: string | null
           resumen_texto: string | null
@@ -2283,6 +2420,10 @@ export type Database = {
           pasos: number
           visitas: number
         }[]
+      }
+      fn_resolver_solicitud_reapertura: {
+        Args: { p_aprobar: boolean; p_solicitud_id: string }
+        Returns: undefined
       }
       fn_rol_actual: { Args: never; Returns: string }
       fn_rol_lectura_ampliada: { Args: never; Returns: boolean }

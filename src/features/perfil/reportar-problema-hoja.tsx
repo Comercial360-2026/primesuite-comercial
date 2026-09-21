@@ -18,6 +18,11 @@ interface ReportarProblemaHojaProps {
 // propia pantalla "Yo", no hay pantalla aparte.
 export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarProblemaHojaProps) {
   const [texto, setTexto] = useState('');
+  // Habilita "Enviar" con el valor EN VIVO (incluida la frase que el motor
+  // de dictado aún no ha consolidado) — con `texto` a secas, el botón se
+  // quedaba gris pese a ver el texto dictado ya escrito en pantalla, hasta
+  // que el reconocimiento terminaba de afinar la frase.
+  const [hayContenido, setHayContenido] = useState(false);
   const refDictado = useRef<RefCampoDictado>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -67,13 +72,14 @@ export function ReportarProblemaHoja({ comercialId, rol, onCerrar }: ReportarPro
         autoFocus
         valor={texto}
         onCambio={setTexto}
+        onValorEnVivo={(v) => setHayContenido(!!v.trim())}
         placeholder="p. ej. al guardar una nota sin cobertura, el contador no bajó al volver la red"
         disabled={enviando || enviado}
       />
       <button
         className="btn btn-primary"
         style={{ marginTop: 12 }}
-        disabled={!texto.trim() || enviando || enviado}
+        disabled={!hayContenido || enviando || enviado}
         onClick={enviar}
       >
         {enviado ? (

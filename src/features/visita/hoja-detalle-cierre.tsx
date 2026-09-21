@@ -51,7 +51,7 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
   // Capturas ya subidas (sin Blob local): URL firmada de Storage. El payload
   // local nunca guarda `storage_path`, así que hay que pedirlo a la tabla.
   const idsSubidos = esMedia ? items.filter((op) => !op.archivoLocal).map((op) => op.id) : [];
-  const { data: urlsRemotas } = useQuery({
+  const { data: urlsRemotas, isLoading: cargandoUrlsRemotas } = useQuery({
     queryKey: ['media-detalle-cierre', grupo, idsSubidos.join(',')],
     enabled: idsSubidos.length > 0,
     queryFn: async (): Promise<Record<string, string>> => {
@@ -94,6 +94,11 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
           };
           const zona = p.zonaTexto?.trim() || null;
           const url = esMedia ? urlDe(op) : null;
+          // Para una captura ya subida, `url` es null tanto mientras carga
+          // como si de verdad falla — sin distinguirlos, revisando el
+          // cierre con conexión lenta se veía "no disponible" para algo que
+          // solo estaba cargando.
+          const cargandoMedia = esMedia && !pendiente && !url && cargandoUrlsRemotas;
 
           return (
             <li key={op.id} className="detalle-cierre__fila">
@@ -109,7 +114,11 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
                     <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} />
                   ) : (
                     <span className="detalle-cierre__meta">
-                      {pendiente ? 'pendiente de subir — se verá al sincronizar' : 'no disponible'}
+                      {pendiente
+                        ? 'pendiente de subir — se verá al sincronizar'
+                        : cargandoMedia
+                          ? 'cargando…'
+                          : 'no disponible'}
                     </span>
                   )}
                   {meta([zona, pendiente && 'pendiente de subir'])}
@@ -123,7 +132,11 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
                     <audio className="detalle-cierre__audio" controls src={url} />
                   ) : (
                     <span className="detalle-cierre__meta">
-                      {pendiente ? 'pendiente de subir — se oirá al sincronizar' : 'no disponible'}
+                      {pendiente
+                        ? 'pendiente de subir — se oirá al sincronizar'
+                        : cargandoMedia
+                          ? 'cargando…'
+                          : 'no disponible'}
                     </span>
                   )}
                   {meta([

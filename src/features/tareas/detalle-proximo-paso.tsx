@@ -44,9 +44,14 @@ export function DetalleProximoPaso() {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  // Confirmar antes de salir con cambios sin guardar — mismo patrón que
+  // detalle-oportunidad.tsx (aquí faltaba: editar la descripción o la fecha
+  // y pulsar "←" por error lo perdía sin ningún aviso).
+  const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const [planificando, setPlanificando] = useState(false);
   const [visitaPlanificada, setVisitaPlanificada] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
+  const [marcandoHecho, setMarcandoHecho] = useState(false);
 
   const { data: paso, isLoading, isError, refetch } = useQuery({
     queryKey: ['proximo-paso', pasoId],
@@ -70,6 +75,30 @@ export function DetalleProximoPaso() {
     setFechaObjetivo(paso.fecha_objetivo ?? '');
     setZonaTexto(paso.zona_texto ?? '');
   }, [paso]);
+
+  // ¿Hay cambios en el formulario que aún no se han guardado? Sirve para
+  // avisar antes de salir — mismo cálculo que detalle-oportunidad.tsx.
+  const sucio =
+    !!paso &&
+    (descripcion !== paso.descripcion ||
+      fechaObjetivo !== (paso.fecha_objetivo ?? '') ||
+      zonaTexto !== (paso.zona_texto ?? ''));
+
+  function alVolver() {
+    if (confirmandoBorrado) {
+      setConfirmandoBorrado(false);
+      return;
+    }
+    if (confirmandoSalida) {
+      setConfirmandoSalida(false);
+      return;
+    }
+    if (sucio) {
+      setConfirmandoSalida(true);
+      return;
+    }
+    navigate(volver);
+  }
 
   // Guardado inmediato de zona — igual que Archivar/Borrar en otras
   // pantallas, no espera al «Guardar» general (ver detalle-hallazgo.tsx).
@@ -240,7 +269,12 @@ export function DetalleProximoPaso() {
   }
 
   async function marcarHecho() {
-    if (!pasoId) return;
+    // A diferencia de marcarCompletado en mis-proximos-pasos.tsx (mismo tipo
+    // de acción), esto no bloqueaba el doble toque ni mostraba "guardando…"
+    // — en campo, con conexión intermitente, tocar dos veces sin feedback
+    // disparaba dos UPDATE.
+    if (!pasoId || marcandoHecho) return;
+    setMarcandoHecho(true);
     // Mismo encargo técnico que `guardar()`: sin permiso, Supabase no da
     // error — comprobar `count` es la única forma de no navegar como si
     // se hubiera marcado, sin haber tocado nada.
@@ -250,6 +284,7 @@ export function DetalleProximoPaso() {
         'No se ha podido marcar (0 filas afectadas). Puede que no tengas permiso — solo el responsable o Dirección Comercial pueden completar un próximo paso.'
       );
     } catch (errMarcar) {
+      setMarcandoHecho(false);
       setError(errMarcar instanceof Error ? errMarcar.message : 'No se pudo marcar.');
       return;
     }
@@ -286,14 +321,12 @@ export function DetalleProximoPaso() {
 
   return (
     <div className="screen">
-      <div style={{ position: 'sticky', top: 0, background: 'var(--surface-0)', zIndex: 1, paddingBottom: 8 }}>
-        <CabeceraDetalle
-          titulo="Próximo paso"
-          ayuda="proximo-paso"
-          subtitulo={contextoCliente || undefined}
-          onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
-        />
-      </div>
+      <CabeceraDetalle
+        titulo="Próximo paso"
+        ayuda="proximo-paso"
+        subtitulo={contextoCliente || undefined}
+        onVolver={alVolver}
+      />
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
       <TextareaDictado
@@ -326,7 +359,13 @@ export function DetalleProximoPaso() {
         visitaPlanificada ? (
           <TarjetaAccion
             titulo="Revisita"
-            accion={{ etiqueta: 'Marcar este paso como hecho', icono: 'check', onClick: marcarHecho }}
+            accion={{
+              etiqueta: 'Marcar este paso como hecho',
+              icono: 'check',
+              onClick: marcarHecho,
+              cargando: marcandoHecho,
+              etiquetaCargando: 'Marcando…',
+            }}
           >
             Visita planificada para el {fechaCorta(fechaObjetivo)}. Está en la Agenda.
           </TarjetaAccion>
@@ -348,11 +387,27 @@ export function DetalleProximoPaso() {
         )
       )}
 
+      {confirmandoSalida && (
+        <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            Has cambiado algo y no lo has guardado. Si sales ahora se pierde.
+          </p>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoSalida(false)}>
+              Seguir editando
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate(volver)}>
+              Salir sin guardar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
         className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
-        style={{ marginTop: 'auto' }}
+        style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={!descripcion.trim() || guardando || guardadoConExito}
         onClick={guardar}
       >

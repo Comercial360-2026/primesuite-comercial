@@ -1,10 +1,12 @@
 import { supabase } from '@/lib/supabase-client';
 import { crearVisitaConResponsable } from '@/lib/rpc';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import {
   obtenerPendientes,
   actualizarOperacion,
   obtenerOperacion,
   purgarCompletadasAntiguas,
+  reponerOperacionesAtascadas,
 } from './db';
 import type { OperacionPendiente } from './types';
 
@@ -26,6 +28,12 @@ const REINTENTO_RAPIDO_BASE_MS = 3_000;
 const REINTENTO_RAPIDO_MAX_MS = 30_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
+// Guardado con nombre (no una arrow inline) para poder quitarlo en
+// detenerMotorSincronizacion() — sin esto, detenerMotorSincronizacion no
+// tenía forma de hacer removeEventListener del listener 'online' (fuga
+// latente, sin caller hoy pero real en cuanto se use). De paso evita añadir
+// un segundo listener si se llama a iniciarMotorSincronizacion() dos veces.
+let alReconectarGlobal: (() => void) | null = null;
 let sincronizandoAhora = false;
 // Si llega una petición de sincronizar mientras ya hay una pasada en curso
 // (p. ej. una foto grande subiendo con mala conexión) y se descartaba sin
@@ -37,10 +45,19 @@ let sincronizandoAhora = false;
 let pendienteReejecucion: { incluirErrores: boolean } | null = null;
 
 export function iniciarMotorSincronizacion(): void {
-  window.addEventListener('online', () => void procesarCola());
+  if (!alReconectarGlobal) {
+    alReconectarGlobal = () => void procesarCola();
+    window.addEventListener('online', alReconectarGlobal);
+  }
   if (!intervaloId) {
     intervaloId = setInterval(() => void procesarCola(), INTERVALO_REINTENTO_MS);
   }
+  // Una operación solo debería estar en 'subiendo' mientras la llamada de
+  // red está en vuelo; si la app se cerró a mitad (batería, iOS descargando
+  // la pestaña en segundo plano) se queda ahí para siempre, porque
+  // `obtenerPendientes()` no la vuelve a leer. Repuesta a 'pendiente' antes
+  // del primer intento de esta sesión, para que el motor la recoja.
+  void reponerOperacionesAtascadas().catch(() => {});
   // Intento inicial al arrancar la app, por si ya hay red y cola pendiente
   // de una sesión anterior.
   void procesarCola();
@@ -61,12 +78,26 @@ export function detenerMotorSincronizacion(): void {
     clearInterval(intervaloId);
     intervaloId = null;
   }
+  if (alReconectarGlobal) {
+    window.removeEventListener('online', alReconectarGlobal);
+    alReconectarGlobal = null;
+  }
 }
 
 // Evento en `window` al terminar una pasada de la cola: la UI que muestra
 // "N sin sincronizar" (pantalla Yo) lo escucha para refrescarse al instante
 // en vez de esperar a su propio intervalo.
 export const EVENTO_COLA_PROCESADA = 'primesuite:cola-procesada';
+
+// `sincronizandoAhora` solo sirve dentro de ESTA pestaña — es una variable
+// de módulo con alcance por pestaña, pero todas comparten la misma
+// IndexedDB. Dos pestañas del mismo dispositivo que recuperan red casi a la
+// vez podían procesar el mismo id a la vez cada una por su lado, chocando
+// con el mismo problema que el INSERT idempotente de arriba amortigua pero
+// no evita del todo. Web Locks serializa de verdad entre pestañas: si otra
+// ya tiene el lock, esta espera a que termine y entonces su propio
+// obtenerPendientes() ya no ve lo que la otra acaba de subir.
+const NOMBRE_LOCK_SYNC = 'primesuite-sync-cola';
 
 export async function procesarCola(opciones?: { incluirErrores?: boolean }): Promise<void> {
   const incluirErrores = opciones?.incluirErrores ?? false;
@@ -77,9 +108,18 @@ export async function procesarCola(opciones?: { incluirErrores?: boolean }): Pro
   if (!navigator.onLine) return;
   sincronizandoAhora = true;
   try {
-    const pendientes = await obtenerPendientes(incluirErrores);
-    for (const operacion of pendientes) {
-      await procesarOperacion(operacion);
+    const pasada = async () => {
+      const pendientes = await obtenerPendientes(incluirErrores);
+      for (const operacion of pendientes) {
+        await procesarOperacion(operacion);
+      }
+    };
+    // Sin soporte de Web Locks (navegador antiguo), sigue sin serializar
+    // entre pestañas — igual que antes de este cambio.
+    if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+      await navigator.locks.request(NOMBRE_LOCK_SYNC, pasada);
+    } else {
+      await pasada();
     }
   } finally {
     sincronizandoAhora = false;
@@ -136,6 +176,9 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
     switch (actual.entidad) {
       case 'visita':
         await sincronizarVisita(actual);
+        break;
+      case 'visita_objetivo':
+        await sincronizarObjetivoVisita(actual);
         break;
       case 'cliente':
       case 'proyecto':
@@ -203,13 +246,22 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
   const parche: { objetivo?: string } = {};
   if (objetivo?.trim()) parche.objetivo = objetivo.trim();
   if (Object.keys(parche).length) {
-    const { error: errParche, count } = await supabase
-      .from('visita')
-      .update(parche, { count: 'exact' })
-      .eq('id', operacion.id);
-    if (errParche) throw new Error(errParche.message);
-    if (!count) throw new Error('La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).');
+    await conReintentoDeSesion(
+      () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', operacion.id),
+      'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+    );
   }
+}
+
+// Editar el objetivo de una visita ya sincronizada (VisitaObjetivoPayload,
+// types.ts) — a diferencia de las demás entidades, no crea una fila: `id` es
+// el de esta operación de cola, la fila a tocar es `payload.visitaId`.
+async function sincronizarObjetivoVisita(operacion: OperacionPendiente<'visita_objetivo'>): Promise<void> {
+  const { visitaId, objetivo } = operacion.payload;
+  await conReintentoDeSesion(
+    () => supabase.from('visita').update({ objetivo }, { count: 'exact' }).eq('id', visitaId),
+    'No se pudo guardar el objetivo (0 filas afectadas). Puede que la visita aún no haya sincronizado — inténtalo en unos segundos.'
+  );
 }
 
 // Oportunidad y Próximo paso son INSERT directos — no tienen el problema de
@@ -229,8 +281,25 @@ async function sincronizarInsertSimple(
   // La corrección real de tipos vive en `PayloadPorEntidad` (types.ts) y en
   // `aPayloadSnakeCase`, no aquí — este `as never` es el único punto de puente
   // deliberado entre esa capa tipada y la llamada genérica a Supabase.
-  const { error } = await supabase.from(tabla).insert({ id: operacion.id, ...fila } as never);
-  if (error) throw new Error(error.message);
+  //
+  // upsert+ignoreDuplicates, no insert liso — mismo motivo que sincronizarHallazgo
+  // más abajo: si el INSERT ya llegó al servidor pero la app se cerró antes de
+  // marcar la operación 'completado' en IndexedDB, el reintento chocaba por PK
+  // duplicada y quedaba en 'error' permanente aunque el dato ya estuviera
+  // guardado. Con ignoreDuplicates el reintento no hace nada (ya está) en vez
+  // de fallar.
+  //
+  // conReintentoDeSesion (timeout de 10s + refresco de sesión), como el resto
+  // de la app — el motor de sync iba directo, y con cobertura muy mala una
+  // llamada podía quedar colgada indefinidamente y bloquear el resto de la
+  // cola (`sincronizandoAhora`). `esFallo` siempre false: un INSERT/upsert no
+  // tiene el caso "0 filas afectadas sin error" de un UPDATE/DELETE — si no
+  // hay `error`, ha ido bien (ignoreDuplicates incluido).
+  await conReintentoDeSesion(
+    () => supabase.from(tabla).upsert({ id: operacion.id, ...fila } as never, { onConflict: 'id', ignoreDuplicates: true }),
+    '',
+    () => false
+  );
 }
 
 // Hallazgo = fila en `hallazgo` + N filas en la tabla puente `hallazgo_area`
@@ -247,16 +316,20 @@ async function sincronizarHallazgo(operacion: OperacionPendiente<'hallazgo'>): P
   // para que el INSERT no falle por columna inexistente.
   delete (fila as Record<string, unknown>).naturaleza;
 
-  const { error } = await supabase
-    .from('hallazgo')
-    .upsert({ id: operacion.id, ...fila } as never, { onConflict: 'id', ignoreDuplicates: true });
-  if (error) throw new Error(error.message);
+  // Sin count fiable de "0 filas afectadas" para ninguna de las tres (upsert
+  // ignorado, delete que legítimamente puede borrar 0 la primera pasada,
+  // insert nuevo): `esFallo` siempre false, solo importa `error`.
+  await conReintentoDeSesion(
+    () => supabase.from('hallazgo').upsert({ id: operacion.id, ...fila } as never, { onConflict: 'id', ignoreDuplicates: true }),
+    '',
+    () => false
+  );
 
-  const { error: errorBorrado } = await supabase
-    .from('hallazgo_area')
-    .delete()
-    .eq('hallazgo_id', operacion.id);
-  if (errorBorrado) throw new Error(errorBorrado.message);
+  await conReintentoDeSesion(
+    () => supabase.from('hallazgo_area').delete().eq('hallazgo_id', operacion.id),
+    '',
+    () => false
+  );
 
   if (areas && areas.length > 0) {
     const filasArea = areas.map((a) => ({
@@ -264,8 +337,7 @@ async function sincronizarHallazgo(operacion: OperacionPendiente<'hallazgo'>): P
       categoria_id: a.tipo === 'categoria' ? a.id : null,
       termino_id: a.tipo === 'termino' ? a.id : null,
     }));
-    const { error: errorAreas } = await supabase.from('hallazgo_area').insert(filasArea);
-    if (errorAreas) throw new Error(errorAreas.message);
+    await conReintentoDeSesion(() => supabase.from('hallazgo_area').insert(filasArea), '', () => false);
   }
 }
 
@@ -301,12 +373,20 @@ async function sincronizarCapturaLibre(
   }
 
   const fila = aPayloadSnakeCase(operacion);
-  // Mismo puente `as never` deliberado que en sincronizarInsertSimple — ver comentario
-  // de arriba.
-  const { error } = await supabase
-    .from('captura_libre')
-    .insert({ id: operacion.id, ...fila, storage_path: storagePath } as never);
-  if (error) throw new Error(error.message);
+  // Mismo puente `as never` deliberado que en sincronizarInsertSimple, y mismo
+  // upsert+ignoreDuplicates por el mismo motivo (idempotencia ante un cierre
+  // de la app entre el INSERT ya aplicado y la marca 'completado' local).
+  await conReintentoDeSesion(
+    () =>
+      supabase
+        .from('captura_libre')
+        .upsert({ id: operacion.id, ...fila, storage_path: storagePath } as never, {
+          onConflict: 'id',
+          ignoreDuplicates: true,
+        }),
+    '',
+    () => false
+  );
 }
 
 // Traducción camelCase (TypeScript) → snake_case (columnas Postgres).

@@ -20,7 +20,7 @@ import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorAreas } from '@/components/ui/selector-areas';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
-import type { Area } from '@/lib/vocabulario';
+import { mismaArea, type Area } from '@/lib/vocabulario';
 import { leerAreasDeHallazgo, guardarAreasDeHallazgo } from '@/lib/hallazgo-areas';
 import { Icono } from '@/components/ui/iconos';
 import { useClasificacionDetallada } from '@/hooks/use-ajustes';
@@ -58,6 +58,10 @@ export function DetalleHallazgo() {
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState<string | null>(null);
+  // Confirmar antes de salir con cambios sin guardar — mismo patrón que
+  // detalle-oportunidad.tsx (aquí faltaba: un comercial que dicta una nota
+  // larga y pulsa "←" sin querer la perdía sin ningún aviso).
+  const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const [archivando, setArchivando] = useState(false);
   const [errorArchivado, setErrorArchivado] = useState<string | null>(null);
 
@@ -122,6 +126,35 @@ export function DetalleHallazgo() {
     setAreas(areasCargadas);
     areasSembradasRef.current = hallazgoId ?? null;
   }, [areasCargadas, hallazgoId]);
+
+  // ¿Hay cambios en el formulario que aún no se han guardado? Sirve para
+  // avisar antes de salir — mismo cálculo que detalle-oportunidad.tsx.
+  const areasBase = areasCargadas ?? [];
+  const areasDistintas =
+    areas.length !== areasBase.length || areas.some((a) => !areasBase.some((b) => mismaArea(a, b)));
+  const sucio =
+    !!hallazgo &&
+    (nota !== (hallazgo.nota ?? '') ||
+      zonaTexto !== (hallazgo.zona_texto ?? '') ||
+      fechaRelevante !== (hallazgo.fecha_relevante ?? '') ||
+      tipoFechaRelevante !== (hallazgo.tipo_fecha_relevante ?? '') ||
+      areasDistintas);
+
+  function alVolver() {
+    if (confirmandoBorrado) {
+      setConfirmandoBorrado(false);
+      return;
+    }
+    if (confirmandoSalida) {
+      setConfirmandoSalida(false);
+      return;
+    }
+    if (sucio) {
+      setConfirmandoSalida(true);
+      return;
+    }
+    navigate(volver);
+  }
 
   async function guardar() {
     if (!hallazgoId) return;
@@ -333,7 +366,7 @@ export function DetalleHallazgo() {
         titulo="Hallazgo"
         ayuda="detalle-hallazgo"
         subtitulo={contextoCliente || undefined}
-        onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
+        onVolver={alVolver}
       />
 
       <RecategorizarItem
@@ -412,11 +445,27 @@ export function DetalleHallazgo() {
 
       {error && <div className="field-error-text">{error}</div>}
 
+      {confirmandoSalida && (
+        <div className="card card--riesgo" style={{ marginTop: 'auto' }}>
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+            Has cambiado algo y no lo has guardado. Si sales ahora se pierde.
+          </p>
+          <div className="fila-btns" style={{ marginTop: 8 }}>
+            <button type="button" className="btn btn-primary" onClick={() => setConfirmandoSalida(false)}>
+              Seguir editando
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate(volver)}>
+              Salir sin guardar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
         className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
-        style={{ marginTop: 'auto' }}
+        style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={guardando || guardadoConExito || faltaTipoFecha}
         onClick={guardar}
       >

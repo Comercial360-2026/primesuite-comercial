@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
+import { esSinRed } from '@/lib/red';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -168,9 +169,7 @@ export function AltaRapidaCliente() {
       }
       // Si el fallo no parece de red (RLS, validación de la RPC…), se muestra
       // tal cual — encolarlo solo lo escondería. Si parece de red, se encola.
-      const esFalloDeRed =
-        !navigator.onLine || /fetch|network|load failed/i.test(errorCliente?.message ?? '');
-      if (!esFalloDeRed) {
+      if (!esSinRed(errorCliente?.message)) {
         throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente.');
       }
     }
@@ -261,7 +260,13 @@ export function AltaRapidaCliente() {
     await creacionCliente.ejecutar(crearCliente, {
       onExito: (cliente) => {
         if (cliente.enCola) {
-          creacionCliente.establecerError('No se pudo confirmar el alta. Inténtalo de nuevo.');
+          // El cliente (y su proyecto) YA se han guardado — en la cola local,
+          // por un fallo de red al confirmar. Decir "inténtalo de nuevo" aquí
+          // invitaba a repetir el alta entera y crear un cliente duplicado
+          // con el mismo nombre en cuanto sincronizara el primero.
+          creacionCliente.establecerError(
+            'El cliente ya se ha guardado (pendiente de sincronizar) — no repitas el alta. Para planificar una visita necesitas conexión: vuelve a intentarlo desde su ficha cuando tengas red.'
+          );
           return;
         }
         navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${cliente.proyectoId}`);

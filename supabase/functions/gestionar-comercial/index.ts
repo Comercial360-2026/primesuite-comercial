@@ -168,9 +168,14 @@ Deno.serve(async (req) => {
       user_metadata: { nombre },
     });
     if (errCrear || !creado.user) {
+      // Solo el caso "ya existe" tiene mensaje traducido; cualquier otro
+      // fallo de GoTrue/Postgres se quedaba crudo (en inglés) en la
+      // pantalla de Dirección — el texto técnico va como mucho a los logs
+      // de la función.
+      if (errCrear) console.error('createUser:', errCrear.message);
       const msg = /already been registered|already exists/i.test(errCrear?.message ?? '')
         ? 'Ya existe un usuario con ese correo.'
-        : `No se pudo crear el usuario: ${errCrear?.message ?? 'error desconocido'}`;
+        : 'No se pudo crear el usuario. Inténtalo de nuevo.';
       return jsonResponse({ error: msg }, 400);
     }
 
@@ -182,8 +187,9 @@ Deno.serve(async (req) => {
       activo: true,
     });
     if (errFila) {
+      console.error('insert comercial:', errFila.message);
       await admin.auth.admin.deleteUser(creado.user.id);
-      return jsonResponse({ error: `No se pudo guardar el comercial: ${errFila.message}` }, 400);
+      return jsonResponse({ error: 'No se pudo guardar el comercial. Inténtalo de nuevo.' }, 400);
     }
 
     const { data: enlace, error: errEnlace } = await admin.auth.admin.generateLink({
@@ -219,7 +225,8 @@ Deno.serve(async (req) => {
       options: { redirectTo: redireccionEstablecer(body.app_url) },
     });
     if (errEnlace || !enlace?.properties?.action_link) {
-      return jsonResponse({ error: `No se pudo generar el enlace: ${errEnlace?.message ?? 'error desconocido'}` }, 400);
+      if (errEnlace) console.error('generateLink:', errEnlace.message);
+      return jsonResponse({ error: 'No se pudo generar el enlace. Inténtalo de nuevo.' }, 400);
     }
 
     // Si había una petición de acceso pendiente de este comercial, queda

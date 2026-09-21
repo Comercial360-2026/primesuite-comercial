@@ -84,7 +84,7 @@ export function BriefingHoja({ clienteId, clienteNombre, onCerrar }: BriefingHoj
               <FilaDato etiqueta={data.queEspera.texto} valor="—" valorTenue />
             ) : (
               data.queEspera.tickets.map((t) => (
-                <FilaDato key={t.key} etiqueta={`${t.key} · ${t.resumen}`} valor="" />
+                <FilaDato key={t.key} etiqueta={t.key} valor={t.resumen} />
               ))
             )}
           </SeccionLista>

@@ -21,7 +21,12 @@ interface EditarParams {
 }
 
 // supabase-js mete el cuerpo de un error 4xx/5xx en `error.context`; se
-// intenta sacar el mensaje real de la función, con un texto de reserva.
+// intenta sacar el mensaje real de la función (ya en español, escrito a
+// propósito por gestionar-comercial/index.ts para el caso — "el email ya
+// está en uso", etc.), con un texto de reserva. Si no hay cuerpo JSON que
+// leer, `error.message` es un fallo de transporte crudo (de supabase-js o
+// del navegador, no de la función) — no se muestra tal cual, solo en
+// consola, y se usa la reserva.
 async function mensajeDeError(error: unknown, reserva: string): Promise<string> {
   try {
     const ctx = (error as { context?: Response }).context;
@@ -32,7 +37,8 @@ async function mensajeDeError(error: unknown, reserva: string): Promise<string> 
   } catch {
     /* se usa la reserva */
   }
-  return error instanceof Error && error.message ? error.message : reserva;
+  console.error('gestionar-comercial:', error);
+  return reserva;
 }
 
 // En una conexión que se muere a media petición, functions.invoke() puede
@@ -132,7 +138,10 @@ export interface RecuentoTraspaso {
 // baja). RPC de Postgres — la llama Dirección Comercial directamente.
 export async function traspasarCartera(de: string, a: string): Promise<RecuentoTraspaso> {
   const { data, error } = await supabase.rpc('fn_traspasar_cartera', { p_de: de, p_a: a });
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('fn_traspasar_cartera:', error);
+    throw new Error('No se pudo traspasar la cartera. Inténtalo de nuevo.');
+  }
   const r = data?.[0];
   return { clientes: r?.clientes ?? 0, visitas: r?.visitas ?? 0, pasos: r?.pasos ?? 0 };
 }
@@ -144,7 +153,10 @@ export async function reasignarCliente(
   a: string
 ): Promise<{ visitas: number; pasos: number }> {
   const { data, error } = await supabase.rpc('fn_reasignar_cliente', { p_cliente: clienteId, p_a: a });
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('fn_reasignar_cliente:', error);
+    throw new Error('No se pudo reasignar el cliente. Inténtalo de nuevo.');
+  }
   const r = data?.[0];
   return { visitas: r?.visitas ?? 0, pasos: r?.pasos ?? 0 };
 }
