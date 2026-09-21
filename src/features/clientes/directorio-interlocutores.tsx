@@ -323,7 +323,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           </>
         ) : (
           !!directorio?.length && (
-            <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
+            <button type="button" className="chip-accion" onClick={() => setSeleccionando(true)}>
               Seleccionar
             </button>
           )

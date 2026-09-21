@@ -238,7 +238,7 @@ export function GestionarSectores() {
               />
             ) : (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <button type="button" className="chip" onClick={() => setSeleccionando(true)}>
+                <button type="button" className="chip-accion" onClick={() => setSeleccionando(true)}>
                   Seleccionar
                 </button>
               </div>

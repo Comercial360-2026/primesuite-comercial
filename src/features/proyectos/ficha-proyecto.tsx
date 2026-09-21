@@ -409,7 +409,7 @@ export function FichaProyecto() {
             <button
               key={ac.a}
               type="button"
-              className="chip"
+              className="chip-accion"
               disabled={
                 cambioEstado.cargando ||
                 verificandoTerminar ||

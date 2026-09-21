@@ -109,7 +109,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
           </button>
         </div>
       )}
-      <div className="fila-btns">
+      <div className="fila-btns fila-btns--pie">
         <button
           className="btn btn-primary"
           style={{ flex: 1 }}
