@@ -107,9 +107,10 @@ export function ActividadProyecto({
   });
 
   // Hallazgos del proyecto (P5: se arrastran entre visitas). Un comercial
-  // puede "archivar" uno cuando lo da por no vigente (detalle-hallazgo.tsx):
-  // deja de salir aquí pero sigue en su visita y en el informe. Por defecto
-  // se listan los 5 activos más recientes; "Ver archivados (N)" trae el resto.
+  // puede marcarlo "resuelto" cuando lo da por no vigente (detalle-hallazgo.tsx,
+  // columna archivado_en sin renombrar en la BD): deja de salir aquí pero
+  // sigue en su visita y en el informe. Por defecto se listan los 5 activos
+  // más recientes; "Ver resueltos (N)" trae el resto.
   const { data: hallazgos } = useQuery({
     queryKey: ['hallazgos-proyecto', proyectoId],
     queryFn: async (): Promise<HallazgoAbierto[]> => {
@@ -281,7 +282,7 @@ export function ActividadProyecto({
           ))}
           {!!numArchivados && (
             <FilaNavegable
-              titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${numArchivados})`}
+              titulo={verArchivados ? 'Ocultar resueltos' : `Ver resueltos (${numArchivados})`}
               chevron={false}
               valorTenue
               onClick={() => setVerArchivados((v) => !v)}
@@ -293,7 +294,7 @@ export function ActividadProyecto({
                 key={h.id}
                 titulo={h.nota?.trim() || 'Hallazgo'}
                 subtitulo={h.zona_texto?.trim() || undefined}
-                valor="archivado"
+                valor="resuelto"
                 valorTenue
                 to={`/hallazgos/${h.id}`}
                 state={origen}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { correosComerciales } from '@/lib/gestionar-comercial';
 import { fechaCorta } from '@/lib/fechas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -48,6 +49,16 @@ export function ListadoComerciales() {
     queryClient.resetQueries({ queryKey });
     refetch();
   }
+
+  // El correo no vive en `comercial` (solo en auth.users, RLS no lo deja
+  // leer directo) — se pide aparte a la Edge Function. No bloquea el
+  // renderizado del listado si tarda o falla: las filas salen igual, solo
+  // sin el correo hasta que llegue.
+  const { data: correos } = useQuery({
+    queryKey: ['comerciales-correos'],
+    queryFn: correosComerciales,
+    staleTime: 5 * 60_000,
+  });
 
   // Comerciales que han pedido acceso desde el login (contraseña perdida).
   // Se muestran arriba del todo; cada fila abre su ficha, donde está el
@@ -147,7 +158,7 @@ export function ListadoComerciales() {
                     key={c.id}
                     avatar={c.nombre}
                     titulo={c.nombre}
-                    subtitulo={`${ETIQUETA_ROL[c.rol] ?? c.rol}${c.zona_cartera ? ` · ${c.zona_cartera}` : ''}`}
+                    subtitulo={`${ETIQUETA_ROL[c.rol] ?? c.rol}${c.zona_cartera ? ` · ${c.zona_cartera}` : ''}${correos?.[c.id] ? ` · ${correos[c.id]}` : ''}`}
                     tono={c.activo ? 'neutral' : 'riesgo'}
                     valor={
                       c.activo ? undefined : (

@@ -105,6 +105,16 @@ export function editarComercial(p: EditarParams) {
   return invocar<{ ok: true }>({ accion: 'editar', ...p }, 'No se pudo guardar el comercial.');
 }
 
+// El email vive solo en auth.users — la RLS no lo deja leer directo desde
+// el cliente, así que el listado/ficha de Equipo lo piden aparte por aquí.
+export async function correosComerciales(): Promise<Record<string, string>> {
+  const { correos } = await invocar<{ correos: Record<string, string> }>(
+    { accion: 'correos' },
+    'No se pudieron cargar los correos.'
+  );
+  return correos;
+}
+
 // `traspasarA` (Fase 6b): antes de bloquear el acceso, pasa la cartera del
 // comercial (clientes + visitas planificadas + próximos pasos) a otro.
 export function desactivarComercial(id: string, traspasarA?: string) {

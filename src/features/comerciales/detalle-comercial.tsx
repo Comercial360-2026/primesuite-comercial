@@ -12,6 +12,7 @@ import {
   reactivarComercial,
   enlaceAcceso,
   traspasarCartera,
+  correosComerciales,
   type RolComercial,
 } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -51,6 +52,14 @@ export function DetalleComercial() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Mismo motivo que en el listado (listado-comerciales.tsx): el correo
+  // vive solo en auth.users, no en `comercial`.
+  const { data: correos } = useQuery({
+    queryKey: ['comerciales-correos'],
+    queryFn: correosComerciales,
+    staleTime: 5 * 60_000,
   });
 
   const [nombre, setNombre] = useState('');
@@ -259,7 +268,14 @@ export function DetalleComercial() {
       <CabeceraDetalle
         titulo={data.nombre}
         ayuda="detalle-comercial"
-        subtitulo={data.activo ? undefined : `De baja${data.fecha_baja ? ` desde el ${fechaCorta(data.fecha_baja)}` : ''}`}
+        subtitulo={
+          [
+            correos?.[data.id] ?? null,
+            data.activo ? null : `De baja${data.fecha_baja ? ` desde el ${fechaCorta(data.fecha_baja)}` : ''}`,
+          ]
+            .filter(Boolean)
+            .join(' · ') || undefined
+        }
         avatar={data.nombre}
         onVolver={() => navigate('/comerciales')}
       />

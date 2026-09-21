@@ -304,11 +304,14 @@ export function DetalleHallazgo() {
     navigate(volver);
   }
 
-  // Archivar = sacar el hallazgo de la lista "Hallazgos" del proyecto sin
-  // borrarlo (sigue en su visita y en el informe). Es un UPDATE, así que la
-  // misma RLS que "Guardar" lo acota al autor o Dirección; se comprueba
-  // `count` igual que en el borrado (un UPDATE sin permiso no da error, toca
-  // 0 filas).
+  // "Marcar como resuelto" (columna archivado_en, sin renombrar en la BD)
+  // saca el hallazgo de la lista "Hallazgos" del proyecto sin borrarlo
+  // (sigue en su visita y en el informe). No tiene relación con cerrar la
+  // visita o el proyecto — es para cuando el hallazgo deja de ser vigente
+  // MIENTRAS el proyecto sigue abierto (la palabra "archivar" confundía con
+  // eso, Cesar 21 sept). Es un UPDATE, así que la misma RLS que "Guardar" lo
+  // acota al autor o Dirección; se comprueba `count` igual que en el
+  // borrado (un UPDATE sin permiso no da error, toca 0 filas).
   const archivado = !!hallazgo?.archivado_en;
   async function alternarArchivado() {
     if (!hallazgoId || archivando) return;
@@ -321,11 +324,11 @@ export function DetalleHallazgo() {
             .from('hallazgo')
             .update({ archivado_en: archivado ? null : new Date().toISOString() }, { count: 'exact' })
             .eq('id', hallazgoId),
-        'No se ha podido (0 filas afectadas). Solo el autor o Dirección Comercial pueden archivar un hallazgo.'
+        'No se ha podido (0 filas afectadas). Solo el autor o Dirección Comercial pueden hacer esto.'
       );
     } catch (errArchivar) {
       setArchivando(false);
-      setErrorArchivado(errArchivar instanceof Error ? errArchivar.message : 'No se pudo archivar.');
+      setErrorArchivado(errArchivar instanceof Error ? errArchivar.message : 'No se pudo guardar.');
       return;
     }
     setArchivando(false);
@@ -473,12 +476,12 @@ export function DetalleHallazgo() {
         <>
           {archivado && (
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 2px 0' }}>
-              Archivado {haceRelativo(hallazgo.archivado_en!)} · no sale en la lista de hallazgos del proyecto
+              Resuelto {haceRelativo(hallazgo.archivado_en!)} · no sale en la lista de hallazgos del proyecto
             </div>
           )}
           <FilaNavegable
             icono={archivado ? 'atras' : 'bandeja'}
-            titulo={archivando ? 'Guardando…' : archivado ? 'Desarchivar' : 'Archivar hallazgo'}
+            titulo={archivando ? 'Guardando…' : archivado ? 'Marcar como vigente' : 'Marcar como resuelto'}
             chevron={false}
             onClick={alternarArchivado}
           />
