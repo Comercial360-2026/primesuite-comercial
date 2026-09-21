@@ -27,6 +27,7 @@
 //   { accion: 'reactivar',  id }                               -> { ok: true }
 //   { accion: 'enlace_acceso', id, app_url? }                  -> { action_link }
 //   { accion: 'solicitar_acceso', email }                      -> { ok: true }  (SIN auth)
+//   { accion: 'correos' }                                       -> { correos: { [id]: email } }
 //
 // Todas menos `solicitar_acceso` exigen que quien llama sea
 // direccion_comercial. No se puede uno desactivar a sí mismo.
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Cuerpo de la petición inválido' }, 400);
   }
   const accion = body.accion;
-  const ACCIONES = ['crear', 'editar', 'desactivar', 'reactivar', 'enlace_acceso', 'solicitar_acceso'];
+  const ACCIONES = ['crear', 'editar', 'desactivar', 'reactivar', 'enlace_acceso', 'solicitar_acceso', 'correos'];
   if (typeof accion !== 'string' || !ACCIONES.includes(accion)) {
     return jsonResponse({ error: 'Acción no reconocida' }, 400);
   }
@@ -135,6 +136,18 @@ Deno.serve(async (req) => {
     .single();
   if (quienLlama?.rol !== 'direccion_comercial') {
     return jsonResponse({ error: 'Solo Dirección Comercial puede gestionar el equipo.' }, 403);
+  }
+
+  // ---------------------------------------------------------------- CORREOS
+  // El email vive solo en auth.users (RLS no deja leerlo directo desde el
+  // cliente) — se usa para mostrarlo en el listado/ficha de Equipo. Equipo
+  // pequeño: una página basta (mismo patrón que solicitar_acceso arriba).
+  if (accion === 'correos') {
+    const { data: lista, error: errLista } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (errLista) return jsonResponse({ error: 'No se pudieron cargar los correos.' }, 400);
+    const correos: Record<string, string> = {};
+    for (const u of lista?.users ?? []) correos[u.id] = u.email ?? '';
+    return jsonResponse({ correos });
   }
 
   // ----------------------------------------------------------------- CREAR
