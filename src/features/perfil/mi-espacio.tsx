@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
-import { desde } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -19,6 +19,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { Aviso } from '@/components/ui/aviso';
 import { Segmentado } from '@/components/ui/segmentado';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { Avatar } from '@/components/ui/avatar';
 import { GraficoBarras } from '@/components/ui/grafico-barras';
 
@@ -59,10 +60,10 @@ function avisoDeNivel(nivel: NivelEspacio | undefined): { tipo: 'atencion' | 'er
   return null;
 }
 
-function colorBarra(nivel: NivelEspacio | undefined): string {
-  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'var(--risk-600)';
-  if (nivel === 'aviso_equipo') return 'var(--warning-600)';
-  return 'var(--success-600)';
+function tonoBarraEspacio(nivel: NivelEspacio | undefined): 'riesgo' | 'aviso' | 'positivo' {
+  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'riesgo';
+  if (nivel === 'aviso_equipo') return 'aviso';
+  return 'positivo';
 }
 
 // "Mi espacio" y "Consumo por comercial" eran dos pantallas del mismo tema
@@ -76,6 +77,11 @@ type Vista = 'mias' | 'equipo';
 export function MiEspacio() {
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
+  // "/yo" solo acierta como origen si esta pantalla se alcanza SIEMPRE desde
+  // ahí — el aviso global de espacio (AvisoEspacio, en la cáscara de la app)
+  // puede llevar aquí desde Hoy o desde una visita en curso; con volverA fijo
+  // el ← aterrizaba siempre en "/yo" en vez de volver a donde estaba.
+  const volver = useVolverA('/yo');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [vista, setVista] = useState<Vista>(
@@ -100,9 +106,9 @@ export function MiEspacio() {
   return (
     <div className="screen">
       {vistaEquipo ? (
-        <CabeceraDetalle titulo="Consumo por comercial" volverA="/yo" ayuda="consumo-comerciales" />
+        <CabeceraDetalle titulo="Consumo por comercial" volverA={volver} ayuda="consumo-comerciales" />
       ) : (
-        <CabeceraDetalle titulo="Mi espacio" volverA="/yo" ayuda="mi-espacio" />
+        <CabeceraDetalle titulo="Mi espacio" volverA={volver} ayuda="mi-espacio" />
       )}
 
       <div className="lista-agrupada">
@@ -121,28 +127,20 @@ export function MiEspacio() {
           </div>
         )}
 
-        {/* Medidor: el espacio del EQUIPO, que es lo que manda — común a las
-            dos vistas. En positivo cuando hay holgura; el Aviso avisa cuando
+        {/* Espacio del EQUIPO, que es lo que manda — común a las dos vistas.
+            En positivo cuando hay holgura; el Aviso de debajo avisa cuando
             aprieta. */}
-        <div className="medidor">
-          <div className="medidor__lb">Espacio del equipo</div>
-          <div className="medidor__barra">
-            <div
-              className="medidor__relleno"
-              style={{
-                width: `${Math.min(estado?.pctEquipo ?? 0, 100)}%`,
-                background: colorBarra(estado?.nivel),
-              }}
-            />
-          </div>
-          <div className="medidor__cifra">
-            {estado
-              ? `${Math.round(estado.pctEquipo)}% · quedan ${formatearMB(
-                  Math.max(estado.presupuesto - estado.usadoTotal, 0)
-                )} MB de ${formatearMB(estado.presupuesto)} MB`
-              : 'Calculando…'}
-          </div>
-        </div>
+        <TarjetaAccion
+          titulo="Espacio del equipo"
+          tono={tonoBarraEspacio(estado?.nivel)}
+          barra={Math.min(estado?.pctEquipo ?? 0, 100)}
+        >
+          {estado
+            ? `${Math.round(estado.pctEquipo)}% · quedan ${formatearMB(
+                Math.max(estado.presupuesto - estado.usadoTotal, 0)
+              )} MB de ${formatearMB(estado.presupuesto)} MB`
+            : 'Calculando…'}
+        </TarjetaAccion>
 
         {aviso && <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>}
 
@@ -412,7 +410,7 @@ function MisVisitas() {
               </div>
             </div>
           )}
-          {resultadoLote && <div className="field-error-text">{resultadoLote}</div>}
+          {resultadoLote && <Aviso tipo="error">{resultadoLote}</Aviso>}
         </div>
       )}
 

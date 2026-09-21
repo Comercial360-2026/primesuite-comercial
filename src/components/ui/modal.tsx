@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useAtraparFoco } from '@/hooks/use-atrapar-foco';
 
 // Diálogo centrado sobre la columna de la app. Sustituye a los 7 modales de
 // la visita, que estaban hechos a mano con `position:fixed; inset:0` y una
@@ -21,6 +22,8 @@ interface ModalProps {
 }
 
 export function Modal({ titulo, onCerrar, children }: ModalProps) {
+  const cajaRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCerrar();
@@ -29,13 +32,17 @@ export function Modal({ titulo, onCerrar, children }: ModalProps) {
     return () => document.removeEventListener('keydown', alPulsar);
   }, [onCerrar]);
 
+  useAtraparFoco(cajaRef);
+
   return (
     <div className="modal-fondo" onClick={onCerrar} role="presentation">
       <div
+        ref={cajaRef}
         className="modal-caja"
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-cabecera">

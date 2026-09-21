@@ -36,7 +36,7 @@ export function AvisoVisitaProxima() {
   const location = useLocation();
   const { comercial } = useSesionActual();
   const [descartadas, setDescartadas] = useState<Set<string>>(new Set());
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   // Re-evalúa cada 30 s aunque no haya refetch, para que "en X min" no se
   // quede viejo y la ventana de aviso se recalcule.
@@ -75,7 +75,12 @@ export function AvisoVisitaProxima() {
       .map((v) => ({ v, minutos: Math.round((new Date(v.fecha).getTime() - ahora) / 60_000) }))
       .filter(({ v, minutos }) => minutos <= MIN_ANTES && minutos >= -MIN_DESPUES && !descartadas.has(v.id))
       .sort((a, b) => clave(a.minutos) - clave(b.minutos))[0];
-  }, [visitas, descartadas]);
+    // `tick` no se lee dentro del cálculo (usa Date.now() directo) pero es
+    // justo la señal para recalcular cada 30s — sin él en las deps, el
+    // setInterval de arriba forzaba un re-render pero este useMemo seguía
+    // devolviendo el valor en caché, y "en X min" se quedaba congelado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitas, descartadas, tick]);
 
   if (!aviso) return null;
 

@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useAtraparFoco } from '@/hooks/use-atrapar-foco';
 
 interface HojaSuperiorProps {
   /** Cabecera de la hoja. En minúsculas / frase, como el resto de la app. */
@@ -20,6 +21,8 @@ interface HojaSuperiorProps {
 // TODO panel emergente baja desde ARRIBA. La `HojaInferior` (bottom sheet)
 // se eliminó — no hay opción de equivocarse en una pantalla nueva.
 export function HojaSuperior({ titulo, onCerrar, derecha, children }: HojaSuperiorProps) {
+  const cajaRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const alPulsar = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCerrar();
@@ -28,13 +31,17 @@ export function HojaSuperior({ titulo, onCerrar, derecha, children }: HojaSuperi
     return () => document.removeEventListener('keydown', alPulsar);
   }, [onCerrar]);
 
+  useAtraparFoco(cajaRef);
+
   return (
     <div className="hoja-sup-fondo" onClick={onCerrar} role="presentation">
       <div
+        ref={cajaRef}
         className="hoja-sup-caja"
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="hoja-cabecera">

@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { fechaCorta } from '@/lib/fechas';
+import { fechaCorta, esFechaVencida } from '@/lib/fechas';
 import {
   ETAPA_LABEL,
   PRIORIDAD_LABEL,
@@ -70,10 +70,8 @@ interface DetalleVisita {
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
 
 function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
-  if (!p.fecha_objetivo || p.estado !== 'pendiente') return false;
-  const f = new Date(p.fecha_objetivo);
-  f.setHours(0, 0, 0, 0);
-  return f < new Date(new Date().toDateString());
+  if (p.estado !== 'pendiente') return false;
+  return esFechaVencida(p.fecha_objetivo);
 }
 
 export function DetalleVisitaCerrada() {
@@ -237,6 +235,24 @@ export function DetalleVisitaCerrada() {
       };
     },
   });
+
+  // Memoizado, no recalculado (y con nueva referencia de array) en cada
+  // render del padre: MapaFotos usa la referencia de `fotos` para decidir
+  // si remontar el mapa — sin esto, cualquier re-render (el intervalo del
+  // cronómetro, escribir en un campo hermano…) perdía el zoom/pan que el
+  // comercial acababa de hacer a mano.
+  const fotosMapa = useMemo(() => {
+    const situadas = (data?.fotos ?? []).filter(
+      (f): f is Foto & { latitud: number; longitud: number } => f.latitud != null && f.longitud != null
+    );
+    return situadas.map((f) => ({
+      id: f.id,
+      url: f.url,
+      titulo: f.titulo,
+      lat: f.latitud,
+      lng: f.longitud,
+    }));
+  }, [data?.fotos]);
 
   const sinConexion = isPaused && data === undefined;
   function reintentar() {
@@ -688,29 +704,14 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {(() => {
-            const situadas = data.fotos.filter(
-              (f): f is Foto & { latitud: number; longitud: number } =>
-                f.latitud != null && f.longitud != null
-            );
-            if (situadas.length === 0) return null;
-            return (
-              <div>
-                <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
-                  Mapa de fotos ({situadas.length})
-                </div>
-                <MapaFotos
-                  fotos={situadas.map((f) => ({
-                    id: f.id,
-                    url: f.url,
-                    titulo: f.titulo,
-                    lat: f.latitud,
-                    lng: f.longitud,
-                  }))}
-                />
+          {fotosMapa.length > 0 && (
+            <div>
+              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+                Mapa de fotos ({fotosMapa.length})
               </div>
-            );
-          })()}
+              <MapaFotos fotos={fotosMapa} />
+            </div>
+          )}
 
           {data.fotos.length > 0 && (
             <div>

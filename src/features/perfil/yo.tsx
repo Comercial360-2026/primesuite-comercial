@@ -17,7 +17,7 @@ import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
-import { FilaAccion } from '@/components/ui/fila-accion';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Avatar } from '@/components/ui/avatar';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
@@ -227,7 +227,10 @@ export function Yo() {
   }
 
   const ETIQUETA_ENTIDAD: Record<string, string> = {
+    cliente: 'cliente',
+    proyecto: 'proyecto',
     visita: 'visita',
+    visita_objetivo: 'objetivo de visita',
     hallazgo: 'hallazgo',
     captura_libre: 'captura',
     oportunidad: 'oportunidad',
@@ -336,7 +339,7 @@ export function Yo() {
     const { error: err } = await supabase.auth.signOut();
     setCerrando(false);
     if (err) {
-      setError(err.message);
+      setError('No se pudo cerrar la sesión. Inténtalo de nuevo.');
       return;
     }
     // El logout no recarga la página (navegación de React, no un F5 real),
@@ -634,38 +637,29 @@ export function Yo() {
               />
             </SeccionLista>
 
-            <SeccionLista>
-              <FilaAccion
-                icono="almacenamiento"
-                titulo="Copia de seguridad"
-                subtitulo={
-                  exportando
-                    ? 'Preparando la copia…'
-                    : diasDesdeBackup === null
-                      ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
-                      : diasDesdeBackup === 0
-                        ? 'Última: hoy'
-                        : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
-                            backupPendiente ? ' · conviene hacer una' : ''
-                          }`
-                }
-                tono={backupPendiente ? 'aviso' : 'neutral'}
-                acciones={[
-                  {
-                    icono: 'descargar',
-                    etiqueta: 'Hacer copia ahora',
-                    onClick: hacerCopiaCompleta,
-                    disabled: exportando,
-                    tono: backupPendiente ? 'brand' : 'neutral',
-                  },
-                ]}
-              />
-            </SeccionLista>
-            {errorExportacion && (
-              <div className="field-error-text" style={{ paddingInline: 'var(--fila-pad-x)' }}>
-                {errorExportacion}
-              </div>
-            )}
+            <TarjetaAccion
+              titulo="Copia de seguridad"
+              tono={backupPendiente ? 'aviso' : 'neutral'}
+              barra={diasDesdeBackup === null ? 100 : Math.min((diasDesdeBackup / DIAS_AVISO_BACKUP) * 100, 100)}
+              error={errorExportacion ?? undefined}
+              accion={{
+                icono: 'descargar',
+                etiqueta: 'Hacer copia ahora',
+                onClick: hacerCopiaCompleta,
+                disabled: exportando,
+                cargando: exportando,
+                etiquetaCargando: 'Preparando la copia…',
+                enfasis: backupPendiente ? 'primario' : 'secundario',
+              }}
+            >
+              {diasDesdeBackup === null
+                ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
+                : diasDesdeBackup === 0
+                  ? 'Última: hoy'
+                  : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
+                      backupPendiente ? ' · conviene hacer una' : ''
+                    }`}
+            </TarjetaAccion>
           </div>
         )}
 

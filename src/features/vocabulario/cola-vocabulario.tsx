@@ -281,7 +281,13 @@ export function ColaVocabulario() {
     },
   });
 
-  const { data: catalogoAgrupado, isLoading: cargandoCatalogo } = useQuery({
+  const {
+    data: catalogoAgrupado,
+    isLoading: cargandoCatalogo,
+    isError: errorCargaCatalogo,
+    isPaused: pausadoCatalogo,
+    refetch: refetchCatalogo,
+  } = useQuery({
     queryKey: ['catalogo-completo-agrupado'],
     enabled: vista === 'catalogo',
     queryFn: async (): Promise<CategoriaConTerminos[]> => {
@@ -336,6 +342,11 @@ export function ColaVocabulario() {
       }));
     },
   });
+  const sinConexionCatalogo = pausadoCatalogo && catalogoAgrupado === undefined;
+  function reintentarCatalogo() {
+    queryClient.resetQueries({ queryKey: ['catalogo-completo-agrupado'] });
+    refetchCatalogo();
+  }
 
   function invalidarCatalogo() {
     // TODAS las claves que leen vocabulario, aquí y en otras pantallas
@@ -386,7 +397,7 @@ export function ColaVocabulario() {
     });
     setProcesandoId(null);
     if (err) {
-      setError(err.message);
+      setError('No se pudo resolver el término. Inténtalo de nuevo.');
       return;
     }
     setFusionandoId(null);
@@ -485,7 +496,8 @@ export function ColaVocabulario() {
       );
     } catch (err) {
       setGuardandoAjuste(false);
-      setErrorAjuste(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo guardar el ajuste de clasificación detallada:', err);
+      setErrorAjuste('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setGuardandoAjuste(false);
@@ -504,7 +516,8 @@ export function ColaVocabulario() {
       .from('categoria_vocabulario')
       .insert({ nombre: nuevaCategoriaTexto.trim(), orden: ordenNueva });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear la categoría:', err);
+      setErrorCatalogo('No se pudo crear la categoría. Inténtalo de nuevo.');
       return;
     }
     setNuevaCategoriaTexto('');
@@ -522,7 +535,8 @@ export function ColaVocabulario() {
         'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo renombrar la categoría:', err);
+      setErrorCatalogo('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setRenombrandoCategoriaId(null);
@@ -555,7 +569,8 @@ export function ColaVocabulario() {
         'No se ha podido borrar (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorPorCategoria({ id, msg: err instanceof Error ? err.message : 'No se pudo borrar.' });
+      console.error('No se pudo borrar la categoría:', err);
+      setErrorPorCategoria({ id, msg: 'No se pudo borrar. Inténtalo de nuevo.' });
       return;
     }
     cerrarPanelBorrarCat();
@@ -570,10 +585,11 @@ export function ColaVocabulario() {
   async function borrarCategoriaTraspasando(id: string, destinoId: string) {
     setErrorPorCategoria(null);
     setCorriendoLote(true);
-    const { error: errMover } = await supabase
+    const { data: movidos, error: errMover } = await supabase
       .from('termino')
       .update({ categoria_id: destinoId })
-      .eq('categoria_id', id);
+      .eq('categoria_id', id)
+      .select('id');
     if (errMover) {
       setCorriendoLote(false);
       setErrorPorCategoria({ id, msg: `No se han podido mover los términos: ${errMover.message}` });
@@ -585,6 +601,14 @@ export function ColaVocabulario() {
         'Los términos se movieron, pero no se ha podido borrar la categoría. Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (errBorrar) {
+      // Las dos escrituras no son una transacción: si el borrado falla
+      // después de mover los términos, se deshace el traspaso (por id
+      // exacto, no por categoría destino — no tocar lo que ya hubiera allí)
+      // para no dejar el borrado a medias.
+      const idsMovidos = (movidos ?? []).map((t) => t.id);
+      if (idsMovidos.length) {
+        await supabase.from('termino').update({ categoria_id: id }).in('id', idsMovidos);
+      }
       setCorriendoLote(false);
       setErrorPorCategoria({
         id,
@@ -660,9 +684,8 @@ export function ColaVocabulario() {
       );
     setGuardandoOrden(false);
     if (err) {
-      setErrorCatalogo(
-        `No se ha podido guardar el orden: ${err.message}. Solo Dirección Comercial puede editar las categorías.`
-      );
+      console.error('No se pudo guardar el orden de categorías:', err);
+      setErrorCatalogo('No se ha podido guardar el orden. Solo Dirección Comercial puede editar las categorías.');
       return;
     }
     invalidarCatalogo();
@@ -679,7 +702,8 @@ export function ColaVocabulario() {
         'No se ha podido guardar el cambio (0 filas afectadas). Solo Dirección Comercial puede editar las categorías.'
       );
     } catch (err) {
-      setErrorCatalogo(err instanceof Error ? err.message : 'No se pudo guardar.');
+      console.error('No se pudo renombrar el término:', err);
+      setErrorCatalogo('No se pudo guardar. Inténtalo de nuevo.');
       return;
     }
     setRenombrandoTerminoId(null);
@@ -721,9 +745,16 @@ export function ColaVocabulario() {
   async function quitarLote() {
     // Descartar un término padre arrastra sus modelos.
     const marcados = new Set(marcadosTerm);
+    const padreDeHijo = new Map<string, string>();
+    const nombrePorId = new Map<string, string>();
     for (const c of catalogoAgrupado ?? []) {
       for (const t of c.terminos) {
+        nombrePorId.set(t.id, t.nombre);
         if (marcados.has(t.id)) for (const h of t.hijos) marcados.add(h.id);
+        for (const h of t.hijos) {
+          padreDeHijo.set(h.id, t.id);
+          nombrePorId.set(h.id, h.nombre);
+        }
       }
     }
     const ids = [...marcados];
@@ -733,22 +764,26 @@ export function ColaVocabulario() {
     setResultadoLote(null);
     setErrorCatalogo(null);
     let ok = 0;
-    let fallo = 0;
+    const fallidos: string[] = [];
     for (let i = 0; i < ids.length; i++) {
       setProgresoLote({ hecho: i, total: ids.length });
       const { error: err } = await supabase.rpc('resolver_termino_propuesto', {
         p_termino_id: ids[i],
         p_accion: 'descartar',
       });
-      if (err) fallo++;
+      if (err) fallidos.push(ids[i]);
       else ok++;
     }
     setProgresoLote(null);
     setCorriendoLote(false);
     invalidarCatalogo();
-    if (fallo) {
-      setResultadoLote(`Quitados ${ok} · ${fallo} con error.`);
-      setMarcadosTerm(new Set());
+    if (fallidos.length) {
+      // Nombra qué falló (no solo cuántos) y deja marcado para reintentar
+      // solo eso — antes vaciaba la selección entera y no había forma de
+      // saber cuáles de los N habían quedado sin quitar.
+      const nombres = fallidos.map((id) => nombrePorId.get(id) ?? id).join(', ');
+      setResultadoLote(`Quitados ${ok} · ${fallidos.length} con error: ${nombres}.`);
+      setMarcadosTerm(new Set(fallidos.map((id) => padreDeHijo.get(id) ?? id)));
     } else {
       salirEditar();
     }
@@ -808,7 +843,8 @@ export function ColaVocabulario() {
       orden: ordenNuevo,
     });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear el término:', err);
+      setErrorCatalogo('No se pudo crear el término. Inténtalo de nuevo.');
       return;
     }
     setNuevoTerminoPorCategoria((prev) => ({ ...prev, [categoriaId]: '' }));
@@ -831,7 +867,8 @@ export function ColaVocabulario() {
       orden: ordenNuevo,
     });
     if (err) {
-      setErrorCatalogo(err.message);
+      console.error('No se pudo crear el modelo:', err);
+      setErrorCatalogo('No se pudo crear el modelo. Inténtalo de nuevo.');
       return;
     }
     setNuevoModeloPorPadre((prev) => ({ ...prev, [padre.id]: '' }));
@@ -860,7 +897,8 @@ export function ColaVocabulario() {
     );
     setGuardandoOrden(false);
     if (err) {
-      setErrorCatalogo(`No se ha podido guardar el orden: ${err.message}`);
+      console.error('No se pudo guardar el orden de términos:', err);
+      setErrorCatalogo('No se ha podido guardar el orden. Inténtalo de nuevo.');
       return;
     }
     invalidarCatalogo();
@@ -907,7 +945,12 @@ export function ColaVocabulario() {
             <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoTerminoId(null)}>
               Cancelar
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => renombrarTermino(t.id)}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!textoRenombrarTermino.trim()}
+              onClick={() => renombrarTermino(t.id)}
+            >
               Guardar
             </button>
           </div>
@@ -1488,7 +1531,12 @@ export function ColaVocabulario() {
                 <button type="button" className="btn btn-secondary" onClick={() => { setCreandoCategoria(false); setNuevaCategoriaTexto(''); }}>
                   Cancelar
                 </button>
-                <button type="button" className="btn btn-primary" onClick={crearCategoria}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!nuevaCategoriaTexto.trim() || categoriaDuplicada(nuevaCategoriaTexto)}
+                  onClick={crearCategoria}
+                >
                   Crear
                 </button>
               </div>
@@ -1591,6 +1639,26 @@ export function ColaVocabulario() {
           <div className="screen__scroll">
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
 
+          {sinConexionCatalogo && (
+            <EstadoLista estado="sin-conexion" onReintentar={reintentarCatalogo} />
+          )}
+
+          {errorCargaCatalogo && (
+            <EstadoLista
+              estado="error"
+              mensaje="No se ha podido cargar el catálogo de vocabulario."
+              onReintentar={reintentarCatalogo}
+            />
+          )}
+
+          {!cargandoCatalogo &&
+            !errorCargaCatalogo &&
+            !sinConexionCatalogo &&
+            !buscando &&
+            !catalogoAgrupado?.length && (
+              <EstadoLista estado="vacio" mensaje="Todavía no hay categorías en el catálogo." />
+            )}
+
           {buscando && !filtrarCats(catalogoAgrupado ?? []).length && (
             <EstadoLista estado="vacio" mensaje={`Nada coincide con «${busqueda.trim()}».`} />
           )}
@@ -1630,7 +1698,12 @@ export function ColaVocabulario() {
                       <button type="button" className="btn btn-secondary" onClick={() => setRenombrandoCategoriaId(null)}>
                         Cancelar
                       </button>
-                      <button type="button" className="btn btn-primary" onClick={() => renombrarCategoria(cat.categoria_id)}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!textoRenombrarCategoria.trim()}
+                        onClick={() => renombrarCategoria(cat.categoria_id)}
+                      >
                         Guardar
                       </button>
                     </div>

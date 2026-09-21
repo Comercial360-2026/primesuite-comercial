@@ -22,42 +22,13 @@ import { Icono } from '@/components/ui/iconos';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
 import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
+import { guardarConsolidacionPendiente } from '@/lib/consolidar-cierre-pendiente';
 
-// Consolidación de la visita es un UPDATE, no un INSERT — el resto de la
-// cola offline (db.ts/sync-engine.ts) solo modela creación de registros
-// nuevos (ver 09_arquitectura_tecnica.md §4 y la decisión ya cerrada de no
-// tocar más infraestructura). Para no reabrir esa capa, este único caso se
-// resuelve aquí con un intento directo + reintento ligero en localStorage
-// si no hay red en el momento del cierre — es una corrección puntual, no
-// una ampliación del motor de sincronización.
 interface ParcheCierre {
   estado_captura: 'consolidada';
   cerrada_en: string;
   resumen_texto?: string;
   resumen_origen?: 'reglas';
-}
-
-function intentarConsolidarOffline(visitaId: string, parche: ParcheCierre) {
-  localStorage.setItem(`consolidar-pendiente-${visitaId}`, JSON.stringify(parche));
-  const reintentar = async () => {
-    const clave = `consolidar-pendiente-${visitaId}`;
-    const pendiente = localStorage.getItem(clave);
-    if (!pendiente) return;
-    // Sin comprobar `count`, un UPDATE bloqueado por RLS "tendría éxito"
-    // con 0 filas: se borraría el pendiente de localStorage y se dejaría
-    // de reintentar, pero la visita nunca se habría consolidado de
-    // verdad — y aquí no hay pantalla donde avisar de eso. Mejor seguir
-    // reintentando (no se pierde el dato) que darlo por hecho en falso.
-    const { error, count } = await supabase
-      .from('visita')
-      .update(JSON.parse(pendiente), { count: 'exact' })
-      .eq('id', visitaId);
-    if (!error && count) {
-      localStorage.removeItem(clave);
-      window.removeEventListener('online', reintentar);
-    }
-  };
-  window.addEventListener('online', reintentar);
 }
 
 export function CierreVisita() {
@@ -288,7 +259,7 @@ export function CierreVisita() {
           );
           return { sincronizada: true };
         } else {
-          intentarConsolidarOffline(visitaId, parche);
+          guardarConsolidacionPendiente(visitaId, parche);
           return { sincronizada: false };
         }
       },
@@ -546,46 +517,52 @@ export function CierreVisita() {
         </div>
       )}
 
-      {prechequeoCierre &&
-        (prechequeoCierre.nInterlocutores === 0 ||
-          prechequeoCierre.sinDatosCliente ||
-          pasos.length === 0 ||
-          oportunidades.length === 0) && (
+      {/* Dos de las cuatro condiciones (pasos/oportunidades) ya se calculan
+          en local desde la cola offline — antes el bloque entero dependía
+          de que `prechequeoCierre` (una query de red) resolviera, así que
+          cerrando sin cobertura el comercial nunca veía "no has apuntado
+          ningún próximo paso", justo cuando ese recordatorio es más útil
+          porque no puede volver fácilmente. Ahora se muestran igual, y las
+          dos que sí necesitan red (interlocutores/datos del cliente) se
+          añaden en cuanto `prechequeoCierre` resuelve. */}
+      {(pasos.length === 0 ||
+        oportunidades.length === 0 ||
+        (prechequeoCierre && (prechequeoCierre.nInterlocutores === 0 || prechequeoCierre.sinDatosCliente))) && (
           <Aviso tipo="atencion" titulo="Antes de cerrar">
             <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-              {prechequeoCierre.nInterlocutores === 0 && (
+              {prechequeoCierre?.nInterlocutores === 0 && (
                 <li>
-                  No has registrado con quién hablaste.{' '}
-                  <button
-                    type="button"
-                    className="btn-enlace"
-                    style={{ padding: 0 }}
-                    onClick={() => navigate(`/visita/${visitaId}`)}
-                  >
-                    Volver a la visita
-                  </button>{' '}
-                  para añadir interlocutores.
+                  No has registrado con quién hablaste. Para añadir interlocutores:
+                  <div style={{ marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn--compacto"
+                      onClick={() => navigate(`/visita/${visitaId}`)}
+                    >
+                      Volver a la visita
+                    </button>
+                  </div>
                 </li>
               )}
               {pasos.length === 0 && (
                 <li>
                   No has apuntado ningún próximo paso. Si acordasteis algo (mandar oferta, llamar,
-                  otra visita),{' '}
-                  <button
-                    type="button"
-                    className="btn-enlace"
-                    style={{ padding: 0 }}
-                    onClick={() => navigate(`/visita/${visitaId}`)}
-                  >
-                    vuelve a la visita
-                  </button>{' '}
-                  para dejarlo anotado.
+                  otra visita), déjalo anotado:
+                  <div style={{ marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn--compacto"
+                      onClick={() => navigate(`/visita/${visitaId}`)}
+                    >
+                      Volver a la visita
+                    </button>
+                  </div>
                 </li>
               )}
               {oportunidades.length === 0 && (
                 <li>No has registrado ninguna oportunidad. Si viste alguna, apúntala antes de cerrar.</li>
               )}
-              {prechequeoCierre.sinDatosCliente && (
+              {prechequeoCierre?.sinDatosCliente && (
                 <li>
                   Este cliente no tiene sector, tamaño ni ubicación. Salen en la cabecera de cada
                   informe — complétalos desde su ficha cuando puedas.

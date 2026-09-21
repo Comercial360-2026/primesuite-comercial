@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
-import { fechaCorta, haceRelativo } from '@/lib/fechas';
+import { desde } from '@/lib/volver-a';
+import { fechaCorta, haceRelativo, esFechaVencida } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion, type AccionFila } from '@/components/ui/fila-accion';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
+import { Aviso } from '@/components/ui/aviso';
 import { Segmentado } from '@/components/ui/segmentado';
 import { Icono } from '@/components/ui/iconos';
 
@@ -29,6 +31,7 @@ interface ProximoPaso {
 // una pieza del modelo sin flujo de creación en UI todavía.
 export function MisProximosPasos() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
   // Filtro en la URL (?filtro=completado), no solo en memoria — mismo bug
@@ -131,8 +134,7 @@ export function MisProximosPasos() {
   const en7dias = inicioHoy + 7 * 86_400_000;
 
   function esVencido(fechaObjetivo: string | null) {
-    if (!fechaObjetivo) return false;
-    return new Date(fechaObjetivo).getTime() < inicioHoy;
+    return esFechaVencida(fechaObjetivo);
   }
 
   // Fecha de la primera visita planificada del cliente de este paso, o
@@ -172,6 +174,7 @@ export function MisProximosPasos() {
           titulo={p.descripcion}
           subtitulo={subtitulo}
           to={`/proximos-pasos/${p.id}`}
+          state={desde(location)}
         />
       );
     }
@@ -191,7 +194,7 @@ export function MisProximosPasos() {
         titulo={p.descripcion}
         subtitulo={subtitulo}
         tono={vencido ? 'riesgo' : 'neutral'}
-        onClick={() => navigate(`/proximos-pasos/${p.id}`)}
+        onClick={() => navigate(`/proximos-pasos/${p.id}`, { state: desde(location) })}
         acciones={[completar]}
       />
     );
@@ -224,9 +227,7 @@ export function MisProximosPasos() {
         />
       )}
 
-      {errorGuardado && (
-        <p style={{ color: 'var(--risk-600)', fontSize: 'var(--text-xs)' }}>{errorGuardado}</p>
-      )}
+      {errorGuardado && <Aviso tipo="error">{errorGuardado}</Aviso>}
 
       {!sinConexion && !isError && !!pasos?.length && (
         <div className="lista-agrupada">

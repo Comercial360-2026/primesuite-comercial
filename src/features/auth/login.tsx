@@ -62,10 +62,22 @@ export function Login() {
           // servidor (credenciales rechazadas de verdad). Sin "status",
           // la petición nunca llegó a salir — es un fallo de red, no de
           // credenciales.
-          const tieneRespuestaDelServidor =
-            !!err && typeof err === 'object' && 'status' in err && typeof (err as { status?: unknown }).status === 'number';
-          if (!tieneRespuestaDelServidor) {
+          const status =
+            !!err && typeof err === 'object' && 'status' in err && typeof (err as { status?: unknown }).status === 'number'
+              ? (err as { status: number }).status
+              : null;
+          if (status === null) {
             return 'Sin conexión. Conéctate a internet para iniciar sesión.';
+          }
+          // 429 (demasiados intentos) o cualquier otro fallo del servidor
+          // que no sea "credenciales rechazadas" (400) no es lo mismo que
+          // una contraseña equivocada — decirle "credenciales incorrectas"
+          // solo empuja a seguir reintentando y empeora el bloqueo.
+          if (status === 429) {
+            return 'Demasiados intentos seguidos. Espera un momento antes de volver a probar.';
+          }
+          if (status !== 400) {
+            return 'No se pudo iniciar sesión. Inténtalo de nuevo en un momento.';
           }
           return 'Correo o contraseña incorrectos.';
         },
@@ -103,7 +115,7 @@ export function Login() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') void iniciarSesion();
+          if (e.key === 'Enter' && !acceso.cargando) void iniciarSesion();
         }}
         placeholder="••••••••"
       />
@@ -170,7 +182,7 @@ export function Login() {
       ) : (
         <button
           type="button"
-          className="btn-enlace"
+          className="btn btn-secondary"
           style={{ display: 'block', margin: 'var(--space-4) auto 0' }}
           onClick={() => {
             setEmailRecuperar(email.trim());

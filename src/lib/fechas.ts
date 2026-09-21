@@ -61,6 +61,20 @@ export function desdeHace(v: Entrada): string {
   return haceRelativo(d);
 }
 
+/** ¿Es una fecha anterior a hoy (medianoche local)? Antes reimplementada dos
+ *  veces (detalle-visita-cerrada.tsx, mis-proximos-pasos.tsx) con
+ *  normalización de fecha distinta — coincidían en UTC+ (España) pero podían
+ *  divergir en UTC−. Mismo criterio hoy0/d0 que `haceRelativo` de abajo. */
+export function esFechaVencida(v: Entrada): boolean {
+  const d = aDate(v);
+  if (!d) return false;
+  const hoy0 = new Date();
+  hoy0.setHours(0, 0, 0, 0);
+  const d0 = new Date(d);
+  d0.setHours(0, 0, 0, 0);
+  return d0 < hoy0;
+}
+
 /** "hoy" / "ayer" / "hace 5 días" / "hace 3 semanas" / "hace 4 meses" — para
  *  el de un vistazo ("última visita hace 6 semanas", "vencido hace 9 días").
  *  Siempre en pasado; para fechas futuras devuelve "" (usar `fechaCorta`). */
