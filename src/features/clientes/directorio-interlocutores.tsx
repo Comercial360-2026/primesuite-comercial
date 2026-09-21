@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { FilaToggle } from '@/components/ui/fila-toggle';
 import { Avatar } from '@/components/ui/avatar';
-import { Icono } from '@/components/ui/iconos';
+import { EstadoLista } from '@/components/ui/estado-lista';
 
 interface Interlocutor {
   id: string;
@@ -80,7 +80,13 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: directorio } = useQuery({
+  const {
+    data: directorio,
+    isLoading: cargandoDirectorio,
+    isError: errorDirectorio,
+    isPaused: pausadoDirectorio,
+    refetch: refetchDirectorio,
+  } = useQuery({
     queryKey: ['interlocutores-cliente', clienteId],
     queryFn: async (): Promise<Interlocutor[]> => {
       const { data, error: err } = await supabase
@@ -93,6 +99,11 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
       return data ?? [];
     },
   });
+  const sinConexionDirectorio = pausadoDirectorio && directorio === undefined;
+  function reintentarDirectorio() {
+    queryClient.resetQueries({ queryKey: ['interlocutores-cliente', clienteId] });
+    refetchDirectorio();
+  }
 
   function invalidar() {
     queryClient.invalidateQueries({ queryKey: ['interlocutores-cliente', clienteId] });
@@ -169,22 +180,34 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     if (!editandoId || !formEdicion.nombre.trim()) return;
     setGuardando(true);
     setError(null);
-    const { error: err } = await supabase
-      .from('interlocutor')
-      .update({
-        nombre: formEdicion.nombre.trim(),
-        cargo: formEdicion.cargo.trim() || null,
-        telefono: formEdicion.telefono.trim() || null,
-        email: formEdicion.email.trim() || null,
-        tipo_influencia: formEdicion.tipo || null,
-        relevancia: formEdicion.relevancia.trim() || null,
-      })
-      .eq('id', editandoId);
-    setGuardando(false);
-    if (err) {
+    // Mismo patrón que quitarMarcados(): sin count:'exact', un UPDATE que RLS
+    // bloquea no da error — el formulario se cerraría como si hubiera
+    // guardado sin haber cambiado nada.
+    try {
+      await conReintentoDeSesion(
+        () =>
+          supabase
+            .from('interlocutor')
+            .update(
+              {
+                nombre: formEdicion.nombre.trim(),
+                cargo: formEdicion.cargo.trim() || null,
+                telefono: formEdicion.telefono.trim() || null,
+                email: formEdicion.email.trim() || null,
+                tipo_influencia: formEdicion.tipo || null,
+                relevancia: formEdicion.relevancia.trim() || null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', editandoId!),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+      );
+    } catch {
       setError('No se pudo guardar. Inténtalo de nuevo.');
+      setGuardando(false);
       return;
     }
+    setGuardando(false);
     setEditandoId(null);
     invalidar();
   }
@@ -427,13 +450,23 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             </div>
           );
         })}
-        {!directorio?.length && (
-          <div className="estado-lista">
-            <span className="estado-lista__icono">
-              <Icono nombre="interlocutor" size={30} />
-            </span>
-            <span>Todavía no hay interlocutores registrados para este cliente</span>
-          </div>
+        {cargandoDirectorio && <EstadoLista estado="cargando" />}
+        {sinConexionDirectorio && (
+          <EstadoLista estado="sin-conexion" onReintentar={reintentarDirectorio} />
+        )}
+        {errorDirectorio && (
+          <EstadoLista
+            estado="error"
+            mensaje="No se han podido cargar los interlocutores."
+            onReintentar={reintentarDirectorio}
+          />
+        )}
+        {!cargandoDirectorio && !errorDirectorio && !sinConexionDirectorio && !directorio?.length && (
+          <EstadoLista
+            estado="vacio"
+            icono="interlocutor"
+            mensaje="Todavía no hay interlocutores registrados para este cliente"
+          />
         )}
       </div>
 

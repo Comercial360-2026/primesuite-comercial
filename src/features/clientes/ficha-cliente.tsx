@@ -12,6 +12,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -174,7 +175,13 @@ export function FichaCliente() {
     });
   }
 
-  const { data: cliente } = useQuery({
+  const {
+    data: cliente,
+    isLoading: cargandoCliente,
+    isError: errorCliente,
+    isPaused: pausadoCliente,
+    refetch: refetchCliente,
+  } = useQuery({
     queryKey: ['cliente', clienteId],
     enabled: !!clienteId,
     queryFn: async () => {
@@ -187,6 +194,11 @@ export function FichaCliente() {
       return data;
     },
   });
+  const sinConexionCliente = pausadoCliente && cliente === undefined;
+  function reintentarCliente() {
+    queryClient.resetQueries({ queryKey: ['cliente', clienteId] });
+    refetchCliente();
+  }
 
   // Nombres de responsable y creador de la ficha — para la línea de
   // contexto de la cabecera y "ficha creada por X". Una sola consulta.
@@ -409,6 +421,15 @@ export function FichaCliente() {
       />
 
       <div className="screen__scroll">
+       {cargandoCliente && <EstadoLista estado="cargando" />}
+       {sinConexionCliente && <EstadoLista estado="sin-conexion" onReintentar={reintentarCliente} />}
+       {errorCliente && (
+         <EstadoLista
+           estado="error"
+           mensaje="No se ha podido cargar este cliente."
+           onReintentar={reintentarCliente}
+         />
+       )}
        {(ultimaVisitaRel || semaforo) && (
          <div className="ficha-vitals" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
            {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}

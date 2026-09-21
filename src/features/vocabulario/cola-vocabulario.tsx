@@ -281,7 +281,13 @@ export function ColaVocabulario() {
     },
   });
 
-  const { data: catalogoAgrupado, isLoading: cargandoCatalogo } = useQuery({
+  const {
+    data: catalogoAgrupado,
+    isLoading: cargandoCatalogo,
+    isError: errorCargaCatalogo,
+    isPaused: pausadoCatalogo,
+    refetch: refetchCatalogo,
+  } = useQuery({
     queryKey: ['catalogo-completo-agrupado'],
     enabled: vista === 'catalogo',
     queryFn: async (): Promise<CategoriaConTerminos[]> => {
@@ -336,6 +342,11 @@ export function ColaVocabulario() {
       }));
     },
   });
+  const sinConexionCatalogo = pausadoCatalogo && catalogoAgrupado === undefined;
+  function reintentarCatalogo() {
+    queryClient.resetQueries({ queryKey: ['catalogo-completo-agrupado'] });
+    refetchCatalogo();
+  }
 
   function invalidarCatalogo() {
     // TODAS las claves que leen vocabulario, aquí y en otras pantallas
@@ -1597,6 +1608,26 @@ export function ColaVocabulario() {
 
           <div className="screen__scroll">
           {cargandoCatalogo && <EstadoLista estado="cargando" />}
+
+          {sinConexionCatalogo && (
+            <EstadoLista estado="sin-conexion" onReintentar={reintentarCatalogo} />
+          )}
+
+          {errorCargaCatalogo && (
+            <EstadoLista
+              estado="error"
+              mensaje="No se ha podido cargar el catálogo de vocabulario."
+              onReintentar={reintentarCatalogo}
+            />
+          )}
+
+          {!cargandoCatalogo &&
+            !errorCargaCatalogo &&
+            !sinConexionCatalogo &&
+            !buscando &&
+            !catalogoAgrupado?.length && (
+              <EstadoLista estado="vacio" mensaje="Todavía no hay categorías en el catálogo." />
+            )}
 
           {buscando && !filtrarCats(catalogoAgrupado ?? []).length && (
             <EstadoLista estado="vacio" mensaje={`Nada coincide con «${busqueda.trim()}».`} />

@@ -1112,15 +1112,23 @@ export function VisitaActiva() {
         });
       }
       await Promise.all([
-        supabase.from('captura_libre').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
-        supabase.from('hallazgo').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
-        supabase.from('oportunidad').update({ zona_texto: null }).eq('visita_origen_id', visitaId).eq('zona_texto', zona),
-        supabase.from('proximo_paso').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona),
+        supabase.from('captura_libre').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('hallazgo').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('oportunidad').update({ zona_texto: null }).eq('visita_origen_id', visitaId).eq('zona_texto', zona).throwOnError(),
+        supabase.from('proximo_paso').update({ zona_texto: null }).eq('visita_id', visitaId).eq('zona_texto', zona).throwOnError(),
       ]);
       if (zonaActual.trim() === zona) setZonaActual('');
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Sin esto, un fallo de red a mitad (típico con mala cobertura en
+      // campo) quedaba como excepción no capturada: el spinner se apagaba y
+      // el panel se cerraba como si nada, sin que el comercial supiera si la
+      // operación se completó, quedó a medias, o no hizo nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1140,15 +1148,19 @@ export function VisitaActiva() {
         });
       }
       await Promise.all([
-        supabase.from('captura_libre').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('hallazgo').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('oportunidad').update({ zona_texto: nueva }).eq('visita_origen_id', visitaId).eq('zona_texto', zonaVieja),
-        supabase.from('proximo_paso').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja),
+        supabase.from('captura_libre').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('hallazgo').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('oportunidad').update({ zona_texto: nueva }).eq('visita_origen_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
+        supabase.from('proximo_paso').update({ zona_texto: nueva }).eq('visita_id', visitaId).eq('zona_texto', zonaVieja).throwOnError(),
       ]);
       if (zonaActual.trim() === zonaVieja) setZonaActual(nueva);
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
@@ -1172,11 +1184,13 @@ export function VisitaActiva() {
         .select('id, tipo, storage_path')
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       for (const c of caps ?? []) {
         if (c.storage_path) {
           const bucket = c.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
-          await supabase.storage.from(bucket).remove([c.storage_path]);
+          const { error: errStorage } = await supabase.storage.from(bucket).remove([c.storage_path]);
+          if (errStorage) throw errStorage;
         }
       }
       await supabase
@@ -1184,33 +1198,45 @@ export function VisitaActiva() {
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       await supabase
         .from('hallazgo')
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       await supabase
         .from('proximo_paso')
         .delete()
         .eq('visita_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_responsable_id', comercial.id);
+        .eq('comercial_responsable_id', comercial.id)
+        .throwOnError();
       // Oportunidades: cascada por RPC (una a una).
       const { data: ops } = await supabase
         .from('oportunidad')
         .select('id')
         .eq('visita_origen_id', visitaId)
         .eq('zona_texto', zona)
-        .eq('comercial_autor_id', comercial.id);
+        .eq('comercial_autor_id', comercial.id)
+        .throwOnError();
       for (const o of ops ?? []) {
-        await supabase.rpc('eliminar_oportunidad_completa', { p_oportunidad_id: o.id });
+        const { error: errRpc } = await supabase.rpc('eliminar_oportunidad_completa', { p_oportunidad_id: o.id });
+        if (errRpc) throw errRpc;
       }
       if (zonaActual.trim() === zona) setZonaActual('');
       await recargarCola();
       queryClient.invalidateQueries({ queryKey: ['capturas-companeros', visitaId] });
       cerrarGestionZona();
+    } catch (e) {
+      // Este borrado es irreversible y en varios pasos (cola local + filas +
+      // Storage + oportunidades); sin este catch, un fallo a mitad dejaba al
+      // comercial sin saber si se borró todo, parte, o nada.
+      setZonaGestionError(
+        e instanceof Error ? e.message : 'No se ha podido completar. Compruébalo e inténtalo de nuevo.'
+      );
     } finally {
       setBorrandoZona(false);
     }
