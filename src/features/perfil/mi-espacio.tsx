@@ -19,6 +19,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
 import { Aviso } from '@/components/ui/aviso';
 import { Segmentado } from '@/components/ui/segmentado';
+import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { Avatar } from '@/components/ui/avatar';
 import { GraficoBarras } from '@/components/ui/grafico-barras';
 
@@ -59,10 +60,10 @@ function avisoDeNivel(nivel: NivelEspacio | undefined): { tipo: 'atencion' | 'er
   return null;
 }
 
-function colorBarra(nivel: NivelEspacio | undefined): string {
-  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'var(--risk-600)';
-  if (nivel === 'aviso_equipo') return 'var(--warning-600)';
-  return 'var(--success-600)';
+function tonoBarraEspacio(nivel: NivelEspacio | undefined): 'riesgo' | 'aviso' | 'positivo' {
+  if (nivel === 'bloqueo' || nivel === 'critico_equipo') return 'riesgo';
+  if (nivel === 'aviso_equipo') return 'aviso';
+  return 'positivo';
 }
 
 // "Mi espacio" y "Consumo por comercial" eran dos pantallas del mismo tema
@@ -126,28 +127,20 @@ export function MiEspacio() {
           </div>
         )}
 
-        {/* Medidor: el espacio del EQUIPO, que es lo que manda — común a las
-            dos vistas. En positivo cuando hay holgura; el Aviso avisa cuando
+        {/* Espacio del EQUIPO, que es lo que manda — común a las dos vistas.
+            En positivo cuando hay holgura; el Aviso de debajo avisa cuando
             aprieta. */}
-        <div className="medidor">
-          <div className="medidor__lb">Espacio del equipo</div>
-          <div className="medidor__barra">
-            <div
-              className="medidor__relleno"
-              style={{
-                width: `${Math.min(estado?.pctEquipo ?? 0, 100)}%`,
-                background: colorBarra(estado?.nivel),
-              }}
-            />
-          </div>
-          <div className="medidor__cifra">
-            {estado
-              ? `${Math.round(estado.pctEquipo)}% · quedan ${formatearMB(
-                  Math.max(estado.presupuesto - estado.usadoTotal, 0)
-                )} MB de ${formatearMB(estado.presupuesto)} MB`
-              : 'Calculando…'}
-          </div>
-        </div>
+        <TarjetaAccion
+          titulo="Espacio del equipo"
+          tono={tonoBarraEspacio(estado?.nivel)}
+          barra={Math.min(estado?.pctEquipo ?? 0, 100)}
+        >
+          {estado
+            ? `${Math.round(estado.pctEquipo)}% · quedan ${formatearMB(
+                Math.max(estado.presupuesto - estado.usadoTotal, 0)
+              )} MB de ${formatearMB(estado.presupuesto)} MB`
+            : 'Calculando…'}
+        </TarjetaAccion>
 
         {aviso && <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>}
 
