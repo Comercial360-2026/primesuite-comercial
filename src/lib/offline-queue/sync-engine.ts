@@ -26,6 +26,12 @@ const REINTENTO_RAPIDO_BASE_MS = 3_000;
 const REINTENTO_RAPIDO_MAX_MS = 30_000;
 
 let intervaloId: ReturnType<typeof setInterval> | null = null;
+// Guardado con nombre (no una arrow inline) para poder quitarlo en
+// detenerMotorSincronizacion() — sin esto, detenerMotorSincronizacion no
+// tenía forma de hacer removeEventListener del listener 'online' (fuga
+// latente, sin caller hoy pero real en cuanto se use). De paso evita añadir
+// un segundo listener si se llama a iniciarMotorSincronizacion() dos veces.
+let alReconectarGlobal: (() => void) | null = null;
 let sincronizandoAhora = false;
 // Si llega una petición de sincronizar mientras ya hay una pasada en curso
 // (p. ej. una foto grande subiendo con mala conexión) y se descartaba sin
@@ -37,7 +43,10 @@ let sincronizandoAhora = false;
 let pendienteReejecucion: { incluirErrores: boolean } | null = null;
 
 export function iniciarMotorSincronizacion(): void {
-  window.addEventListener('online', () => void procesarCola());
+  if (!alReconectarGlobal) {
+    alReconectarGlobal = () => void procesarCola();
+    window.addEventListener('online', alReconectarGlobal);
+  }
   if (!intervaloId) {
     intervaloId = setInterval(() => void procesarCola(), INTERVALO_REINTENTO_MS);
   }
@@ -60,6 +69,10 @@ export function detenerMotorSincronizacion(): void {
   if (intervaloId) {
     clearInterval(intervaloId);
     intervaloId = null;
+  }
+  if (alReconectarGlobal) {
+    window.removeEventListener('online', alReconectarGlobal);
+    alReconectarGlobal = null;
   }
 }
 

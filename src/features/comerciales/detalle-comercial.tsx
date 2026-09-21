@@ -27,6 +27,11 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 ];
 
 export function DetalleComercial() {
+  // volverA="/comerciales" fijo (no useVolverA/Regla #14): hoy esta ficha
+  // solo se alcanza desde listado-comerciales.tsx, un único punto de
+  // entrada — la excepción válida que la propia Regla #14 contempla. Si en
+  // el futuro se enlaza desde otro sitio, el ← se rompería en silencio;
+  // revisar entonces.
   const { comercialId } = useParams<{ comercialId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
