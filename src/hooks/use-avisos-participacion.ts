@@ -248,8 +248,13 @@ export function useAvisosParticipacion(): {
   );
 
   // Pendientes de resolver por MÍ (soy responsable de esa visita, o
-  // Dirección — la RLS ya acota cuáles veo). Sin visita_id embebido en el
-  // nombre porque puede haber varias, una por visita distinta.
+  // Dirección — la RLS ya acota cuáles veo). `neq solicitado_por` es
+  // necesario aparte de la RLS: la propia RLS también deja ver tu PROPIA
+  // solicitud (para que sepas que sigue pendiente), y sin este filtro salía
+  // aquí también, con botones Aceptar/Rechazar sobre tu propia petición —
+  // el servidor ya lo bloquea (RPC exige responsable/Dirección), pero la
+  // pantalla no debería ni ofrecerlo. Sin visita_id embebido en el nombre de
+  // la clave porque puede haber varias, una por visita distinta.
   const { data: solicitudesReapertura } = useQuery({
     queryKey: ['solicitudes-reapertura', comercial?.id],
     enabled: !!comercial,
@@ -260,6 +265,7 @@ export function useAvisosParticipacion(): {
         .from('visita_solicitud_reapertura')
         .select('id, visita_id, solicitado_por, creado_en, visita:visita_id(fecha, cliente:cliente_id(nombre))')
         .eq('estado', 'pendiente')
+        .neq('solicitado_por', comercial!.id)
         .order('creado_en', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((f) => {
