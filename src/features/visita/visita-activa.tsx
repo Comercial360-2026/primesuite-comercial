@@ -1024,15 +1024,20 @@ export function VisitaActiva() {
       },
       {
         onExito: () => {
-          // Optimista: sin esto, con la visita encolada pero aún sin subir
-          // (sin red), invalidateQueries no tiene nada nuevo que traer y el
-          // campo volvería a mostrar el valor viejo hasta que sincronizara.
+          // Solo el parche optimista, SIN invalidateQueries aquí: encolar()
+          // no espera a que la sincronización real termine (puede tardar
+          // segundos, o esperar a que vuelva la red) — un invalidate
+          // inmediato dispara un refetch que en ese hueco todavía lee el
+          // valor VIEJO del servidor y pisa este parche, haciendo que el
+          // campo "vuelva atrás" un instante (bug real encontrado probando
+          // este mismo cambio). El refetchInterval que ya tiene esta query
+          // (más EVENTO_COLA_PROCESADA en otras pantallas) se encarga de
+          // traer el valor real en cuanto la cola sincronice de verdad.
           queryClient.setQueryData(
             objetivoQueryKey,
             (prev: { objetivo: string | null; estado_captura: string } | null | undefined) =>
               prev ? { ...prev, objetivo: nuevoConsolidado } : prev
           );
-          queryClient.invalidateQueries({ queryKey: objetivoQueryKey });
         },
         mensajeError: 'No se pudo guardar el objetivo.',
       }
