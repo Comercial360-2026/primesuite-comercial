@@ -483,11 +483,14 @@ export function VisitaActiva() {
     // Sondea rápido mientras la visita todavía no existe en el servidor
     // (primeros segundos de una visita local); una vez existe, cada 20 s
     // para enterarse si un compañero la ha cerrado mientras seguimos
-    // capturando (A0.1). Deja de sondear cuando ya está consolidada.
+    // capturando (A0.1). Ya consolidada, sigue sondeando más despacio (60 s)
+    // en vez de pararse del todo: una visita cerrada puede reabrirse (el
+    // responsable, o una solicitud aceptada de otro participante) y esta
+    // pantalla necesita enterarse sola si sigue abierta esperando.
     refetchInterval: (query) => {
       const d = query.state.data as { estado_captura?: string } | null | undefined;
       if (d == null) return 4000;
-      return d.estado_captura === 'consolidada' ? false : 20000;
+      return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
     queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
       const { data, error } = await supabase

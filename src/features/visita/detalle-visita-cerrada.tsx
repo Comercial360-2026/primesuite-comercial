@@ -19,6 +19,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useTamanoAdjuntosVisita } from '@/hooks/use-tamano-adjuntos-visita';
+import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
@@ -53,6 +54,8 @@ interface DetalleVisita {
   tipo_visita: string | null;
   objetivo: string | null;
   estado_captura: string;
+  cerrada_en: string | null;
+  reabierta_en: string | null;
   resumen_texto: string | null;
   cliente_id: string | null;
   cliente_nombre: string;
@@ -101,23 +104,32 @@ export function DetalleVisitaCerrada() {
   // Mismo criterio que el backend (eliminar_visita_completa: responsable de
   // la visita o Dirección) — ver hallazgo gemelo en Ficha de cliente
   // (auditoría 2026-09-05): la UI no debe ofrecer "Borrar" a un simple
-  // acompañante, aunque el servidor lo fuera a rechazar igualmente.
-  const { data: esResponsable } = useQuery({
-    queryKey: ['soy-responsable-visita', visitaId, comercial?.id],
+  // acompañante, aunque el servidor lo fuera a rechazar igualmente. Se pide
+  // rol+estado juntos (no solo si "soy responsable") porque también decide
+  // si puedo pedir reabrir la visita como participante normal.
+  const { data: miParticipacion } = useQuery({
+    queryKey: ['mi-participacion-visita', visitaId, comercial?.id],
     enabled: !!visitaId && !!comercial?.id && !esDireccionComercial,
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('visita_participante')
-        .select('id')
+        .select('rol, estado')
         .eq('visita_id', visitaId!)
         .eq('comercial_id', comercial!.id)
-        .eq('rol', 'responsable')
         .maybeSingle();
       if (err) throw err;
-      return !!data;
+      return data;
     },
   });
-  const puedeBorrarVisita = esDireccionComercial || !!esResponsable;
+  const soyResponsable = miParticipacion?.rol === 'responsable' && miParticipacion?.estado === 'aceptado';
+  const puedeBorrarVisita = esDireccionComercial || soyResponsable;
+  // Reabrir directo: mismo criterio que borrar (responsable de la visita o
+  // Dirección — lo hace cumplir también el trigger de la BD, esto solo
+  // decide si se ofrece el botón). El resto de participantes aceptados no
+  // pueden reabrir solos: piden y el responsable/Dirección decide.
+  const puedeReabrirDirecto = puedeBorrarVisita;
+  const puedeSolicitarReapertura =
+    !puedeReabrirDirecto && miParticipacion?.rol !== 'responsable' && miParticipacion?.estado === 'aceptado';
 
   const queryKey = ['detalle-visita-cerrada', visitaId];
   const { data, isLoading, isError, isPaused, refetch } = useQuery({
@@ -133,7 +145,9 @@ export function DetalleVisitaCerrada() {
       ] = await Promise.all([
         supabase
           .from('visita')
-          .select('fecha, tipo_visita, objetivo, estado_captura, resumen_texto, cliente_id, cliente:cliente_id(nombre)')
+          .select(
+            'fecha, tipo_visita, objetivo, estado_captura, cerrada_en, reabierta_en, resumen_texto, cliente_id, cliente:cliente_id(nombre)'
+          )
           .eq('id', visitaId!)
           .single(),
         supabase
@@ -199,6 +213,8 @@ export function DetalleVisitaCerrada() {
         tipo_visita: visita!.tipo_visita,
         objetivo: visita!.objetivo,
         estado_captura: visita!.estado_captura,
+        cerrada_en: (visita as { cerrada_en?: string | null }).cerrada_en ?? null,
+        reabierta_en: (visita as { reabierta_en?: string | null }).reabierta_en ?? null,
         resumen_texto: visita!.resumen_texto,
         cliente_id: (visita! as { cliente_id: string | null }).cliente_id,
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
@@ -260,6 +276,80 @@ export function DetalleVisitaCerrada() {
   });
 
   const puedeEditarResumen = puedeBorrarVisita;
+
+  // Reabrir la visita (responsable/Dirección, directo) o pedirlo (el resto
+  // de participantes aceptados). Mismo patrón visual que "liberar espacio":
+  // un botón que abre un ConfirmacionBorrado antes de escribir nada.
+  const { iniciarVisita } = useVisitaActivaContext();
+  const [queriendoReabrir, setQueriendoReabrir] = useState(false);
+  const [queriendoSolicitar, setQueriendoSolicitar] = useState(false);
+  const reabriendo = useAccionAsync();
+  const solicitando = useAccionAsync();
+
+  // Si ya pedí reabrir esta visita y sigue sin resolver, no se ofrece pedirlo
+  // otra vez (la BD también lo impediría con el índice único) — se avisa de
+  // que ya se pidió.
+  const { data: miSolicitudPendiente } = useQuery({
+    queryKey: ['mi-solicitud-reapertura', visitaId, comercial?.id],
+    enabled: !!visitaId && !!comercial?.id && puedeSolicitarReapertura,
+    queryFn: async () => {
+      const { data, error: err } = await supabase
+        .from('visita_solicitud_reapertura')
+        .select('id')
+        .eq('visita_id', visitaId!)
+        .eq('solicitado_por', comercial!.id)
+        .eq('estado', 'pendiente')
+        .maybeSingle();
+      if (err) throw err;
+      return data;
+    },
+  });
+
+  async function reabrirDirecto() {
+    if (!visitaId || !comercial) return;
+    await reabriendo.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita')
+              .update(
+                { estado_captura: 'en_curso', reabierta_en: new Date().toISOString(), reabierta_por: comercial.id },
+                { count: 'exact' }
+              )
+              .eq('id', visitaId),
+          'No se ha podido reabrir (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          iniciarVisita({ id: visitaId, clienteNombre: data?.cliente_nombre ?? '' });
+          navigate(`/visita/${visitaId}`);
+        },
+      }
+    );
+  }
+
+  async function pedirReapertura() {
+    if (!visitaId || !comercial) return;
+    await solicitando.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('visita_solicitud_reapertura')
+              .insert({ visita_id: visitaId, solicitado_por: comercial.id }, { count: 'exact' }),
+          'No se ha podido enviar la solicitud (0 filas afectadas).'
+        );
+      },
+      {
+        onExito: () => {
+          setQueriendoSolicitar(false);
+          queryClient.invalidateQueries({ queryKey: ['mi-solicitud-reapertura', visitaId, comercial.id] });
+        },
+      }
+    );
+  }
 
   function abrirEditarResumen() {
     setBorradorResumen(data?.resumen_texto ?? '');
@@ -386,7 +476,9 @@ export function DetalleVisitaCerrada() {
           data
             ? `${fechaCorta(data.fecha)}${
                 data.tipo_visita ? ` · ${etiqueta(TIPO_VISITA_LABEL, data.tipo_visita).toLowerCase()}` : ''
-              } · ${estadoLegible[data.estado_captura] ?? data.estado_captura}`
+              } · ${estadoLegible[data.estado_captura] ?? data.estado_captura}${
+                data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''
+              }${data.reabierta_en ? ` · reabierta el ${fechaCorta(data.reabierta_en)}` : ''}`
             : undefined
         }
       />
@@ -707,6 +799,74 @@ export function DetalleVisitaCerrada() {
               />
             </SeccionLista>
           )}
+        </div>
+      )}
+
+      {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (
+        <div style={{ marginTop: 4 }}>
+          {puedeReabrirDirecto &&
+            (queriendoReabrir ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={() => {
+                    reabriendo.limpiarError();
+                    setQueriendoReabrir(false);
+                  }}
+                  onConfirmar={reabrirDirecto}
+                  cargando={reabriendo.cargando}
+                  error={reabriendo.error}
+                  confirmar="Sí, reabrir"
+                  cargandoTexto="Reabriendo…"
+                  reversible="Vuelve a estar en curso y se podrán añadir más fotos, notas y hallazgos. Mientras esté reabierta, deja de ser visible para el resto de la empresa: solo la verán el responsable y los participantes."
+                >
+                  Vas a reabrir esta visita.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="restaurar"
+                  titulo="Reabrir visita"
+                  chevron={false}
+                  onClick={() => setQueriendoReabrir(true)}
+                />
+              </SeccionLista>
+            ))}
+
+          {puedeSolicitarReapertura &&
+            (miSolicitudPendiente ? (
+              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+                <Aviso tipo="info">
+                  Solicitud de reapertura enviada — esperando respuesta del responsable.
+                </Aviso>
+              </div>
+            ) : queriendoSolicitar ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={() => {
+                    solicitando.limpiarError();
+                    setQueriendoSolicitar(false);
+                  }}
+                  onConfirmar={pedirReapertura}
+                  cargando={solicitando.cargando}
+                  error={solicitando.error}
+                  confirmar="Sí, pedir reapertura"
+                  cargandoTexto="Enviando…"
+                  reversible="Se le pide al responsable de la visita que la reabra — no se reabre hasta que lo acepte."
+                >
+                  Vas a pedir reabrir esta visita.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="restaurar"
+                  titulo="Pedir reabrir visita"
+                  chevron={false}
+                  onClick={() => setQueriendoSolicitar(true)}
+                />
+              </SeccionLista>
+            ))}
         </div>
       )}
 
