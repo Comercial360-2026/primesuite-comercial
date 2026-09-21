@@ -9,6 +9,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
@@ -472,13 +473,20 @@ function DetalleCapturaPorId() {
     );
   }
 
-  if (cargandoInicial) return null;
+  if (cargandoInicial) {
+    return (
+      <div className="screen">
+        <CabeceraDetalle titulo="Captura" ayuda="detalle-captura" volverA={volver} />
+        <EstadoLista estado="cargando" />
+      </div>
+    );
+  }
 
   if (!captura) {
     return (
       <div className="screen">
         <CabeceraDetalle titulo="Captura" ayuda="detalle-captura" volverA={volver} />
-        <p style={{ color: 'var(--ink-400)' }}>No se ha encontrado esta captura.</p>
+        <EstadoLista estado="vacio" mensaje="No se ha encontrado esta captura." />
       </div>
     );
   }

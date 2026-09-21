@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
-import { Icono } from '@/components/ui/iconos';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface ProyectoOpcion {
@@ -129,14 +129,14 @@ export function ObjetivoVisitaModal({
             </select>
           )}
           {onCrearProyecto && !creando && (
-            <button
-              type="button"
-              className="eco-tag-mas"
-              style={{ marginTop: 6, alignSelf: 'flex-start' }}
+            // Mismo patrón que "Nuevo proyecto" en planificar-visita.tsx —
+            // misma acción de negocio, un solo lenguaje visual.
+            <FilaNavegable
+              icono="mas"
+              titulo="Nuevo proyecto"
+              chevron={false}
               onClick={() => setCreando(true)}
-            >
-              <Icono nombre="mas" size={13} /> Nuevo proyecto
-            </button>
+            />
           )}
           {creando && (
             <div style={{ marginTop: 8 }}>
