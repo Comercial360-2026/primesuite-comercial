@@ -1949,8 +1949,8 @@ export function VisitaActiva() {
               className="boton-icono"
               onClick={() => setBriefingAbierto(true)}
               disabled={!visitaLocal?.clienteId}
-              aria-label="Briefing de Jira"
-              title="Briefing de Jira del cliente"
+              aria-label="Briefing"
+              title="Briefing del cliente (Jira + Confluence)"
             >
               <Icono nombre="briefing" size={18} />
             </button>
