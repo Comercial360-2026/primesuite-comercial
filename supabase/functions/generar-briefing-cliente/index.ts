@@ -5,6 +5,12 @@
 // primesuite-briefing-jira-sin-ia-plan.md). El briefing se arma con reglas
 // de código sobre los campos de los tickets (prioridad, estado, texto).
 //
+// Además busca en Confluence (mismo sitio Atlassian, mismas credenciales
+// que Jira, bajo `/wiki` — convención fija de Confluence Cloud) páginas que
+// mencionen al cliente, y arma un "Conocimiento interno" con las mismas
+// reglas SIN IA. Se lanza en paralelo a la consulta de Jira y, si falla o no
+// hay páginas, no afecta al resto del briefing.
+//
 // Contrato (POST JSON):
 //   { accion: 'generar', cliente_id: string } -> Briefing (ver abajo)
 //
@@ -75,7 +81,7 @@ function contieneAlguna(texto: string, lista: string[]): boolean {
   return lista.some((palabra) => texto.includes(palabra));
 }
 
-interface Briefing {
+type Briefing = {
   ok: true;
   sinTickets: boolean;
   totalTickets: number;
@@ -86,9 +92,10 @@ interface Briefing {
   contextoComercial: string;
   queEspera: { texto: string; tickets: { key: string; resumen: string }[] };
   recomendacion: string;
-}
+  conocimientoInterno: ConocimientoInterno;
+};
 
-function construirBriefing(tickets: TicketJira[]): Briefing {
+function construirBriefing(tickets: TicketJira[]): Omit<Briefing, 'conocimientoInterno'> {
   const abiertos = tickets.filter((t) => !ESTADOS_CERRADOS.includes(t.estado));
 
   const criticos = abiertos.filter((t) => PRIORIDADES_CRITICAS.includes(t.prioridad));
@@ -159,14 +166,124 @@ function construirBriefing(tickets: TicketJira[]): Briefing {
   };
 }
 
-// JQL con el nombre del cliente entre comillas dobles: escapar backslash y
-// comillas para no romper la consulta ni permitir inyectar cláusulas JQL
-// propias a partir de un nombre de cliente con caracteres raros.
-function escaparParaJql(texto: string): string {
+// JQL/CQL con el nombre del cliente entre comillas dobles: escapar backslash
+// y comillas para no romper la consulta ni permitir inyectar cláusulas
+// propias a partir de un nombre de cliente con caracteres raros. Misma
+// regla de escapado en Jira (JQL) y Confluence (CQL).
+function escaparComillas(texto: string): string {
   return texto.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 const TIMEOUT_JIRA_MS = 15_000;
+const TIMEOUT_CONFLUENCE_MS = 15_000;
+
+interface PaginaConfluence {
+  titulo: string;
+  espacio: string;
+  url: string;
+  extracto: string;
+}
+
+interface ConocimientoInterno {
+  ok: boolean;
+  error?: string;
+  sinPaginas: boolean;
+  totalPaginas: number;
+  paginas: PaginaConfluence[];
+  resumenEjecutivo: string;
+}
+
+interface ResultadoBusquedaConfluence {
+  title?: string;
+  excerpt?: string;
+  url?: string;
+  resultGlobalContainer?: { title?: string };
+}
+
+function conocimientoConError(error: string): ConocimientoInterno {
+  return { ok: false, error, sinPaginas: true, totalPaginas: 0, paginas: [], resumenEjecutivo: error };
+}
+
+function espaciosUnicos(paginas: PaginaConfluence[]): string[] {
+  return [...new Set(paginas.map((p) => p.espacio).filter(Boolean))];
+}
+
+function construirConocimientoInterno(paginas: PaginaConfluence[], clienteNombre: string): ConocimientoInterno {
+  const espacios = espaciosUnicos(paginas);
+  const resumenEjecutivo =
+    paginas.length === 0
+      ? `No se ha encontrado documentación interna de ${clienteNombre} en Confluence.`
+      : `${paginas.length} página${paginas.length === 1 ? '' : 's'} encontrada${paginas.length === 1 ? '' : 's'} en Confluence` +
+        (espacios.length > 0 ? `, en: ${espacios.join(', ')}.` : '.');
+  return { ok: true, sinPaginas: paginas.length === 0, totalPaginas: paginas.length, paginas, resumenEjecutivo };
+}
+
+// Quita las marcas de resaltado <b>...</b> que devuelve Confluence en el
+// extracto — no hace falta un parser HTML completo, solo texto plano.
+// Algunas páginas (macros con emoji) traen además la secuencia literal
+// "\uXXXX" sin decodificar en vez del carácter real: se deshace a mano.
+function textoPlanoDeExtracto(html: string): string {
+  return html
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+// Confluence Cloud vive en el mismo sitio que Jira, bajo `/wiki` —
+// convención fija de Atlassian Cloud cuando Jira y Confluence comparten
+// sitio, así que no hace falta una URL de configuración aparte.
+async function buscarConocimientoInterno(
+  jiraBaseUrl: string,
+  jiraEmail: string,
+  jiraApiToken: string,
+  clienteNombre: string
+): Promise<ConocimientoInterno> {
+  const confluenceBaseUrl = `${jiraBaseUrl.replace(/\/$/, '')}/wiki`;
+  const cql = `text ~ "${escaparComillas(clienteNombre)}" AND type in (page, blogpost) ORDER BY lastmodified DESC`;
+
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_CONFLUENCE_MS);
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(
+      `${confluenceBaseUrl}/rest/api/search?cql=${encodeURIComponent(cql)}&limit=15&excerpt=highlight`,
+      {
+        signal: controlador.signal,
+        headers: {
+          Authorization: `Basic ${btoa(`${jiraEmail}:${jiraApiToken}`)}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+  } catch (err) {
+    const esAbort = err instanceof DOMException && err.name === 'AbortError';
+    return conocimientoConError(
+      esAbort ? 'Confluence ha tardado demasiado en responder.' : 'No se pudo conectar con Confluence.'
+    );
+  } finally {
+    clearTimeout(temporizador);
+  }
+
+  if (!respuesta.ok) {
+    return conocimientoConError(`Confluence respondió con un error (${respuesta.status}).`);
+  }
+
+  let cuerpo: { results?: ResultadoBusquedaConfluence[] };
+  try {
+    cuerpo = await respuesta.json();
+  } catch {
+    return conocimientoConError('Confluence devolvió una respuesta inesperada.');
+  }
+
+  const paginas: PaginaConfluence[] = (cuerpo.results ?? []).map((r) => ({
+    titulo: r.title ?? '(sin título)',
+    espacio: r.resultGlobalContainer?.title ?? '',
+    url: r.url ? `${confluenceBaseUrl}${r.url}` : confluenceBaseUrl,
+    extracto: textoPlanoDeExtracto(r.excerpt ?? ''),
+  }));
+
+  return construirConocimientoInterno(paginas, clienteNombre);
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
@@ -214,8 +331,13 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'No se encontró el cliente o no tienes acceso.' }, 404);
   }
 
+  // Se lanza ya (sin await) para que corra en paralelo a la consulta de
+  // Jira de abajo — no la ralentiza, y si falla no tira el resto del
+  // briefing (se resuelve con conocimientoConError, no con una excepción).
+  const promesaConocimientoInterno = buscarConocimientoInterno(jiraBaseUrl, jiraEmail, jiraApiToken, cliente.nombre);
+
   // --------------------------------------------------------------- JIRA
-  const jql = `(summary ~ "${escaparParaJql(cliente.nombre)}" OR description ~ "${escaparParaJql(cliente.nombre)}") ORDER BY updated DESC`;
+  const jql = `(summary ~ "${escaparComillas(cliente.nombre)}" OR description ~ "${escaparComillas(cliente.nombre)}") ORDER BY updated DESC`;
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_JIRA_MS);
 
@@ -238,7 +360,10 @@ Deno.serve(async (req) => {
   } catch (err) {
     const esAbort = err instanceof DOMException && err.name === 'AbortError';
     return jsonResponse(
-      { error: esAbort ? 'Jira ha tardado demasiado en responder.' : 'No se pudo conectar con Jira.' },
+      {
+        error: esAbort ? 'Jira ha tardado demasiado en responder.' : 'No se pudo conectar con Jira.',
+        conocimientoInterno: await promesaConocimientoInterno,
+      },
       502
     );
   } finally {
@@ -248,14 +373,20 @@ Deno.serve(async (req) => {
   if (!respuestaJira.ok) {
     // No se traslada el cuerpo de error de Jira tal cual (podría filtrar
     // detalles internos); solo el código, suficiente para diagnosticar.
-    return jsonResponse({ error: `Jira respondió con un error (${respuestaJira.status}).` }, 502);
+    return jsonResponse(
+      { error: `Jira respondió con un error (${respuestaJira.status}).`, conocimientoInterno: await promesaConocimientoInterno },
+      502
+    );
   }
 
   let cuerpoJira: { issues?: { key: string; fields: CampoJira }[] };
   try {
     cuerpoJira = await respuestaJira.json();
   } catch {
-    return jsonResponse({ error: 'Jira devolvió una respuesta inesperada.' }, 502);
+    return jsonResponse(
+      { error: 'Jira devolvió una respuesta inesperada.', conocimientoInterno: await promesaConocimientoInterno },
+      502
+    );
   }
 
   const tickets: TicketJira[] = (cuerpoJira.issues ?? []).map((issue) => {
@@ -273,5 +404,6 @@ Deno.serve(async (req) => {
     };
   });
 
-  return jsonResponse(construirBriefing(tickets));
+  const conocimientoInterno = await promesaConocimientoInterno;
+  return jsonResponse({ ...construirBriefing(tickets), conocimientoInterno });
 });
