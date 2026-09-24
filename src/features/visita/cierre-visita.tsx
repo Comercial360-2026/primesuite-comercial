@@ -24,6 +24,19 @@ import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 import { guardarConsolidacionPendiente } from '@/lib/consolidar-cierre-pendiente';
 
+// Adapta una fila del servidor (de cualquier autor, cualquier dispositivo)
+// a la forma OperacionPendiente que ya sabe pintar HojaDetalleCierre y
+// generarResumenReglas — mismo patrón que `deCompaneros` en
+// visita-activa.tsx, aquí sin filtrar por autor porque el cierre necesita
+// TODA la visita, no solo lo de compañeros.
+function operacionDesdeServidor(
+  id: string,
+  entidad: OperacionPendiente['entidad'],
+  payload: OperacionPendiente['payload']
+): OperacionPendiente {
+  return { id, entidad, payload, estado: 'completado', intentos: 0, creadoEn: '' } as OperacionPendiente;
+}
+
 interface ParcheCierre {
   estado_captura: 'consolidada';
   cerrada_en: string;
@@ -152,12 +165,114 @@ export function CierreVisita() {
     },
   });
 
+  // La cola local (`operaciones`, de useSyncQueue) es SOLO lo capturado
+  // desde ESTE dispositivo — nunca lo de un compañero, ni lo capturado
+  // desde otro dispositivo propio a mitad de la misma visita (mismo aviso
+  // que en visita-activa.tsx). Cerrar la visita necesita TODO lo de la
+  // visita para que el recuento y el resumen automático (`resumen_texto`,
+  // que se guarda en el servidor al cerrar) sean correctos aunque quien
+  // cierre no haya capturado nada él mismo — bug real reportado por Cesar:
+  // un participante invitado a SAPA vio "0 fotos, 0 notas, 0 hallazgos" al
+  // cerrar, cuando la visita tenía 34 fotos y 20 notas de otro comercial.
+  const { data: deTodaLaVisita } = useQuery({
+    queryKey: ['cierre-visita-todo', visitaId],
+    enabled: !!visitaId,
+    queryFn: async () => {
+      const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
+        supabase
+          .from('captura_libre')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, zona_texto')
+          .eq('visita_id', visitaId!),
+        supabase
+          .from('hallazgo')
+          .select('id, nota, comercial_autor_id, zona_texto')
+          .eq('visita_id', visitaId!),
+        supabase
+          .from('proximo_paso')
+          .select('id, descripcion, fecha_objetivo, comercial_responsable_id, zona_texto')
+          .eq('visita_id', visitaId!),
+        supabase
+          .from('oportunidad')
+          .select('id, titulo, prioridad, comercial_autor_id, zona_texto')
+          .eq('visita_origen_id', visitaId!),
+      ]);
+      return {
+        capturas: capturasRes.data ?? [],
+        hallazgos: hallazgosRes.data ?? [],
+        pasos: pasosRes.data ?? [],
+        oportunidades: oportunidadesRes.data ?? [],
+      };
+    },
+  });
+
   if (!visitaId) return null;
 
-  const capturas = operaciones.filter((op) => op.entidad === 'captura_libre');
-  const oportunidades = operaciones.filter((op) => op.entidad === 'oportunidad');
-  const hallazgos = operaciones.filter((op) => op.entidad === 'hallazgo');
-  const pasos = operaciones.filter((op) => op.entidad === 'proximo_paso');
+  // Descarta por id lo que ya está en la cola local para no duplicarlo —
+  // mismo patrón que `capturasServidorSinLocales` en visita-activa.tsx.
+  const idsLocalesDe = (entidad: OperacionPendiente['entidad']) =>
+    new Set(operaciones.filter((op) => op.entidad === entidad).map((op) => op.id));
+  const idsCapturasLocales = idsLocalesDe('captura_libre');
+  const idsHallazgosLocales = idsLocalesDe('hallazgo');
+  const idsPasosLocales = idsLocalesDe('proximo_paso');
+  const idsOportunidadesLocales = idsLocalesDe('oportunidad');
+
+  const capturas = [
+    ...operaciones.filter((op) => op.entidad === 'captura_libre'),
+    ...(deTodaLaVisita?.capturas ?? [])
+      .filter((c) => !idsCapturasLocales.has(c.id))
+      .map((c) =>
+        operacionDesdeServidor(c.id, 'captura_libre', {
+          visitaId: visitaId!,
+          comercialAutorId: c.comercial_autor_id,
+          tipo: c.tipo as 'foto' | 'audio' | 'nota',
+          titulo: c.titulo ?? undefined,
+          contenidoTexto: c.contenido_texto ?? undefined,
+          zonaTexto: c.zona_texto ?? undefined,
+        })
+      ),
+  ];
+  const oportunidades = [
+    ...operaciones.filter((op) => op.entidad === 'oportunidad'),
+    ...(deTodaLaVisita?.oportunidades ?? [])
+      .filter((o) => !idsOportunidadesLocales.has(o.id))
+      .map((o) =>
+        operacionDesdeServidor(o.id, 'oportunidad', {
+          clienteId: '',
+          visitaOrigenId: visitaId!,
+          comercialAutorId: o.comercial_autor_id,
+          titulo: o.titulo,
+          prioridad: o.prioridad as 'baja' | 'media' | 'alta' | 'estrategica',
+          zonaTexto: o.zona_texto ?? undefined,
+        })
+      ),
+  ];
+  const hallazgos = [
+    ...operaciones.filter((op) => op.entidad === 'hallazgo'),
+    ...(deTodaLaVisita?.hallazgos ?? [])
+      .filter((h) => !idsHallazgosLocales.has(h.id))
+      .map((h) =>
+        operacionDesdeServidor(h.id, 'hallazgo', {
+          visitaId: visitaId!,
+          comercialAutorId: h.comercial_autor_id,
+          nota: h.nota ?? undefined,
+          zonaTexto: h.zona_texto ?? undefined,
+        })
+      ),
+  ];
+  const pasos = [
+    ...operaciones.filter((op) => op.entidad === 'proximo_paso'),
+    ...(deTodaLaVisita?.pasos ?? [])
+      .filter((p) => !idsPasosLocales.has(p.id))
+      .map((p) =>
+        operacionDesdeServidor(p.id, 'proximo_paso', {
+          visitaId: visitaId!,
+          comercialResponsableId: p.comercial_responsable_id,
+          descripcion: p.descripcion,
+          fechaObjetivo: p.fecha_objetivo ?? undefined,
+          zonaTexto: p.zona_texto ?? undefined,
+        })
+      ),
+  ];
   const fotos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
