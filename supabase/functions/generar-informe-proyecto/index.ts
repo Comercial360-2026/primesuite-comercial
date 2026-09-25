@@ -14,6 +14,7 @@
 // limpieza del bucket lo borra igual que a los zip de visita.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
 
 import {
   PRIMION_LOGO,
@@ -600,6 +601,8 @@ Deno.serve(async (req) => {
   if (errorFirma || !firmada) {
     return jsonResponse({ error: 'Informe generado pero no se pudo crear el enlace de descarga.' }, 500);
   }
+
+  await limpiarBackupsCaducados(admin);
 
   return jsonResponse({
     url: firmada.signedUrl,
