@@ -73,7 +73,7 @@ export function FichaProyecto() {
   // Informe PDF del proyecto (cronología de sus visitas cerradas). Mismo
   // hook que el informe de visita, con tipo 'proyecto'.
   const { estadoDe: estadoInformeDe, descargar: descargarInforme } = useDescargarInforme();
-  const estadoInforme = proyectoId ? estadoInformeDe(proyectoId) : 'inactivo';
+  const estadoInforme = proyectoId ? estadoInformeDe('proyecto', proyectoId) : 'inactivo';
   const informeListo = typeof estadoInforme === 'object' ? estadoInforme : null;
 
   // "Liberar espacio" solo tiene sentido si hay alguna visita cerrada que
@@ -514,22 +514,22 @@ export function FichaProyecto() {
             <SeccionLista>
               <FilaAccion
                 densidad="compacta"
-                titulo="Informe del proyecto"
+                titulo="Resumen del proyecto"
                 subtitulo={
                   informeListo
                     ? `Descargado (${formatearMB(informeListo.tamanoBytes)} MB)`
                     : estadoInforme === 'generando'
-                      ? 'Generando el informe…'
+                      ? 'Generando el resumen…'
                       : estadoInforme === 'sin-red'
                         ? 'Sin conexión. Inténtalo cuando tengas red'
                         : estadoInforme === 'error'
                           ? 'No se pudo generar, toca de nuevo'
-                          : 'PDF con la cronología de sus visitas cerradas'
+                          : 'PDF sin fotos, una página por visita cerrada. Las fotos van en el PDF de cada visita'
                 }
                 acciones={[
                   {
                     icono: 'descargar',
-                    etiqueta: informeListo ? 'Descargar el informe otra vez' : 'Descargar informe',
+                    etiqueta: informeListo ? 'Descargar el resumen otra vez' : 'Descargar resumen',
                     onClick: informeListo ? undefined : () => descargarInforme('proyecto', proyectoId),
                     href: informeListo ? informeListo.url : undefined,
                     disabled: estadoInforme === 'generando',

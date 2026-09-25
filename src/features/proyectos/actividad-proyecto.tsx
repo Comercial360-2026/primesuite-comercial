@@ -340,7 +340,7 @@ export function ActividadProyecto({
                 ? 'planificada'
                 : v.estado_captura === 'en_curso'
                   ? 'en curso'
-                  : 'cerrada';
+                  : 'cerrada · PDF';
             const to =
               v.estado_captura === 'agendada'
                 ? `/visita/${v.id}/planificada`

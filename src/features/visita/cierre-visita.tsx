@@ -14,12 +14,12 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
-import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
+import { useDescargarInforme } from '@/hooks/use-descargar-informe';
+import { DescargasVisita } from '@/features/visita/descargas-visita';
 import { HojaDetalleCierre, type GrupoCierre } from './hoja-detalle-cierre';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 import { guardarConsolidacionPendiente } from '@/lib/consolidar-cierre-pendiente';
@@ -386,39 +386,9 @@ export function CierreVisita() {
 
           {/* El informe solo se puede generar si la visita ya está en el
               servidor; sin conexión, se descarga luego desde el historial. */}
-          {sincronizada && visitaId && (() => {
-            const estadoDescarga = estadoDe(visitaId);
-            const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
-            return (
-              <SeccionLista>
-                <FilaAccion
-                  densidad="compacta"
-                  titulo="Informe de la visita"
-                  subtitulo={
-                    descargaLista
-                      ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
-                      : estadoDescarga === 'generando'
-                        ? 'Generando el informe…'
-                        : estadoDescarga === 'sin-red'
-                          ? 'Sin conexión. Inténtalo cuando tengas red'
-                          : estadoDescarga === 'error'
-                            ? 'No se pudo generar, toca de nuevo'
-                            : 'PDF con las fotos y los audios, en un ZIP'
-                  }
-                  acciones={[
-                    {
-                      icono: 'descargar',
-                      etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
-                      onClick: descargaLista ? undefined : () => descargar('visita', visitaId),
-                      href: descargaLista ? descargaLista.url : undefined,
-                      disabled: estadoDescarga === 'generando',
-                      tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
-                    },
-                  ]}
-                />
-              </SeccionLista>
-            );
-          })()}
+          {sincronizada && visitaId && (
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+          )}
         </div>
 
         <button className="btn btn-primary" onClick={volverAHoy}>

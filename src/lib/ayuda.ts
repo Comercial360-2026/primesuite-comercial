@@ -155,7 +155,7 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos, notas y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver resueltos» muestra los que se dieron por pasados. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver resueltos» muestra los que se dieron por pasados. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita del historial (las cerradas ponen «cerrada · PDF»).',
   },
   'espacio-proyecto': {
     grupo: 'cliente',
@@ -163,7 +163,7 @@ const _PANTALLAS = {
     queEs:
       'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
     cuando:
-      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae el backup completo (fotos, audios y PDF) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
+      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae la copia completa en ZIP (PDF, fotos originales y audios) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
     ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
   },
 
@@ -208,7 +208,7 @@ const _PANTALLAS = {
     queEs:
       'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el informe —un ZIP con el PDF y las fotos y audios— (también está luego en el detalle de la visita).',
+      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el «PDF de la visita» (el informe, con las fotos dentro) o «Todo en ZIP» (ese PDF más las fotos originales y los audios). Los dos están también luego en el detalle de la visita.',
     ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
   'visita-cerrada': {
@@ -217,7 +217,7 @@ const _PANTALLAS = {
     queEs:
       'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
     cuando:
-      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas.',
+      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas. Justo debajo del resumen: «PDF de la visita» (el informe con las fotos, se abre directamente) y «Todo en ZIP» (el PDF más las fotos originales y los audios, para guardar una copia completa).',
     ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero.',
   },
 

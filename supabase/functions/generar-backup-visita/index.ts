@@ -170,9 +170,14 @@ Deno.serve(async (req) => {
   }
 
   let visitaId: string | undefined;
+  // 'pdf' = solo informe.pdf (lleva las fotos embebidas): la descarga normal
+  // del comercial. 'zip' (por defecto, lo que pedían las versiones previas de
+  // la app) = PDF + fotos originales + audios: la copia completa.
+  let formato: 'pdf' | 'zip' = 'zip';
   try {
     const body = await req.json();
     visitaId = body.visitaId;
+    if (body.formato === 'pdf') formato = 'pdf';
   } catch {
     return jsonResponse({ error: 'Cuerpo de la petición inválido, se esperaba { visitaId }' }, 400);
   }
@@ -616,7 +621,7 @@ Deno.serve(async (req) => {
   const bloquesAudios: any[] | null = audiosDescargados.length || audiosFallidos > 0
     ? [
         ...audiosDescargados.map((a) => ({
-          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  archivo en la carpeta audios/ del zip`,
+          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta audios/ del zip'}`,
           fontSize: 9.5,
           color: COLOR.ink700,
           margin: [0, 0, 0, 4],
@@ -752,24 +757,27 @@ Deno.serve(async (req) => {
     `archivo; para dudas, contacta con tu responsable comercial.\n`;
   zip.file('LEEME.txt', leeme);
 
-  const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+  const archivo =
+    formato === 'pdf'
+      ? { bytes: pdfBytes, extension: 'pdf', contentType: 'application/pdf' }
+      : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
 
   // --- Subida al bucket de backups ---
   const timestamp = Date.now();
-  const rutaZip = `${visitaId}/${timestamp}.zip`;
+  const ruta = `${visitaId}/${timestamp}.${archivo.extension}`;
   const { error: errorSubida } = await admin.storage
     .from('backups-visita')
-    .upload(rutaZip, zipBytes, { contentType: 'application/zip', upsert: true });
+    .upload(ruta, archivo.bytes, { contentType: archivo.contentType, upsert: true });
   if (errorSubida) {
-    return jsonResponse({ error: `No se pudo guardar el backup: ${errorSubida.message}` }, 500);
+    return jsonResponse({ error: `No se pudo guardar el informe: ${errorSubida.message}` }, 500);
   }
 
-  const nombreDescarga = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}.zip`;
+  const nombreDescarga = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}.${archivo.extension}`;
   const { data: firmada, error: errorFirma } = await admin.storage
     .from('backups-visita')
-    .createSignedUrl(rutaZip, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
+    .createSignedUrl(ruta, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
   if (errorFirma || !firmada) {
-    return jsonResponse({ error: 'Backup generado pero no se pudo crear el enlace de descarga.' }, 500);
+    return jsonResponse({ error: 'Informe generado pero no se pudo crear el enlace de descarga.' }, 500);
   }
 
   await limpiarBackupsCaducados(admin);
@@ -777,6 +785,6 @@ Deno.serve(async (req) => {
   return jsonResponse({
     url: firmada.signedUrl,
     expiraEnSegundos: URL_FIRMADA_SEGUNDOS,
-    tamanoBytes: zipBytes.byteLength,
+    tamanoBytes: archivo.bytes.byteLength,
   });
 });
