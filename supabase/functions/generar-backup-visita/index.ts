@@ -5,7 +5,7 @@
 // jerarquía real, tablas, anexo fotográfico) + fotos originales + audios
 // sueltos + LEEME.txt, y lo sube al bucket privado "backups-visita".
 // Devuelve una URL firmada de corta duración — el propio zip se borra solo
-// a las ~2h (ver 56_bucket_backups_visita.sql, job "limpiar-backups-visita"),
+// a las ~2h (lo borra la siguiente generación: _shared/limpiar-backups.ts),
 // así que un backup nunca ocupa cuota para siempre.
 //
 // Nunca se genera automáticamente al cerrar una visita — solo cuando el
@@ -35,6 +35,7 @@
 // la extensión real detectada, no ".jpg" a ciegas.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -770,6 +771,8 @@ Deno.serve(async (req) => {
   if (errorFirma || !firmada) {
     return jsonResponse({ error: 'Backup generado pero no se pudo crear el enlace de descarga.' }, 500);
   }
+
+  await limpiarBackupsCaducados(admin);
 
   return jsonResponse({
     url: firmada.signedUrl,
