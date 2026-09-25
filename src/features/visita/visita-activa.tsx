@@ -1950,7 +1950,7 @@ export function VisitaActiva() {
               onClick={() => setBriefingAbierto(true)}
               disabled={!visitaLocal?.clienteId}
               aria-label="Briefing"
-              title="Briefing del cliente (Jira + Confluence)"
+              title="Briefing del cliente"
             >
               <Icono nombre="briefing" size={18} />
             </button>
@@ -2748,6 +2748,7 @@ export function VisitaActiva() {
       )}
       {briefingAbierto && visitaLocal?.clienteId && cliente?.nombre && (
         <BriefingHoja
+          visitaId={visitaId}
           clienteId={visitaLocal.clienteId}
           clienteNombre={cliente.nombre}
           onCerrar={() => setBriefingAbierto(false)}

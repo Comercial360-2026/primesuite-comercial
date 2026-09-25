@@ -182,7 +182,7 @@ const _PANTALLAS = {
     queEs:
       'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo.',
     cuando:
-      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes.',
+      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes. El icono de briefing (arriba) abre el resumen del cliente que prepara el agente de Copilot: se genera solo al planificar una visita de los próximos 7 días y otra vez la noche anterior; tarda 6-8 minutos y necesita que el cliente tenga vinculada su cuenta del CRM. Se borra al cerrar la visita.',
     ojo: 'Cancelar una visita planificada la borra y no se puede deshacer.',
   },
   'repaso-cliente': {
@@ -297,6 +297,16 @@ const _PANTALLAS = {
       'En «Pendientes» tocas un término propuesto para ver su contexto y ahí mismo lo apruebas, lo fusionas con uno del catálogo o lo descartas; con «Seleccionar» haces lo mismo en lote. Lo que los comerciales proponen sobre la marcha aparece en la categoría «Sin clasificar»; al aprobarlo eliges en qué categoría queda. En «Catálogo completo» creas categorías con el «+» de arriba, y términos y modelos con el botón «+ Añadir…» que aparece al pie de cada categoría o término desplegado (p. ej. «MIFARE» con «DESFire EV2» dentro). Con el chip «Editar» activas a la vez el checkbox de cada fila y sus flechas subir/bajar — marca una o varias para Renombrar, Mover a… o Quitar (con confirmación); marcando una categoría, para Renombrar o Borrar. El subtítulo de cada término resume cuántos modelos tiene y en cuántas fichas se usa ya. Busca cualquiera con la caja de arriba («Desplegar todo» abre el árbol entero de una vez). Arriba del todo, «Clasificación en las fichas» es un interruptor único para toda la app: «Solo categoría» deja a los comerciales marcar solo la categoría entera en Hallazgo, Oportunidad y Anotar; «Categoría, término y modelo» les deja además elegir el término o modelo concreto.',
     ojo:
       'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas. El interruptor de clasificación es global: afecta a todos los comerciales a la vez, no se elige por pantalla.',
+    soloDireccion: true,
+  },
+  'briefings-uso': {
+    grupo: 'direccion',
+    titulo: 'Briefings',
+    queEs:
+      'Cuántos briefings de cliente se han pedido al agente de Copilot hoy y este mes (al planificar, la noche anterior o a mano) y los controles para que no se disparen. Solo la ve Dirección Comercial.',
+    cuando:
+      'Para vigilar el consumo. «Pausados» corta los automáticos (al planificar y la noche anterior); a mano se siguen pudiendo pedir. El tope diario limita todos: al llegar, lo que falte espera a mañana y sale un aviso aquí y en Yo.',
+    ojo: 'El consumo real de la licencia está en el centro de administración de Power Platform; este contador es el de la app para compararlo.',
     soloDireccion: true,
   },
   'gestionar-sectores': {
