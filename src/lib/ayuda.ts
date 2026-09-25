@@ -136,7 +136,7 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Nuevo cliente',
     queEs:
-      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
+      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques, y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },
@@ -146,7 +146,7 @@ const _PANTALLAS = {
     queEs:
       'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
     cuando:
-      'Aquí ves los proyectos del cliente y, debajo, el historial con TODAS sus visitas (de cualquier proyecto). Para la actividad de un proyecto —oportunidades, hallazgos, próximos pasos— entra en su ficha. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
+      'Aquí ves los proyectos del cliente y, debajo, el historial con TODAS sus visitas (de cualquier proyecto). Para la actividad de un proyecto —oportunidades, hallazgos, próximos pasos— entra en su ficha. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño, ubicación (salen en la cabecera de cada informe) y la cuenta del CRM a la que corresponde el cliente (la usa el briefing para no confundirlo con otro de nombre parecido); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
     ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
   },
   'ficha-proyecto': {

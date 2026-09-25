@@ -262,6 +262,7 @@ export type Database = {
           actualizado_en: string
           creado_en: string
           creado_por: string | null
+          crm_accountid: string | null
           estado_fusion: string
           estado_relacion: string
           fusionado_en_id: string | null
@@ -276,6 +277,7 @@ export type Database = {
           actualizado_en?: string
           creado_en?: string
           creado_por?: string | null
+          crm_accountid?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -290,6 +292,7 @@ export type Database = {
           actualizado_en?: string
           creado_en?: string
           creado_por?: string | null
+          crm_accountid?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -344,6 +347,45 @@ export type Database = {
             referencedColumns: ["comercial_id"]
           },
         ]
+      }
+      crm_cuenta: {
+        Row: {
+          accountid: string
+          activa: boolean
+          ciudad: string | null
+          codigo_postal: string | null
+          cuenta_matriz: string | null
+          cuenta_matriz_id: string | null
+          modificado_crm: string | null
+          nombre: string
+          pais: string | null
+          sincronizado_en: string
+        }
+        Insert: {
+          accountid: string
+          activa?: boolean
+          ciudad?: string | null
+          codigo_postal?: string | null
+          cuenta_matriz?: string | null
+          cuenta_matriz_id?: string | null
+          modificado_crm?: string | null
+          nombre: string
+          pais?: string | null
+          sincronizado_en?: string
+        }
+        Update: {
+          accountid?: string
+          activa?: boolean
+          ciudad?: string | null
+          codigo_postal?: string | null
+          cuenta_matriz?: string | null
+          cuenta_matriz_id?: string | null
+          modificado_crm?: string | null
+          nombre?: string
+          pais?: string | null
+          sincronizado_en?: string
+        }
+        Relationships: []
       }
       comercial: {
         Row: {
@@ -2269,6 +2311,7 @@ export type Database = {
           p_creado_por: string
           p_nombre_cliente: string
           p_nombre_proyecto: string
+          p_crm_accountid?: string
           p_responsable_id: string
         }
         Returns: {

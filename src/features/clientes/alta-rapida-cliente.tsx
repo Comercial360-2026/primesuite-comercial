@@ -18,6 +18,7 @@ import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 
 // El alta crea cliente + primer proyecto: con red, en una transacción vía la
 // RPC `crear_cliente_con_proyecto` (que sustituye al antiguo trigger del
@@ -39,6 +40,10 @@ export function AltaRapidaCliente() {
   // Un cliente nace con su primer proyecto (línea de negocio). Sin proyecto no
   // hay cliente: toda visita cuelga de uno.
   const [nombreProyecto, setNombreProyecto] = useState('');
+  // Cuenta del CRM elegida en el buscador que sale bajo el nombre. Opcional:
+  // un cliente que aún no está en el CRM (o un alta sin red) se crea sin ella
+  // y se vincula luego con el lápiz de la ficha.
+  const [cuentaCrm, setCuentaCrm] = useState<CuentaCrm | null>(null);
   const creacionCliente = useAccionAsync();
   // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
   // vuelve a donde se venía; si no consta, al listado de Clientes.
@@ -162,6 +167,7 @@ export function AltaRapidaCliente() {
           // El que da de alta el cliente es su responsable de cartera.
           // Dirección lo reasigna después si hace falta.
           p_responsable_id: comercial.id,
+          p_crm_accountid: cuentaCrm?.accountid,
         })
         .single();
       if (!errorCliente && data) {
@@ -181,6 +187,7 @@ export function AltaRapidaCliente() {
       nombre: nombreLimpio,
       creadoPor: comercial.id,
       responsableId: comercial.id,
+      crmAccountid: cuentaCrm?.accountid,
     });
     await encolar(
       proyectoId,
@@ -346,6 +353,29 @@ export function AltaRapidaCliente() {
 
           {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
         </div>
+
+        {/* El campo de nombre hace de buscador del CRM: al elegir una cuenta
+            desaparecen los resultados y queda solo la elegida (mismo efecto
+            que vaciar la búsqueda, sin borrar el nombre tecleado). Una cuenta
+            que ya tiene cliente lleva a ese cliente, como las coincidencias. */}
+        {cuentaCrm ? (
+          <SeccionLista titulo="Cuenta en el CRM">
+            <FilaNavegable
+              titulo={textoCuentaCrm(cuentaCrm)}
+              valor="quitar"
+              valorTenue
+              chevron={false}
+              disabled={creacionCliente.cargando}
+              onClick={() => setCuentaCrm(null)}
+            />
+          </SeccionLista>
+        ) : (
+          <ResultadosCuentaCrm
+            texto={nombre}
+            disabled={creacionCliente.cargando}
+            onElegir={(c, cliente) => (cliente ? visitarExistente(cliente.id, cliente.nombre) : setCuentaCrm(c))}
+          />
+        )}
 
         {coincidencias.length > 0 && (
           <SeccionLista titulo={hayExacto ? 'Ya existe un cliente con este nombre' : 'Ya existen clientes parecidos'}>

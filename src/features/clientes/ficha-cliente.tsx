@@ -14,6 +14,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -90,6 +91,10 @@ export function FichaCliente() {
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
   const [formUbicacion, setFormUbicacion] = useState('');
+  // Cuenta del CRM (migración 121): se busca en el propio formulario. Elegir
+  // una vacía el buscador y la deja como fila con "quitar".
+  const [formCrm, setFormCrm] = useState<CuentaCrm | null>(null);
+  const [buscaCrm, setBuscaCrm] = useState('');
   const guardadoDatos = useAccionAsync();
 
   const { data: sectores } = useQuery({
@@ -110,6 +115,8 @@ export function FichaCliente() {
     setFormSector(cliente?.sector ?? '');
     setFormTamano(cliente?.tamano_aprox ?? '');
     setFormUbicacion(cliente?.ubicacion_general ?? '');
+    setFormCrm(cuentaCrm ?? null);
+    setBuscaCrm('');
     guardadoDatos.limpiarError();
     setEditandoDatos(true);
   }
@@ -132,6 +139,7 @@ export function FichaCliente() {
                   sector: formSector || null,
                   tamano_aprox: formTamano || null,
                   ubicacion_general: formUbicacion.trim() || null,
+                  crm_accountid: formCrm?.accountid ?? null,
                 },
                 { count: 'exact' }
               )
@@ -144,6 +152,7 @@ export function FichaCliente() {
           setEditandoDatos(false);
           queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
           queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
         },
       }
     );
@@ -188,7 +197,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por')
+        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -196,6 +205,20 @@ export function FichaCliente() {
     },
   });
   const sinConexionCliente = pausadoCliente && cliente === undefined;
+
+  const { data: cuentaCrm } = useQuery({
+    queryKey: ['crm-cuenta', cliente?.crm_accountid],
+    enabled: !!cliente?.crm_accountid,
+    queryFn: async (): Promise<CuentaCrm | null> => {
+      const { data, error } = await supabase
+        .from('crm_cuenta')
+        .select('accountid, nombre, ciudad')
+        .eq('accountid', cliente!.crm_accountid!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   function reintentarCliente() {
     queryClient.resetQueries({ queryKey: ['cliente', clienteId] });
     refetchCliente();
@@ -297,8 +320,6 @@ export function FichaCliente() {
     ? nombresComerciales?.[cliente.creado_por] ?? null
     : null;
   const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
-  const hayBasicos =
-    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
   // Todo cliente tiene ≥1 proyecto y todos son fila navegable, con nombre.
   // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
@@ -549,6 +570,35 @@ export function FichaCliente() {
              onChange={(e) => setFormUbicacion(e.target.value)}
              placeholder="p. ej. Polígono Norte, Sevilla"
            />
+           <div className="label">Cuenta en el CRM</div>
+           {formCrm ? (
+             <FilaNavegable
+               titulo={textoCuentaCrm(formCrm)}
+               valor="quitar"
+               valorTenue
+               chevron={false}
+               onClick={() => setFormCrm(null)}
+             />
+           ) : (
+             <>
+               <input
+                 className="field"
+                 autoComplete="off"
+                 value={buscaCrm}
+                 onChange={(e) => setBuscaCrm(e.target.value)}
+                 placeholder="busca por nombre (mín. 3 letras)"
+               />
+               <ResultadosCuentaCrm
+                 texto={buscaCrm}
+                 excluirClienteId={clienteId}
+                 titulo="Resultados"
+                 onElegir={(c) => {
+                   setFormCrm(c);
+                   setBuscaCrm('');
+                 }}
+               />
+             </>
+           )}
            {guardadoDatos.error && (
              <div style={{ marginTop: 8 }}>
                <Aviso tipo="error">{guardadoDatos.error}</Aviso>
@@ -577,7 +627,7 @@ export function FichaCliente() {
        )}
 
        <div className="lista-agrupada">
-        {(hayBasicos || (responsableNombre && !esDireccionComercial)) && (
+        {cliente && (
           <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
@@ -587,6 +637,12 @@ export function FichaCliente() {
             {responsableNombre && !esDireccionComercial && (
               <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
+            {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
+                cliente buscar. Se vincula con el lápiz de la cabecera. */}
+            <FilaDato
+              etiqueta="Cuenta CRM"
+              valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+            />
           </SeccionLista>
         )}
 
