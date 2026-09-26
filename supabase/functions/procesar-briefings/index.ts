@@ -14,7 +14,10 @@
 // El agente responde un briefing en markdown (~10.000 caracteres) o, si algo
 // falla, un JSON {"ok":false,"tipo":...}. Antes puede mandar saludos o
 // mensajes cortos: se da por terminada la respuesta con el primer mensaje que
-// empieza por "{" o supera MIN_CARACTERES.
+// empieza por "{" o supera MIN_CARACTERES. Si el agente cierra el turno
+// (evento `turn.complete`) sin nada de eso, se marca error AL MOMENTO con lo
+// último que dijo — antes se esperaban los 20 min enteros (visto 25-09: el
+// agente respondía "You don't have access to talk to this bot" en 5 s).
 // ponytail: heurística de longitud; si el agente cambia de formato y manda
 // briefings cortos, marcar el final con una etiqueta explícita en sus
 // instrucciones y buscar esa etiqueta aquí.
@@ -69,10 +72,13 @@ Deno.serve(async (req) => {
       continue;
     }
     const { activities = [], watermark } = await r.json();
-    const textos: string[] = activities
-      .filter((a: { type: string; from?: { id?: string } }) => a.type === 'message' && a.from?.id !== USUARIO)
-      .map((a: { text?: string }) => (a.text ?? '').trim());
+    const delBot = activities.filter((a: { from?: { id?: string } }) => a.from?.id !== USUARIO);
+    const textos: string[] = delBot
+      .filter((a: { type: string }) => a.type === 'message')
+      .map((a: { text?: string }) => (a.text ?? '').trim())
+      .filter(Boolean);
     const final = textos.find((t) => t.startsWith('{') || t.length >= MIN_CARACTERES);
+    const turnoCerrado = delBot.some((a: { type: string; name?: string }) => a.type === 'event' && a.name === 'turn.complete');
 
     if (final) {
       let cambio: Record<string, unknown> = {
@@ -95,6 +101,18 @@ Deno.serve(async (req) => {
         .update({ ...cambio, conversacion_id: null, watermark: null })
         .eq('visita_id', b.visita_id);
       resumen.recogidos++;
+    } else if (turnoCerrado) {
+      const dicho = textos.at(-1);
+      await admin
+        .from('briefing_visita')
+        .update({
+          estado: 'error',
+          error: dicho ? `El agente respondió: «${dicho.slice(0, 300)}»` : 'El agente terminó sin devolver el briefing.',
+          conversacion_id: null,
+          watermark: null,
+        })
+        .eq('visita_id', b.visita_id);
+      resumen.errores++;
     } else if (Date.now() - new Date(b.iniciado_en).getTime() > MINUTOS_MAXIMOS * 60_000) {
       await admin
         .from('briefing_visita')
