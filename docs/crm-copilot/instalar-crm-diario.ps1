@@ -14,7 +14,8 @@
 
 @'
 $ErrorActionPreference = 'Stop'
-$carpeta = Join-Path $env:OneDriveCommercial 'PrimeNotes - CRM'
+# El acceso directo se llama «<sitio> - PrimeNotes - CRM»: se busca por el final.
+$carpeta = (Get-ChildItem $env:OneDriveCommercial -Directory | Where-Object Name -like '*PrimeNotes - CRM' | Select-Object -First 1).FullName
 $log = "$env:USERPROFILE\crm-diario.log"
 function Anotar($t) { Add-Content $log "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $t" }
 $fv = '@OData.Community.Display.V1.FormattedValue'
@@ -38,7 +39,7 @@ function Descargar($tabla, $entidad, $conjunto, $atributos, $columnas) {
 }
 
 try {
-  if (-not (Test-Path $carpeta)) { throw "No existe $carpeta (acceso directo de OneDrive a PrimeNotes - CRM)" }
+  if (-not $carpeta) { throw "No hay acceso directo a PrimeNotes - CRM en $env:OneDriveCommercial" }
   Anotar 'Inicio'
 
   Descargar 'Contacts' 'contact' 'contacts' @(
