@@ -423,7 +423,11 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
               <span className="interlocutor-fila__nombre">
                 <b>{i.nombre}</b>
                 {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
-                {i.crm_contactid && <span className="info-tag"> del CRM</span>}
+                {i.crm_contactid && (
+                  <span className="info-tag" style={{ marginLeft: 6 }}>
+                    del CRM
+                  </span>
+                )}
                 {presente && (
                   <span style={{ color: 'var(--success-600)', fontWeight: 600 }}> · ✓ presente</span>
                 )}
