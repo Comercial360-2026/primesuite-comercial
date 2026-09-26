@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { esSinRed } from '@/lib/red';
 
-type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number };
+export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number };
 
-/** Qué informe se pide. 'visita' → zip con PDF + fotos + audios de UNA visita.
- *  'proyecto' → PDF suelto de UN proyecto con su cronología de visitas. */
-export type TipoInforme = 'visita' | 'proyecto';
+/** Qué informe se pide. 'visita' → PDF de UNA visita, con las fotos dentro
+ *  (la descarga normal). 'visita-zip' → copia completa: ese PDF + fotos
+ *  originales + audios en un zip (la que exige liberar espacio antes de
+ *  borrar). 'proyecto' → PDF de UN proyecto, sin fotos. */
+export type TipoInforme = 'visita' | 'visita-zip' | 'proyecto';
 
-const FUNCION_POR_TIPO: Record<TipoInforme, string> = {
-  visita: 'generar-backup-visita',
-  proyecto: 'generar-informe-proyecto',
+const PETICION_POR_TIPO: Record<TipoInforme, (id: string) => { funcion: string; body: object }> = {
+  visita: (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'pdf' } }),
+  'visita-zip': (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'zip' } }),
+  proyecto: (id) => ({ funcion: 'generar-informe-proyecto', body: { proyectoId: id } }),
 };
 
 // En una conexión muerta, functions.invoke() puede no resolver nunca y el
@@ -62,13 +65,14 @@ export function useDescargarInforme() {
   // necesita saber el resultado de ESTA llamada al terminar el `await`, sin
   // depender de releer `estadoDe` — ese closure no se actualiza a mitad de
   // una función async ya en marcha, solo en el siguiente render.
+  // Clave tipo+id: el PDF y el ZIP de una misma visita son descargas distintas.
   async function descargar(tipo: TipoInforme, id: string): Promise<EstadoDescarga> {
-    setEstados((prev) => ({ ...prev, [id]: 'generando' }));
+    const clave = `${tipo}:${id}`;
+    setEstados((prev) => ({ ...prev, [clave]: 'generando' }));
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
-      const invocacion = supabase.functions.invoke(FUNCION_POR_TIPO[tipo], {
-        body: tipo === 'visita' ? { visitaId: id } : { proyectoId: id },
-      });
+      const { funcion, body } = PETICION_POR_TIPO[tipo](id);
+      const invocacion = supabase.functions.invoke(funcion, { body });
       const limite = new Promise<never>((_, reject) => {
         temporizador = setTimeout(() => {
           // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
@@ -82,7 +86,7 @@ export function useDescargarInforme() {
       if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
       const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 };
-      setEstados((prev) => ({ ...prev, [id]: listo }));
+      setEstados((prev) => ({ ...prev, [clave]: listo }));
       // Un solo toque: en cuanto está listo, el archivo se guarda solo. Si esto
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace
       // <a href> de reserva para bajarlo a mano.
@@ -95,15 +99,15 @@ export function useDescargarInforme() {
     } catch (e) {
       const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
       const resultado: EstadoDescarga = sinRed ? 'sin-red' : 'error';
-      setEstados((prev) => ({ ...prev, [id]: resultado }));
+      setEstados((prev) => ({ ...prev, [clave]: resultado }));
       return resultado;
     } finally {
       clearTimeout(temporizador);
     }
   }
 
-  function estadoDe(id: string): EstadoDescarga {
-    return estados[id] ?? 'inactivo';
+  function estadoDe(tipo: TipoInforme, id: string): EstadoDescarga {
+    return estados[`${tipo}:${id}`] ?? 'inactivo';
   }
 
   return { estadoDe, descargar };

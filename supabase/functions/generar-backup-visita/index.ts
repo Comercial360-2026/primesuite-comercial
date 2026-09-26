@@ -5,7 +5,7 @@
 // jerarquía real, tablas, anexo fotográfico) + fotos originales + audios
 // sueltos + LEEME.txt, y lo sube al bucket privado "backups-visita".
 // Devuelve una URL firmada de corta duración — el propio zip se borra solo
-// a las ~2h (ver 56_bucket_backups_visita.sql, job "limpiar-backups-visita"),
+// a las ~2h (lo borra la siguiente generación: _shared/limpiar-backups.ts),
 // así que un backup nunca ocupa cuota para siempre.
 //
 // Nunca se genera automáticamente al cerrar una visita — solo cuando el
@@ -35,6 +35,7 @@
 // la extensión real detectada, no ".jpg" a ciegas.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -169,9 +170,14 @@ Deno.serve(async (req) => {
   }
 
   let visitaId: string | undefined;
+  // 'pdf' = solo informe.pdf (lleva las fotos embebidas): la descarga normal
+  // del comercial. 'zip' (por defecto, lo que pedían las versiones previas de
+  // la app) = PDF + fotos originales + audios: la copia completa.
+  let formato: 'pdf' | 'zip' = 'zip';
   try {
     const body = await req.json();
     visitaId = body.visitaId;
+    if (body.formato === 'pdf') formato = 'pdf';
   } catch {
     return jsonResponse({ error: 'Cuerpo de la petición inválido, se esperaba { visitaId }' }, 400);
   }
@@ -615,7 +621,7 @@ Deno.serve(async (req) => {
   const bloquesAudios: any[] | null = audiosDescargados.length || audiosFallidos > 0
     ? [
         ...audiosDescargados.map((a) => ({
-          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  archivo en la carpeta audios/ del zip`,
+          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta audios/ del zip'}`,
           fontSize: 9.5,
           color: COLOR.ink700,
           margin: [0, 0, 0, 4],
@@ -751,29 +757,34 @@ Deno.serve(async (req) => {
     `archivo; para dudas, contacta con tu responsable comercial.\n`;
   zip.file('LEEME.txt', leeme);
 
-  const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+  const archivo =
+    formato === 'pdf'
+      ? { bytes: pdfBytes, extension: 'pdf', contentType: 'application/pdf' }
+      : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
 
   // --- Subida al bucket de backups ---
   const timestamp = Date.now();
-  const rutaZip = `${visitaId}/${timestamp}.zip`;
+  const ruta = `${visitaId}/${timestamp}.${archivo.extension}`;
   const { error: errorSubida } = await admin.storage
     .from('backups-visita')
-    .upload(rutaZip, zipBytes, { contentType: 'application/zip', upsert: true });
+    .upload(ruta, archivo.bytes, { contentType: archivo.contentType, upsert: true });
   if (errorSubida) {
-    return jsonResponse({ error: `No se pudo guardar el backup: ${errorSubida.message}` }, 500);
+    return jsonResponse({ error: `No se pudo guardar el informe: ${errorSubida.message}` }, 500);
   }
 
-  const nombreDescarga = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}.zip`;
+  const nombreDescarga = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}.${archivo.extension}`;
   const { data: firmada, error: errorFirma } = await admin.storage
     .from('backups-visita')
-    .createSignedUrl(rutaZip, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
+    .createSignedUrl(ruta, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
   if (errorFirma || !firmada) {
-    return jsonResponse({ error: 'Backup generado pero no se pudo crear el enlace de descarga.' }, 500);
+    return jsonResponse({ error: 'Informe generado pero no se pudo crear el enlace de descarga.' }, 500);
   }
+
+  await limpiarBackupsCaducados(admin);
 
   return jsonResponse({
     url: firmada.signedUrl,
     expiraEnSegundos: URL_FIRMADA_SEGUNDOS,
-    tamanoBytes: zipBytes.byteLength,
+    tamanoBytes: archivo.bytes.byteLength,
   });
 });

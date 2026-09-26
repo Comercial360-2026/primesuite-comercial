@@ -375,7 +375,7 @@ export function RepasoCliente() {
           onReintentar={reintentarEcosistema}
         />
       ) : (
-        <SeccionLista titulo="Ecosistema">
+        <SeccionLista titulo="Qué tiene instalado">
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
             {ecosistema === undefined ? (
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Cargando…</span>

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -8,11 +7,12 @@ import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
 import { desde } from '@/lib/volver-a';
-import type { Area } from '@/lib/vocabulario';
-import { areasDeHallazgos } from '@/lib/hallazgo-areas';
+import { ListaVisitasHistorial, type VisitaHistorial } from '@/features/visita/lista-visitas-historial';
 
-// Las secciones "vivas" de un proyecto: oportunidades activas, próximos
-// pasos, hallazgos e historial de visitas — todo acotado a ESE proyecto. Lo
+// Las secciones de un proyecto (prompt maestro 13): arriba lo VIVO, que dura
+// varias visitas (oportunidades activas, próximos pasos); debajo sus visitas,
+// cada una con lo que tiene dentro. Notas y hallazgos no se repiten aquí
+// sueltos: viven en su visita (y lo instalado, en la ficha del cliente). Lo
 // monta la Ficha de proyecto. El historial de TODO el cliente (todas sus
 // visitas, de cualquier proyecto) es otra cosa: `HistorialVisitasCliente`.
 //
@@ -33,33 +33,6 @@ interface ProximoPasoPendiente {
   descripcion: string;
   fecha_objetivo: string | null;
   zona_texto: string | null;
-}
-
-interface NotaProyecto {
-  id: string;
-  titulo: string | null;
-  contenido_texto: string | null;
-  creado_en: string;
-  zona_texto: string | null;
-}
-
-interface HallazgoAbierto {
-  id: string;
-  nota: string | null;
-  fecha_relevante: string | null;
-  zona_texto: string | null;
-  // Áreas del catálogo (prompt maestro 11, Fase 2) — categorías y/o
-  // términos, se resuelven aparte desde la tabla puente.
-  areas: Area[];
-}
-
-interface VisitaHistorial {
-  id: string;
-  fecha: string;
-  tipo_visita: string | null;
-  objetivo: string | null;
-  estado_captura: string;
-  proyecto: { nombre: string } | null;
 }
 
 interface Props {
@@ -106,84 +79,12 @@ export function ActividadProyecto({
     },
   });
 
-  // Hallazgos del proyecto (P5: se arrastran entre visitas). Un comercial
-  // puede marcarlo "resuelto" cuando lo da por no vigente (detalle-hallazgo.tsx,
-  // columna archivado_en sin renombrar en la BD): deja de salir aquí pero
-  // sigue en su visita y en el informe. Por defecto se listan los 5 activos
-  // más recientes; "Ver resueltos (N)" trae el resto.
-  const { data: hallazgos } = useQuery({
-    queryKey: ['hallazgos-proyecto', proyectoId],
-    queryFn: async (): Promise<HallazgoAbierto[]> => {
-      const { data, error } = await supabase
-        .from('hallazgo')
-        .select('id, nota, fecha_relevante, zona_texto')
-        .eq('proyecto_id', proyectoId)
-        .is('archivado_en', null)
-        .order('creado_en', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null; zona_texto: string | null }[];
-      const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
-      return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
-    },
-  });
-
-  const { data: numArchivados } = useQuery({
-    queryKey: ['hallazgos-archivados-proyecto', proyectoId, 'count'],
-    queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from('hallazgo')
-        .select('id', { count: 'exact', head: true })
-        .eq('proyecto_id', proyectoId)
-        .not('archivado_en', 'is', null);
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
-
-  const [verArchivados, setVerArchivados] = useState(false);
-  const { data: hallazgosArchivados } = useQuery({
-    queryKey: ['hallazgos-archivados-proyecto', proyectoId, 'lista'],
-    enabled: verArchivados,
-    queryFn: async (): Promise<HallazgoAbierto[]> => {
-      const { data, error } = await supabase
-        .from('hallazgo')
-        .select('id, nota, fecha_relevante, zona_texto')
-        .eq('proyecto_id', proyectoId)
-        .not('archivado_en', 'is', null)
-        .order('archivado_en', { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      const filas = (data ?? []) as { id: string; nota: string | null; fecha_relevante: string | null; zona_texto: string | null }[];
-      const mapaAreas = await areasDeHallazgos(filas.map((f) => f.id));
-      return filas.map((f) => ({ ...f, areas: mapaAreas.get(f.id) ?? [] }));
-    },
-  });
-
-  // Notas del proyecto (PM11 Fase 4): lo anotado en sus visitas que no se
-  // marcó como hallazgo ni oportunidad. Las 5 más recientes; cada una abre
-  // su ficha.
-  const { data: notas } = useQuery({
-    queryKey: ['notas-proyecto', proyectoId],
-    queryFn: async (): Promise<NotaProyecto[]> => {
-      const { data, error } = await supabase
-        .from('captura_libre')
-        .select('id, titulo, contenido_texto, creado_en, zona_texto, visita:visita_id!inner(proyecto_id)')
-        .eq('visita.proyecto_id', proyectoId)
-        .eq('tipo', 'nota')
-        .order('creado_en', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return (data ?? []) as unknown as NotaProyecto[];
-    },
-  });
-
   const { data: historialVisitas } = useQuery({
     queryKey: ['historial-visitas-proyecto', proyectoId],
     queryFn: async (): Promise<VisitaHistorial[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, tipo_visita, objetivo, estado_captura, proyecto:proyecto_id(nombre)')
+        .select('id, fecha, objetivo, estado_captura')
         .eq('proyecto_id', proyectoId)
         .order('fecha', { ascending: false })
         .limit(10);
@@ -194,20 +95,14 @@ export function ActividadProyecto({
 
   // Ficha "vacía" = nada que un comercial haya registrado todavía en este
   // proyecto. `listasCargadas` evita el parpadeo de "vacía" mientras las
-  // cuatro queries resuelven.
+  // queries resuelven.
   const listasCargadas =
     oportunidades !== undefined &&
     proximosPasos !== undefined &&
-    hallazgos !== undefined &&
-    numArchivados !== undefined &&
-    notas !== undefined &&
     historialVisitas !== undefined;
   const fichaVacia =
     !oportunidades?.length &&
     !proximosPasos?.length &&
-    !hallazgos?.length &&
-    !numArchivados &&
-    !notas?.length &&
     !historialVisitas?.length;
 
   const hoyMs = new Date().setHours(0, 0, 0, 0);
@@ -267,101 +162,7 @@ export function ActividadProyecto({
         </SeccionLista>
       )}
 
-      {(!!hallazgos?.length || !!numArchivados) && (
-        <SeccionLista titulo="Hallazgos">
-          {hallazgos?.map((h) => (
-            <FilaNavegable
-              key={h.id}
-              titulo={h.nota?.trim() || 'Hallazgo'}
-              subtitulo={h.zona_texto?.trim() || undefined}
-              valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
-              valorTenue
-              to={`/hallazgos/${h.id}`}
-              state={origen}
-            />
-          ))}
-          {!!numArchivados && (
-            <FilaNavegable
-              titulo={verArchivados ? 'Ocultar resueltos' : `Ver resueltos (${numArchivados})`}
-              chevron={false}
-              valorTenue
-              onClick={() => setVerArchivados((v) => !v)}
-            />
-          )}
-          {verArchivados &&
-            hallazgosArchivados?.map((h) => (
-              <FilaNavegable
-                key={h.id}
-                titulo={h.nota?.trim() || 'Hallazgo'}
-                subtitulo={h.zona_texto?.trim() || undefined}
-                valor="resuelto"
-                valorTenue
-                to={`/hallazgos/${h.id}`}
-                state={origen}
-              />
-            ))}
-        </SeccionLista>
-      )}
-
-      {!!notas?.length && (
-        <SeccionLista titulo="Notas">
-          {notas.map((n) => (
-            <FilaNavegable
-              key={n.id}
-              titulo={n.titulo?.trim() || n.contenido_texto?.trim() || 'Nota'}
-              subtitulo={
-                [
-                  n.titulo?.trim() ? n.contenido_texto?.trim() || null : null,
-                  n.zona_texto?.trim() || null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || undefined
-              }
-              valor={fechaCorta(n.creado_en)}
-              valorTenue
-              to={`/capturas/${n.id}`}
-              state={origen}
-            />
-          ))}
-        </SeccionLista>
-      )}
-
-      {!!historialVisitas?.length && (
-        <SeccionLista titulo="Historial de visitas">
-          {historialVisitas.map((v) => {
-            // La fila solo navega (el chevron ya lo dice). Descargar informe
-            // y Borrar viven dentro de la visita (detalle / Visita Activa) —
-            // así el historial no es un muro de botones. El estado va en
-            // `valor` como en las secciones hermanas (prioridad, naturaleza…),
-            // no como verbo gris, y el subtítulo se queda solo con el
-            // objetivo para que trunque limpio sin comerse el estado.
-            const estadoLegible =
-              v.estado_captura === 'agendada'
-                ? 'planificada'
-                : v.estado_captura === 'en_curso'
-                  ? 'en curso'
-                  : 'cerrada';
-            const to =
-              v.estado_captura === 'agendada'
-                ? `/visita/${v.id}/planificada`
-                : v.estado_captura === 'en_curso'
-                  ? `/visita/${v.id}`
-                  : `/visita/${v.id}/detalle`;
-            const subtitulo = v.objetivo?.trim() || undefined;
-            return (
-              <FilaNavegable
-                key={v.id}
-                titulo={fechaCorta(v.fecha)}
-                subtitulo={subtitulo}
-                valor={estadoLegible}
-                valorTenue
-                to={to}
-                state={origen}
-              />
-            );
-          })}
-        </SeccionLista>
-      )}
+      {!!historialVisitas?.length && <ListaVisitasHistorial visitas={historialVisitas} />}
     </>
   );
 }

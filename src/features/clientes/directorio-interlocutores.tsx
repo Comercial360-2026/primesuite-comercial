@@ -14,6 +14,9 @@ interface Interlocutor {
   email: string | null;
   tipo_influencia: string | null;
   relevancia: string | null;
+  /** Viene del CRM (migración 125): nombre, cargo, teléfono y email los
+   *  manda el CRM en cada carga — aquí no se editan ni se quitan. */
+  crm_contactid: string | null;
 }
 
 const TIPOS_INFLUENCIA = ['decisor', 'influenciador', 'tecnico', 'usuario', 'compras', 'otro'];
@@ -57,6 +60,11 @@ interface Props {
   crearNuevo?: { abierto: boolean; onCambio: (abierto: boolean) => void };
 }
 
+// Si el cliente está vinculado a una cuenta del CRM, sus contactos llegan
+// solos como interlocutores «del CRM» (carga diaria + migración 125); los que
+// se añaden aquí con «+» son «solo de la app» y, si luego aparecen en el CRM
+// con el mismo email o teléfono, se juntan con el suyo.
+//
 // Directorio de personas de contacto de un cliente (`interlocutor`, ligado a
 // `cliente_id`). Vive en la ficha de cliente (dato del cliente, no de una
 // visita) y también dentro de la hoja de Interlocutores de una visita en
@@ -94,7 +102,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     queryFn: async (): Promise<Interlocutor[]> => {
       const { data, error: err } = await supabase
         .from('interlocutor')
-        .select('id, nombre, cargo, telefono, email, tipo_influencia, relevancia')
+        .select('id, nombre, cargo, telefono, email, tipo_influencia, relevancia, crm_contactid')
         .eq('cliente_id', clienteId)
         .eq('activo', true)
         .order('nombre');
@@ -103,6 +111,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     },
   });
   const sinConexionDirectorio = pausadoDirectorio && directorio === undefined;
+  const editandoCrm = !!directorio?.find((x) => x.id === editandoId)?.crm_contactid;
   function reintentarDirectorio() {
     queryClient.resetQueries({ queryKey: ['interlocutores-cliente', clienteId] });
     refetchDirectorio();
@@ -193,10 +202,14 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             .from('interlocutor')
             .update(
               {
-                nombre: formEdicion.nombre.trim(),
-                cargo: formEdicion.cargo.trim() || null,
-                telefono: formEdicion.telefono.trim() || null,
-                email: formEdicion.email.trim() || null,
+                ...(editandoCrm
+                  ? {}
+                  : {
+                      nombre: formEdicion.nombre.trim(),
+                      cargo: formEdicion.cargo.trim() || null,
+                      telefono: formEdicion.telefono.trim() || null,
+                      email: formEdicion.email.trim() || null,
+                    }),
                 tipo_influencia: formEdicion.tipo || null,
                 relevancia: formEdicion.relevancia.trim() || null,
               },
@@ -266,12 +279,20 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
     invalidar();
   }
 
-  function camposComunes(form: FormularioInterlocutor, set: (f: FormularioInterlocutor) => void) {
+  // `delCrm`: nombre, cargo, teléfono y email los manda el CRM — se ven pero
+  // no se editan (la carga siguiente los pisaría). Tipo y relevancia sí.
+  function camposComunes(form: FormularioInterlocutor, set: (f: FormularioInterlocutor) => void, delCrm = false) {
     return (
       <>
+        {delCrm && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>
+            Nombre, cargo, teléfono y email vienen del CRM: se cambian allí.
+          </div>
+        )}
         <input
           className="field"
-          autoFocus
+          autoFocus={!delCrm}
+          disabled={delCrm}
           autoComplete="off"
           value={form.nombre}
           onChange={(e) => set({ ...form, nombre: e.target.value })}
@@ -283,6 +304,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           autoComplete="off"
           value={form.cargo}
           onChange={(e) => set({ ...form, cargo: e.target.value })}
+          disabled={delCrm}
           placeholder="cargo (opcional)"
         />
         <input
@@ -292,6 +314,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           autoComplete="off"
           value={form.telefono}
           onChange={(e) => set({ ...form, telefono: e.target.value })}
+          disabled={delCrm}
           placeholder="teléfono (opcional)"
         />
         <input
@@ -301,6 +324,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           autoComplete="off"
           value={form.email}
           onChange={(e) => set({ ...form, email: e.target.value })}
+          disabled={delCrm}
           placeholder="email (opcional)"
         />
         <input
@@ -348,7 +372,8 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
             <button type="button" className="chip" onClick={cancelarSeleccion}>Cancelar</button>
           </>
         ) : (
-          !!directorio?.length && (
+          // Solo si hay alguno que se pueda quitar (los del CRM no).
+          !!directorio?.some((i) => !i.crm_contactid) && (
             <button type="button" className="chip-accion" onClick={() => setSeleccionando(true)}>
               Seleccionar
             </button>
@@ -370,7 +395,7 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
           if (editandoId === i.id) {
             return (
               <div key={i.id} className="card" style={{ margin: '6px 0' }}>
-                {camposComunes(formEdicion, setFormEdicion)}
+                {camposComunes(formEdicion, setFormEdicion, editandoCrm)}
                 <div className="fila-btns" style={{ marginTop: 8, flexWrap: 'wrap' }}>
                   <button
                     type="button"
@@ -398,6 +423,11 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
               <span className="interlocutor-fila__nombre">
                 <b>{i.nombre}</b>
                 {i.cargo && <span style={{ color: 'var(--ink-400)' }}> · {i.cargo}</span>}
+                {i.crm_contactid && (
+                  <span className="info-tag" style={{ marginLeft: 6 }}>
+                    del CRM
+                  </span>
+                )}
                 {presente && (
                   <span style={{ color: 'var(--success-600)', fontWeight: 600 }}> · ✓ presente</span>
                 )}
@@ -418,6 +448,10 @@ export function DirectorioInterlocutores({ clienteId, presencia, crearNuevo }: P
                 className="interlocutor-fila__cuerpo"
                 style={{ width: '100%' }}
                 aria-pressed={marcado}
+                // Los del CRM no se quitan desde aquí: la carga los volvería
+                // a poner. Se dan de baja solos si dejan de estar en el CRM.
+                disabled={!!i.crm_contactid}
+                title={i.crm_contactid ? 'Viene del CRM: no se quita desde aquí' : undefined}
                 onClick={() => alternarMarcado(i.id)}
               >
                 <FilaToggle marcada={marcado} />

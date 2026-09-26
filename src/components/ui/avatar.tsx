@@ -28,6 +28,12 @@ interface Props {
   /** `sm` (28px) en una fila de lista; `md` (40px) junto a un título de
    *  cabecera de ficha. */
   size?: 'sm' | 'md';
+  /** `proyecto`: la marca de un PROYECTO (línea de negocio), no de una
+   *  persona — mismas iniciales y tono por hash del nombre, en cuadrado
+   *  redondeado para no confundirla con alguien. Así «Mantenimiento» se ve
+   *  igual en la ficha del cliente, en su historial y al elegir proyecto
+   *  (prompt maestro 13). */
+  forma?: 'persona' | 'proyecto';
 }
 
 // Identidad de persona (comercial o cliente): iniciales sobre un círculo de
@@ -35,9 +41,12 @@ interface Props {
 // son la segunda pista de accesibilidad sobre el color (regla de siempre,
 // ver 08_sistema_diseno.md §"Color y accesibilidad"). Ver también
 // §"Identidad de persona".
-export function Avatar({ nombre, size = 'sm' }: Props) {
+export function Avatar({ nombre, size = 'sm', forma = 'persona' }: Props) {
   return (
-    <span className={`avatar avatar--${size} avatar--${tonoDe(nombre)}`} aria-hidden="true">
+    <span
+      className={`avatar avatar--${size} avatar--${tonoDe(nombre)}${forma === 'proyecto' ? ' avatar--proyecto' : ''}`}
+      aria-hidden="true"
+    >
       {inicialesDe(nombre)}
     </span>
   );

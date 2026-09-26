@@ -99,7 +99,7 @@ const _PANTALLAS = {
     grupo: 'dia',
     titulo: 'Clientes',
     queEs:
-      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar».',
+      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar». Los clientes archivados no salen en la lista: están al final, tras «Ver archivados».',
     cuando:
       'Para entrar en la ficha de un cliente. La lista muestra por defecto tu cartera, pero el buscador encuentra CUALQUIER cliente de la empresa — útil para cubrir a un compañero o para comprobar si ya existe antes de darlo de alta. Si diriges el equipo, «Solo míos / Todos» cambia la vista y ahí ves quién lleva cada cuenta.',
   },
@@ -136,7 +136,7 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Nuevo cliente',
     queEs:
-      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
+      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques (si está archivado, te lleva a su ficha para reactivarlo), y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo: el nombre pasa a ser el del CRM (puedes retocarlo) y solo falta el proyecto (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },
@@ -144,18 +144,18 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Ficha de cliente',
     queEs:
-      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
+      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono; si el cliente está vinculado al CRM, sus contactos salen solos marcados «del CRM» y se cambian allí, y con «+» añades los que conozcas en una visita) y qué tiene instalado (sale solo de los hallazgos de sus visitas). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
     cuando:
-      'Aquí ves los proyectos del cliente y, debajo, el historial con TODAS sus visitas (de cualquier proyecto). Para la actividad de un proyecto —oportunidades, hallazgos, próximos pasos— entra en su ficha. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño y ubicación (salen en la cabecera de cada informe); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
-    ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+      'Aquí ves los proyectos del cliente, cada uno con su marca (iniciales y color, igual en toda la app). Si tiene un solo proyecto, sus visitas salen aquí mismo; con varios, entra en cada proyecto para ver las suyas, con sus oportunidades y próximos pasos. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño, ubicación (salen en la cabecera de cada informe) y la cuenta del CRM a la que corresponde el cliente (la usa el briefing para no confundirlo con otro de nombre parecido); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
+    ojo: 'Si ya no trabajáis con el cliente, «Archivar cliente» (al final de la ficha, responsable o Dirección): deja de salir en Clientes y al elegir cliente para una visita, y se conserva todo; «Reactivar cliente» lo devuelve. «Borrar cliente» solo lo ve Dirección: elimina la ficha, sus proyectos y su historial sin vuelta atrás, y es para fichas creadas por error. Si son dos fichas del mismo cliente, no se borra: Dirección las junta.',
   },
   'ficha-proyecto': {
     grupo: 'cliente',
     titulo: 'Ficha de proyecto',
     queEs:
-      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos, notas y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
+      'Una línea de negocio dentro de un cliente. Arriba, lo que sigue abierto: oportunidades activas y próximos pasos. Debajo, sus visitas: cada una dice a qué fue y qué tiene dentro («2 notas · 1 hallazgo · 12 fotos»); las notas, hallazgos y fotos se ven entrando en la visita.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver resueltos» muestra los que se dieron por pasados. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita (las cerradas ponen «cerrada · PDF»). Si el cliente está archivado, el proyecto es solo consulta hasta reactivarlo.',
   },
   'espacio-proyecto': {
     grupo: 'cliente',
@@ -163,7 +163,7 @@ const _PANTALLAS = {
     queEs:
       'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
     cuando:
-      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae el backup completo (fotos, audios y PDF) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
+      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae la copia completa en ZIP (PDF, fotos originales y audios) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
     ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
   },
 
@@ -182,14 +182,14 @@ const _PANTALLAS = {
     queEs:
       'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo.',
     cuando:
-      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes.',
+      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes. El icono de briefing (arriba) abre el resumen del cliente que prepara el agente de Copilot: se genera solo al planificar una visita de los próximos 7 días y otra vez la noche anterior; tarda 7-9 minutos y necesita que el cliente tenga vinculada su cuenta del CRM. Se borra al cerrar la visita.',
     ojo: 'Cancelar una visita planificada la borra y no se puede deshacer.',
   },
   'repaso-cliente': {
     grupo: 'visita',
     titulo: 'Preparar la visita',
     queEs:
-      'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, su ecosistema (lo que sabemos que tiene; las categorías sueltas van en gris), las últimas notas, la oportunidad activa y el próximo paso pendiente.',
+      'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, qué tiene instalado (lo que sabemos por los hallazgos; las categorías sueltas van en gris), las últimas notas, la oportunidad activa y el próximo paso pendiente.',
     cuando:
       'Al llegar al cliente, antes de pulsar «Iniciar visita». Desde aquí arranca la visita en curso.',
   },
@@ -208,7 +208,7 @@ const _PANTALLAS = {
     queEs:
       'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el informe —un ZIP con el PDF y las fotos y audios— (también está luego en el detalle de la visita).',
+      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el «PDF de la visita» (el informe, con las fotos dentro) o «Todo en ZIP» (ese PDF más las fotos originales y los audios). Los dos están también luego en el detalle de la visita.',
     ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
   },
   'visita-cerrada': {
@@ -217,7 +217,7 @@ const _PANTALLAS = {
     queEs:
       'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
     cuando:
-      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas.',
+      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas. Justo debajo del resumen: «PDF de la visita» (el informe con las fotos, se abre directamente) y «Todo en ZIP» (el PDF más las fotos originales y los audios, para guardar una copia completa).',
     ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero.',
   },
 
@@ -297,6 +297,16 @@ const _PANTALLAS = {
       'En «Pendientes» tocas un término propuesto para ver su contexto y ahí mismo lo apruebas, lo fusionas con uno del catálogo o lo descartas; con «Seleccionar» haces lo mismo en lote. Lo que los comerciales proponen sobre la marcha aparece en la categoría «Sin clasificar»; al aprobarlo eliges en qué categoría queda. En «Catálogo completo» creas categorías con el «+» de arriba, y términos y modelos con el botón «+ Añadir…» que aparece al pie de cada categoría o término desplegado (p. ej. «MIFARE» con «DESFire EV2» dentro). Con el chip «Editar» activas a la vez el checkbox de cada fila y sus flechas subir/bajar — marca una o varias para Renombrar, Mover a… o Quitar (con confirmación); marcando una categoría, para Renombrar o Borrar. El subtítulo de cada término resume cuántos modelos tiene y en cuántas fichas se usa ya. Busca cualquiera con la caja de arriba («Desplegar todo» abre el árbol entero de una vez). Arriba del todo, «Clasificación en las fichas» es un interruptor único para toda la app: «Solo categoría» deja a los comerciales marcar solo la categoría entera en Hallazgo, Oportunidad y Anotar; «Categoría, término y modelo» les deja además elegir el término o modelo concreto.',
     ojo:
       'Renombrar un término cambia cómo se ve en los hallazgos y oportunidades que ya lo usan. Los términos no se borran de verdad: «Quitar» los deja fuera del catálogo pero conserva las fichas antiguas. El interruptor de clasificación es global: afecta a todos los comerciales a la vez, no se elige por pantalla.',
+    soloDireccion: true,
+  },
+  'briefings-uso': {
+    grupo: 'direccion',
+    titulo: 'Briefings',
+    queEs:
+      'Cuántos briefings de cliente se han pedido al agente de Copilot hoy y este mes (al planificar, la noche anterior o a mano) y los controles para que no se disparen. Solo la ve Dirección Comercial.',
+    cuando:
+      'Para vigilar el consumo. «Pausados» corta los automáticos (al planificar y la noche anterior); a mano se siguen pudiendo pedir. El tope diario limita todos: al llegar, lo que falte espera a mañana y sale un aviso aquí y en Yo.',
+    ojo: 'El consumo real de la licencia está en el centro de administración de Power Platform; este contador es el de la app para compararlo.',
     soloDireccion: true,
   },
   'gestionar-sectores': {
@@ -381,7 +391,7 @@ const _CONCEPTOS = {
     grupo: 'visita',
     titulo: 'Interlocutores y participantes',
     queEs:
-      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera y quien lo añadió lo ve; se le puede volver a invitar (sale marcado «reinvitar»), lo mismo Dirección que el responsable. Quien puede añadir también puede «quitar» a un participante —a esa persona le llega un aviso y, si hace falta, también se la puede reinvitar—, y cualquiera puede «salir» de una visita en la que no es responsable. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
+      'Interlocutores = personas del cliente (con su cargo y su papel: decisor, técnico, compras…); se guardan en su ficha y sirven para las siguientes visitas. Toca a los que están presentes para marcarlos; si el cliente está vinculado al CRM, sus contactos ya salen (marcados «del CRM»), y con «+» añades a quien conozcas nuevo. Participantes = compañeros de tu equipo en esta visita en concreto; los añade Dirección Comercial o quien lleva la visita (su responsable), y al compañero le llega un aviso en «Yo» para aceptar o rechazar. Si rechaza, queda fuera y quien lo añadió lo ve; se le puede volver a invitar (sale marcado «reinvitar»), lo mismo Dirección que el responsable. Quien puede añadir también puede «quitar» a un participante —a esa persona le llega un aviso y, si hace falta, también se la puede reinvitar—, y cualquiera puede «salir» de una visita en la que no es responsable. Si no puedes añadir tú, usa «Pedir ayuda con esta visita».',
   },
 
   // — Oportunidades y categorías —

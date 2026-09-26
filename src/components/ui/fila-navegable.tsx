@@ -40,6 +40,8 @@ interface PropsBase {
    *  Si se pasan los dos, `icono` gana — es una señal de estado real
    *  (p. ej. ⚠ "de baja") y pesa más que la identidad. */
   avatar?: string;
+  /** `proyecto`: el avatar es la marca de un proyecto (ver `Avatar`). */
+  avatarForma?: 'persona' | 'proyecto';
   /** Normalmente un string. Acepta ReactNode para casos como el nombre de
    *  cliente + una etiqueta "Heredado" al lado. El recorte a 2 líneas
    *  (`.fila__titulo`) sigue aplicando sobre el conjunto. */
@@ -77,6 +79,7 @@ type Props = PropsBase &
 export function FilaNavegable({
   icono,
   avatar,
+  avatarForma,
   titulo,
   subtitulo,
   valor,
@@ -116,7 +119,7 @@ export function FilaNavegable({
           <Icono nombre={icono} size={tamIcono} />
         </span>
       ) : (
-        avatar && <Avatar nombre={avatar} />
+        avatar && <Avatar nombre={avatar} forma={avatarForma} />
       )}
       <span className="fila__cuerpo">
         <span className="fila__titulo">{titulo}</span>

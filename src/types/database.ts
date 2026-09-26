@@ -19,16 +19,19 @@ export type Database = {
           actualizado_en: string
           clave: string
           valor: boolean
+          valor_numero: number | null
         }
         Insert: {
           actualizado_en?: string
           clave: string
           valor: boolean
+          valor_numero?: number | null
         }
         Update: {
           actualizado_en?: string
           clave?: string
           valor?: boolean
+          valor_numero?: number | null
         }
         Relationships: []
       }
@@ -112,6 +115,69 @@ export type Database = {
             referencedColumns: ["comercial_id"]
           },
         ]
+      }
+      briefing_uso: {
+        Row: {
+          enviado_en: string
+          id: number
+          motivo: string
+          visita_id: string | null
+        }
+        Insert: {
+          enviado_en?: string
+          id?: number
+          motivo: string
+          visita_id?: string | null
+        }
+        Update: {
+          enviado_en?: string
+          id?: number
+          motivo?: string
+          visita_id?: string | null
+        }
+        Relationships: []
+      }
+      briefing_visita: {
+        Row: {
+          conversacion_id: string | null
+          contenido: string | null
+          error: string | null
+          estado: string
+          iniciado_en: string | null
+          intentos: number
+          motivo: string
+          pedido_en: string
+          terminado_en: string | null
+          visita_id: string
+          watermark: string | null
+        }
+        Insert: {
+          conversacion_id?: string | null
+          contenido?: string | null
+          error?: string | null
+          estado: string
+          iniciado_en?: string | null
+          intentos?: number
+          motivo: string
+          pedido_en?: string
+          terminado_en?: string | null
+          visita_id: string
+          watermark?: string | null
+        }
+        Update: {
+          conversacion_id?: string | null
+          contenido?: string | null
+          error?: string | null
+          estado?: string
+          iniciado_en?: string | null
+          intentos?: number
+          motivo?: string
+          pedido_en?: string
+          terminado_en?: string | null
+          visita_id?: string
+          watermark?: string | null
+        }
+        Relationships: []
       }
       captura_libre: {
         Row: {
@@ -262,6 +328,7 @@ export type Database = {
           actualizado_en: string
           creado_en: string
           creado_por: string | null
+          crm_accountid: string | null
           estado_fusion: string
           estado_relacion: string
           fusionado_en_id: string | null
@@ -276,6 +343,7 @@ export type Database = {
           actualizado_en?: string
           creado_en?: string
           creado_por?: string | null
+          crm_accountid?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -290,6 +358,7 @@ export type Database = {
           actualizado_en?: string
           creado_en?: string
           creado_por?: string | null
+          crm_accountid?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -344,6 +413,45 @@ export type Database = {
             referencedColumns: ["comercial_id"]
           },
         ]
+      }
+      crm_cuenta: {
+        Row: {
+          accountid: string
+          activa: boolean
+          ciudad: string | null
+          codigo_postal: string | null
+          cuenta_matriz: string | null
+          cuenta_matriz_id: string | null
+          modificado_crm: string | null
+          nombre: string
+          pais: string | null
+          sincronizado_en: string
+        }
+        Insert: {
+          accountid: string
+          activa?: boolean
+          ciudad?: string | null
+          codigo_postal?: string | null
+          cuenta_matriz?: string | null
+          cuenta_matriz_id?: string | null
+          modificado_crm?: string | null
+          nombre: string
+          pais?: string | null
+          sincronizado_en?: string
+        }
+        Update: {
+          accountid?: string
+          activa?: boolean
+          ciudad?: string | null
+          codigo_postal?: string | null
+          cuenta_matriz?: string | null
+          cuenta_matriz_id?: string | null
+          modificado_crm?: string | null
+          nombre?: string
+          pais?: string | null
+          sincronizado_en?: string
+        }
+        Relationships: []
       }
       comercial: {
         Row: {
@@ -590,6 +698,7 @@ export type Database = {
           actualizado_en: string
           cargo: string | null
           cliente_id: string
+          crm_contactid: string | null
           creado_en: string
           email: string | null
           id: string
@@ -603,6 +712,7 @@ export type Database = {
           actualizado_en?: string
           cargo?: string | null
           cliente_id: string
+          crm_contactid?: string | null
           creado_en?: string
           email?: string | null
           id?: string
@@ -616,6 +726,7 @@ export type Database = {
           actualizado_en?: string
           cargo?: string | null
           cliente_id?: string
+          crm_contactid?: string | null
           creado_en?: string
           email?: string | null
           id?: string
@@ -2120,6 +2231,7 @@ export type Database = {
       vw_cliente_resuelto: {
         Row: {
           cliente_id: string | null
+          cliente_maestro_estado_relacion: string | null
           cliente_maestro_id: string | null
           cliente_maestro_nombre: string | null
         }
@@ -2183,6 +2295,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           cliente_nombre: string | null
+          estado_relacion: string | null
           oportunidades_activas: number | null
           semaforo: string | null
           ultima_visita: string | null
@@ -2263,12 +2376,25 @@ export type Database = {
       }
     }
     Functions: {
+      fn_pedir_briefing: {
+        Args: { p_visita_id: string }
+        Returns: undefined
+      }
+      fn_tope_briefing: {
+        Args: Record<PropertyKey, never>
+        Returns: { alcanzado: boolean; enviados_hoy: number; tope: number }[]
+      }
+      fn_uso_briefings: {
+        Args: Record<PropertyKey, never>
+        Returns: { hoy: number; mes: number; motivo: string }[]
+      }
       crear_cliente_con_proyecto: {
         Args: {
           p_cliente_id: string
           p_creado_por: string
           p_nombre_cliente: string
           p_nombre_proyecto: string
+          p_crm_accountid?: string
           p_responsable_id: string
         }
         Returns: {

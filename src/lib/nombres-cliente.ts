@@ -45,3 +45,8 @@ export function claveDuplicado(nombre: string): string {
   }
   return norm;
 }
+
+/** `cliente.estado_relacion` de un cliente archivado («ya no trabajamos con
+ *  él», prompt maestro 13): no sale en Clientes ni al elegir cliente para una
+ *  visita; conserva todo y se reactiva desde su ficha. */
+export const CLIENTE_ARCHIVADO = 'inactivo';

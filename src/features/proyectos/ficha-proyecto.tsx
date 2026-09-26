@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
@@ -48,7 +49,7 @@ export function FichaProyecto() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre')
+        .select('id, nombre, estado_relacion')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -73,7 +74,7 @@ export function FichaProyecto() {
   // Informe PDF del proyecto (cronología de sus visitas cerradas). Mismo
   // hook que el informe de visita, con tipo 'proyecto'.
   const { estadoDe: estadoInformeDe, descargar: descargarInforme } = useDescargarInforme();
-  const estadoInforme = proyectoId ? estadoInformeDe(proyectoId) : 'inactivo';
+  const estadoInforme = proyectoId ? estadoInformeDe('proyecto', proyectoId) : 'inactivo';
   const informeListo = typeof estadoInforme === 'object' ? estadoInforme : null;
 
   // "Liberar espacio" solo tiene sentido si hay alguna visita cerrada que
@@ -391,6 +392,8 @@ export function FichaProyecto() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={proyecto?.nombre ?? '…'}
+        avatar={proyecto?.nombre}
+        avatarForma="proyecto"
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
         volverA={volver}
@@ -449,6 +452,11 @@ export function FichaProyecto() {
         {terminado && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
+          </div>
+        )}
+        {!terminado && cliente?.estado_relacion === CLIENTE_ARCHIVADO && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
+            Cliente archivado: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
           </div>
         )}
 
@@ -514,22 +522,22 @@ export function FichaProyecto() {
             <SeccionLista>
               <FilaAccion
                 densidad="compacta"
-                titulo="Informe del proyecto"
+                titulo="Resumen del proyecto"
                 subtitulo={
                   informeListo
                     ? `Descargado (${formatearMB(informeListo.tamanoBytes)} MB)`
                     : estadoInforme === 'generando'
-                      ? 'Generando el informe…'
+                      ? 'Generando el resumen…'
                       : estadoInforme === 'sin-red'
                         ? 'Sin conexión. Inténtalo cuando tengas red'
                         : estadoInforme === 'error'
                           ? 'No se pudo generar, toca de nuevo'
-                          : 'PDF con la cronología de sus visitas cerradas'
+                          : 'PDF sin fotos, una página por visita cerrada. Las fotos van en el PDF de cada visita'
                 }
                 acciones={[
                   {
                     icono: 'descargar',
-                    etiqueta: informeListo ? 'Descargar el informe otra vez' : 'Descargar informe',
+                    etiqueta: informeListo ? 'Descargar el resumen otra vez' : 'Descargar resumen',
                     onClick: informeListo ? undefined : () => descargarInforme('proyecto', proyectoId),
                     href: informeListo ? informeListo.url : undefined,
                     disabled: estadoInforme === 'generando',
@@ -595,7 +603,9 @@ export function FichaProyecto() {
         </div>
       </div>
 
-      {clienteId && proyectoId && !terminado && (
+      {/* Cliente archivado: solo consulta, como un proyecto terminado — se
+          reactiva desde su ficha (prompt maestro 13). */}
+      {clienteId && proyectoId && !terminado && cliente?.estado_relacion !== CLIENTE_ARCHIVADO && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoId}
