@@ -2228,6 +2228,7 @@ export type Database = {
       vw_cliente_resuelto: {
         Row: {
           cliente_id: string | null
+          cliente_maestro_estado_relacion: string | null
           cliente_maestro_id: string | null
           cliente_maestro_nombre: string | null
         }
@@ -2291,6 +2292,7 @@ export type Database = {
         Row: {
           cliente_id: string | null
           cliente_nombre: string | null
+          estado_relacion: string | null
           oportunidades_activas: number | null
           semaforo: string | null
           ultima_visita: string | null

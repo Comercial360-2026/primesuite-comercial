@@ -13,7 +13,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
-import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
+import { normalizarNombre, claveDuplicado, CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
@@ -92,10 +92,10 @@ export function AltaRapidaCliente() {
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string }>> => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre')
+        .select('id, nombre, estado_relacion')
         .eq('estado_fusion', 'activo');
       if (error) throw error;
       return data ?? [];
@@ -306,6 +306,12 @@ export function AltaRapidaCliente() {
   // (el arranque real lo hace arrancarConObjetivo al confirmar).
   async function visitarExistente(clienteId: string, clienteNombre: string) {
     if (creacionCliente.cargando) return;
+    // Archivado: sí se enseña (si no, se daría de alta otra vez), pero se va
+    // a su ficha a reactivarlo en vez de arrancarle una visita a escondidas.
+    if (clientesExistentes?.some((c) => c.id === clienteId && c.estado_relacion === CLIENTE_ARCHIVADO)) {
+      navigate(`/clientes/${clienteId}`);
+      return;
+    }
     const { data } = await supabase
       .from('visita')
       .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre)')
@@ -394,7 +400,7 @@ export function AltaRapidaCliente() {
               <FilaNavegable
                 key={c.id}
                 titulo={c.nombre}
-                valor="iniciar visita"
+                valor={c.estado_relacion === CLIENTE_ARCHIVADO ? 'archivado' : 'iniciar visita'}
                 valorTenue
                 disabled={creacionCliente.cargando}
                 onClick={() => visitarExistente(c.id, c.nombre)}

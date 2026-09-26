@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
@@ -48,7 +49,7 @@ export function FichaProyecto() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre')
+        .select('id, nombre, estado_relacion')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -391,6 +392,8 @@ export function FichaProyecto() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={proyecto?.nombre ?? '…'}
+        avatar={proyecto?.nombre}
+        avatarForma="proyecto"
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
         volverA={volver}
@@ -449,6 +452,11 @@ export function FichaProyecto() {
         {terminado && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
+          </div>
+        )}
+        {!terminado && cliente?.estado_relacion === CLIENTE_ARCHIVADO && (
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
+            Cliente archivado: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
           </div>
         )}
 
@@ -595,7 +603,9 @@ export function FichaProyecto() {
         </div>
       </div>
 
-      {clienteId && proyectoId && !terminado && (
+      {/* Cliente archivado: solo consulta, como un proyecto terminado — se
+          reactiva desde su ficha (prompt maestro 13). */}
+      {clienteId && proyectoId && !terminado && cliente?.estado_relacion !== CLIENTE_ARCHIVADO && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoId}

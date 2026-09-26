@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo, desdeHace, hora } from '@/lib/fechas';
-import { capitalizarFrase } from '@/lib/texto';
+import { capitalizarFrase, desgloseVisita } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { desde, useVolverA } from '@/lib/volver-a';
@@ -1852,17 +1852,15 @@ export function VisitaActiva() {
   const totalOportunidades = oportunidadesV.length + oportunidadesCompanerosV.length;
   const totalPasos = pasosV.length + pasosCompanerosV.length;
   const totalEnVisita = totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
-  const desgloseTipos = [
-    totalFotos && `${totalFotos} foto${totalFotos > 1 ? 's' : ''}`,
-    totalAudios && `${totalAudios} audio${totalAudios > 1 ? 's' : ''}`,
-    totalNotas && `${totalNotas} nota${totalNotas > 1 ? 's' : ''}`,
-    totalHallazgos && `${totalHallazgos} hallazgo${totalHallazgos > 1 ? 's' : ''}`,
-    totalOportunidades && `${totalOportunidades} oportunidad${totalOportunidades > 1 ? 'es' : ''}`,
-    totalPasos && `${totalPasos} próximo${totalPasos > 1 ? 's pasos' : ' paso'}`,
-  ].filter((t): t is string => !!t);
   // D2: desglose corto si hay pocos tipos, si no colapsa a "N elementos".
-  const contadorEnVisita =
-    desgloseTipos.length > 3 ? `${totalEnVisita} elemento${totalEnVisita === 1 ? '' : 's'}` : desgloseTipos.join(' · ');
+  const contadorEnVisita = desgloseVisita({
+    fotos: totalFotos,
+    audios: totalAudios,
+    notas: totalNotas,
+    hallazgos: totalHallazgos,
+    oportunidades: totalOportunidades,
+    pasos: totalPasos,
+  });
   // Solo lo MÍO tiene estado de sincronización — lo de compañeros ya viene
   // del servidor. Regla 5: un único indicador en cristiano, no por ítem.
   // Whole-visita: el estado de subida no lo acota el filtro de zona.

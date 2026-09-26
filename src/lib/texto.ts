@@ -18,6 +18,31 @@ export function plural(n: number, singular: string, formaPlural: string): string
   return `${n} ${n === 1 ? singular : formaPlural}`;
 }
 
+// Qué hay dentro de una visita, en corto: "3 fotos · 2 notas · 1 hallazgo".
+// Con más de 3 tipos colapsa a "N elementos" para que quepa en una línea
+// (D2 del rediseño de Visita activa). Vacío si no hay nada. Lo usan Visita
+// activa y las filas de historial de visitas.
+export function desgloseVisita(t: {
+  fotos: number;
+  audios: number;
+  notas: number;
+  hallazgos: number;
+  oportunidades: number;
+  pasos: number;
+}): string {
+  const tipos = [
+    t.fotos && plural(t.fotos, 'foto', 'fotos'),
+    t.audios && plural(t.audios, 'audio', 'audios'),
+    t.notas && plural(t.notas, 'nota', 'notas'),
+    t.hallazgos && plural(t.hallazgos, 'hallazgo', 'hallazgos'),
+    t.oportunidades && plural(t.oportunidades, 'oportunidad', 'oportunidades'),
+    t.pasos && plural(t.pasos, 'próximo paso', 'próximos pasos'),
+  ].filter((x): x is string => !!x);
+  if (tipos.length <= 3) return tipos.join(' · ');
+  const total = t.fotos + t.audios + t.notas + t.hallazgos + t.oportunidades + t.pasos;
+  return plural(total, 'elemento', 'elementos');
+}
+
 // Minúsculas y sin acentos, para comparar/buscar texto libre sin que un
 // tilde deje fuera una coincidencia ("desfire" encuentra "DESFire",
 // "camion" encuentra "camión"). Solo para comparar — nunca se guarda.

@@ -99,7 +99,7 @@ const _PANTALLAS = {
     grupo: 'dia',
     titulo: 'Clientes',
     queEs:
-      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar».',
+      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar». Los clientes archivados no salen en la lista: están al final, tras «Ver archivados».',
     cuando:
       'Para entrar en la ficha de un cliente. La lista muestra por defecto tu cartera, pero el buscador encuentra CUALQUIER cliente de la empresa — útil para cubrir a un compañero o para comprobar si ya existe antes de darlo de alta. Si diriges el equipo, «Solo míos / Todos» cambia la vista y ahí ves quién lleva cada cuenta.',
   },
@@ -136,7 +136,7 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Nuevo cliente',
     queEs:
-      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques, y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo: el nombre pasa a ser el del CRM (puedes retocarlo) y solo falta el proyecto (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
+      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques (si está archivado, te lleva a su ficha para reactivarlo), y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo: el nombre pasa a ser el del CRM (puedes retocarlo) y solo falta el proyecto (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },
@@ -144,18 +144,18 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Ficha de cliente',
     queEs:
-      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y su ecosistema (qué tiene instalado y de quién). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
+      'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono) y qué tiene instalado (sale solo de los hallazgos de sus visitas). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
     cuando:
-      'Aquí ves los proyectos del cliente y, debajo, el historial con TODAS sus visitas (de cualquier proyecto). Para la actividad de un proyecto —oportunidades, hallazgos, próximos pasos— entra en su ficha. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño, ubicación (salen en la cabecera de cada informe) y la cuenta del CRM a la que corresponde el cliente (la usa el briefing para no confundirlo con otro de nombre parecido); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
-    ojo: '«Borrar cliente» elimina la ficha, todos sus proyectos y su historial, y no se puede deshacer; úsalo solo con fichas creadas por error. Si son dos fichas del mismo cliente, no la borres: lo resuelve Dirección Comercial juntándolas.',
+      'Aquí ves los proyectos del cliente, cada uno con su marca (iniciales y color, igual en toda la app). Si tiene un solo proyecto, sus visitas salen aquí mismo; con varios, entra en cada proyecto para ver las suyas, con sus oportunidades y próximos pasos. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño, ubicación (salen en la cabecera de cada informe) y la cuenta del CRM a la que corresponde el cliente (la usa el briefing para no confundirlo con otro de nombre parecido); lo puede hacer el comercial responsable o Dirección, y necesita conexión.',
+    ojo: 'Si ya no trabajáis con el cliente, «Archivar cliente» (al final de la ficha, responsable o Dirección): deja de salir en Clientes y al elegir cliente para una visita, y se conserva todo; «Reactivar cliente» lo devuelve. «Borrar cliente» solo lo ve Dirección: elimina la ficha, sus proyectos y su historial sin vuelta atrás, y es para fichas creadas por error. Si son dos fichas del mismo cliente, no se borra: Dirección las junta.',
   },
   'ficha-proyecto': {
     grupo: 'cliente',
     titulo: 'Ficha de proyecto',
     queEs:
-      'Una línea de negocio dentro de un cliente: sus oportunidades activas, hallazgos, próximos pasos, notas y el historial de visitas de ESE proyecto (no de todo el cliente). Todo proyecto tiene su ficha; el historial completo del cliente se ve en la ficha de cliente.',
+      'Una línea de negocio dentro de un cliente. Arriba, lo que sigue abierto: oportunidades activas y próximos pasos. Debajo, sus visitas: cada una dice a qué fue y qué tiene dentro («2 notas · 1 hallazgo · 12 fotos»); las notas, hallazgos y fotos se ven entrando en la visita.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. En «Hallazgos» solo salen los vigentes; «Ver resueltos» muestra los que se dieron por pasados. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita del historial (las cerradas ponen «cerrada · PDF»).',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita (las cerradas ponen «cerrada · PDF»). Si el cliente está archivado, el proyecto es solo consulta hasta reactivarlo.',
   },
   'espacio-proyecto': {
     grupo: 'cliente',
@@ -189,7 +189,7 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Preparar la visita',
     queEs:
-      'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, su ecosistema (lo que sabemos que tiene; las categorías sueltas van en gris), las últimas notas, la oportunidad activa y el próximo paso pendiente.',
+      'Un vistazo rápido al cliente justo antes de entrar: a qué vas, los contactos conocidos, qué tiene instalado (lo que sabemos por los hallazgos; las categorías sueltas van en gris), las últimas notas, la oportunidad activa y el próximo paso pendiente.',
     cuando:
       'Al llegar al cliente, antes de pulsar «Iniciar visita». Desde aquí arranca la visita en curso.',
   },

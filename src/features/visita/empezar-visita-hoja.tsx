@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -88,6 +89,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
       const { data, error } = await supabase
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
+        .neq('estado_relacion', CLIENTE_ARCHIVADO)
         .ilike('cliente_nombre', `%${termino}%`)
         .order('cliente_nombre')
         .limit(8);
@@ -305,7 +307,14 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             </div>
             <SeccionLista>
               {proyectos?.map((p) => (
-                <FilaNavegable key={p.id} titulo={p.nombre} onClick={() => setProyectoId(p.id)} chevron />
+                <FilaNavegable
+                  key={p.id}
+                  avatar={p.nombre}
+                  avatarForma="proyecto"
+                  titulo={p.nombre}
+                  onClick={() => setProyectoId(p.id)}
+                  chevron
+                />
               ))}
               {!creandoProyecto && (
                 <FilaNavegable

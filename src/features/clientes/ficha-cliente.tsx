@@ -25,6 +25,7 @@ import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
+import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
@@ -96,6 +97,7 @@ export function FichaCliente() {
   const [formCrm, setFormCrm] = useState<CuentaCrm | null>(null);
   const [buscaCrm, setBuscaCrm] = useState('');
   const guardadoDatos = useAccionAsync();
+  const cambioArchivado = useAccionAsync();
 
   const { data: sectores } = useQuery({
     queryKey: ['sectores-activos'],
@@ -153,6 +155,38 @@ export function FichaCliente() {
           queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
           queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
           queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+        },
+      }
+    );
+  }
+
+  // Archivar = «ya no trabajamos con él» (prompt maestro 13): sale de
+  // Clientes y de los buscadores de Nueva visita, conserva todo. Reversible,
+  // así que sin confirmación. Mismo permiso y misma vía que Editar datos.
+  async function cambiarArchivado(archivar: boolean) {
+    if (!clienteId) return;
+    if (!navigator.onLine) {
+      cambioArchivado.establecerError('Necesitas conexión para archivar o reactivar el cliente.');
+      return;
+    }
+    await cambioArchivado.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update({ estado_relacion: archivar ? CLIENTE_ARCHIVADO : 'activo' }, { count: 'exact' })
+              .eq('id', clienteId),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['cliente-nombre', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['planificar-buscar-cliente'] });
+          queryClient.invalidateQueries({ queryKey: ['empezar-visita-buscar'] });
         },
       }
     );
@@ -400,6 +434,9 @@ export function FichaCliente() {
     );
   }
 
+  const puedeEditar = esDireccionComercial || cliente?.responsable_id === comercial?.id;
+  const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -424,7 +461,7 @@ export function FichaCliente() {
                 )}
               </button>
             )}
-            {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+            {puedeEditar && (
               <button
                 type="button"
                 className="boton-icono"
@@ -455,6 +492,12 @@ export function FichaCliente() {
            {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}
            {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
          </div>
+       )}
+       {archivado && (
+         <Aviso titulo="Archivado">
+           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo al final
+           de esta ficha.
+         </Aviso>
        )}
        {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
@@ -646,6 +689,28 @@ export function FichaCliente() {
           </SeccionLista>
         )}
 
+        {/* Lo que sabemos que tiene, sacado de los hallazgos de todas sus
+            visitas: es del cliente entero, no de un proyecto — por eso va
+            con sus datos y no bajo los proyectos (prompt maestro 13). */}
+        {!!ecosistema?.length && (
+          <SeccionLista titulo="Qué tiene instalado">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+              {/* Ya viene ordenado (términos antes que categorías sueltas).
+                  Se recorta a ECO_VISIBLE. */}
+              {ecosistema
+                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
+                .map((item) => (
+                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
+                ))}
+              {ecosistema.length > ECO_VISIBLE && (
+                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
+                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
+                </button>
+              )}
+            </div>
+          </SeccionLista>
+        )}
+
         {/* Proyectos — una sección con su título y un "+" al lado para dar de
             alta uno. Todos los proyectos del cliente son fila navegable a su
             ficha; los terminados se pliegan tras "Ver terminados (N)". */}
@@ -681,6 +746,8 @@ export function FichaCliente() {
               return (
                 <FilaNavegable
                   key={p.id}
+                  avatar={p.nombre}
+                  avatarForma="proyecto"
                   titulo={p.nombre}
                   subtitulo={[estadoTxt, actividadTxt].filter(Boolean).join(' · ')}
                   tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
@@ -758,37 +825,37 @@ export function FichaCliente() {
           <HistorialVisitasCliente clienteId={clienteId} />
         )}
 
-        {!!ecosistema?.length && (
-          <SeccionLista titulo="Ecosistema">
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {/* Ya viene ordenado (términos antes que categorías sueltas).
-                  Se recorta a ECO_VISIBLE. */}
-              {ecosistema
-                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
-                .map((item) => (
-                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
-                ))}
-              {ecosistema.length > ECO_VISIBLE && (
-                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
-                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
-                </button>
-              )}
-            </div>
-          </SeccionLista>
-        )}
 
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}
 
-        {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
-            la app (detalle de visita, "Cerrar sesión" en Yo). Solo se
-            OFRECE a quien realmente puede: mismo criterio que el backend
-            (eliminar_cliente_completo: creado_por = auth.uid() OR
-            dirección) — antes se mostraba a cualquier comercial aunque el
-            servidor fuera a rechazarlo (hallazgo de la auditoría 2026-09-05:
-            Borja veía "Borrar cliente" en una ficha ajena). */}
-        {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
+        {puedeEditar && (
+          <SeccionLista>
+            <FilaNavegable
+              icono={archivado ? 'restaurar' : 'oculto'}
+              titulo={archivado ? 'Reactivar cliente' : 'Archivar cliente'}
+              subtitulo={
+                cambioArchivado.cargando
+                  ? 'Guardando…'
+                  : archivado
+                    ? 'Vuelve a Clientes y se puede visitar otra vez'
+                    : 'Ya no trabajáis con él: sale de las listas y se conserva todo'
+              }
+              chevron={false}
+              disabled={cambioArchivado.cargando}
+              onClick={() => cambiarArchivado(!archivado)}
+            />
+          </SeccionLista>
+        )}
+        {cambioArchivado.error && <Aviso tipo="error">{cambioArchivado.error}</Aviso>}
+
+        {/* Borrar cliente — solo Dirección (prompt maestro 13): con los
+            clientes del CRM, borrar es para errores (duplicado, prueba); lo
+            normal es Archivar. Al fondo y en tono riesgo, como en el resto
+            de la app. El backend (eliminar_cliente_completo) sigue
+            admitiendo también al creador; la UI ya no se lo ofrece. */}
+        {esDireccionComercial && (
         confirmandoBorrarCliente ? (
           previsualizandoCliente.cargando || !previsualizacionCliente ? (
             <div className="card card--riesgo">
@@ -835,7 +902,7 @@ export function FichaCliente() {
        </div>
       </div>
 
-      {proyectoBase && clienteId && (
+      {proyectoBase && clienteId && !archivado && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoBase.id}
