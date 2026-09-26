@@ -113,6 +113,8 @@ interface CompaneroCaptura {
   comercial_autor_id: string;
   creado_en: string;
   zona_texto: string | null;
+  latitud: number | null;
+  longitud: number | null;
 }
 interface CompaneroHallazgo {
   id: string;
@@ -311,17 +313,27 @@ function CapturasPorUbicacion({
       {(c.fotos.length > 0 || c.fotosC.length > 0) && (
         <>
           <div className="seccion-lista__subcabecera">Fotos</div>
-          {c.fotos.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
-              {[...c.fotos].reverse().map((f) => {
+          {/* Mías y de compañeros, todas como miniatura (las de compañeros
+              con URL firmada de Storage) — antes las de compañeros eran una
+              fila de texto y el participante no veía lo mismo que el autor. */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
+              {[
+                ...[...c.fotos].reverse().map((f) => ({
+                  id: f.id,
+                  titulo: (f.payload as { titulo?: string }).titulo,
+                  autor: undefined as string | undefined,
+                })),
+                ...c.fotosC.map((f) => ({ id: f.id, titulo: f.titulo ?? undefined, autor: deQuien(f.comercial_autor_id) })),
+              ].map((f) => {
                 const url = urlPorFotoId.get(f.id);
-                const titulo = (f.payload as { titulo?: string }).titulo;
+                const titulo = f.titulo;
                 const abrir = () => (onAbrirFoto ?? onTocarCaptura)(f.id);
                 return (
                   <button
                     key={f.id}
                     type="button"
                     onClick={abrir}
+                    title={f.autor}
                     style={{
                       width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
                       border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
@@ -337,16 +349,7 @@ function CapturasPorUbicacion({
                   </button>
                 );
               })}
-            </div>
-          )}
-          {/* Fotos de compañeros: fila de texto, no miniatura — el binario
-              está en Storage, no en la cola local de este dispositivo.
-              Mismo criterio que la vista "Tipo" (B4). */}
-          {c.fotosC.map((f) =>
-            itemFila(f.id, 'foto', capitalizarFrase(f.titulo || 'foto'), deQuien(f.comercial_autor_id), () =>
-              onTocarCaptura(f.id)
-            )
-          )}
+          </div>
         </>
       )}
       {(c.audios.length > 0 || c.audiosC.length > 0) && (
@@ -1489,7 +1492,7 @@ export function VisitaActiva() {
       const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto, latitud, longitud')
           .eq('visita_id', visitaId!),
         supabase
           .from('hallazgo')
@@ -1635,7 +1638,7 @@ export function VisitaActiva() {
   // todo) — así un guardado en OTRA foto, o el sondeo periódico, no la
   // toca ni de refilón.
   const fotosVisor = useMemo(() => {
-    return operaciones
+    const propias = operaciones
       .filter(
         (op) => op.entidad === 'captura_libre' && (op.payload as { tipo?: string }).tipo === 'foto'
       )
@@ -1658,9 +1661,52 @@ export function VisitaActiva() {
           longitud: p.longitud ?? null,
         };
       });
-  }, [operaciones]);
+    // Las fotos de compañeros (y las mías de otro dispositivo) también se
+    // recorren en el visor — antes el visor solo conocía la cola local.
+    const delServidor = fotosCompaneros.map((c) => ({
+      id: c.id,
+      blob: undefined as Blob | undefined,
+      titulo: c.titulo,
+      zonaTexto: c.zona_texto,
+      ubicacionId: null as string | null,
+      latitud: c.latitud,
+      longitud: c.longitud,
+    }));
+    return [...propias, ...delServidor];
+  }, [operaciones, fotosCompaneros]);
 
-  const urlPorFotoId = useMapaUrlsBlobEstable(fotosVisor);
+  const urlsBlob = useMapaUrlsBlobEstable(fotosVisor);
+  // Fotos sin Blob en este dispositivo (de un compañero, mías hechas desde
+  // otro dispositivo): URL firmada de Storage — antes salían como fila de
+  // texto y el participante no veía la miniatura que ve quien la hizo.
+  // Mismo patrón que hoja-detalle-cierre.tsx.
+  const idsFotosSinBlob = fotosVisor.filter((f) => !f.blob).map((f) => f.id);
+  const { data: urlsFirmadas } = useQuery({
+    queryKey: ['urls-fotos-visita', visitaId, idsFotosSinBlob.join(',')],
+    enabled: idsFotosSinBlob.length > 0,
+    staleTime: 50 * 60_000,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data: filas, error } = await supabase
+        .from('captura_libre')
+        .select('id, storage_path')
+        .in('id', idsFotosSinBlob);
+      if (error) throw error;
+      const conRuta = (filas ?? []).filter((f): f is { id: string; storage_path: string } => !!f.storage_path);
+      if (!conRuta.length) return {};
+      const { data: firmadas } = await supabase.storage
+        .from('fotos-visita')
+        .createSignedUrls(conRuta.map((f) => f.storage_path), 3600);
+      const porRuta = new Map((firmadas ?? []).map((f) => [f.path, f.signedUrl]));
+      const m: Record<string, string> = {};
+      for (const f of conRuta) {
+        const url = porRuta.get(f.storage_path);
+        if (url) m[f.id] = url;
+      }
+      return m;
+    },
+  });
+  const urlPorFotoId = new Map(urlsBlob);
+  for (const [id, url] of Object.entries(urlsFirmadas ?? {})) if (!urlPorFotoId.has(id)) urlPorFotoId.set(id, url);
 
   const indiceVisor = fotoVisorId ? fotosVisor.findIndex((f) => f.id === fotoVisorId) : -1;
   const visorFotos =
@@ -2541,16 +2587,30 @@ export function VisitaActiva() {
                 {(fotosOwnV.length > 0 || fotosCompanerosV.length > 0) && (
                   <>
                     <div className="seccion-lista__subcabecera">Fotos</div>
-                    {fotosOwnV.length > 0 && (
-                      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
-                        {[...fotosOwnV].reverse().map((f) => {
+                    {/* Mías y de compañeros, todas como miniatura (ver
+                        `urlsFirmadas`): antes las de compañeros eran fila
+                        de texto y el participante no las veía de un vistazo. */}
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px var(--space-3) 14px' }}>
+                        {[
+                          ...[...fotosOwnV].reverse().map((f) => ({
+                            id: f.id,
+                            titulo: (f.payload as { titulo?: string }).titulo,
+                            autor: undefined as string | undefined,
+                          })),
+                          ...fotosCompanerosV.map((c) => ({
+                            id: c.id,
+                            titulo: c.titulo ?? undefined,
+                            autor: `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                          })),
+                        ].map((f) => {
                           const url = urlPorFotoId.get(f.id);
-                          const titulo = (f.payload as { titulo?: string }).titulo;
+                          const titulo = f.titulo;
                           return (
                             <button
                               key={f.id}
                               type="button"
                               onClick={() => setFotoVisorId(f.id)}
+                              title={f.autor}
                               style={{
                                 width: 64, height: 64, borderRadius: 8, flexShrink: 0, padding: 0,
                                 border: 'none', background: url ? 'none' : 'var(--surface-1)', cursor: 'pointer',
@@ -2567,18 +2627,6 @@ export function VisitaActiva() {
                           );
                         })}
                       </div>
-                    )}
-                    {/* B4 · Fotos de compañeros: fila de texto (el binario está
-                        en Storage, no en la cola local). */}
-                    {fotosCompanerosV.map((c) =>
-                      filaEnVisita(
-                        c.id,
-                        'foto',
-                        capitalizarFrase(c.titulo || 'foto'),
-                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
-                        () => navigate(`/capturas/${c.id}`)
-                      )
-                    )}
                   </>
                 )}
                 {(audiosOwnV.length > 0 || audiosCompanerosV.length > 0) && (
