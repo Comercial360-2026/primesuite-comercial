@@ -13,7 +13,7 @@ import { TextoMarkdown } from '@/components/ui/texto-markdown';
 // Briefing del cliente para ESTA visita, preparado por el agente de Copilot
 // Studio en segundo plano (cola briefing_visita, migración 122): se pide solo
 // al planificar una visita de los próximos 7 días y la noche anterior, y a
-// mano con el botón. El agente tarda 8-10 min, así que aquí solo se lee la
+// mano con el botón. El agente tarda 7-9 min, así que aquí solo se lee la
 // cola y se refresca mientras está en marcha.
 
 interface Briefing {
@@ -96,9 +96,9 @@ export function BriefingHoja({ visitaId, clienteId, clienteNombre, onCerrar }: B
   if (b?.estado === 'pendiente') {
     estadoTexto = tope?.alcanzado
       ? `Hoy se ha llegado al tope de ${tope.tope} briefings. Este se generará mañana.`
-      : `En cola desde hace ${minutos(b.pedido_en)} min. Suele tardar 8-10 minutos en total.`;
+      : `En cola desde hace ${minutos(b.pedido_en)} min. Suele tardar 7-9 minutos en total.`;
   } else if (b?.estado === 'generando') {
-    estadoTexto = `Generando: lleva ${minutos(b.iniciado_en)} min. Suele tardar 8-10 minutos.`;
+    estadoTexto = `Generando: lleva ${minutos(b.iniciado_en)} min. Suele tardar 7-9 minutos.`;
   }
 
   const boton = (
@@ -166,7 +166,7 @@ export function BriefingHoja({ visitaId, clienteId, clienteNombre, onCerrar }: B
               <EstadoLista
                 estado="vacio"
                 icono="briefing"
-                mensaje="Aún no hay briefing para esta visita. El agente tarda unos 8-10 minutos en prepararlo."
+                mensaje="Aún no hay briefing para esta visita. El agente tarda unos 7-9 minutos en prepararlo."
               />
             )
           )}
