@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -44,6 +44,16 @@ export function AltaRapidaCliente() {
   // un cliente que aún no está en el CRM (o un alta sin red) se crea sin ella
   // y se vincula luego con el lápiz de la ficha.
   const [cuentaCrm, setCuentaCrm] = useState<CuentaCrm | null>(null);
+  const proyectoRef = useRef<HTMLInputElement>(null);
+
+  // Elegir la cuenta es decir «es esta empresa»: el nombre pasa a ser el del
+  // CRM (lo tecleado era solo para buscarla) y se salta al proyecto, que es lo
+  // único que falta para guardar.
+  function elegirCuentaCrm(c: CuentaCrm) {
+    setCuentaCrm(c);
+    setNombre(c.nombre);
+    if (!nombreProyecto.trim()) proyectoRef.current?.focus();
+  }
   const creacionCliente = useAccionAsync();
   // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
   // vuelve a donde se venía; si no consta, al listado de Clientes.
@@ -341,6 +351,7 @@ export function AltaRapidaCliente() {
 
           <div className="label">Primer proyecto</div>
           <input
+            ref={proyectoRef}
             className="field"
             autoComplete="off"
             value={nombreProyecto}
@@ -355,9 +366,9 @@ export function AltaRapidaCliente() {
         </div>
 
         {/* El campo de nombre hace de buscador del CRM: al elegir una cuenta
-            desaparecen los resultados y queda solo la elegida (mismo efecto
-            que vaciar la búsqueda, sin borrar el nombre tecleado). Una cuenta
-            que ya tiene cliente lleva a ese cliente, como las coincidencias. */}
+            desaparecen los resultados, queda solo la elegida y el nombre pasa
+            a ser el suyo (elegirCuentaCrm). Una cuenta que ya tiene cliente
+            lleva a ese cliente, como las coincidencias. */}
         {cuentaCrm ? (
           <SeccionLista titulo="Cuenta en el CRM">
             <FilaNavegable
@@ -373,7 +384,7 @@ export function AltaRapidaCliente() {
           <ResultadosCuentaCrm
             texto={nombre}
             disabled={creacionCliente.cargando}
-            onElegir={(c, cliente) => (cliente ? visitarExistente(cliente.id, cliente.nombre) : setCuentaCrm(c))}
+            onElegir={(c, cliente) => (cliente ? visitarExistente(cliente.id, cliente.nombre) : elegirCuentaCrm(c))}
           />
         )}
 
