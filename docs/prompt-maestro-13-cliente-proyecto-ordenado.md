@@ -58,3 +58,13 @@ Cambios:
 - Resto (`repaso-cliente`, `visita-activa`, `cierre-visita`, `ficha-proyecto`,
   `detalle-comercial`, `deduplicacion`, `cuenta-crm`, avisos) leen un cliente
   concreto por id o cuentan: no cambian.
+
+## Punto 5 — Interlocutores desde el CRM (hecho)
+- Migración 125: `crm_contacto` + `interlocutor.crm_contactid` +
+  `fn_sincronizar_interlocutores_crm` (juntar por email/teléfono, actualizar,
+  dar de baja, dar de alta) + disparador al vincular/cambiar la cuenta.
+- `sincronizar-cuentas-crm?tabla=contactos` guarda los contactos y llama a la
+  función. `crm-diario.ps1` sube cuentas y luego contactos (hay que volver a
+  ejecutar el instalador en el PC de empresa).
+- Directorio de interlocutores: marca «del CRM»; nombre/cargo/teléfono/email
+  no editables en esos (sí tipo y relevancia); no se quitan desde la app.

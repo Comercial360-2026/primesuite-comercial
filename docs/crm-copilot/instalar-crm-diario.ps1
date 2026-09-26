@@ -10,7 +10,8 @@
 # DIGITEK_<Tabla>_<parte>.csv en la carpeta de SharePoint «PrimeNotes - CRM»
 # (acceso directo en OneDrive, que la sube sola). Accounts va el último: su CSV
 # dispara el flujo nube que recarga el Excel del agente. Después sube las
-# cuentas a PrimeSuite (sincronizar-cuentas-crm). Log en crm-diario.log.
+# cuentas y los contactos a PrimeSuite (sincronizar-cuentas-crm; los contactos
+# pasan a interlocutores de los clientes vinculados). Log en crm-diario.log.
 
 @'
 $ErrorActionPreference = 'Stop'
@@ -42,14 +43,14 @@ try {
   if (-not $carpeta) { throw "No hay acceso directo a PrimeNotes - CRM en $env:OneDriveCommercial" }
   Anotar 'Inicio'
 
-  Descargar 'Contacts' 'contact' 'contacts' @(
-    'contactid','fullname','firstname','lastname','jobtitle','emailaddress1','telephone1','mobilephone','parentcustomerid','modifiedon'
+  $contactos = Descargar 'Contacts' 'contact' 'contacts' @(
+    'contactid','fullname','firstname','lastname','jobtitle','emailaddress1','telephone1','mobilephone','parentcustomerid','modifiedon','statecode'
   ) @(
     'contactid','fullname','firstname','lastname','jobtitle','emailaddress1','telephone1','mobilephone',
     @{Name='_parentcustomerid_value'; Expression={$_._parentcustomerid_value}},
     @{Name='cuenta';                  Expression={$_."_parentcustomerid_value$fv"}},
-    'modifiedon'
-  ) | Out-Null
+    'modifiedon','statecode'
+  )
 
   Descargar 'Opportunities' 'opportunity' 'opportunities' @(
     'opportunityid','name','modifiedon','customerid','parentaccountid','parentcontactid','ownerid','statecode','statuscode',
@@ -122,10 +123,16 @@ try {
   )
 
   $clave = (Get-Content "$env:USERPROFILE\primesuite-clave-sync.txt" -Raw).Trim()
-  $cuerpo = [Text.Encoding]::UTF8.GetBytes(($cuentas | ConvertTo-Json -Depth 2 -Compress))
-  $r = Invoke-RestMethod -Method Post -Uri 'https://umrjzvpbcpzzqmkjahhn.supabase.co/functions/v1/sincronizar-cuentas-crm' `
-    -Headers @{ 'x-clave-sync' = $clave } -ContentType 'application/json; charset=utf-8' -Body $cuerpo
-  Anotar "PrimeSuite: recibidas $($r.recibidas), guardadas $($r.guardadas), descartadas $($r.descartadas)"
+  function Subir($filas, $tabla, $sufijo) {
+    $cuerpo = [Text.Encoding]::UTF8.GetBytes(($filas | ConvertTo-Json -Depth 2 -Compress))
+    $r = Invoke-RestMethod -Method Post -Uri "https://umrjzvpbcpzzqmkjahhn.supabase.co/functions/v1/sincronizar-cuentas-crm$sufijo" `
+      -Headers @{ 'x-clave-sync' = $clave } -ContentType 'application/json; charset=utf-8' -Body $cuerpo
+    Anotar "PrimeSuite ${tabla}: recibidas $($r.recibidas), guardadas $($r.guardadas), descartadas $($r.descartadas)"
+  }
+  # Cuentas antes que contactos: un contacto se vuelca en los clientes
+  # vinculados a SU cuenta.
+  Subir $cuentas 'cuentas' ''
+  Subir $contactos 'contactos' '?tabla=contactos'
   Anotar 'Fin OK'
 } catch {
   Anotar "ERROR: $($_.Exception.Message)"

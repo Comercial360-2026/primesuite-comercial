@@ -15,6 +15,12 @@
 // _parentaccountid_value, cuenta_matriz, statecode, modifiedon). Paso de PAD
 // que la llama: docs/crm-copilot/subir-cuentas-a-primesuite.ps1.
 //
+// Con `?tabla=contactos` el cuerpo son los contactos (DIGITEK_Contacts:
+// contactid, fullname, jobtitle, emailaddress1, telephone1, mobilephone,
+// _parentcustomerid_value, statecode, modifiedon): upsert en crm_contacto y
+// después fn_sincronizar_interlocutores_crm los vuelca como interlocutores de
+// los clientes vinculados (migración 125).
+//
 // ponytail: solo upsert. Una cuenta que desaparezca del CRM se queda como
 // estaba; si hiciera falta, marcar activa=false las no recibidas en una carga
 // completa (con un umbral para no desactivarlo todo por una carga parcial).
@@ -63,9 +69,15 @@ Deno.serve(async (req) => {
   }
   // ConvertTo-Json de PowerShell devuelve un objeto suelto si solo hay una fila.
   const filas = Array.isArray(cuerpo) ? cuerpo : cuerpo && typeof cuerpo === 'object' ? [cuerpo] : [];
-  if (!filas.length) return json({ error: 'No llega ninguna cuenta' }, 400);
+  if (!filas.length) return json({ error: 'No llega ninguna fila' }, 400);
 
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const ahora = new Date().toISOString();
+
+  if (new URL(req.url).searchParams.get('tabla') === 'contactos') {
+    return await guardarContactos(admin, filas as Record<string, unknown>[], ahora);
+  }
+
   const porId = new Map<string, Record<string, unknown>>();
   let descartadas = 0;
   for (const f of filas as Record<string, unknown>[]) {
@@ -91,7 +103,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const cuentas = [...porId.values()];
   for (let i = 0; i < cuentas.length; i += LOTE) {
     const { error } = await admin.from('crm_cuenta').upsert(cuentas.slice(i, i + LOTE), { onConflict: 'accountid' });
@@ -102,3 +113,42 @@ Deno.serve(async (req) => {
 
   return json({ recibidas: filas.length, guardadas: cuentas.length, descartadas });
 });
+
+async function guardarContactos(
+  admin: ReturnType<typeof createClient>,
+  filas: Record<string, unknown>[],
+  ahora: string
+) {
+  const porId = new Map<string, Record<string, unknown>>();
+  let descartadas = 0;
+  for (const f of filas) {
+    const contactid = uuid(f.contactid);
+    const nombre = texto(f.fullname) ?? [texto(f.firstname), texto(f.lastname)].filter(Boolean).join(' ');
+    if (!contactid || !nombre) {
+      descartadas++;
+      continue;
+    }
+    porId.set(contactid, {
+      contactid,
+      accountid: uuid(f._parentcustomerid_value ?? f.parentcustomerid_value),
+      nombre,
+      cargo: texto(f.jobtitle),
+      email: texto(f.emailaddress1),
+      telefono: texto(f.telephone1),
+      movil: texto(f.mobilephone),
+      activo: String(f.statecode ?? '0').trim() === '0',
+      modificado_crm: fecha(f.modifiedon),
+      sincronizado_en: ahora,
+    });
+  }
+  const contactos = [...porId.values()];
+  for (let i = 0; i < contactos.length; i += LOTE) {
+    const { error } = await admin.from('crm_contacto').upsert(contactos.slice(i, i + LOTE), { onConflict: 'contactid' });
+    if (error) {
+      return json({ error: `Fallo guardando el lote ${i / LOTE + 1}: ${error.message}`, guardadas: i }, 500);
+    }
+  }
+  const { error } = await admin.rpc('fn_sincronizar_interlocutores_crm');
+  if (error) return json({ error: `Contactos guardados, pero fallo al pasarlos a interlocutores: ${error.message}` }, 500);
+  return json({ recibidas: filas.length, guardadas: contactos.length, descartadas });
+}

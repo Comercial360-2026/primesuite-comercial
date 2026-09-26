@@ -698,6 +698,7 @@ export type Database = {
           actualizado_en: string
           cargo: string | null
           cliente_id: string
+          crm_contactid: string | null
           creado_en: string
           email: string | null
           id: string
@@ -711,6 +712,7 @@ export type Database = {
           actualizado_en?: string
           cargo?: string | null
           cliente_id: string
+          crm_contactid?: string | null
           creado_en?: string
           email?: string | null
           id?: string
@@ -724,6 +726,7 @@ export type Database = {
           actualizado_en?: string
           cargo?: string | null
           cliente_id?: string
+          crm_contactid?: string | null
           creado_en?: string
           email?: string | null
           id?: string
