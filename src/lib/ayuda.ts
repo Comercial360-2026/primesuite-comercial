@@ -182,7 +182,7 @@ const _PANTALLAS = {
     queEs:
       'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo.',
     cuando:
-      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes. El icono de briefing (arriba) abre el resumen del cliente que prepara el agente de Copilot: se genera solo al planificar una visita de los próximos 7 días y otra vez la noche anterior; tarda 6-8 minutos y necesita que el cliente tenga vinculada su cuenta del CRM. Se borra al cerrar la visita.',
+      'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes. El icono de briefing (arriba) abre el resumen del cliente que prepara el agente de Copilot: se genera solo al planificar una visita de los próximos 7 días y otra vez la noche anterior; tarda 8-10 minutos y necesita que el cliente tenga vinculada su cuenta del CRM. Se borra al cerrar la visita.',
     ojo: 'Cancelar una visita planificada la borra y no se puede deshacer.',
   },
   'repaso-cliente': {
