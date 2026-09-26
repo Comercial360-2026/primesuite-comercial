@@ -1,6 +1,6 @@
 // supabase/functions/sincronizar-cuentas-crm/index.ts
 //
-// Entrada para el flujo de Power Automate Desktop (PC de Cesar, 7:00 y 11:00)
+// Entrada para el flujo de Power Automate Desktop (PC de Cesar, una vez al día)
 // que lee las cuentas del CRM Dynamics on-prem (tras VPN) y las sube aquí.
 // Hace upsert en crm_cuenta (migración 119) por accountid.
 //
@@ -12,7 +12,8 @@
 // Cuerpo: array JSON de cuentas con los MISMOS nombres de columna que ya
 // produce el script del flujo (DIGITEK_Accounts: accountid, name,
 // address1_city, address1_postalcode, address1_country,
-// _parentaccountid_value, cuenta_matriz, statecode, modifiedon).
+// _parentaccountid_value, cuenta_matriz, statecode, modifiedon). Paso de PAD
+// que la llama: docs/crm-copilot/subir-cuentas-a-primesuite.ps1.
 //
 // ponytail: solo upsert. Una cuenta que desaparezca del CRM se queda como
 // estaba; si hiciera falta, marcar activa=false las no recibidas en una carga
@@ -80,7 +81,8 @@ Deno.serve(async (req) => {
       ciudad: texto(f.address1_city),
       codigo_postal: texto(f.address1_postalcode),
       pais: texto(f.address1_country),
-      cuenta_matriz_id: uuid(f._parentaccountid_value),
+      // Los scripts corregidos de PAD pueden quitar el "_" inicial.
+      cuenta_matriz_id: uuid(f._parentaccountid_value ?? f.parentaccountid_value),
       cuenta_matriz: texto(f.cuenta_matriz),
       // statecode de Dynamics: 0 = activa, 1 = inactiva.
       activa: String(f.statecode ?? '0').trim() === '0',
