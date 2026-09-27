@@ -31,7 +31,7 @@ PrimeSuite vía Direct Line, igual que el briefing.
 | Obtener incidencia por clave (V2) | Jira · *Get issue by key (V2)* | Jira instance fija | Issue Key |
 | Obtener contenido y metadatos de la página | Confluence · *Get page content and metadata* | Website = primion | Space, Page |
 | Buscar en Licitaciones | Flujo «Consultas CB - Buscar en Licitaciones» (§3b) | — | texto |
-| ~~Buscar en Jira (resumen)~~ | Flujo «Consultas CB - Buscar en Jira» (§3c) — **NO USAR, ver §7** | — | jql |
+| Buscar en Jira | Jira · *Get list of issues* (conector directo, no flujo) | Jira instance fija (https://primion.atlassian.net) | JQL Query |
 
 La descripción de cada herramienta es lo que lee el orquestador para decidir
 cuándo usarla: escribirla en español, diciendo qué devuelve y cómo llamarla.
@@ -83,56 +83,47 @@ Id `0b2c9b54-27b3-446b-9fc1-1b20f18d7c73`. Disparador de agente (`texto`) → «
 `_api/search/query?querytext='@{encodeUriComponent(concat(replace(texto,'''',''''''), ' path:"https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek/Shared Documents/General/B - Licitaciones y pedidos"'))}'&selectproperties='Path,Title,LastModifiedTime,FileType,IsDocument'&rowlimit=20&trimduplicates=false`
 → «Respond to the agent» `resultados` = filas del resultado en texto, quitando el prefijo `https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek` del Path (así el Path sirve tal cual para «Leer documento»). Busca por nombre y contenido (índice de SharePoint). Probado: 1 llamada, 20 resultados, 2 s.
 
-## 3c. Flujo «Consultas CB - Buscar en Jira» — creado pero NO USABLE como herramienta de agente
+## 3c. Historial: flujo «Consultas CB - Buscar en Jira» descartado, resuelto con conector directo
 
-Id `7115924f-609b-449f-8bd1-d5069d274e98`. Mismo objetivo que §3b pero para Jira: la
-herramienta directa «Obtener lista de incidencias» (Jira · *Get list of issues*)
-devuelve issues completos y con varias herramientas a la vez dispara
-`ContextTokenLimitExceeded` en Anthropic — esa fue la causa real de los timeouts
-de >500 s en preguntas con referencia de oferta (no el CRM, que responde en ~6 s).
+Id del flujo (Power Automate, entorno Default): `7115924f-609b-449f-8bd1-d5069d274e98` —
+**apagado (Turn off), ya no se usa.** Queda para referencia de lo que NO funcionó.
 
-Estructura: disparador de agente (`jql`) → Jira *Get list of issues* (instancia
-`https://primion.atlassian.net`, JQL = `jql`) → Data Operation *Select* (`take(...,20)`
-sobre `issues`, mapeando a `"clave | estado | prioridad | fecha | resumen"`) →
-*Respond to the agent* con el resultado unido por líneas, o «No hay incidencias…» si
-viene vacío.
+Diagnóstico original: la herramienta directa «Obtener lista de incidencias» (Jira ·
+*Get list of issues*) devuelve issues completos y con varias herramientas a la vez
+dispara `ContextTokenLimitExceeded` en Anthropic — esa fue la causa real de los
+timeouts de >500 s en preguntas con referencia de oferta (no el CRM, que responde
+en ~6 s).
 
-**Verificado que el flujo en sí funciona:** ejecutado a mano desde Power Automate
-(botón «Run», JQL de prueba) → `Succeeded` en 7 s, con la misma conexión Jira
-(`JIRA Cr924d3-49b83`) que usan `Obtener incidencia por clave (V2)` y la antigua
-`Obtener lista de incidencias`, ambas ya en producción y funcionando.
-
-**Pero como herramienta del agente falla siempre con
-`AuthenticationNotConfigured`** en cuanto el turno necesita ejecutarlo — probado
-repetidas veces (27-09, tarde) en el panel «Probar» y por Direct Line real, con
-sesiones nuevas, tras publicar dos veces, con «Credenciales proporcionadas por el
-fabricante» (igual que «Buscar en Licitaciones», que sí funciona) y sin ninguna otra
-diferencia visible de configuración. CRM y Confluence responden bien en el mismo
-turno de pruebas — el fallo es específico de esta herramienta.
-
-Hipótesis (no confirmada): Copilot Studio no propaga bien, para un **flujo custom
-que usa un conector no-Microsoft con OAuth delegado** (Jira/Atlassian) invocado
-**por el agente sin sesión interactiva** (Direct Line o panel de prueba), el token
+**Primer intento (27-09 tarde): flujo intermedio que resume con Data Operation
+Select.** Trigger (`jql`) → Jira *Get list of issues* → *Select* (`take(...,20)`,
+mapeado a `"clave | estado | prioridad | fecha | resumen"`) → *Respond to the
+agent*. Verificado que el flujo en sí funciona (`Run` manual en Power Automate:
+`Succeeded`, 7 s, misma conexión Jira que las herramientas directas). Pero **como
+herramienta del agente fallaba siempre con `AuthenticationNotConfigured`**,
+probado repetidas veces con sesión nueva, por Direct Line real y tras publicar dos
+veces — mientras CRM y Confluence respondían bien en el mismo turno. Hipótesis:
+Copilot Studio no propaga bien, para un flujo custom que usa un conector
+no-Microsoft con OAuth delegado (Jira) invocado sin sesión interactiva, el token
 de esa conexión — a diferencia de SharePoint (Licitaciones, Leer documento), cuyo
-token de aplicación sí es válido en ese contexto. Un flujo con Jira dentro parece
-necesitar algo que un `Run` manual desde Power Automate sí satisface pero la
-invocación como *agent tool* no.
+token de aplicación sí es válido en ese contexto. **Descartado**: se eliminó la
+herramienta del agente y se apagó el flujo.
 
-**Estado: la herramienta quedó añadida al agente pero produce error en cualquier
-llamada — hay que deshabilitarla o quitarla antes de publicar de nuevo**, y la
-herramienta vieja «Obtener lista de incidencias» ya se eliminó (no está para
-volver a añadirla sin más: seguiría teniendo el problema original de tamaño).
-
-**Plan B recomendado (no probado aún) para el próximo intento:** en vez de un flujo
-intermedio, usar el conector Jira directo `Get list of issues` como herramienta
-(igual que antes) pero, en su configuración en Copilot Studio → *Detalles
-adicionales* → salidas, **deseleccionar todos los campos de cada issue excepto
-key, status, priority, updated y summary** (Copilot Studio permite elegir qué
-campos de la respuesta de un conector llegan al modelo). Eso evita el problema de
-tamaño sin depender de un flujo de Power Automate ni de su autenticación
-delegada. Si el conector no expone ese detalle por campo de forma editable, la
-alternativa es limitar `maxResults`/`fields` en la propia llamada JQL si el
-conector lo admite como parámetro.
+**Solución aplicada (27-09 tarde-noche): conector Jira directo, sin flujo
+intermedio.** Se añadió de nuevo `Get list of issues` como herramienta («Buscar en
+Jira», ver tabla §2), con «Jira instance» fija (`https://primion.atlassian.net`,
+Valor personalizado) y `JQL Query` a rellenar por IA. Este conector **no expone un
+selector de campos de salida ni `maxResults`** en Copilot Studio (solo aparecen
+`JQL Query` y `Next page token` al añadir entradas) — sigue devolviendo el JSON
+completo de cada issue. La palanca real, verificada, es **acotar el JQL**:
+- Probado `updated >= -1d ORDER BY updated DESC` → responde bien, sin error de
+  auth ni de contexto (listó incidencias reales con fuente).
+- Probado buscar por la palabra suelta «prueba» con `updated >= -30d` →
+  `ContextTokenLimitExceeded` — una palabra genérica de texto libre coincide con
+  demasiadas incidencias.
+- Conclusión: el conector funciona correctamente siempre que el JQL sea
+  específico (proyecto/cliente, no solo texto suelto) y el rango de fechas corto.
+  Las instrucciones del agente (§ FUENTES, punto 3) ya piden acotar por proyecto o
+  cliente y `updated >= -90d` por defecto, ampliando en pasos si no hay resultados.
 
 ## 4. Formatos en «B - Licitaciones y pedidos» (32.364 docs, 27-09)
 
