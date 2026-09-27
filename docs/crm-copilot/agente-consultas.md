@@ -222,19 +222,52 @@ con OAuth delegado" — **esta vez le pasa también a un flujo 100 % SharePoint
 del tipo de conector, es de cómo Copilot Studio invoca flujos en general.
 
 **Pendiente — requiere acción de Cesar, no se puede arreglar desde aquí:**
-1. Revisar en Copilot Studio si hay un aviso de conexión/consentimiento a
-   nivel de agente (no de la herramienta individual) para "ejecutar flujos".
-2. Si no aparece nada, abrir soporte de Microsoft con el código de error
-   exacto (`AuthenticationNotConfigured`) y los IDs de conversación de las
-   pruebas de arriba.
-3. Solución de fondo, ya con precedente (Jira): sustituir «Buscar en
+1. ~~Revisar aviso de conexión/consentimiento a nivel de agente~~ — **hecho,
+   ver §5d: es de licencia, no de conexión.**
+2. Solución de fondo, ya con precedente (Jira): sustituir «Buscar en
    Licitaciones» por un conector directo — la búsqueda es una sola llamada
    HTTP a la API de búsqueda de SharePoint (ver query en §3b), candidata a
    moverse a un conector directo "Enviar una solicitud HTTP a SharePoint"
    sin flujo de por medio, igual que ya funciona "Mostrar lista de
    carpetas". «Leer documento» es más difícil de hacer directo (necesita el
    paso de OCR de AI Builder, §3), así que probablemente se quede como
-   flujo hasta que 1 o 2 lo resuelvan.
+   flujo hasta que se resuelva §5d o se rehaga sin flujo.
+
+## 5d. Causa raíz encontrada: licencia, no conexión (27-09 noche)
+
+En «Información general» del agente, junto al nombre, hay un aviso
+**"Agent status: 4 Warnings"** con botón **Review** — no estaba mirado hasta
+ahora. Uno de los 4 avisos, categoría **Licensing**:
+
+> "This agent uses premium features. You'll need an upgraded license to
+> publish it." — botón asociado: **Go premium**.
+
+Esto encaja con TODO lo visto en §5c: los flujos de Power Automate como
+herramienta de un agente generativo son una **característica premium** de
+Copilot Studio/Power Platform. Sin la licencia adecuada, Copilot Studio no
+puede completar la autenticación para invocar el flujo **como herramienta**
+— aunque el mismo flujo, ejecutado directamente (por su trigger, o a mano
+en Power Automate), no necesita esa licencia y por eso funciona perfecto
+(§5c). Es exactamente el mismo aviso que probablemente ya se disparó con el
+flujo de Jira (§3c) y que entonces se interpretó como "cosa del conector
+no-Microsoft" — la explicación real y más simple es esta: **falta licencia
+premium, no importa qué conector use el flujo.**
+
+El botón "Go premium" no lleva a ningún sitio accionable desde aquí (ni
+compra ni redirige a un flujo de asignación) — probablemente porque hace
+falta rol de administrador de Power Platform / Microsoft 365 para
+gestionar licencias, que esta sesión no tiene ni puede suplir. **Esto no se
+arregla con código ni con configuración del agente**: es una decisión de
+compra/asignación de licencia que solo puede tomar quien administra el
+tenant de Microsoft 365 de Primion (revisar en admin.powerplatform.com →
+Recursos → Capacidad, o con el proveedor de licencias de Microsoft).
+
+**Mientras no haya licencia premium**, la única vía que funciona de verdad
+es la del punto 2 de arriba: sacar «Buscar en Licitaciones» del flujo y
+convertirla en conector directo (no premium, ya demostrado con "Mostrar
+lista de carpetas"). «Leer documento» seguiría necesitando flujo (por el
+OCR) y por tanto seguiría fallando hasta que haya licencia o se rehaga sin
+Power Automate.
 
 **Método de diagnóstico reutilizable** (para el próximo "se cuelga y no sé
 por qué" con este agente o cualquier otro de Copilot Studio): en el panel
