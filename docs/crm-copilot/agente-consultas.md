@@ -23,12 +23,14 @@ PrimeSuite vía Direct Line, igual que el briefing.
 
 | Herramienta | Conector / acción | Configuración fija | Lo rellena la IA |
 |---|---|---|---|
-| CRM | Excel Online (Business) · *List rows present in a table* | Location = SharePoint Site Dept DIG Departamento comercial - Spain · Library = Documents · File = `/General/PrimeNotes/PrimeNotes - CRM/PrimeNotes_CRM.xlsx` | Table, Filter Query, Order By, Top Count, Select Query |
+| CRM | Excel Online (Business) · *List rows present in a table* | Location = SharePoint Site Dept DIG Departamento comercial - Spain · Library = Documents · File = `/General/PrimeNotes/PrimeNotes - CRM/PrimeNotes_CRM.xlsx` · **Order By = `modifiedon desc` · Top Count = 25** (si se dejan a la IA, el agente PREGUNTA al usuario y por Direct Line se queda colgado) | Table, Filter Query, Select Query |
 | Licitaciones - contenido de una carpeta | SharePoint · *List folder* | Site = `https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek` | File Identifier (raíz: `%252fShared%2bDocuments%252fGeneral%252fB%2b-%2bLicitaciones%2by%2bpedidos`) |
 | Leer documento de Licitaciones | Flujo Power Automate «Consultas CB - Leer documento» (ver §3) | — | ruta |
 | Obtener lista de incidencias | Jira · *Get list of issues* | Jira instance = `https://primion.atlassian.net` | JQL |
 | Obtener páginas | Confluence · *Get pages* | Website = primion | — |
-| Pendiente | Jira · *Obtener incidencia por clave (V2)* · Confluence · *Obtener contenido y metadatos de la página* · flujo «Buscar en Licitaciones» (búsqueda SharePoint) | | |
+| Obtener incidencia por clave (V2) | Jira · *Get issue by key (V2)* | Jira instance fija | Issue Key |
+| Obtener contenido y metadatos de la página | Confluence · *Get page content and metadata* | Website = primion | Space, Page |
+| Buscar en Licitaciones | Flujo «Consultas CB - Buscar en Licitaciones» (§3b) | — | texto |
 
 La descripción de cada herramienta es lo que lee el orquestador para decidir
 cuándo usarla: escribirla en español, diciendo qué devuelve y cómo llamarla.
@@ -55,7 +57,7 @@ Pasos:
    `https://primion-my.sharepoint.com/personal/cesar_borrego_primion_eu`, POST
    `_api/web/GetFileByServerRelativePath(decodedurl='/personal/cesar_borrego_primion_eu/Documents/@{replace(body('Create_file')?['Name'], '''', '''''')}')/deleteObject()`
    → borrado **definitivo** de la copia (no pasa por la papelera). Run after del 5: todo.
-7. **Respond to the agent** — salida `texto` = `fullText` del paso 5; run after del 6: todo.
+7. **Respond to the agent** — salida `texto` = `fullText` del paso 5 **recortado a 12.000 caracteres** (si no, con varias herramientas a la vez salta `ContextTokenLimitExceeded`); si no hay texto, «No se pudo leer el documento…». Run after del 6: todo.
 
 Todos los pasos con **Secure inputs / Secure outputs**: el historial de
 ejecuciones no guarda contenido.
@@ -74,9 +76,21 @@ No lee zip/rar/7z (pendiente de decidir cómo).
 - Word Online · Convert Word Document to PDF: solo .docx moderno; falla con .doc antiguo.
 - «Nuevo flujo» desde Copilot Studio abre un entorno equivocado: crear el flujo en make.powerautomate.com.
 
+## 3b. Flujo «Consultas CB - Buscar en Licitaciones»
+
+Id `0b2c9b54-27b3-446b-9fc1-1b20f18d7c73`. Disparador de agente (`texto`) → «Send an HTTP request to SharePoint» GET en Proyectos Digitek:
+`_api/search/query?querytext='@{encodeUriComponent(concat(replace(texto,'''',''''''), ' path:"https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek/Shared Documents/General/B - Licitaciones y pedidos"'))}'&selectproperties='Path,Title,LastModifiedTime,FileType,IsDocument'&rowlimit=20&trimduplicates=false`
+→ «Respond to the agent» `resultados` = filas del resultado en texto, quitando el prefijo `https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek` del Path (así el Path sirve tal cual para «Leer documento»). Busca por nombre y contenido (índice de SharePoint). Probado: 1 llamada, 20 resultados, 2 s.
+
 ## 4. Formatos en «B - Licitaciones y pedidos» (32.364 docs, 27-09)
 
 pdf 84 % · msg 6 % · docx/doc 5 % · xlsx/xls 3 % · eml 1 % · resto ~1 % (zip 99, rar 8, 7z 4, html, txt, pptx…).
+
+## 4b. Pruebas (27-09)
+
+- Buscador solo: OK (20 resultados).
+- Pregunta mixta (oferta CRM + contrato + incidencias Jira) sin id de cuenta: eligió CRM + buscador + Jira, sin errores; CRM devolvió 3 cuentas homónimas y no eligió (correcto: desde PrimeSuite irá siempre el id).
+- Lecciones: fijar Order By/Top en la herramienta Excel; recortar el texto de documentos; en el editor de instrucciones, « /» abre el menú de herramientas.
 
 ## 5. Seguridad
 
