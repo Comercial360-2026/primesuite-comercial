@@ -148,11 +148,17 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
         consultas.map((c) => (
           <div key={c.id} style={{ margin: '16px var(--fila-pad-x) 0' }}>
             <div style={{ fontWeight: 600 }}>{c.pregunta}</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '2px 0 6px' }}>
-              {EN_MARCHA.includes(c.estado)
-                ? `Buscando… lleva ${segundos(c.pedido_en)} s`
-                : desdeHace(c.terminado_en ?? c.pedido_en)}
-            </div>
+            {EN_MARCHA.includes(c.estado) ? (
+              <Aviso tipo={segundos(c.pedido_en) > 180 ? 'atencion' : 'info'}>
+                {segundos(c.pedido_en) > 180
+                  ? `Está tardando más de lo normal: lleva ${segundos(c.pedido_en)} s. Si pasa de 8 minutos se cancela.`
+                  : `Buscando… lleva ${segundos(c.pedido_en)} s. Suele tardar 1-3 minutos.`}
+              </Aviso>
+            ) : (
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '2px 0 6px' }}>
+                {desdeHace(c.terminado_en ?? c.pedido_en)}
+              </div>
+            )}
             {c.estado === 'listo' && c.respuesta && <TextoMarkdown texto={c.respuesta} />}
             {c.estado === 'error' && <Aviso tipo="error">{c.error ?? 'El agente no ha respondido.'}</Aviso>}
             {c.estado === 'sin_cuenta' && (
