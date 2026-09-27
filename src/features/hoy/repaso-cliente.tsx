@@ -23,6 +23,7 @@ import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 interface NotaReciente {
   id: string;
@@ -64,7 +65,9 @@ export function RepasoCliente() {
   // aviso previo si ya hay una visita en curso con este cliente.
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
+  const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
   function pedirIniciarVisitaAdHoc() {
     if (visitaEnCurso) setEnCursoModalAbierto(true);
@@ -334,6 +337,19 @@ export function RepasoCliente() {
         subtitulo="Preparar la visita"
         ayuda="repaso-cliente"
         volverA={volver}
+        derecha={
+          puedePreguntarIA && (
+            <button
+              type="button"
+              className="boton-icono"
+              onClick={() => setPreguntaIAAbierta(true)}
+              aria-label="Pregunta a la IA"
+              title="Pregunta a la IA sobre este cliente"
+            >
+              <Icono nombre="ia" size={18} />
+            </button>
+          )
+        }
       />
       <div className="screen__scroll">
       <div className="lista-agrupada">
@@ -493,6 +509,14 @@ export function RepasoCliente() {
           }
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
+        />
+      )}
+
+      {preguntaIAAbierta && clienteId && cliente?.nombre && (
+        <PreguntaIAHoja
+          clienteId={clienteId}
+          clienteNombre={cliente.nombre}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
     </div>
