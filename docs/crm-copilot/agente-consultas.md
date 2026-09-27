@@ -145,6 +145,38 @@ pdf 84 % · msg 6 % · docx/doc 5 % · xlsx/xls 3 % · eml 1 % · resto ~1 % (zi
 - El panel «Probar» pide «Permitir» (consentimiento de conexiones) en cada sesión
   de prueba; es del panel, no de Direct Line.
 
+## 5b. Clase de bug: preguntas de CONTENIDO de documento se cuelgan 8 min (27-09 noche)
+
+Confirmado con datos reales de `consulta_ia`: en un mismo día, 4 de 7
+preguntas se colgaron los 8 minutos completos sin ninguna respuesta del
+agente (ni error, ni `turn.complete`) — las 4 pedían el CONTENIDO de un
+documento ("dime su contenido de REF-…", "dame el datasheet del ml10"); las
+de CRM/Jira (metadatos, no documentos) respondieron en 50-75 s. El worker
+`procesar-consultas` funcionaba bien (pg_cron cada minuto, sin errores) — el
+agente en Copilot Studio era el que nunca cerraba el turno.
+
+Causas más probables: "Buscar en Licitaciones" reintentando variantes de
+nombre sin límite (§2), y preguntas sin cliente claro (un datasheet de
+producto) forzando el nombre del cliente en la búsqueda sin encontrar nada.
+
+Fix aplicado (instrucciones, § Licitaciones y § EFICIENCIA):
+- Tope de 2 reintentos de variante en "Buscar en Licitaciones" (antes
+  indefinido); si no hay nada, responde "No consta" y para.
+- Preguntas de producto/documentación técnica sin cliente: buscar por el
+  producto directamente, sin forzar el nombre del cliente.
+- Presupuesto total de 6 llamadas a herramientas por pregunta; al llegarlo,
+  responder YA con lo que haya. Nunca dejar el turno sin cerrar.
+
+**Pendiente:** estas instrucciones nuevas están en
+`instrucciones-agente-consultas-2026-09-27.txt` pero solo se aplican pegando
+el texto en el editor clásico de Copilot Studio y republicando — no hay
+sincronización automática. Falta comprobar en real que ya no se cuelga.
+
+Lado app: se añadió poder cancelar una pregunta en marcha (estado
+`cancelada`, no cuenta para el tope diario) para que el comercial no se
+quede bloqueado sin poder preguntar nada más mientras espera — ver
+`fn_cancelar_consulta_ia` (migración 127) y el botón en `pregunta-ia-hoja.tsx`.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
