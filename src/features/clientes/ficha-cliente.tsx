@@ -27,6 +27,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
+import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
@@ -58,6 +59,7 @@ export function FichaCliente() {
   const queryClient = useQueryClient();
 
   const [ecoTodos, setEcoTodos] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const ECO_VISIBLE = 10;
   const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
   const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
@@ -436,6 +438,7 @@ export function FichaCliente() {
 
   const puedeEditar = esDireccionComercial || cliente?.responsable_id === comercial?.id;
   const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
+  const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
   return (
     <div className="screen screen--split">
@@ -459,6 +462,17 @@ export function FichaCliente() {
                 {nInterlocutores > 0 && (
                   <span className="boton-icono__badge">{nInterlocutores}</span>
                 )}
+              </button>
+            )}
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+                onClick={() => setPreguntaIAAbierta(true)}
+              >
+                <Icono nombre="ia" size={18} />
               </button>
             )}
             {puedeEditar && (
@@ -915,6 +929,14 @@ export function FichaCliente() {
         <InterlocutoresClienteHoja
           clienteId={clienteId}
           onCerrar={() => setInterlocutoresHojaAbierta(false)}
+        />
+      )}
+
+      {preguntaIAAbierta && clienteId && cliente?.nombre && (
+        <PreguntaIAHoja
+          clienteId={clienteId}
+          clienteNombre={cliente.nombre}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
     </div>

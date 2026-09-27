@@ -48,6 +48,7 @@ import {
   DotsThreeVertical,
   Compass,
   Ticket,
+  ChatsCircle,
   type IconProps,
 } from '@phosphor-icons/react';
 
@@ -119,6 +120,7 @@ const registro = {
   opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)
   guia: Compass, // "Ver guía rápida" — relanzar el tour de bienvenida
   briefing: Ticket, // tickets de Jira del cliente, en la cabecera de Visita activa
+  ia: ChatsCircle, // «Pregunta a la IA» sobre el cliente (agente de consultas)
 } satisfies Record<string, IconoPhosphor>;
 
 export type NombreIcono = keyof typeof registro;

@@ -21,6 +21,7 @@ import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
 import { ParticipantesHoja } from './participantes-hoja';
 import { BriefingHoja } from './briefing-hoja';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
 import { VisorFotos } from './visor-fotos';
 import { Icono, type NombreIcono } from '@/components/ui/iconos';
@@ -558,6 +559,8 @@ export function VisitaActiva() {
   const [interlocutoresAbierto, setInterlocutoresAbierto] = useState(false);
   const [participantesAbierto, setParticipantesAbierto] = useState(false);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const puedePreguntarIA = usePuedePreguntarIA(visitaLocal?.clienteId);
   const [grabando, setGrabando] = useState(false);
   // Segundos que lleva la grabación — el botón "Detener" enseña mm:ss
   // corriendo, para que se vea de un vistazo que está grabando (no solo
@@ -1998,6 +2001,17 @@ export function VisitaActiva() {
             >
               <Icono nombre="briefing" size={18} />
             </button>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setPreguntaIAAbierta(true)}
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
           </>
         }
       />
@@ -2790,6 +2804,14 @@ export function VisitaActiva() {
           visitaId={visitaId}
           clienteId={visitaLocal.clienteId}
           onCerrar={() => setInterlocutoresAbierto(false)}
+        />
+      )}
+      {preguntaIAAbierta && visitaLocal?.clienteId && cliente?.nombre && (
+        <PreguntaIAHoja
+          clienteId={visitaLocal.clienteId}
+          clienteNombre={cliente.nombre}
+          visitaId={visitaId}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
       {briefingAbierto && visitaLocal?.clienteId && cliente?.nombre && (
