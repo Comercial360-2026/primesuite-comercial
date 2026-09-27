@@ -167,15 +167,85 @@ Fix aplicado (instrucciones, § Licitaciones y § EFICIENCIA):
 - Presupuesto total de 6 llamadas a herramientas por pregunta; al llegarlo,
   responder YA con lo que haya. Nunca dejar el turno sin cerrar.
 
-**Pendiente:** estas instrucciones nuevas están en
-`instrucciones-agente-consultas-2026-09-27.txt` pero solo se aplican pegando
-el texto en el editor clásico de Copilot Studio y republicando — no hay
-sincronización automática. Falta comprobar en real que ya no se cuelga.
+**Actualización (27-09, más tarde): la causa real NO era el prompt — ver
+§5c.** El tope de reintentos y el presupuesto de 6 llamadas quedan aplicados
+(son buenas prácticas de todas formas), pero por sí solos NO explican los
+colgados: la causa real es que el propio flujo de Licitaciones falla al
+invocarse desde el agente (§5c). No repetir el diagnóstico "hay que afinar
+más el prompt" para este síntoma sin antes comprobar §5c.
 
 Lado app: se añadió poder cancelar una pregunta en marcha (estado
 `cancelada`, no cuenta para el tope diario) para que el comercial no se
 quede bloqueado sin poder preguntar nada más mientras espera — ver
 `fn_cancelar_consulta_ia` (migración 127) y el botón en `pregunta-ia-hoja.tsx`.
+
+## 5c. Causa real de los colgados: los DOS flujos de Licitaciones fallan como herramienta del agente (27-09 noche)
+
+**Diagnóstico, no suposición.** Probado en vivo en el panel «Probar» de
+Copilot Studio con preguntas de auto-reporte (ver método abajo):
+
+| Herramienta | Tipo | Resultado |
+|---|---|---|
+| Enumerar las filas de una tabla (CRM) | Conector directo | Completado, 5,5 s |
+| Mostrar lista de carpetas (List folder, Licitaciones) | Conector directo | Completado, 0,87 s |
+| **Buscar en Licitaciones** | **Flujo** | **Falla al instante: `Mensaje de error: La autenticación no está configurada para este bot. Código de error: AuthenticationNotConfigured`** |
+| **Leer documento de Licitaciones** | **Flujo** | **Mismo error, instantáneo** |
+
+Es decir: el agente **elige bien la herramienta** (el enrutado del prompt
+funciona) — el fallo es que **cualquier herramienta que sea un flujo de
+Power Automate** falla al invocarse desde el agente, mientras que los
+conectores directos (Excel, List folder) van perfectos. Por Direct Line esto
+no sale como error limpio: el agente se queda reintentando en silencio hasta
+el corte de 8 min de `procesar-consultas` — de ahí el síntoma original.
+
+**Comprobado que NO es la causa:**
+- El flujo en sí (ejecutado directamente, o su historial de ejecuciones en
+  Power Automate) funciona bien: 4/4 ejecuciones de "Buscar en Licitaciones"
+  con éxito el mismo día, 0,8-2 s cada una, 0 % de error. La conexión de
+  SharePoint (`cesar.borrego@primion.eu`) está sana.
+- No es un enlace de herramienta obsoleto: se eliminó y se volvió a añadir
+  «Buscar en Licitaciones» como herramienta nueva (mismo flujo, misma
+  descripción) y **siguió fallando igual**. Descartado que sea "refrescar la
+  herramienta" sin más.
+- No es específico de una pregunta o un flujo concreto: falla igual de
+  instantáneo con «Leer documento de Licitaciones», que no se había tocado.
+
+**Lo que esto apunta:** algo a nivel de Copilot Studio (no de Power
+Automate, no del prompt) le impide invocar CUALQUIER flujo como herramienta
+de este agente ahora mismo — un consentimiento/token de "invocar flujos en
+nombre del agente" caducado o roto a nivel de agente/entorno, o una
+incidencia puntual de la plataforma. Es la misma familia de fallo que ya
+diagnosticasteis con el flujo de Jira (§3c, mismo código de error exacto),
+pero aquella vez la hipótesis fue "es cosa de los conectores no-Microsoft
+con OAuth delegado" — **esta vez le pasa también a un flujo 100 % SharePoint
+(Microsoft)**, así que esa hipótesis original queda **descartada**: no es
+del tipo de conector, es de cómo Copilot Studio invoca flujos en general.
+
+**Pendiente — requiere acción de Cesar, no se puede arreglar desde aquí:**
+1. Revisar en Copilot Studio si hay un aviso de conexión/consentimiento a
+   nivel de agente (no de la herramienta individual) para "ejecutar flujos".
+2. Si no aparece nada, abrir soporte de Microsoft con el código de error
+   exacto (`AuthenticationNotConfigured`) y los IDs de conversación de las
+   pruebas de arriba.
+3. Solución de fondo, ya con precedente (Jira): sustituir «Buscar en
+   Licitaciones» por un conector directo — la búsqueda es una sola llamada
+   HTTP a la API de búsqueda de SharePoint (ver query en §3b), candidata a
+   moverse a un conector directo "Enviar una solicitud HTTP a SharePoint"
+   sin flujo de por medio, igual que ya funciona "Mostrar lista de
+   carpetas". «Leer documento» es más difícil de hacer directo (necesita el
+   paso de OCR de AI Builder, §3), así que probablemente se quede como
+   flujo hasta que 1 o 2 lo resuelvan.
+
+**Método de diagnóstico reutilizable** (para el próximo "se cuelga y no sé
+por qué" con este agente o cualquier otro de Copilot Studio): en el panel
+«Probar», lanzar una pregunta con el MISMO formato que manda la app
+(`Cliente: <nombre de prueba> (id de cuenta <uuid falso>). Pregunta: ...`)
+pero pidiendo explícitamente que NO lea/muestre contenido real y que
+autoinforme: *"Responde solo: HERRAMIENTAS_EN_ORDEN=<...>; Fuente: prueba
+tecnica."* — así se ve en segundos, con las tarjetas de herramienta reales
+del panel, qué intenta llamar y si falla, sin gastar tiempo ni exponer datos
+de clientes (usar un cliente de prueba tipo "ZZ Prueba Briefing", nunca uno
+real).
 
 ## 6. Receta para replicarlo en otro agente
 

@@ -173,8 +173,8 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
                 </Aviso>
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ width: '100%', marginTop: 8 }}
+                  className="btn btn-secondary btn--compacto"
+                  style={{ marginTop: 8 }}
                   disabled={cancelar.cargando}
                   onClick={() => cancelarConsulta(c.id)}
                 >
