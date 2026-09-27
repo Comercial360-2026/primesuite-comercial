@@ -23,7 +23,7 @@ PrimeSuite vía Direct Line, igual que el briefing.
 
 | Herramienta | Conector / acción | Configuración fija | Lo rellena la IA |
 |---|---|---|---|
-| CRM | Excel Online (Business) · *List rows present in a table* | Location = SharePoint Site Dept DIG Departamento comercial - Spain · Library = Documents · File = `/General/PrimeNotes/PrimeNotes - CRM/PrimeNotes_CRM.xlsx` · **Order By = `modifiedon desc` · Top Count = 25** (si se dejan a la IA, el agente PREGUNTA al usuario y por Direct Line se queda colgado) | Table, Filter Query, Select Query |
+| CRM | Excel Online (Business) · *List rows present in a table* | Location = SharePoint Site Dept DIG Departamento comercial - Spain · Library = Documents · File = `/General/PrimeNotes/PrimeNotes - CRM/PrimeNotes_CRM.xlsx` · **Order By = `modifiedon desc` · Top Count = 50** (si se dejan a la IA, el agente PREGUNTA al usuario y por Direct Line se queda colgado) | Table, Filter Query, Select Query |
 | Licitaciones - contenido de una carpeta | SharePoint · *List folder* | Site = `https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek` | File Identifier (raíz: `%252fShared%2bDocuments%252fGeneral%252fB%2b-%2bLicitaciones%2by%2bpedidos`) |
 | Leer documento de Licitaciones | Flujo Power Automate «Consultas CB - Leer documento» (ver §3) | — | ruta |
 | Obtener lista de incidencias | Jira · *Get list of issues* | Jira instance = `https://primion.atlassian.net` | JQL |
