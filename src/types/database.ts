@@ -2635,6 +2635,7 @@ export type Database = {
       fn_backups_caducados: { Args: never; Returns: string[] }
       fn_briefings_enviados_hoy: { Args: never; Returns: number }
       fn_briefings_nocturnos: { Args: never; Returns: undefined }
+      fn_cancelar_consulta_ia: { Args: { p_id: string }; Returns: undefined }
       fn_clave_worker_valida: { Args: { p_clave: string }; Returns: boolean }
       fn_comercial_actual_activo: { Args: never; Returns: boolean }
       fn_comerciales_seleccionables: {

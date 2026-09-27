@@ -19,7 +19,7 @@ import { TextoMarkdown } from '@/components/ui/texto-markdown';
 interface Consulta {
   id: string;
   pregunta: string;
-  estado: 'pendiente' | 'generando' | 'listo' | 'error' | 'sin_cuenta';
+  estado: 'pendiente' | 'generando' | 'listo' | 'error' | 'sin_cuenta' | 'cancelada';
   respuesta: string | null;
   error: string | null;
   pedido_en: string;
@@ -41,6 +41,7 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
   const location = useLocation();
   const queryClient = useQueryClient();
   const enviar = useAccionAsync();
+  const cancelar = useAccionAsync();
   const [texto, setTexto] = useState('');
 
   const clave = ['consulta-ia', clienteId];
@@ -100,6 +101,21 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
 
   const segundos = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
 
+  async function cancelarConsulta(id: string) {
+    await cancelar.ejecutar(
+      async () => {
+        const { error } = await supabase.rpc('fn_cancelar_consulta_ia', { p_id: id });
+        if (error) throw new Error(error.message);
+      },
+      {
+        onExito: () => {
+          queryClient.invalidateQueries({ queryKey: clave });
+          queryClient.invalidateQueries({ queryKey: ['consulta-ia-tope'] });
+        },
+      }
+    );
+  }
+
   return (
     <HojaSuperior titulo={`Pregunta a la IA · ${clienteNombre}`} onCerrar={onCerrar}>
       <div style={{ padding: '0 var(--fila-pad-x)' }}>
@@ -149,11 +165,23 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
           <div key={c.id} style={{ margin: '16px var(--fila-pad-x) 0' }}>
             <div style={{ fontWeight: 600 }}>{c.pregunta}</div>
             {EN_MARCHA.includes(c.estado) ? (
-              <Aviso tipo={segundos(c.pedido_en) > 180 ? 'atencion' : 'info'}>
-                {segundos(c.pedido_en) > 180
-                  ? `Está tardando más de lo normal: lleva ${segundos(c.pedido_en)} s. Si pasa de 8 minutos se cancela.`
-                  : `Buscando… lleva ${segundos(c.pedido_en)} s. Suele tardar 1-3 minutos.`}
-              </Aviso>
+              <>
+                <Aviso tipo={segundos(c.pedido_en) > 180 ? 'atencion' : 'info'}>
+                  {segundos(c.pedido_en) > 180
+                    ? `Está tardando más de lo normal: lleva ${segundos(c.pedido_en)} s. Si pasa de 8 minutos se cancela sola. Puedes cerrar esta pantalla: seguirá buscando y verás la respuesta al volver a abrirla, o cancelarla ahora.`
+                    : `Buscando… lleva ${segundos(c.pedido_en)} s. Suele tardar 1-3 minutos. Puedes cerrar esta pantalla mientras tanto.`}
+                </Aviso>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', marginTop: 8 }}
+                  disabled={cancelar.cargando}
+                  onClick={() => cancelarConsulta(c.id)}
+                >
+                  {cancelar.cargando ? 'Cancelando…' : 'Cancelar esta pregunta'}
+                </button>
+                {cancelar.error && <Aviso tipo="error">{cancelar.error}</Aviso>}
+              </>
             ) : (
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '2px 0 6px' }}>
                 {desdeHace(c.terminado_en ?? c.pedido_en)}
@@ -161,6 +189,7 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
             )}
             {c.estado === 'listo' && c.respuesta && <TextoMarkdown texto={c.respuesta} />}
             {c.estado === 'error' && <Aviso tipo="error">{c.error ?? 'El agente no ha respondido.'}</Aviso>}
+            {c.estado === 'cancelada' && <Aviso tipo="info">Cancelada. No cuenta para tu tope diario.</Aviso>}
             {c.estado === 'sin_cuenta' && (
               <Aviso tipo="atencion" titulo="Falta la cuenta del CRM">
                 Sin la cuenta del CRM vinculada, el agente no sabe qué cliente buscar. Vincúlala con el lápiz de la
