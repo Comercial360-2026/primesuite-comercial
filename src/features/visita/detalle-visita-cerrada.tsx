@@ -34,6 +34,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
@@ -474,6 +475,9 @@ export function DetalleVisitaCerrada() {
         ? `Descarga todo en ZIP (${tamanoMB} MB) y elimina la visita de PrimeNotes`
         : 'Descarga todo en ZIP y elimina la visita de PrimeNotes';
 
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
+
   const sinNada =
     !!data &&
     !data.resumen_texto &&
@@ -499,6 +503,19 @@ export function DetalleVisitaCerrada() {
                 data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''
               }${data.reabierta_en ? ` · reabierta el ${fechaCorta(data.reabierta_en)}` : ''}`
             : undefined
+        }
+        derecha={
+          puedePreguntarIA && (
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Pregunta a la IA"
+              title="Pregunta a la IA sobre este cliente"
+              onClick={() => setPreguntaIAAbierta(true)}
+            >
+              <Icono nombre="ia" size={18} />
+            </button>
+          )
         }
       />
 
@@ -958,6 +975,15 @@ export function DetalleVisitaCerrada() {
           indice={visorIndice}
           onCerrar={() => setVisorIndice(null)}
           onCambiar={setVisorIndice}
+        />
+      )}
+
+      {preguntaIAAbierta && data?.cliente_id && (
+        <PreguntaIAHoja
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          visitaId={visitaId}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
     </div>

@@ -23,6 +23,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -220,6 +221,9 @@ export function FichaProyecto() {
     }
   }
 
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const puedePreguntarIA = usePuedePreguntarIA(clienteId);
+
   // Renombrar (lápiz de la cabecera) — UPDATE directo, requiere conexión,
   // igual que "Editar datos" del cliente.
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -408,16 +412,29 @@ export function FichaProyecto() {
         subtitulo={cliente?.nombre}
         volverA={volver}
         derecha={
-          <button
-            type="button"
-            className="boton-icono"
-            aria-label={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
-            title={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
-            aria-expanded={editandoNombre}
-            onClick={() => (editandoNombre ? setEditandoNombre(false) : abrirEditarNombre())}
-          >
-            <Icono nombre="editar" size={16} />
-          </button>
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+                onClick={() => setPreguntaIAAbierta(true)}
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
+              title={editandoNombre ? 'Cerrar edición del nombre' : 'Renombrar proyecto'}
+              aria-expanded={editandoNombre}
+              onClick={() => (editandoNombre ? setEditandoNombre(false) : abrirEditarNombre())}
+            >
+              <Icono nombre="editar" size={16} />
+            </button>
+          </>
         }
       />
 
@@ -629,6 +646,14 @@ export function FichaProyecto() {
           clienteId={clienteId}
           proyectoId={proyectoId}
           clienteNombre={cliente?.nombre}
+        />
+      )}
+
+      {preguntaIAAbierta && clienteId && (
+        <PreguntaIAHoja
+          clienteId={clienteId}
+          clienteNombre={cliente?.nombre ?? ''}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
     </div>
