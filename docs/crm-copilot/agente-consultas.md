@@ -411,6 +411,83 @@ agente.
   resuelva este bug de redirect, porque el camino que lo esquivaba (Agent
   Flow) ahora mismo no se puede ni crear.
 
+## 5h. Alternativa que evita el bug de §5g por completo: Conocimiento (Knowledge) con URL dinámica por cliente (28-09)
+
+**Idea de Cesar, verificada por documentación oficial de Microsoft Learn**
+(no probada aún a golpe de clic en el tenant): en vez de arreglar el Agent
+Flow bloqueado, sustituir «Buscar en Licitaciones» + «Leer documento de
+Licitaciones» **enteros** por una fuente de **Conocimiento (Knowledge)** de
+tipo SharePoint. Copilot Studio ya extrae texto de PDF/Word/Excel él solo
+(sin flujo, sin OCR manual) y responde/resume directamente sobre el
+contenido — es RAG nativo.
+
+**Por qué no vale apuntar a toda la carpeta «B - Licitaciones y pedidos»**
+(32.364 documentos, §4): cada fuente de Knowledge de tipo SharePoint tiene
+tope de **1.000 archivos, 50 carpetas y 10 niveles de subcarpetas**
+([Microsoft Learn — Add SharePoint as a knowledge source](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-add-sharepoint),
+[quotas](https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-quotas)).
+32.364 >> 1.000: la carpeta entera no cabe en una sola fuente, ni de lejos.
+Tamaño por archivo: 7 MB sin licencia M365 Copilot, 200 MB con ella y
+«Tenant graph grounding» activado — pendiente de comprobar qué licencia
+tiene el tenant de Primion.
+
+**La solución que sí encaja con «ya tenemos el cliente antes de preguntar»**
+(igual que CRM/Jira ya hacen): Microsoft Learn documenta soporte de
+**variables en la URL de la fuente SharePoint** — defines UNA fuente con
+`.../B - Licitaciones y pedidos/{CarpetaCliente}` y en tiempo de ejecución
+Copilot Studio resuelve `{CarpetaCliente}` (desde una entrada de topic, un
+valor de PrimeSuite vía Direct Line, o un Agent Flow/conector) y el agente
+solo busca dentro de esa carpeta concreta — muy por debajo de 1.000
+archivos. Esto **no pasa por ningún flujo de Power Automate ni Agent Flow**:
+el bug de §5g deja de importar.
+
+Palanca adicional, combinable: cada fuente SharePoint admite un **filtro de
+búsqueda** por `Modified on` (`on or after <fecha>`) configurable en
+Ajustes avanzados de la fuente — sirve para lo que proponía Cesar de
+«priorizar el último año»: si no hay resultado, sin este filtro se puede
+tener una segunda fuente/lógica de topic que amplíe el rango, aunque esto no
+es automático (Copilot Studio no «amplía sola»; hay que modelarlo con un
+topic que pruebe la fuente acotada y si no hay respuesta, repita sin
+filtro o con rango mayor).
+
+Otras ventajas de esta vía frente a los Agent Flow:
+- Resincroniza sola cada 4-6 h al detectar cambios en SharePoint — no hace
+  falta tarea programada ni «Buscar en Licitaciones» para refrescar nada
+  ([Microsoft Q&A — sync frequency](https://learn.microsoft.com/en-us/answers/questions/5583232/copilot-studio-chatbot-auto-sync-issue-for-sharepo)).
+- Cada respuesta trae de serie la cita con el enlace al documento de
+  origen — cubre gratis el «si necesita más, que lo abra» sin construir
+  nada aparte.
+- Respeta permisos: si el usuario autenticado no tiene acceso al
+  documento, el agente responde "no response" en vez de filtrar mal —
+  relevante para la nota de seguridad de §5 (cuenta compartida vs.
+  consulta registrada por usuario en PrimeSuite).
+
+**Pendiente de verificar en el tenant real, no en documentación:**
+1. Si el nombre/id de cuenta que ya manda PrimeSuite en la pregunta se
+   puede traducir a la ruta EXACTA de la carpeta del cliente dentro de
+   «B - Licitaciones y pedidos» (¿coincide el nombre de carpeta con el
+   nombre de cuenta del CRM, o hace falta una tabla de equivalencia o una
+   búsqueda previa por nombre, como ya hace «Buscar en Licitaciones» hoy?).
+   Si NO coinciden 1:1, sigue haciendo falta una búsqueda de metadatos
+   (SharePoint Search API, §3b) como paso previo para resolver la carpeta,
+   solo que ahora esa búsqueda alimentaría la variable de Knowledge en vez
+   de devolver texto al modelo directamente.
+2. Si el tenant de Primion tiene licencia M365 Copilot (afecta al límite de
+   tamaño de archivo: 7 MB vs 200 MB — con PDFs de escaneos grandes puede
+   importar).
+3. Comportamiento real de los 1.000 archivos/50 carpetas cuando se usa
+   variable: si el tope se cuenta sobre la carpeta ya resuelta (poco
+   probable que un cliente tenga miles de documentos) o sobre todo lo que
+   cuelga bajo la URL base antes de resolver la variable.
+4. Probar con un cliente de prueba real: ¿resume bien un PDF nativo?
+   ¿Qué pasa con un escaneado (sin texto embebido) — Knowledge hace su
+   propia extracción, no está claro si intenta OCR o simplemente no
+   encuentra nada?
+
+**Si esto funciona, sustituye enteros** «Buscar en Licitaciones» (§3b/§5e)
+y «Leer documento de Licitaciones» (§3/§5f) — no hace falta terminarlos ni
+esperar a que Microsoft arregle el bug de §5g.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
