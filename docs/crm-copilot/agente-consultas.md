@@ -760,6 +760,63 @@ Licitaciones, correcto).
 desactivadas. Confirmado por el propio Copilot Studio ("¡Su agente se ha
 publicado!").
 
+## 5m. Formatos ilegibles (zip/rar/7z, pptx con poco texto): enlace directo en vez de "no se pudo leer" (28-09 tarde)
+
+Con la solución de §5k ya en producción, quedaba sin resolver qué pasa
+cuando "Obtener contenido de archivo mediante ruta de acceso" no puede
+sacar texto útil: comprimidos (zip/rar/7z, que no tienen texto que extraer)
+y algunos PowerPoint (contenido basado en imágenes, casi sin texto real).
+Antes, la instrucción existente ya cubría esto sin alucinar ("No se pudo
+leer el documento"), pero dejaba al comercial sin nada más que hacer.
+
+**Idea del usuario:** si no se puede leer, dar un enlace para que el
+comercial abra el documento él mismo cuando quiera, en vez de solo decir
+que no se pudo. Verificado antes de tocar instrucciones que un enlace
+simple —sin el token especial de "vínculo para compartir" de Microsoft—
+ya es suficiente: `Site Address + Path codificado en URL` (espacios como
+`%20`) dispara la descarga/apertura del archivo para un usuario con sesión
+iniciada. Probado navegando directamente a
+`https://primion.sharepoint.com/sites/ProjDIGSeguimientoProyectosDigitek/Shared%20Documents/...zip`
+— SharePoint lo procesó como descarga sin que hiciera falta abrir ni mirar
+el contenido.
+
+**Cambio en instrucciones** (mismo bloque de §5k, sección 2 Licitaciones):
+se añadió, a continuación de "Máximo 1-2 documentos por pregunta.": *"Si
+no se puede leer (zip/rar/7z, PDF escaneado sin texto, u otro formato sin
+texto aprovechable): no digas solo que no se pudo leer, da también un
+enlace para que el comercial lo abra él mismo. Constrúyelo así: Site
+Address + "/" + ese mismo Path, con los espacios codificados como %20
+(ej.: .../Shared%20Documents/General/<cliente>/<archivo>.ext)."*
+
+**Probado en real con los dos ficheros que pasó el usuario** (sin mirar su
+contenido, solo verificando el comportamiento):
+- `.zip` (`17. Certificados prestacion servicios.zip`, carpeta
+  CEDEX/2025-Licitaciones): el agente reconoce que no puede leer un zip y
+  da el enlace: *"Sí, la respuesta incluye el enlace... Fuente: Licitaciones
+  (enlace construido según ruta proporcionada)."* Enlace verificado
+  (inspeccionando el `href`, sin abrirlo): dominio, sitio y ruta correctos,
+  con los espacios y el guion codificados bien.
+- `.pptx` (`ONDUSPAN.pptx`, carpeta 2023-PEDIDOS-SALES ORDER): el agente sí
+  intenta leerlo (el conector no distingue por extensión, solo por si
+  devuelve texto aprovechable), detecta que solo salió texto residual
+  mínimo, lo dice explícitamente ("habitual en presentaciones PowerPoint
+  con contenido basado en imágenes o diseño gráfico") y da el enlace igual.
+  Enlace también verificado correcto.
+
+**Publicado (28-09, 14:19)** con este cambio. Confirmado por Copilot
+Studio ("¡Su agente se ha publicado!").
+
+**Pendiente / fuera de esta tanda:**
+- `.msg` (correos de Outlook): sin probar — no se localizó ninguna muestra
+  real y las dos vías de búsqueda automática (flujo clásico y HTTP
+  genérico) siguen bloqueadas por licencia (§5c/§5i). Haría falta una ruta
+  de ejemplo del usuario o resolver el bloqueo de búsqueda para probarlo.
+- Imágenes incrustadas dentro de un documento: explícitamente aparcado por
+  el usuario para el final, no se ha tocado.
+- Mejorar la búsqueda en sí (que no dependa de "Mostrar lista de carpetas"
+  + coincidencia de nombre): sigue bloqueado por el bug de Agent Flow
+  (§5g), no resuelto en esta sesión.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
