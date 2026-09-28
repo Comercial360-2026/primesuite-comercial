@@ -700,13 +700,20 @@ cliente en Licitaciones» (§5h/§5j, bloqueada por autenticación, nunca
 llegó a usarse) y el tema «Resumir carpeta de Licitaciones» (§5j, dependía
 de esa fuente) — ya no hacían falta.
 
+**Publicado (28-09).** Confirmado por Cesar y publicado sin "Forzar la
+versión más reciente" (no aplica, no se usa Teams). Los avisos previos al
+publicar eran los ya conocidos y esperados (§2, §5: sin autenticación de
+usuario final, herramientas con credenciales del autor) — nada nuevo.
+**A partir de ahora, los comerciales que pregunten por el contenido de un
+documento de Licitaciones por Direct Line reciben la respuesta real, no el
+mensaje de "no puedo leer documentos".**
+
 **Pendiente, sin bloqueos:**
 1. PDF/escaneo sin texto embebido: no probado a propósito (no se ha
    localizado uno en las pruebas de hoy). Mitigado en las instrucciones del
    agente: si "Obtener contenido de archivo" no devuelve texto aprovechable,
    debe decir "No se pudo leer el documento" en vez de inventar — pendiente
    de confirmar ese comportamiento con un caso real cuando aparezca.
-2. Publicar el agente cuando se dé por bueno lo probado hoy.
 
 ## 6. Receta para replicarlo en otro agente
 
