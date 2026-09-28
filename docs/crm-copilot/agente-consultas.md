@@ -905,6 +905,39 @@ concreto en las instrucciones, o aceptar que esto es variabilidad normal
 del modelo y que la transparencia lograda ya es la mejora real y suficiente
 por ahora).
 
+**Causa de fondo, la real (28-09 noche, confirmada leyendo §5c/§5l de este
+mismo documento):** no es un problema de instrucciones — es que la
+herramienta que haría búsqueda de texto real sobre Licitaciones ("Buscar en
+Licitaciones", flujo de Power Automate) está **desactivada a propósito**
+desde el mismo 28-09 (13:07, §5l) por el bloqueo de licencia premium de
+Microsoft (`AuthenticationNotConfigured`, §5c) — contaminaba también las
+llamadas al CRM en el mismo turno. Hoy el agente solo puede **navegar
+carpetas por nombre** ("Mostrar lista de carpetas"), nunca buscar texto
+libre. Como las ofertas (`REF-NNNNN`) no son carpetas — son *archivos*
+dentro de una carpeta de proyecto con código (`P260129`, sin relación
+visible con el número de REF) — el agente no puede saber en qué carpeta
+está una REF sin abrir carpetas una a una, algo que no cabe en el
+presupuesto de 6 llamadas si hubiera que mirar entre las ~120 de todos los
+clientes.
+
+**La corrección real (Cesar, 28-09 noche):** el cliente de la pregunta ya
+viene fijado desde PrimeSuite (`Cliente: <nombre> (id de cuenta <id>)`) —
+el agente NO tiene que buscar entre las carpetas de todos los clientes,
+solo entre las (normalmente 1-3) del cliente ya acotado, repartidas en las
+5 categorías del mapa de §5n. Eso sí cabe de sobra en el presupuesto de
+llamadas. Se consolidaron las dos notas anteriores de §5n en una sola,
+sustituyendo la regla de "elige una categoría por el Tipo del CRM" (que no
+se seguía de forma fiable) por: *comprueba las 5 categorías buscando
+carpetas con el nombre del cliente ya fijado; si una oferta no aparece
+como carpeta propia, puede ser un documento dentro de la carpeta del
+cliente — abre las que coincidan y mira dentro; di siempre qué categorías
+comprobaste.* Publicado (28-09, ~18:10). **Sin reprobar todavía** con la
+pregunta REF-34469 tras este último cambio — pendiente de una sesión
+futura, y sigue existiendo el límite estructural de fondo: sin la licencia
+premium para reactivar la búsqueda de texto real, el agente depende de
+listar carpetas por nombre, nunca será 100 % fiable para una REF que no
+esté en una carpeta con el nombre del cliente en su ruta directa.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
