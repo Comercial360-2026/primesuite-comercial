@@ -413,7 +413,7 @@ export function RepasoCliente() {
         />
       ) : (
         !!notasRecientes?.length && (
-          <SeccionLista titulo="Notas">
+          <SeccionLista titulo="Notas" categoria="nota">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px var(--fila-pad-x)' }}>
               {notasRecientes.map((n) => (
                 <div key={n.id} style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)' }}>

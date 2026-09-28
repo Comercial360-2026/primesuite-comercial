@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { EtiquetaCategoria, type CategoriaSeccion } from './etiqueta-categoria';
 
 // Sección de una lista agrupada al estilo "Ajustes de iPhone": una cabecera
 // gris discreta (opcional, en frase — solo la primera en mayúscula) y un
@@ -12,6 +13,9 @@ import type { ReactNode } from 'react';
 interface Props {
   /** Cabecera. En frase ("Dirección comercial"), no en Mayúsculas. */
   titulo?: string;
+  /** Círculo de 2 letras delante del título (Oportunidades, Notas…) — solo
+   *  decorativo, para diferenciar el tipo de sección de un vistazo. */
+  categoria?: CategoriaSeccion;
   /** Peso de la cabecera en la jerarquía de la pantalla:
    *  `principal` = la sección del dinero o de la acción · `normal` (def.) ·
    *  `tenue` = metadatos de referencia (Datos, Más). Ver 08 §"Jerarquía". */
@@ -22,7 +26,7 @@ interface Props {
   children: ReactNode;
 }
 
-export function SeccionLista({ titulo, prominencia = 'normal', accion, children }: Props) {
+export function SeccionLista({ titulo, categoria, prominencia = 'normal', accion, children }: Props) {
   const clase = ['seccion-lista', prominencia !== 'normal' && `seccion-lista--${prominencia}`]
     .filter(Boolean)
     .join(' ');
@@ -30,15 +34,21 @@ export function SeccionLista({ titulo, prominencia = 'normal', accion, children 
   // —una lista aún vacía a la que el "+" va a añadir la primera—: entonces
   // solo se pinta la cabecera, no un grupo vacío con bordes.
   const hayFilas = Array.isArray(children) ? children.some(Boolean) : Boolean(children);
+  const cabecera = titulo && (
+    <h2 className="seccion-lista__cabecera">
+      {categoria && <EtiquetaCategoria tipo={categoria} />}
+      {titulo}
+    </h2>
+  );
   return (
     <section className={clase}>
       {accion ? (
         <div className="seccion-lista__cabecera-fila">
-          {titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>}
+          {cabecera}
           <div className="seccion-lista__cabecera-accion">{accion}</div>
         </div>
       ) : (
-        titulo && <h2 className="seccion-lista__cabecera">{titulo}</h2>
+        cabecera
       )}
       {hayFilas && <div className="seccion-lista__grupo">{children}</div>}
     </section>

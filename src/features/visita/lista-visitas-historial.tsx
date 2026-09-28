@@ -58,7 +58,7 @@ export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] 
   const { data: recuento } = useRecuentoVisitas(visitas.map((v) => v.id));
 
   return (
-    <SeccionLista titulo="Visitas">
+    <SeccionLista titulo="Visitas" categoria="visita">
       {visitas.map((v) => {
         const estadoLegible =
           v.estado_captura === 'agendada'

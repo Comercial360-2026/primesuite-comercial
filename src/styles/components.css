@@ -264,6 +264,7 @@ button.interlocutor-fila__cuerpo--presente:hover {
   font-family: var(--font-sans); font-weight: 700; color: #fff;
   line-height: 1; letter-spacing: 0;
 }
+.avatar--xs { width: 18px; height: 18px; font-size: 8px; }
 .avatar--sm { width: 28px; height: 28px; font-size: 11px; }
 .avatar--md { width: 40px; height: 40px; font-size: 15px; }
 .avatar--proyecto { border-radius: 8px; }
@@ -995,6 +996,7 @@ textarea.field {
   font-size: var(--text-sm); font-weight: 600; letter-spacing: -0.003em;
   color: var(--ink-700);
 }
+.seccion-lista__cabecera .avatar { vertical-align: -3px; margin-right: 6px; }
 .seccion-lista--principal > .seccion-lista__cabecera {
   font-size: var(--text-base); color: var(--ink-900);
 }

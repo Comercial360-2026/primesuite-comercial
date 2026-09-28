@@ -114,7 +114,7 @@ export function ActividadProyecto({
   return (
     <>
       {!!oportunidades?.length && (
-        <SeccionLista titulo="Oportunidades activas" prominencia="principal">
+        <SeccionLista titulo="Oportunidades activas" categoria="oportunidad" prominencia="principal">
           {oportunidades.map((o) => (
             <FilaNavegable
               key={o.id}
@@ -137,7 +137,7 @@ export function ActividadProyecto({
       )}
 
       {!!proximosPasos?.length && (
-        <SeccionLista titulo="Próximos pasos">
+        <SeccionLista titulo="Próximos pasos" categoria="paso">
           {proximosPasos.map((p) => {
             const vencido = !!p.fecha_objetivo && new Date(p.fecha_objetivo).getTime() < hoyMs;
             return (

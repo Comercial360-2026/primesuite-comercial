@@ -449,7 +449,7 @@ export function CierreVisita() {
           </div>
 
           {notas.length > 0 && (
-            <SeccionLista titulo="Notas">
+            <SeccionLista titulo="Notas" categoria="nota">
               {notas.map((n) => {
                 const p = n.payload as { titulo?: string; contenidoTexto?: string };
                 return (
@@ -464,7 +464,7 @@ export function CierreVisita() {
           )}
 
           {oportunidades.length > 0 && (
-            <SeccionLista titulo="Oportunidades">
+            <SeccionLista titulo="Oportunidades" categoria="oportunidad">
               {oportunidades.map((o) => (
                 <FilaDato key={o.id} etiqueta={(o.payload as { titulo: string }).titulo} valor="" />
               ))}
@@ -472,7 +472,7 @@ export function CierreVisita() {
           )}
 
           {hallazgos.length > 0 && (
-            <SeccionLista titulo="Hallazgos">
+            <SeccionLista titulo="Hallazgos" categoria="hallazgo">
               {hallazgos.map((h) => (
                 <FilaDato
                   key={h.id}
@@ -484,7 +484,7 @@ export function CierreVisita() {
           )}
 
           {pasos.length > 0 && (
-            <SeccionLista titulo="Próximos pasos">
+            <SeccionLista titulo="Próximos pasos" categoria="paso">
               {pasos.map((p) => {
                 const payload = p.payload as { descripcion: string; fechaObjetivo?: string };
                 return (
