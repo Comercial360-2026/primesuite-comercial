@@ -679,20 +679,34 @@ Mostrar lista de carpetas (raíz) → Mostrar lista de carpetas (carpeta del
 cliente) → Obtener contenido de archivo mediante ruta de acceso. **Funciona
 de extremo a extremo, sin IT, sin licencia premium, sin Knowledge.**
 
-**Pendiente, sencillo, sin bloqueos:**
-1. Probar con un documento Word/Excel/PowerPoint (no solo PDF) — puede que
-   necesite el paso de conversión a PDF de §5f si "Get file content using
-   path" no extrae texto de esos formatos igual de bien; pendiente de
-   verificar.
-2. Probar con un PDF escaneado (sin texto embebido) para confirmar que
-   falla con claridad («no consta») en vez de devolver basura, y decidir si
-   hace falta algún fallback para ese caso minoritario.
-3. Decidir si se elimina del todo la fuente de Knowledge de §5h/§5j
-   («Carpeta cliente en Licitaciones», bloqueada, sin usar) para no dejar
-   configuración muerta, y si se borra también el tema «Resumir carpeta de
-   Licitaciones» (§5j) por el mismo motivo — ya no hace falta ninguno de
-   los dos.
-4. Publicar el agente cuando se den por buenas las pruebas.
+**Actualización (28-09, mismo día): probado también con Word y Excel,
+funciona igual de bien, sin conversión previa.**
+- **Excel** (`Hoja de resumen de oferta.xlsx`, en la raíz de Licitaciones):
+  completado con éxito, contenido "perfectamente aprovechable" — celdas de
+  la hoja con campos como importe total, SLA, si es cliente nuevo, etc.
+- **Word** (`NDA_Servicios cirsa.docx`, en `CIRSA/`): completado con éxito,
+  "texto completamente aprovechable" — se leyó íntegro un Acuerdo de
+  Confidencialidad (NDA) entre el cliente y Primion Digitek.
+
+Es decir: **"Get file content using path" extrae texto directamente de
+PDF, Word y Excel sin ningún paso de conversión** — no hace falta el
+"Convert file" a PDF de §5f. Eso simplifica aún más la arquitectura: un
+único paso (Mostrar lista de carpetas → Obtener contenido de archivo
+mediante ruta de acceso) cubre los tres formatos más comunes de
+Licitaciones (PDF 84%, Word/Excel 8% combinado, §4).
+
+**Limpieza ya hecha (28-09):** eliminados la fuente de Knowledge «Carpeta
+cliente en Licitaciones» (§5h/§5j, bloqueada por autenticación, nunca
+llegó a usarse) y el tema «Resumir carpeta de Licitaciones» (§5j, dependía
+de esa fuente) — ya no hacían falta.
+
+**Pendiente, sin bloqueos:**
+1. PDF/escaneo sin texto embebido: no probado a propósito (no se ha
+   localizado uno en las pruebas de hoy). Mitigado en las instrucciones del
+   agente: si "Obtener contenido de archivo" no devuelve texto aprovechable,
+   debe decir "No se pudo leer el documento" en vez de inventar — pendiente
+   de confirmar ese comportamiento con un caso real cuando aparezca.
+2. Publicar el agente cuando se dé por bueno lo probado hoy.
 
 ## 6. Receta para replicarlo en otro agente
 
