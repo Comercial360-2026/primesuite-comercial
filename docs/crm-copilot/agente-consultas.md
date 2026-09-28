@@ -664,16 +664,34 @@ respuesta de "Get file content using path" sin pasos adicionales. Toda la
 cadena usa exclusivamente acciones estándar del conector SharePoint que
 nunca han necesitado licencia premium ni intervención de un administrador.
 
+**Actualización (28-09, mismo día): instrucciones corregidas y probado
+extremo a extremo con éxito.** Se quitó del prompt la regla que bloqueaba
+leer contenido (residuo de cuando esto no funcionaba) y se sustituyó por
+instrucciones para usar «Obtener contenido de archivo mediante ruta de
+acceso» cuando hace falta un dato de dentro de un documento. Prueba real en
+el panel «Probar», con el mismo formato de mensaje que manda PrimeSuite
+("Cliente: X (id de cuenta id). Pregunta: ..."): el agente resolvió la
+carpeta, leyó el PDF real y respondió con el contenido correcto (importes,
+condiciones, fechas, alcance de la oferta) citando la fuente en el formato
+exigido por las instrucciones ("Fuente: Licitaciones · <archivo>
+(<fecha>)"). Cadena de herramientas usada, confirmada por el propio agente:
+Mostrar lista de carpetas (raíz) → Mostrar lista de carpetas (carpeta del
+cliente) → Obtener contenido de archivo mediante ruta de acceso. **Funciona
+de extremo a extremo, sin IT, sin licencia premium, sin Knowledge.**
+
 **Pendiente, sencillo, sin bloqueos:**
-1. Actualizar las instrucciones del agente para autorizar esta cadena en
-   preguntas de contenido de documentos.
-2. Probar con un documento Word/Excel/PowerPoint (no solo PDF) — puede que
+1. Probar con un documento Word/Excel/PowerPoint (no solo PDF) — puede que
    necesite el paso de conversión a PDF de §5f si "Get file content using
    path" no extrae texto de esos formatos igual de bien; pendiente de
    verificar.
-3. Probar con un PDF escaneado (sin texto embebido) para confirmar que
+2. Probar con un PDF escaneado (sin texto embebido) para confirmar que
    falla con claridad («no consta») en vez de devolver basura, y decidir si
    hace falta algún fallback para ese caso minoritario.
+3. Decidir si se elimina del todo la fuente de Knowledge de §5h/§5j
+   («Carpeta cliente en Licitaciones», bloqueada, sin usar) para no dejar
+   configuración muerta, y si se borra también el tema «Resumir carpeta de
+   Licitaciones» (§5j) por el mismo motivo — ya no hace falta ninguno de
+   los dos.
 4. Publicar el agente cuando se den por buenas las pruebas.
 
 ## 6. Receta para replicarlo en otro agente
