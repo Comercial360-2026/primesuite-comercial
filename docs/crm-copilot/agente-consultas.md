@@ -817,6 +817,54 @@ Studio ("¡Su agente se ha publicado!").
   + coincidencia de nombre): sigue bloqueado por el bug de Agent Flow
   (§5g), no resuelto en esta sesión.
 
+## 5n. Búsqueda inconsistente por referencia de oferta: causa y mapa completo de carpetas (28-09 noche)
+
+**Síntoma real (Cesar, en producción):** preguntar "¿qué contiene la oferta
+REF-34469-H4P3?" sobre SAPA respondió *"No hay carpeta de SAPA en
+Licitaciones con el documento adjunto"*, pero el documento SÍ existe (Cesar
+lo encontró a mano en la carpeta `p260129`). Preguntar en cambio "¿existe
+algún pedido de SAPA?" **sí** encontró la carpeta correcta
+(`2026-PEDIDOS-JOBS/P260130 - SAPA OPERACIONES, S.L`) con sus documentos.
+
+**Causa confirmada con la traza del panel de pruebas** (mismas dos
+preguntas, reproducidas ahí): para la pregunta por referencia el agente
+hizo **una sola** llamada a "Mostrar lista de carpetas" sobre la **raíz**
+de B-Licitaciones, vio las +80 carpetas de categoría/año y, como ninguna se
+llama literalmente "SAPA", se rindió sin bajar ningún nivel más. Para la
+pregunta general sí bajó dos niveles (raíz → `2026-PEDIDOS-JOBS`) y
+encontró la carpeta. No es un problema de permisos ni de licencia (§5d):
+es que la profundidad de búsqueda que elige el modelo varía según cómo se
+formula la pregunta, y no hay ninguna regla en las instrucciones que le
+obligue a bajar de nivel antes de concluir "no existe".
+
+**Mapa completo de B - Licitaciones y pedidos**, obtenido pidiéndole al
+propio agente (herramienta "Mostrar lista de carpetas", raíz + un nivel
+dentro de cada categoría) que lo reconstruyera él mismo — sin leer ningún
+documento, solo nombres de carpeta:
+
+| Carpeta de 1er nivel (por año) | Patrón de subcarpeta | Prefijo |
+|---|---|---|
+| `AAAA-Licitaciones` | solo el nombre del cliente, sin código | — |
+| `AAAA-PEDIDOS-JOBS` | `P<código> - NOMBRE CLIENTE` | `P260NNN` = proyecto/job (pedido de instalación) |
+| `AAAA-PEDIDOS MANTENIMIENTO` | `CM-AAAA-NNN - NOMBRE CLIENTE` (legado: `MT22...`, `MS22...`) | `CM-AAAA-NNN` = contrato de mantenimiento |
+| `AAAA-PEDIDOS-SALES ORDERS` | `SO2600NNN - NOMBRE CLIENTE` | `SO2600NNN` = sales order (material/suministro) |
+| `AAAA-PEDIDOS-REPARACIONES` | `CS-AAAA-NNN - NOMBRE CLIENTE` | `CS-AAAA-NNN` = caso de soporte/reparación |
+| Carpetas de cliente concreto (sin año) | PDFs de oferta directos, con fecha y REF en el nombre | ej. `GESALAGA`, `CIRSA`, `INETUM - AEAT` |
+| Otras | `SeguimientoSemanal`, `Solvencia (Cartas Licitaciones)`, `C - Deuda y albaranes pendientes`, `AA DOCUMENTACION LICITACIONES` | — |
+
+Un mismo cliente puede tener carpetas en **varias** categorías a la vez
+(SAPA: `P260130` en JOBS, `CM-2026-054`/`CM-2026-221` en MANTENIMIENTO,
+`SO2600360` en SALES ORDERS) — "la carpeta de SAPA" no es una sola.
+
+**Propuesto, sin aplicar todavía** (pendiente de que Cesar lo pegue en las
+instrucciones del agente, sección Licitaciones): añadir este mapa tal cual
+más una regla explícita — *"Para buscar la carpeta de un cliente, mira
+TODAS las categorías de año relevantes (Licitaciones, JOBS, MANTENIMIENTO,
+SALES ORDERS, REPARACIONES) bajando al menos un nivel en cada una; no
+concluyas 'no existe carpeta' tras listar solo la raíz. Si hay coincidencia
+en más de una categoría, dilas todas."* Objetivo: que la profundidad de
+búsqueda deje de depender de cómo se formule la pregunta.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
