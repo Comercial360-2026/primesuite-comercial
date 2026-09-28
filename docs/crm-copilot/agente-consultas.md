@@ -4,8 +4,11 @@ Agente de Copilot Studio que responde preguntas concretas sobre UN cliente
 (CRM, pedidos/licitaciones, Jira, Confluence), breve y con la fuente.
 Distinto del agente de briefing (`Briefing Comercial de Clientes`).
 
-Estado: **sin publicar** (27-09-2026). Lo usará el botón «Pregunta a la IA» de
-PrimeSuite vía Direct Line, igual que el briefing.
+Estado: **publicado** (28/9/2026, según «Agent status» del propio Copilot
+Studio — sigue con 4 warnings, entre ellos el de licencia premium de §5d, que
+no impiden publicar la versión actual sin los Agent Flow nuevos). Lo usará el
+botón «Pregunta a la IA» de PrimeSuite vía Direct Line, igual que el
+briefing.
 
 ## 1. Datos del agente
 
@@ -356,6 +359,57 @@ Pendiente de verificar en el tenant real (no solo en documentación): que
 este entorno de Power Platform, y probar el paso 2/3 con un PDF nativo real
 de Licitaciones y con uno escaneado para confirmar el criterio de "vacío ⇒
 OCR".
+
+## 5g. Bloqueado: crear un Agent Flow nuevo redirige a un entorno inaccesible (28-09)
+
+**Diagnóstico, no suposición.** Al intentar construir el Agent Flow de §5e/§5f
+(«Buscar en Licitaciones» nativo) desde cero:
+
+1. Dentro del agente, `Herramientas` → `Agregar herramienta` → `Agregar nuevo
+   Flujos de trabajo` abre un diálogo que dice «Esta página se abre en la
+   experiencia clásica» con el enlace correcto (mismo entorno
+   `Default-9680142b-e519-4506-8d12-c0704c2fafb4`, mismo `botId`).
+2. Al abrir ese enlace (en pestaña nueva o navegando la misma pestaña a esa
+   URL completa `/agent-flows/new?...`), la aplicación **redirige sola** a
+   `environments/e4b6abcc-cd8e-e80d-8471-fee53f085157/...` — un entorno
+   **distinto** al de la URL pedida — y ahí carga `Se produjo un error`
+   (pantalla genérica, sin detalle salvo un Id. de sesión). Repetido 3 veces,
+   mismo resultado exacto cada vez.
+3. Comprobado en el selector «Cambiar entorno» del propio Copilot Studio:
+   Cesar solo tiene **un** entorno disponible, `primion Technology GmbH
+   (Default-9680142b-…)` — «Todos los entornos» aparece con **(0)**. Es decir,
+   el entorno `e4b6abcc-…` al que redirige la creación de Agent Flow **no es
+   un entorno al que Cesar tenga acceso en absoluto**, lo que explica el
+   error inmediato (el `botId` tampoco existe ahí).
+4. Probado también entrar por `make.powerautomate.com` (el dominio de los
+   flujos clásicos) buscando una sección "Agent flows": no existe ahí un
+   punto de entrada — `make.powerautomate.com/environments/<env>/agentflows`
+   da 404; el `Create` de Power Automate solo ofrece los tipos de flujo
+   clásico (Automated/Instant/Scheduled/Desktop/Process mining), ninguno es
+   un Agent Flow. Confirma que el Agent Flow **solo se crea desde dentro del
+   agente** en Copilot Studio (como dice §5e) — no hay vía alternativa por
+   Power Automate.
+
+**Conclusión:** no es un problema de licencia (eso ya se resolvió/rodeó con
+Agent Flow, §5d/§5e) ni de las instrucciones del agente — es un **bug o mala
+configuración de Microsoft** en el redirect de creación de Agent Flow para
+este agente/entorno, que manda a un entorno que la cuenta de Cesar no tiene
+provisionado. No se puede arreglar desde código ni desde la configuración del
+agente.
+
+**Pendiente — requiere acción de Cesar:**
+- Reintentar en un momento distinto (podría ser un fallo transitorio de la
+  plataforma) o desde el navegador normal de Cesar (no descartado del todo,
+  aunque aquí se probó con su sesión real vía Claude en Chrome).
+- Si persiste: abrir ticket de soporte de Power Platform/Copilot Studio
+  citando el error y el Id. de sesión (cambia en cada intento, apuntar el de
+  la próxima repro), y mencionar el entorno `e4b6abcc-cd8e-e80d-8471-fee53f085157`
+  al que redirige indebidamente.
+- Alternativa mientras tanto: seguir con los flujos clásicos de Power
+  Automate (los que ya existen, §3/§3b) aunque fallen por licencia
+  (§5c/§5d) — es decir, el bloqueo de licencia sigue vigente hasta que se
+  resuelva este bug de redirect, porque el camino que lo esquivaba (Agent
+  Flow) ahora mismo no se puede ni crear.
 
 ## 6. Receta para replicarlo en otro agente
 
