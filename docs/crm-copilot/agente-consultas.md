@@ -488,6 +488,71 @@ Otras ventajas de esta vía frente a los Agent Flow:
 y «Leer documento de Licitaciones» (§3/§5f) — no hace falta terminarlos ni
 esperar a que Microsoft arregle el bug de §5g.
 
+## 5i. La acción HTTP genérica de SharePoint TAMBIÉN está bloqueada — y alternativa validada sin ella (28-09)
+
+**Diagnóstico, no suposición.** Al intentar rodear el bug de §5g construyendo
+«Buscar en Licitaciones (directo)» con la acción de conector **«Enviar una
+solicitud HTTP a SharePoint»** (la misma familia que ya usa «Mostrar lista de
+carpetas», que SÍ funciona):
+
+- Herramienta creada, guardada, con «Credenciales proporcionadas por el
+  fabricante» ya seleccionado por defecto (comprobado explícitamente, no es
+  un descuido de configuración).
+- Probada en el panel «Probar»: **falla al instante con el mismo
+  `AuthenticationNotConfigured`** de los flujos clásicos (§5c/§5d).
+- Repetido el mismo turno con «Mostrar lista de carpetas» (la acción que
+  siempre ha funcionado): **sigue funcionando perfecto**, 1,3 s, misma
+  conexión, mismo agente, misma sesión. Descarta que sea un problema de
+  sesión/conexión general.
+
+**Conclusión:** el bloqueo de licencia premium NO es "flujo vs. conector
+directo" como se pensaba en §5g punto 2 — es más fino: **la acción genérica
+"Enviar una solicitud HTTP a SharePoint" (que puede llamar a cualquier API
+REST) está tratada como función premium, igual que los flujos**, mientras
+que acciones concretas y acotadas del conector (Mostrar lista de carpetas,
+Obtener listas) no lo están. Coherente con el aviso que la propia Microsoft
+muestra al añadirla: "esta acción puede ejecutar cualquier API REST... alto
+riesgo". Comprobado también que el conector estándar de SharePoint **no
+tiene ninguna acción de "Search"/"Query"** (ni en español ni en inglés) —
+por eso la única forma de llamar a `_api/search/query` era ese HTTP
+genérico, ahora bloqueado.
+
+**Alternativa encontrada y validada en vivo, sin usar ninguna acción
+bloqueada:** la carpeta raíz de "B - Licitaciones y pedidos" solo tiene
+**143 elementos directos** (no 32.364 — esos son los documentos repartidos
+dentro). Eso cabe de sobra en una sola llamada a "Mostrar lista de carpetas"
+(la que ya funciona), y el propio modelo puede buscar coincidencias por
+nombre de cliente sobre esos 143 nombres sin necesidad de ningún buscador
+dedicado — recursivamente (llamando otra vez a la misma herramienta) si el
+cliente estuviera dentro de una carpeta contenedora (p. ej. "2022-
+Licitaciones").
+
+Probado en el panel, dos casos reales:
+- Cliente con carpeta exacta en la raíz ("GESALAGA"): resuelto en **1 sola
+  llamada, 1,3 s**, Path exacto devuelto.
+- Cliente con nombre ambiguo repartido en varias carpetas ("El Corte
+  Inglés"): encontró **4 carpetas candidatas** por coincidencia parcial
+  (mayúsculas/tildes distintas incluso) y pidió aclaración en vez de
+  adivinar — mismo patrón ya usado con cuentas homónimas del CRM (§4b).
+
+**Esto sustituye a «Buscar en Licitaciones» por completo, sin flujo, sin
+HTTP genérico y sin esperar a que Microsoft resuelva §5g ni §5d.** Solo usa
+"Mostrar lista de carpetas", que nunca ha fallado. Combinado con §5h
+(Knowledge con la carpeta resuelta), la cadena completa quedaría: 1)
+resolver carpeta con "Mostrar lista de carpetas" (recursivo si hace falta),
+2) esa ruta alimenta la fuente de Knowledge (variable en la URL, §5h), 3)
+Knowledge responde/resume. Ningún paso pasa por un flujo de Power Automate
+ni por la acción HTTP bloqueada.
+
+**Pendiente de verificar:** el paso 2 (meter la ruta resuelta del paso 1 en
+la variable de la fuente de Knowledge dentro de la misma conversación) no
+se ha probado todavía — requiere wiring de variables/topic en Copilot
+Studio que no se ha construido en esta sesión.
+
+**Limpieza pendiente:** la herramienta «Buscar en Licitaciones (directo)»
+creada en esta sesión no funciona (bloqueada) — o se deja documentada como
+"no usar" o se elimina de Herramientas para no confundir en el futuro.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
