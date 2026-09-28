@@ -46,6 +46,16 @@ export function claveDuplicado(nombre: string): string {
   return norm;
 }
 
+// Duplicado exacto (mismo nombre normalizado, sin la lógica de coletillas
+// jurídicas de `claveDuplicado` — la usa el aviso de proyecto duplicado, que
+// no necesita distinguir "S.L." de nada porque un proyecto no es una razón
+// social). Solo compara contra lo que ya se tenga cargado: si `existentes`
+// viene vacío por no haber podido cargar (offline), simplemente no avisa.
+export function hayNombreDuplicado(nombre: string, existentes: { nombre: string }[]): boolean {
+  const norm = normalizarNombre(nombre);
+  return !!norm && existentes.some((e) => normalizarNombre(e.nombre) === norm);
+}
+
 /** `cliente.estado_relacion` de un cliente archivado («ya no trabajamos con
  *  él», prompt maestro 13): no sale en Clientes ni al elegir cliente para una
  *  visita; conserva todo y se reactiva desde su ficha. */

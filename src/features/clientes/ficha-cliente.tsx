@@ -24,8 +24,10 @@ import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
-import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
@@ -286,6 +288,10 @@ export function FichaCliente() {
   });
 
   const { data: proyectos } = useProyectosCliente(clienteId);
+  const proyectoDuplicado = hayNombreDuplicado(nombreProyecto, proyectos ?? []);
+  const [dupProyectoConfirmado, confirmarDupProyecto] = useConfirmacionDuplicado(
+    nombreProyecto.trim().toLowerCase()
+  );
 
   // Solo el recuento, para el badge del icono de Interlocutores en la
   // cabecera. Clave propia (no la del directorio, que trae más columnas) para
@@ -316,7 +322,7 @@ export function FichaCliente() {
   // sincronice no encontraría la fila todavía, así que solo se navega si se
   // pudo confirmar al momento.
   async function crearProyecto() {
-    if (!nombreProyecto.trim() || !comercial || !clienteId) return;
+    if (!nombreProyecto.trim() || !comercial || !clienteId || (proyectoDuplicado && !dupProyectoConfirmado)) return;
     await creacionProyecto.ejecutar(
       async () => {
         const proyectoId = uuid();
@@ -820,10 +826,17 @@ export function FichaCliente() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
+            {proyectoDuplicado && !dupProyectoConfirmado && (
+              <AvisoNombreDuplicado
+                titulo="Ya hay un proyecto con este nombre."
+                subtitulo="Si es una línea de negocio distinta, puedes crearlo igual."
+                onConfirmar={confirmarDupProyecto}
+              />
+            )}
             <button
               className="btn btn-primary"
               style={{ marginTop: 12, width: '100%' }}
-              disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+              disabled={creacionProyecto.cargando || !nombreProyecto.trim() || (proyectoDuplicado && !dupProyectoConfirmado)}
               onClick={crearProyecto}
             >
               {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}

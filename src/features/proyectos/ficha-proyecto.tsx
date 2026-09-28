@@ -3,7 +3,8 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
@@ -19,6 +20,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { ActividadProyecto } from './actividad-proyecto';
@@ -240,6 +242,14 @@ export function FichaProyecto() {
     (p) => p.id !== proyectoId && p.estado !== 'terminado'
   );
 
+  // Otros proyectos del mismo cliente (para el aviso de nombre duplicado al
+  // renombrar) — el propio proyecto no cuenta como "otro".
+  const otrosProyectos = (proyectos ?? []).filter((p) => p.id !== proyectoId);
+  const nombreProyectoDuplicado = hayNombreDuplicado(formNombre, otrosProyectos);
+  const [dupNombreConfirmado, confirmarDupNombre] = useConfirmacionDuplicado(
+    formNombre.trim().toLowerCase()
+  );
+
   function abrirEditarNombre() {
     setFormNombre(proyecto?.nombre ?? '');
     guardadoNombre.limpiarError();
@@ -247,7 +257,7 @@ export function FichaProyecto() {
   }
 
   async function guardarNombre() {
-    if (!proyectoId || !formNombre.trim()) return;
+    if (!proyectoId || !formNombre.trim() || (nombreProyectoDuplicado && !dupNombreConfirmado)) return;
     if (!navigator.onLine) {
       guardadoNombre.establecerError('Necesitas conexión para renombrar el proyecto.');
       return;
@@ -504,10 +514,19 @@ export function FichaProyecto() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {guardadoNombre.error && <div className="field-error-text">{guardadoNombre.error}</div>}
+            {nombreProyectoDuplicado && !dupNombreConfirmado && (
+              <AvisoNombreDuplicado
+                titulo="Ya hay un proyecto con este nombre."
+                subtitulo="Si es una línea de negocio distinta, puedes guardarlo igual."
+                onConfirmar={confirmarDupNombre}
+              />
+            )}
             <button
               className="btn btn-primary"
               style={{ marginTop: 12, width: '100%' }}
-              disabled={guardadoNombre.cargando || !formNombre.trim()}
+              disabled={
+                guardadoNombre.cargando || !formNombre.trim() || (nombreProyectoDuplicado && !dupNombreConfirmado)
+              }
               onClick={guardarNombre}
             >
               {guardadoNombre.cargando ? 'Guardando…' : 'Guardar'}

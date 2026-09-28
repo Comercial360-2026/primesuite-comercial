@@ -14,6 +14,8 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado, CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
@@ -142,6 +144,8 @@ export function AltaRapidaCliente() {
   }, [nombreNorm, nombreClave, clientesExistentes]);
 
   const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
+  const [dupClienteConfirmado, confirmarDupCliente] = useConfirmacionDuplicado(nombreNorm);
+  const bloqueadoPorDuplicado = hayExacto && !dupClienteConfirmado;
 
   // Defensa explícita: sin pantalla de login construida todavía, `comercial`
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
@@ -267,7 +271,7 @@ export function AltaRapidaCliente() {
   // flujo de planificar apuntando a ese proyecto. Planificar necesita el
   // cliente y su proyecto ya en el servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
-    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado) return;
     if (!navigator.onLine) {
       creacionCliente.establecerError(
         'Necesitas conexión para planificar una visita. Puedes iniciar la visita ahora o guardar sin visita.'
@@ -294,7 +298,7 @@ export function AltaRapidaCliente() {
   // "Aún no sé cuándo": solo crea la ficha. Si se encoló (sin red), la
   // ficha aún no existe en el servidor, así que se vuelve al listado.
   async function crearSinVisita() {
-    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado) return;
     await creacionCliente.ejecutar(crearCliente, {
       onExito: (cliente) => navigate(cliente.enCola ? '/clientes' : `/clientes/${cliente.id}`),
     });
@@ -408,9 +412,13 @@ export function AltaRapidaCliente() {
             ))}
           </SeccionLista>
         )}
-        {hayExacto && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
-            Si es otro negocio con el mismo nombre, puedes crearlo igual con el botón de abajo.
+        {hayExacto && !dupClienteConfirmado && (
+          <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+            <AvisoNombreDuplicado
+              titulo="Ya existe un cliente con este nombre."
+              subtitulo="Si es otro negocio distinto, puedes crearlo igual."
+              onConfirmar={confirmarDupCliente}
+            />
           </div>
         )}
 
@@ -423,7 +431,7 @@ export function AltaRapidaCliente() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button
           className="btn btn-primary"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={() => setObjetivoModal({ modo: 'nuevo' })}
         >
           Guardar e iniciar visita ahora
@@ -431,14 +439,14 @@ export function AltaRapidaCliente() {
         </button>
         <button
           className="btn btn-secondary"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={crearYPlanificar}
         >
           Guardar y planificar visita
         </button>
         <button
           type="button"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={crearSinVisita}
           style={{
             border: 'none',
