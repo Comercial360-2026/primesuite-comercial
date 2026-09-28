@@ -553,6 +553,66 @@ Studio que no se ha construido en esta sesión.
 creada en esta sesión no funciona (bloqueada) — o se deja documentada como
 "no usar" o se elimina de Herramientas para no confundir en el futuro.
 
+## 5j. Construido el tema "Resumir carpeta de Licitaciones" — bloqueado por autenticación de Knowledge (28-09)
+
+Siguiendo el diseño de §5h/§5i, se construyó en vivo:
+
+- **Variable `RutaCarpeta`** como entrada del tema (Topic input, "Rellenar
+  dinámicamente con la mejor opción" = la rellena el orquestador).
+- **Tema "Resumir carpeta de Licitaciones"**, desencadenador "El agente
+  elige" con una descripción que le dice explícitamente que llame primero a
+  "Mostrar lista de carpetas" para resolver la ruta y luego a este tema
+  pasando esa ruta como `RutaCarpeta`.
+- Nodo **"Crear respuestas generativas"** dentro del tema: Entrada =
+  `System.LastMessage.Text` (la pregunta real del usuario), «Buscar solo en
+  los orígenes seleccionados» activado, «Permitir que la IA use su
+  conocimiento general» desactivado.
+- **Fuente de Knowledge SharePoint con variable**: confirmado que el campo
+  de URL de una fuente SharePoint es por-línea (una URL o una variable por
+  línea, `Shift+Enter` separa varias) — **no admite mezclar texto fijo +
+  variable en la misma línea** pese a lo que sugiere la documentación de
+  Microsoft Learn sobre "Use variables as URLs" (esa mezcla dio un error
+  `MixedVariableHost`). Solución aplicada: la fuente usa **solo** la
+  variable `{Topic.RutaCarpeta}`, y esa variable debe contener la URL
+  absoluta completa (`https://primion.sharepoint.com/sites/...` + el `Path`
+  que devuelve "Mostrar lista de carpetas") — la concatenación la hace el
+  propio modelo al rellenar la entrada del tema, no Copilot Studio.
+
+**Bloqueo encontrado al guardar, antes de poder probarlo:** Copilot Studio
+avisa en rojo bajo el nodo:
+
+> "Uno o más orígenes necesitan que su agente inicie sesión con Microsoft
+> Entra ID o se autentique con Microsoft. SharePoint no admite OAuth 2
+> genérico. Cambie el método de autenticación (no los ámbitos) en
+> Configuración > Seguridad > Autenticación."
+
+Coincide con lo que ya documenta Microsoft Learn (§5h): Knowledge con
+SharePoint necesita el modo de autenticación del AGENTE completo configurado
+como "Authenticate with Microsoft" (o una autenticación manual con Entra ID
+— nunca "OAuth genérico", que es lo que usan hoy las herramientas de
+conector con "credenciales proporcionadas por el fabricante").
+
+**Por qué no lo he cambiado sin preguntar:** esto no es una opción de esta
+fuente de Knowledge — es un cambio en `Configuración > Seguridad >
+Autenticación` que afecta a TODO el agente, incluida la cuenta compartida
+con la que hoy entra Direct Line desde PrimeSuite (§5: "cuenta compartida,
+quien use el agente ve lo que ve Cesar"). Cambiarlo sin verificar puede
+romper la integración actual con PrimeSuite. Antes de tocarlo hace falta
+decidir:
+
+1. Si "Authenticate with Microsoft" es compatible con el uso por Direct
+   Line con secreto guardado en Supabase (probablemente NO lo es sin
+   rehacer el flujo de autenticación end-to-end, ver "Advanced
+   authentication scenarios" en la doc de Microsoft Learn de §5h).
+2. Si hay una vía de autenticación manual con Entra ID (app registration
+   con scopes `Sites.Read.All`/`Files.Read.All`, sin sesión interactiva por
+   usuario) que sí sea compatible con Direct Line — mencionada en la misma
+   doc de Microsoft Learn, no probada aquí.
+
+**Estado:** el tema queda construido pero no guardado/probado hasta
+resolver esto. No es un callejón sin salida — es una decisión de
+arquitectura de autenticación que le corresponde a Cesar antes de seguir.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
