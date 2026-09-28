@@ -139,7 +139,7 @@ export function PreguntaIAHoja({ clienteId, clienteNombre, visitaId, onCerrar }:
           {enviar.cargando ? 'Enviando…' : 'Preguntar'}
         </button>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>
-          Busca en el CRM, en Licitaciones y pedidos, en Jira y en Confluence. Tarda entre 20 segundos y 3 minutos.
+          Tarda entre 20 segundos y 3 minutos.
           {tope?.tope != null && ` Hoy llevas ${tope.hechas_hoy} de ${tope.tope}.`}
         </div>
         {tope?.alcanzado && (
