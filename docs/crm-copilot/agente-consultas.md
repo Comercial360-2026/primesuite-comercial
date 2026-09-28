@@ -280,6 +280,83 @@ del panel, qué intenta llamar y si falla, sin gastar tiempo ni exponer datos
 de clientes (usar un cliente de prueba tipo "ZZ Prueba Briefing", nunca uno
 real).
 
+## 5e. Solución encontrada: «Agent Flow» nativo esquiva el bloqueo de licencia (28-09)
+
+**Descubierto y verificado en vivo:** Copilot Studio tiene, además de los
+flujos clásicos de Power Automate (§3, §3b — los que fallan con
+`AuthenticationNotConfigured` por licencia, §5d), un tipo de flujo distinto:
+**«Agent Flow»**, dentro de la sección **«Flujos de trabajo»** del propio
+agente (no en make.powerautomate.com). Es el motor de workflow nativo de
+Copilot Studio, no un flujo de Power Automate clásico aunque puede llamar a
+los mismos conectores.
+
+Prueba hecha: Agent Flow con un paso directo de conector HTTP a SharePoint
+(la misma llamada de búsqueda de §3b) ejecutado desde el panel de prueba del
+propio flujo → **completado sin `AuthenticationNotConfigured` ni ningún
+aviso de licencia.** Es decir: el bloqueo de §5d es específico de "flujo
+clásico de Power Automate usado como herramienta de un agente generativo",
+no de "cualquier automatización que no sea un conector nativo". Un Agent
+Flow no lo dispara.
+
+**Conclusión:** no hace falta esperar a una licencia premium. La vía a
+construir es:
+- «Buscar en Licitaciones» → Agent Flow con el mismo paso HTTP de §3b
+  (pendiente: solucionar un `InvalidClientQueryException` de sintaxis en la
+  query con `path:"…"` entre comillas — es un problema de escapado del
+  literal, no de permisos ni de licencia; según lo probado hasta ahora
+  conviene pasar la query completa ya percent-encoded sin comillas literales
+  en el cuerpo, y seguir probando desde ahí).
+- «Leer documento de Licitaciones» → Agent Flow, ver §5f para en qué orden
+  hacer la extracción de texto.
+
+Ambos Agent Flow, una vez terminados, se añaden como herramienta del agente
+exactamente igual que un flujo clásico (mismo mecanismo de "flujo → añadir
+como herramienta"); solo cambia dónde se construyen.
+
+## 5f. Extracción nativa de texto (sin IA) — qué es Microsoft-nativo y qué no (28-09)
+
+Cesar pidió priorizar todo lo que sea de Microsoft antes que ir a
+terceros, y verificarlo por documentación oficial en vez de a golpe de clic.
+Motivo de fondo: el 84 % de los 32.364 documentos de Licitaciones son PDF
+(§4) — la mayoría nacidos digitales (texto embebido, no escaneados), así
+que para la mayoría de preguntas **no hace falta IA/OCR en absoluto**, solo
+extracción de texto determinista. El flujo actual (§3, paso 5) manda TODO
+por AI Builder (OCR de pago) incluso cuando el documento ya tiene texto
+nativo — eso es gasto y lentitud innecesarios que hay que corregir en el
+Agent Flow nuevo.
+
+Verificado por búsqueda en documentación/artículos oficiales y de la
+comunidad de Power Platform (no probado aún a golpe de clic en el tenant):
+
+| Necesidad | Conector | ¿Microsoft 1ª parte? | ¿Premium? | Resultado |
+|---|---|---|---|---|
+| Leer texto ya embebido de un **Word** (.docx) | Word Online (Business) | Sí | Sí (premium) | **No sirve de todas formas**: sus únicas acciones son *Convert Word Document to PDF*, *Create document*, *Populate template* — no existe ninguna acción "extraer texto" ni en la versión gratis ni en la premium |
+| Bajar el binario de un archivo (SharePoint/OneDrive) | SharePoint · *Get file content* | Sí | No (estándar) | Ya usado en §3 paso 2; límite práctico ~70-80 MB (base64) |
+| Extraer texto de un **PDF** nativo (sin OCR) | **PDF Tools (Tachytelic)** | No es 1ª parte, pero SÍ es un conector certificado del catálogo oficial de Microsoft Learn/Power Platform | **No** — gratis, sin cuenta externa, sin API key, sin límite de uso | Candidato fuerte para sustituir el paso 5 (AI Builder) cuando el documento es PDF: si el PDF tiene texto embebido, este conector lo saca sin IA y sin coste |
+| Extraer texto de **Word/Excel/PowerPoint** nativo (sin OCR) | — | — | — | **No se ha encontrado ningún conector Microsoft de 1ª parte** que lo haga. Terceros como Encodian sí lo hacen pero son premium y piden cuenta/conexión propia (coste y alta sin verificar) — no adoptar sin decírselo antes a Cesar |
+| Convertir Office → PDF para poder pasarlo por PDF Tools | OneDrive for Business · *Convert file* (ya usado en §3 paso 4) | Sí | No (estándar) | Ya verificado que funciona (Word moderno, Excel, PowerPoint; falla con .doc antiguo) — es la pieza que faltaba: convertir primero, luego extraer con PDF Tools, sin tocar AI Builder para nada salvo que el resultado esté vacío |
+| Reconocer texto de un **escaneo** (imagen, PDF sin texto embebido) | AI Builder · *Recognize text in image or document* | Sí | **Sí (premium, gasta créditos de AI Builder)** | Se mantiene, pero SOLO como último recurso cuando el paso anterior no saca texto (documento realmente escaneado) |
+
+**Arquitectura resultante para «Leer documento» (Agent Flow nuevo),
+extracción-primero en vez de IA-primero:**
+1. Get file content (SharePoint, ya existe).
+2. Si es PDF → **PDF Tools: extraer texto** directo. Si el texto extraído
+   sale vacío/insignificante (indicio de PDF escaneado sin capa de texto) →
+   paso 4 (OCR).
+3. Si es Word/Excel/PowerPoint → Convert file a PDF (ya existente, paso 4
+   del flujo actual) → PDF Tools: extraer texto, mismo criterio de vacío que
+   arriba.
+4. Solo si el paso 2/3 no da texto aprovechable → AI Builder OCR (como
+   ahora), como fallback, no como paso obligatorio.
+5. Respond to the agent con el texto (mismo recorte a 12.000 caracteres de
+   §3 paso 7).
+
+Pendiente de verificar en el tenant real (no solo en documentación): que
+"PDF Tools (Tachytelic)" aparece disponible para añadir como conector en
+este entorno de Power Platform, y probar el paso 2/3 con un PDF nativo real
+de Licitaciones y con uno escaneado para confirmar el criterio de "vacío ⇒
+OCR".
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
