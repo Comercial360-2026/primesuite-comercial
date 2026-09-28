@@ -715,6 +715,51 @@ mensaje de "no puedo leer documentos".**
    debe decir "No se pudo leer el documento" en vez de inventar — pendiente
    de confirmar ese comportamiento con un caso real cuando aparezca.
 
+## 5l. Hallazgo crítico: los flujos rotos "contaminan" el turno entero — desactivados (28-09)
+
+**Diagnóstico, no suposición, verificado con 3 repeticiones antes y después
+del cambio.** Probando la cadena de dos preguntas (§5k) con una pregunta más
+ambigua ("¿qué equipo se ofertó en la REF-27093-0 y qué garantía tiene?",
+que toca a la vez CRM/Oportunidades y Licitaciones/documento), apareció un
+fallo nuevo y preocupante: **el conector del CRM ("Enumerar las filas de
+una tabla"), que llevaba toda la sesión funcionando perfecto, falló con el
+mismo `AuthenticationNotConfigured`** de los flujos bloqueados — 3 de 3
+veces con esa pregunta exacta.
+
+Aislado el problema:
+- El CRM solo (pregunta simple, sin mención a Licitaciones): **5 de 5
+  llamadas con éxito**, mismo turno, misma sesión.
+- La pregunta ambigua siempre acababa con el agente intentando también
+  **"Consultas CB - Buscar en Licitaciones"** (el flujo clásico bloqueado
+  por licencia, §5c/§5d/§5g) en el mismo turno — y ahí es donde fallaba,
+  arrastrando también al CRM.
+
+**Conclusión: cuando el orquestador intenta invocar, en el MISMO turno, un
+flujo bloqueado por falta de licencia premium, el error de autenticación no
+se queda solo en esa llamada — contamina el resto de llamadas a conectores
+de ese turno**, aunque esos conectores (como el CRM) no tengan ningún
+problema por sí solos. Antes esto no se veía porque las preguntas de CRM
+puro nunca disparaban también el flujo de Licitaciones; ahora, con las
+instrucciones ya corregidas para leer contenido (§5k), el agente combina
+fuentes con más naturalidad en preguntas de tipo "qué se ofertó/vendió",
+exponiendo el bug en un caso nuevo. No es una regresión introducida hoy: es
+el mismo bug de licencia de siempre, disparado ahora con más frecuencia.
+
+**Arreglo aplicado y verificado:** desactivadas (no eliminadas, por si
+algún día se quieren reactivar) las dos herramientas de tipo Flujo:
+"Consultas CB - Buscar en Licitaciones" y "Consultas CB - Leer documento"
+— ninguna de las dos funciona igualmente (§5g/§5j), y ahora que "Mostrar
+lista de carpetas" + "Obtener contenido de archivo mediante ruta de
+acceso" cubren todo lo que hacían, no hacen falta. **Repetida la misma
+pregunta que fallaba 3/3 veces: ahora responde perfecto**, con el detalle
+completo (equipo, características, garantía, plazo, precio) y la fuente
+citada bien, sin tocar el CRM para nada en esta pregunta (fue directa a
+Licitaciones, correcto).
+
+**Publicado (28-09, 13:07)** con las dos herramientas de flujo
+desactivadas. Confirmado por el propio Copilot Studio ("¡Su agente se ha
+publicado!").
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
