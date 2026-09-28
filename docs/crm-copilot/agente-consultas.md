@@ -856,14 +856,54 @@ Un mismo cliente puede tener carpetas en **varias** categorías a la vez
 (SAPA: `P260130` en JOBS, `CM-2026-054`/`CM-2026-221` en MANTENIMIENTO,
 `SO2600360` en SALES ORDERS) — "la carpeta de SAPA" no es una sola.
 
-**Propuesto, sin aplicar todavía** (pendiente de que Cesar lo pegue en las
-instrucciones del agente, sección Licitaciones): añadir este mapa tal cual
-más una regla explícita — *"Para buscar la carpeta de un cliente, mira
-TODAS las categorías de año relevantes (Licitaciones, JOBS, MANTENIMIENTO,
-SALES ORDERS, REPARACIONES) bajando al menos un nivel en cada una; no
-concluyas 'no existe carpeta' tras listar solo la raíz. Si hay coincidencia
-en más de una categoría, dilas todas."* Objetivo: que la profundidad de
-búsqueda deje de depender de cómo se formule la pregunta.
+**Aplicado y publicado (28-09 noche):** pegada la nota del mapa al final de
+las instrucciones del agente (7241/8000 caracteres) y publicado.
+
+**Primera versión insuficiente — reproducido con la MISMA pregunta
+(REF-34469-H4P3) tras publicar:** el agente ya no se rinde en la raíz —
+esta vez SÍ entró en la categoría "2026 - Licitaciones" (mejora real) —
+pero solo comprobó esa, no "2026-PEDIDOS-JOBS", y aun así afirmó sin
+matices *"No se ha encontrado carpeta ni documento de SAPA en
+Licitaciones"* — una afirmación falsa: la carpeta `P260130 - SAPA
+OPERACIONES, S.L` sí existe (es la misma que encontró él mismo en la
+pregunta "¿existe pedido de SAPA?"), simplemente está en la categoría
+`PEDIDOS-JOBS`, no en `Licitaciones`. Cesar lo detectó porque no cuadraba
+con lo que ya sabíamos.
+
+**Causa:** mi primera redacción decía "entra en la categoría SEGÚN EL TIPO
+DE PREGUNTA", lo que deja al modelo elegir UNA sola categoría (aquí:
+"Licitaciones", por tratarse de una "oferta") y no le impide declarar "no
+hay carpeta en Licitaciones" en general habiendo mirado solo esa. El campo
+`Tipo` que el propio CRM ya devuelve para esa oferta (`Tipo: Proyecto`)
+apuntaba directamente a `PEDIDOS-JOBS`, y no se usó para elegir la
+categoría.
+
+**Corrección aplicada (28-09 noche, mismo bloque):** se añadió una segunda
+nota inmediatamente después de la primera, forzando explícitamente: (1)
+usar el campo `Tipo` del CRM para elegir la categoría más probable
+(Proyecto→PEDIDOS-JOBS, Mantenimiento→PEDIDOS MANTENIMIENTO, material o
+suministro→PEDIDOS-SALES ORDERS, soporte→PEDIDOS-REPARACIONES) y
+comprobarla ADEMÁS de Licitaciones antes de concluir nada; (2) nunca decir
+"no hay carpeta en Licitaciones" sin matizar — decir exactamente qué
+categorías se comprobaron y cuáles no, si el presupuesto de llamadas no
+llegó a cubrirlas todas. Publicado.
+
+**Reprobado con la misma pregunta (REF-34469-H4P3) tras la corrección:**
+mejora parcial. El agente sigue sin entrar en `2026-PEDIDOS-JOBS` pese al
+`Tipo: Proyecto` del CRM (solo miró raíz + `2026-Licitaciones`, igual que
+antes) — la regla de "usa el campo Tipo para elegir la categoría" no se
+siguió al pie de la letra. Pero la SEGUNDA parte de la corrección sí
+funcionó: ya no hace la afirmación general falsa "no hay carpeta en
+Licitaciones" — ahora dice exactamente qué miró: *"revisado en raíz y en
+«2026 - Licitaciones»; tampoco existe carpeta 'SAPA' allí"* y la fuente
+dice *"Licitaciones: revisado raíz y 2026-Licitaciones — sin carpeta
+SAPA"*. Es decir: ya no miente por omisión, pero sigue sin ser exhaustivo.
+**Pendiente real, sin resolver:** conseguir que siga la regla de elegir
+categoría por `Tipo` de forma consistente — probablemente hace falta algo
+más fuerte que una instrucción en prosa (p. ej. forzarlo con un ejemplo
+concreto en las instrucciones, o aceptar que esto es variabilidad normal
+del modelo y que la transparencia lograda ya es la mejora real y suficiente
+por ahora).
 
 ## 6. Receta para replicarlo en otro agente
 
