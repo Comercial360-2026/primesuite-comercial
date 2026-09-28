@@ -613,6 +613,69 @@ decidir:
 resolver esto. No es un callejón sin salida — es una decisión de
 arquitectura de autenticación que le corresponde a Cesar antes de seguir.
 
+## 5k. Solución completa validada, sin IT, sin Knowledge, sin Agent Flow (28-09)
+
+**Verificado en vivo con un PDF real, extremo a extremo.** Cesar no puede
+pedir nada a IT (ni crear una app de Entra ID, ni cambiar el método de
+autenticación del agente, §5j). Se buscó una vía que no tocara nada de eso:
+usar solo acciones estándar del conector SharePoint, igual que "Mostrar
+lista de carpetas" (§5i), que nunca ha necesitado licencia ni admin.
+
+**Herramienta añadida: "Obtener contenido de archivo mediante ruta de
+acceso"** (SharePoint · *Get file content using path* — la MISMA acción que
+usaba el flujo original en §3 paso 2, ahora expuesta directa como
+herramienta, sin flujo de por medio). Aviso para el futuro: existe una
+acción hermana "Get file content" (sin "using path") que pide un selector
+de archivo fijo y **no admite relleno dinámico por IA** — es la que NO hay
+que usar; la de "using path" sí tiene un campo `File Path` de texto simple
+con "Rellenar dinámicamente con IA" disponible, igual que
+`list_folder_id` en "Mostrar lista de carpetas".
+
+Configuración: Site Address fijo (mismo sitio de Proyectos Digitek),
+`File Path` con instrucciones para que la IA pase la ruta **tal cual** la
+devuelve "Mostrar lista de carpetas" en su campo `Path`.
+
+**Prueba en vivo (28-09, panel «Probar»), con datos reales:**
+1. "Mostrar lista de carpetas" → carpeta GESALAGA: completado, 3 documentos
+   PDF encontrados.
+2. "Obtener contenido de archivo mediante ruta de acceso" sobre el primer
+   PDF (`.../GESALAGA/230310 REF-27093-0-Gesalaga Okelan SLU-OF Equipo
+   Control de Presencia.pdf`, 481.471 bytes): **completado sin error**, con
+   **contenido extraído del PDF (5 páginas)** — sin OCR, sin AI Builder, sin
+   ningún conector de pago.
+
+**Hallazgo colateral importante:** el agente, al ver que tenía el
+contenido, **se negó a resumirlo** citando que "según la política operativa
+configurada para este agente, no está autorizado a leer ni resumir el
+contenido de documentos de Licitaciones" — es una instrucción ya presente
+en el prompt del agente (probablemente de cuando "Leer documento" no
+funcionaba y se quiso evitar que el agente prometiera algo que no podía
+cumplir). **Hay que revisar y actualizar las instrucciones del agente** para
+permitir explícitamente usar esta cadena (Mostrar lista de carpetas →
+Obtener contenido de archivo mediante ruta de acceso) para responder
+preguntas de contenido — si no, el agente seguirá autobloqueándose aunque
+la herramienta funcione.
+
+**Esto reemplaza toda la arquitectura de §3/§5e/§5f/§5g/§5h/§5j.** Ya no
+hace falta: Agent Flow (bloqueado por Microsoft, §5g), Knowledge con
+SharePoint (bloqueado por autenticación, necesita IT, §5j), ni PDF Tools de
+terceros (§5f) — la extracción de texto del PDF ya viene incluida en la
+respuesta de "Get file content using path" sin pasos adicionales. Toda la
+cadena usa exclusivamente acciones estándar del conector SharePoint que
+nunca han necesitado licencia premium ni intervención de un administrador.
+
+**Pendiente, sencillo, sin bloqueos:**
+1. Actualizar las instrucciones del agente para autorizar esta cadena en
+   preguntas de contenido de documentos.
+2. Probar con un documento Word/Excel/PowerPoint (no solo PDF) — puede que
+   necesite el paso de conversión a PDF de §5f si "Get file content using
+   path" no extrae texto de esos formatos igual de bien; pendiente de
+   verificar.
+3. Probar con un PDF escaneado (sin texto embebido) para confirmar que
+   falla con claridad («no consta») en vez de devolver basura, y decidir si
+   hace falta algún fallback para ese caso minoritario.
+4. Publicar el agente cuando se den por buenas las pruebas.
+
 ## 6. Receta para replicarlo en otro agente
 
 1. Crear el agente en el editor clásico; desactivar web; elegir modelo.
