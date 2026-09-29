@@ -119,6 +119,8 @@ export function DetalleActividadComercial() {
               return (
                 <FilaNavegable
                   key={p.proyecto_id}
+                  avatar={p.proyecto_nombre}
+                  avatarForma="proyecto"
                   titulo={etiqueta}
                   subtitulo={metrica}
                   to={`/clientes/${p.cliente_id}/proyectos/${p.proyecto_id}`}

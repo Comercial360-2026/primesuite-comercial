@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { esSinRed } from '@/lib/red';
+import { hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { Modal } from '@/components/ui/modal';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface ProyectoOpcion {
@@ -70,6 +73,8 @@ export function ObjetivoVisitaModal({
   const [nombreNuevo, setNombreNuevo] = useState('');
   const [creandoCarga, setCreandoCarga] = useState(false);
   const [errorNuevo, setErrorNuevo] = useState<string | null>(null);
+  const duplicado = hayNombreDuplicado(nombreNuevo, opciones);
+  const [dupConfirmado, confirmarDup] = useConfirmacionDuplicado(nombreNuevo.trim().toLowerCase());
 
   // El bloque de proyecto se muestra si hay que elegir (2+) o si se puede
   // crear uno nuevo aquí mismo.
@@ -77,7 +82,7 @@ export function ObjetivoVisitaModal({
 
   async function crearProyecto() {
     const nombre = nombreNuevo.trim();
-    if (!nombre || !onCrearProyecto || creandoCarga) return;
+    if (!nombre || !onCrearProyecto || creandoCarga || (duplicado && !dupConfirmado)) return;
     setCreandoCarga(true);
     setErrorNuevo(null);
     try {
@@ -167,6 +172,13 @@ export function ObjetivoVisitaModal({
                 placeholder="p. ej. Mantenimiento, Obra nueva, Postventa…"
               />
               {errorNuevo && <div className="field-error-text">{errorNuevo}</div>}
+              {duplicado && !dupConfirmado && (
+                <AvisoNombreDuplicado
+                  titulo="Ya hay un proyecto con este nombre."
+                  subtitulo="Si es una línea de negocio distinta, puedes crearlo igual."
+                  onConfirmar={confirmarDup}
+                />
+              )}
               <div className="fila-btns" style={{ marginTop: 8 }}>
                 <button
                   type="button"
@@ -183,7 +195,7 @@ export function ObjetivoVisitaModal({
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={creandoCarga || !nombreNuevo.trim()}
+                  disabled={creandoCarga || !nombreNuevo.trim() || (duplicado && !dupConfirmado)}
                   onClick={crearProyecto}
                 >
                   {creandoCarga ? 'Creando…' : 'Crear'}

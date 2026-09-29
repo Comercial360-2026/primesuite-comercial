@@ -71,12 +71,25 @@ export function useAvisosGestion() {
     },
   });
 
+  // Tope diario de briefings del agente alcanzado (migración 123).
+  const { data: topeBriefing } = useQuery({
+    queryKey: ['avisos-briefing-tope'],
+    refetchOnMount: 'always',
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase.rpc('fn_tope_briefing').maybeSingle();
+      if (err) throw err;
+      return data;
+    },
+  });
+
   return {
+    topeBriefing,
     numSolicitudesPendientes,
     numPeticionesAcceso,
     numGruposDuplicados,
     hayAvisos:
       esDireccionComercial &&
-      (!!numSolicitudesPendientes || !!numPeticionesAcceso || !!numGruposDuplicados),
+      (!!numSolicitudesPendientes || !!numPeticionesAcceso || !!numGruposDuplicados || !!topeBriefing?.alcanzado),
   };
 }

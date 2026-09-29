@@ -577,6 +577,14 @@ siempre en el mismo tono en cualquier pantalla. Las iniciales (texto) son
 la segunda pista de accesibilidad sobre el color (§"Color y
 accesibilidad" de siempre) — el círculo nunca es la única señal.
 
+**Marca de proyecto** (prompt maestro 13): el mismo `Avatar` con
+`forma="proyecto"` (`avatarForma="proyecto"` en `FilaNavegable` y
+`CabeceraDetalle`) — cuadrado redondeado para no leerse como persona. Va en
+TODA fila o cabecera que represente un proyecto: lista de proyectos del
+cliente, cabecera del proyecto, selectores de proyecto (planificar, empezar
+visita) y actividad por proyecto. Un proyecto terminado conserva su icono de
+estado (✓), que gana a la marca. Nunca numerar proyectos.
+
 - **`FilaNavegable` / `FilaDato` / `FilaAccion`** aceptan `avatar={nombre}`
   además de `icono`: si se pasan los dos, `icono` gana (es una señal de
   estado real, p. ej. ⚠ "de baja" o "atención" — pesa más que la

@@ -14,6 +14,8 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 import { useVolverA, desde } from '@/lib/volver-a';
+import { BriefingHoja } from './briefing-hoja';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
 // verla, reprogramarla, cancelarla o empezarla. Es a donde llevan las
@@ -67,6 +69,10 @@ export function DetalleVisitaPlanificada() {
   const [horaNueva, setHoraNueva] = useState('');
   const [franjaNueva, setFranjaNueva] = useState<'' | 'manana' | 'tarde'>('');
   const [confirmando, setConfirmando] = useState<null | 'cancelar' | 'empezar'>(null);
+  // Briefing del cliente: se prepara solo al planificar (visitas de los
+  // próximos 7 días) y la noche anterior — aquí es donde se lee antes de ir.
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const reprogramar = useAccionAsync();
   const cancelar = useAccionAsync();
   const hoyISO = new Date().toISOString().slice(0, 10);
@@ -96,6 +102,7 @@ export function DetalleVisitaPlanificada() {
       };
     },
   });
+  const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
   function invalidarListas() {
     queryClient.invalidateQueries({ queryKey });
@@ -187,6 +194,32 @@ export function DetalleVisitaPlanificada() {
         ayuda="visita-planificada"
         volverA={volver}
         subtitulo={data && fechaVisita ? fechaCorta(fechaVisita) : undefined}
+        derecha={
+          data && (
+            <>
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setBriefingAbierto(true)}
+                aria-label="Briefing"
+                title="Briefing del cliente"
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+              {puedePreguntarIA && (
+                <button
+                  type="button"
+                  className="boton-icono"
+                  onClick={() => setPreguntaIAAbierta(true)}
+                  aria-label="Pregunta a la IA"
+                  title="Pregunta a la IA sobre este cliente"
+                >
+                  <Icono nombre="ia" size={18} />
+                </button>
+              )}
+            </>
+          )
+        }
       />
 
       {isLoading && <EstadoLista estado="cargando" />}
@@ -376,6 +409,24 @@ export function DetalleVisitaPlanificada() {
             />
           )}
         </>
+      )}
+
+      {briefingAbierto && data && (
+        <BriefingHoja
+          visitaId={data.id}
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          onCerrar={() => setBriefingAbierto(false)}
+        />
+      )}
+
+      {preguntaIAAbierta && data && (
+        <PreguntaIAHoja
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          visitaId={data.id}
+          onCerrar={() => setPreguntaIAAbierta(false)}
+        />
       )}
     </div>
   );

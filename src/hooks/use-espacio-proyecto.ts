@@ -99,7 +99,7 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     setProgreso({ fase: 'descargando', hecho: 0, total: candidatas.length });
     let hechas = 0;
     for (let i = 0; i < candidatas.length; i++) {
-      const resultadoDescarga = await descargar('visita', candidatas[i].visita_id);
+      const resultadoDescarga = await descargar('visita-zip', candidatas[i].visita_id);
       if (typeof resultadoDescarga === 'object') hechas++;
       setProgreso({ fase: 'descargando', hecho: i + 1, total: candidatas.length });
     }
@@ -131,7 +131,7 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
     const descargadas: VisitaEspacioProyecto[] = [];
     for (let i = 0; i < candidatas.length; i++) {
       const v = candidatas[i];
-      const resultadoDescarga = await descargar('visita', v.visita_id);
+      const resultadoDescarga = await descargar('visita-zip', v.visita_id);
       if (typeof resultadoDescarga !== 'object') {
         // BUG encontrado en verificación en vivo (forzando el fallo de la 2ª
         // descarga de un lote de 2): este aviso se perdía porque

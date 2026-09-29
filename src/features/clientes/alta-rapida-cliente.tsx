@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -13,11 +13,14 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
-import { normalizarNombre, claveDuplicado } from '@/lib/nombres-cliente';
+import { normalizarNombre, claveDuplicado, CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 
 // El alta crea cliente + primer proyecto: con red, en una transacción vía la
 // RPC `crear_cliente_con_proyecto` (que sustituye al antiguo trigger del
@@ -39,6 +42,20 @@ export function AltaRapidaCliente() {
   // Un cliente nace con su primer proyecto (línea de negocio). Sin proyecto no
   // hay cliente: toda visita cuelga de uno.
   const [nombreProyecto, setNombreProyecto] = useState('');
+  // Cuenta del CRM elegida en el buscador que sale bajo el nombre. Opcional:
+  // un cliente que aún no está en el CRM (o un alta sin red) se crea sin ella
+  // y se vincula luego con el lápiz de la ficha.
+  const [cuentaCrm, setCuentaCrm] = useState<CuentaCrm | null>(null);
+  const proyectoRef = useRef<HTMLInputElement>(null);
+
+  // Elegir la cuenta es decir «es esta empresa»: el nombre pasa a ser el del
+  // CRM (lo tecleado era solo para buscarla) y se salta al proyecto, que es lo
+  // único que falta para guardar.
+  function elegirCuentaCrm(c: CuentaCrm) {
+    setCuentaCrm(c);
+    setNombre(c.nombre);
+    if (!nombreProyecto.trim()) proyectoRef.current?.focus();
+  }
   const creacionCliente = useAccionAsync();
   // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
   // vuelve a donde se venía; si no consta, al listado de Clientes.
@@ -77,10 +94,10 @@ export function AltaRapidaCliente() {
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string }>> => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre')
+        .select('id, nombre, estado_relacion')
         .eq('estado_fusion', 'activo');
       if (error) throw error;
       return data ?? [];
@@ -127,6 +144,8 @@ export function AltaRapidaCliente() {
   }, [nombreNorm, nombreClave, clientesExistentes]);
 
   const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
+  const [dupClienteConfirmado, confirmarDupCliente] = useConfirmacionDuplicado(nombreNorm);
+  const bloqueadoPorDuplicado = hayExacto && !dupClienteConfirmado;
 
   // Defensa explícita: sin pantalla de login construida todavía, `comercial`
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
@@ -162,6 +181,7 @@ export function AltaRapidaCliente() {
           // El que da de alta el cliente es su responsable de cartera.
           // Dirección lo reasigna después si hace falta.
           p_responsable_id: comercial.id,
+          p_crm_accountid: cuentaCrm?.accountid,
         })
         .single();
       if (!errorCliente && data) {
@@ -181,6 +201,7 @@ export function AltaRapidaCliente() {
       nombre: nombreLimpio,
       creadoPor: comercial.id,
       responsableId: comercial.id,
+      crmAccountid: cuentaCrm?.accountid,
     });
     await encolar(
       proyectoId,
@@ -250,7 +271,7 @@ export function AltaRapidaCliente() {
   // flujo de planificar apuntando a ese proyecto. Planificar necesita el
   // cliente y su proyecto ya en el servidor, así que este flujo exige conexión.
   async function crearYPlanificar() {
-    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado) return;
     if (!navigator.onLine) {
       creacionCliente.establecerError(
         'Necesitas conexión para planificar una visita. Puedes iniciar la visita ahora o guardar sin visita.'
@@ -277,7 +298,7 @@ export function AltaRapidaCliente() {
   // "Aún no sé cuándo": solo crea la ficha. Si se encoló (sin red), la
   // ficha aún no existe en el servidor, así que se vuelve al listado.
   async function crearSinVisita() {
-    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando) return;
+    if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado) return;
     await creacionCliente.ejecutar(crearCliente, {
       onExito: (cliente) => navigate(cliente.enCola ? '/clientes' : `/clientes/${cliente.id}`),
     });
@@ -289,6 +310,12 @@ export function AltaRapidaCliente() {
   // (el arranque real lo hace arrancarConObjetivo al confirmar).
   async function visitarExistente(clienteId: string, clienteNombre: string) {
     if (creacionCliente.cargando) return;
+    // Archivado: sí se enseña (si no, se daría de alta otra vez), pero se va
+    // a su ficha a reactivarlo en vez de arrancarle una visita a escondidas.
+    if (clientesExistentes?.some((c) => c.id === clienteId && c.estado_relacion === CLIENTE_ARCHIVADO)) {
+      navigate(`/clientes/${clienteId}`);
+      return;
+    }
     const { data } = await supabase
       .from('visita')
       .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre)')
@@ -334,6 +361,7 @@ export function AltaRapidaCliente() {
 
           <div className="label">Primer proyecto</div>
           <input
+            ref={proyectoRef}
             className="field"
             autoComplete="off"
             value={nombreProyecto}
@@ -347,13 +375,36 @@ export function AltaRapidaCliente() {
           {creacionCliente.error && <div className="field-error-text">{creacionCliente.error}</div>}
         </div>
 
+        {/* El campo de nombre hace de buscador del CRM: al elegir una cuenta
+            desaparecen los resultados, queda solo la elegida y el nombre pasa
+            a ser el suyo (elegirCuentaCrm). Una cuenta que ya tiene cliente
+            lleva a ese cliente, como las coincidencias. */}
+        {cuentaCrm ? (
+          <SeccionLista titulo="Cuenta en el CRM">
+            <FilaNavegable
+              titulo={textoCuentaCrm(cuentaCrm)}
+              valor="quitar"
+              valorTenue
+              chevron={false}
+              disabled={creacionCliente.cargando}
+              onClick={() => setCuentaCrm(null)}
+            />
+          </SeccionLista>
+        ) : (
+          <ResultadosCuentaCrm
+            texto={nombre}
+            disabled={creacionCliente.cargando}
+            onElegir={(c, cliente) => (cliente ? visitarExistente(cliente.id, cliente.nombre) : elegirCuentaCrm(c))}
+          />
+        )}
+
         {coincidencias.length > 0 && (
           <SeccionLista titulo={hayExacto ? 'Ya existe un cliente con este nombre' : 'Ya existen clientes parecidos'}>
             {coincidencias.map((c) => (
               <FilaNavegable
                 key={c.id}
                 titulo={c.nombre}
-                valor="iniciar visita"
+                valor={c.estado_relacion === CLIENTE_ARCHIVADO ? 'archivado' : 'iniciar visita'}
                 valorTenue
                 disabled={creacionCliente.cargando}
                 onClick={() => visitarExistente(c.id, c.nombre)}
@@ -361,9 +412,13 @@ export function AltaRapidaCliente() {
             ))}
           </SeccionLista>
         )}
-        {hayExacto && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
-            Si es otro negocio con el mismo nombre, puedes crearlo igual con el botón de abajo.
+        {hayExacto && !dupClienteConfirmado && (
+          <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+            <AvisoNombreDuplicado
+              titulo="Ya existe un cliente con este nombre."
+              subtitulo="Si es otro negocio distinto, puedes crearlo igual."
+              onConfirmar={confirmarDupCliente}
+            />
           </div>
         )}
 
@@ -376,7 +431,7 @@ export function AltaRapidaCliente() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <button
           className="btn btn-primary"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={() => setObjetivoModal({ modo: 'nuevo' })}
         >
           Guardar e iniciar visita ahora
@@ -384,14 +439,14 @@ export function AltaRapidaCliente() {
         </button>
         <button
           className="btn btn-secondary"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={crearYPlanificar}
         >
           Guardar y planificar visita
         </button>
         <button
           type="button"
-          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando}
+          disabled={!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado}
           onClick={crearSinVisita}
           style={{
             border: 'none',

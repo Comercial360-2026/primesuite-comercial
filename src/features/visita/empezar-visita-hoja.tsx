@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
@@ -12,6 +14,7 @@ import { arrancarVisitaAhora } from '@/lib/arrancar-visita';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
@@ -88,6 +91,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
       const { data, error } = await supabase
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
+        .neq('estado_relacion', CLIENTE_ARCHIVADO)
         .ilike('cliente_nombre', `%${termino}%`)
         .order('cliente_nombre')
         .limit(8);
@@ -133,12 +137,16 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     [proyectosTodos]
   );
 
-  // Un solo proyecto vivo → se elige solo, no se muestra el paso.
+  // Un solo proyecto vivo → se elige solo, no se muestra el paso. Solo una
+  // vez por cliente: si el comercial retrocede a propósito (para crear uno
+  // nuevo, ver `puedeVolverAProyecto`), no se re-autoselecciona de golpe.
+  const autoSeleccionadoPara = useRef<string | null>(null);
   useEffect(() => {
-    if (!proyectoId && proyectos && proyectos.length === 1) {
+    if (!proyectoId && proyectos?.length === 1 && autoSeleccionadoPara.current !== clienteId) {
+      autoSeleccionadoPara.current = clienteId;
       setProyectoId(proyectos[0].id);
     }
-  }, [proyectos, proyectoId]);
+  }, [proyectos, proyectoId, clienteId]);
 
   useEffect(() => {
     setConfirmadoDeOtro(false);
@@ -157,9 +165,14 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
 
   const listaClientes = termino.length >= 2 ? encontrados : recientes;
 
+  const proyectoDuplicado = hayNombreDuplicado(nombreProyectoNuevo, proyectos ?? []);
+  const [dupProyectoConfirmado, confirmarDupProyecto] = useConfirmacionDuplicado(
+    nombreProyectoNuevo.trim().toLowerCase()
+  );
+
   async function crearProyectoYElegir() {
     const nombre = nombreProyectoNuevo.trim();
-    if (!clienteId || !nombre) return;
+    if (!clienteId || !nombre || (proyectoDuplicado && !dupProyectoConfirmado)) return;
     setCreandoProyLoad(true);
     setCreandoProyErr(null);
     try {
@@ -226,9 +239,9 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
 
   // La × / Esc / tocar fuera RETROCEDE de paso, no sale de golpe (misma regla
   // que el ← de /planificar): objetivo → proyecto → cliente → cerrar. El paso
-  // de proyecto solo se rehace si de verdad había que elegir (>1 proyecto);
-  // con uno solo se salta directo al de cliente para no re-autoseleccionarlo.
-  const puedeVolverAProyecto = !!proyectoId && (proyectos?.length ?? 0) > 1;
+  // de proyecto siempre se puede rehacer aunque haya uno solo — es la única
+  // forma de llegar a "Nuevo proyecto" cuando se autoseleccionó de golpe.
+  const puedeVolverAProyecto = !!proyectoId;
   function cerrarORetroceder() {
     if (puedeVolverAProyecto) {
       setProyectoId('');
@@ -297,7 +310,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           </div>
         )}
 
-        {/* Paso 2 — proyecto (solo si hay más de uno) */}
+        {/* Paso 2 — proyecto (se salta con autoselección si hay uno solo,
+            pero sigue accesible retrocediendo para poder crear uno nuevo) */}
         {!!clienteId && !proyectoId && (
           <div>
             <div className="label" style={{ marginTop: 0 }}>
@@ -305,7 +319,14 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             </div>
             <SeccionLista>
               {proyectos?.map((p) => (
-                <FilaNavegable key={p.id} titulo={p.nombre} onClick={() => setProyectoId(p.id)} chevron />
+                <FilaNavegable
+                  key={p.id}
+                  avatar={p.nombre}
+                  avatarForma="proyecto"
+                  titulo={p.nombre}
+                  onClick={() => setProyectoId(p.id)}
+                  chevron
+                />
               ))}
               {!creandoProyecto && (
                 <FilaNavegable
@@ -327,6 +348,13 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                   placeholder="p. ej. Mantenimiento, Obra nueva…"
                 />
                 {creandoProyErr && <div className="field-error-text">{creandoProyErr}</div>}
+                {proyectoDuplicado && !dupProyectoConfirmado && (
+                  <AvisoNombreDuplicado
+                    titulo="Ya hay un proyecto con este nombre."
+                    subtitulo="Si es una línea de negocio distinta, puedes crearlo igual."
+                    onConfirmar={confirmarDupProyecto}
+                  />
+                )}
                 <div className="fila-btns" style={{ marginTop: 8 }}>
                   <button
                     type="button"
@@ -343,7 +371,9 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={creandoProyLoad || !nombreProyectoNuevo.trim()}
+                    disabled={
+                      creandoProyLoad || !nombreProyectoNuevo.trim() || (proyectoDuplicado && !dupProyectoConfirmado)
+                    }
                     onClick={crearProyectoYElegir}
                   >
                     {creandoProyLoad ? 'Creando…' : 'Crear y seguir'}
