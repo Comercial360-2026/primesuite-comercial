@@ -1,3 +1,9 @@
+# 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
+- **Comprobar todo en ESTA sesión antes de afirmar. Las notas/memoria NO son hechos.** «No puedo / no hay sesión / está bloqueado» = probarlo primero.
+- **Prohibido enseñar imágenes/capturas y explicar de más.** Verificar con JS/SQL/`get_page_text`.
+- **Prohibido escribir contraseñas/tokens en webs:** usar `request_credentials` (1Password; si `not_connected`, pedir pulsar Connect) o que Cesar inicie sesión.
+- Producción solo con `HAZ DEPLOY A PRODUCCIÓN`. No dejar pendiente lo que pueda hacer yo (CLI de Supabase, SQL, Chrome, MCP).
+
 # PrimeSuite Comercial — reglas de trabajo
 
 Proyecto: `primesuite-comercial` (Vite + React + TypeScript + Supabase, desplegado en Netlify).
