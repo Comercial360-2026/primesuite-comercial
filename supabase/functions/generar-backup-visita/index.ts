@@ -36,7 +36,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
-import { obtenerEnlaceSharePoint } from '../_shared/sharepoint-enlace.ts';
+import { obtenerArchivoSharePoint } from '../_shared/sharepoint-enlace.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -181,7 +181,7 @@ async function descargarBinario(
   }
   if (c.ubicacion_archivo !== 'sharepoint' || !c.ruta_sharepoint) return null;
   try {
-    const url = await obtenerEnlaceSharePoint(admin, c.ruta_sharepoint);
+    const url = await obtenerArchivoSharePoint(admin, c.ruta_sharepoint);
     const r = await fetch(url);
     if (!r.ok) return null;
     return new Uint8Array(await r.arrayBuffer());

@@ -1,14 +1,14 @@
 // supabase/functions/obtener-url-archivo-sharepoint/index.ts
 //
-// Enlace temporal de descarga para una captura ya archivada en SharePoint
-// (ver diseño, "Flujo de lectura" — nunca se guarda un enlace permanente).
+// Contenido (data: URL) de una captura ya archivada en SharePoint
+// (sin enlaces: el flujo devuelve el contenido, ver _shared/sharepoint-enlace.ts).
 // El permiso para ver la captura es el mismo que ya aplica la RLS de
 // captura_libre (pol_captura_select): se consulta con el token del propio
 // usuario, no con service_role, para no reimplementar esa regla aquí.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { CORS_HEADERS, jsonResponse } from '../_shared/informe-pdf.ts';
-import { obtenerEnlaceSharePoint } from '../_shared/sharepoint-enlace.ts';
+import { obtenerArchivoSharePoint } from '../_shared/sharepoint-enlace.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   try {
-    const url = await obtenerEnlaceSharePoint(admin, captura.ruta_sharepoint);
+    const url = await obtenerArchivoSharePoint(admin, captura.ruta_sharepoint);
     return jsonResponse({ url });
   } catch (e) {
     return jsonResponse({ error: (e as Error).message }, 502);
