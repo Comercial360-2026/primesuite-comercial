@@ -112,6 +112,15 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
   listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
 
+- **Adjuntos de visita: una sola lista de buckets.** Todo sitio que borre,
+  liste o mida adjuntos de una visita usa `BUCKETS_VISITA` /
+  `quitarAdjuntosDeStorage` / `bucketDeTipo` (`src/lib/buckets-visita.ts`).
+  Nunca `from('fotos-visita')` + `from('audios-visita')` sueltos: un bucket
+  nuevo (como `documentos-visita`) se olvidaría en un borrado y dejaría
+  archivos huérfanos. En SQL, las funciones `fn_espacio_*` /
+  `fn_mis_visitas_espacio` / `fn_visitas_liberables_proyecto` llevan la misma
+  lista: al añadir un bucket se actualizan todas en la misma migración.
+
 ## Despliegue (Netlify)
 
 | Concepto                  | Valor                                                     |
