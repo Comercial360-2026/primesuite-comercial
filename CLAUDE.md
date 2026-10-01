@@ -112,6 +112,20 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
   listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
 
+## Cómo comunicarse con Cesar (obligatorio, repetido muchas veces)
+
+- **Sin explicaciones ni narración.** No anunciar qué voy a hacer ni explicar causas
+  salvo que se pidan. Un resultado en una línea; si le toca algo a él, los pasos exactos.
+- **Sin pantallazos.** Verificar en navegador con JS / `get_page_text` / `find`, nunca
+  con `screenshot` en la respuesta. Si hace falta uno para ubicar un clic, no se
+  menciona ni se describe.
+- **Hacerlo yo antes de pasarle trabajo.** Si el clasificador de Claude Code lo
+  bloquea, decirlo en una línea y dar los pasos.
+- **Documentarse antes de programar integraciones externas** (Power Automate, SharePoint,
+  Supabase Edge, etc.): comprobar en la documentación cómo funciona cada pieza
+  (formatos, límites, nombres reales) ANTES de escribir código, y probar por capas.
+  Nada de «probar a ver si cuela».
+
 ## Despliegue (Netlify)
 
 | Concepto                  | Valor                                                     |
