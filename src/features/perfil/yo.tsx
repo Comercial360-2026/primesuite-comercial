@@ -131,9 +131,9 @@ export function Yo() {
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
 
-  // Paso extra del tour, solo Dirección — señala "El equipo" la primera vez
-  // que entra aquí. Tour de bienvenida (las 4 pestañas) vive en LayoutShell;
-  // "Ver guía rápida" más abajo relanza los dos.
+  // Paso extra del tour, solo Dirección — señala "El equipo". Ya no sale solo:
+  // lo lanza "Ver guía de Dirección" más abajo (el tour de bienvenida, las 4
+  // pestañas, vive en LayoutShell y lo lanza "Ver guía rápida").
   const tourDireccion = useTourGuiado(
     'direccion',
     esDireccionComercial ? comercial?.id : undefined,
@@ -779,6 +779,14 @@ export function Yo() {
             subtitulo="El recorrido de bienvenida por el menú de abajo"
             onClick={() => tourNavControl.reiniciar()}
           />
+          {esDireccionComercial && (
+            <FilaNavegable
+              icono="guia"
+              titulo="Ver guía de Dirección"
+              subtitulo="Qué hay en «El equipo» y en Gestión"
+              onClick={() => tourDireccion.reiniciar()}
+            />
+          )}
         </SeccionLista>
 
         <SeccionLista>
