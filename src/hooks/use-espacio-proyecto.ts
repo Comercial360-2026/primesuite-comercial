@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { useVisitasConColaPendiente } from '@/hooks/use-sync-queue';
 import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { plural } from '@/lib/texto';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 export interface VisitaEspacioProyecto {
   visita_id: string;
@@ -184,10 +185,7 @@ export function useEspacioProyecto(proyectoId: string | undefined) {
         (f) => descargadas.find((v) => v.visita_id === f.visita_id)?.rutas_storage ?? []
       );
       if (rutas.length) {
-        await Promise.all([
-          supabase.storage.from('fotos-visita').remove(rutas),
-          supabase.storage.from('audios-visita').remove(rutas),
-        ]);
+        await quitarAdjuntosDeStorage(rutas);
       }
     }
 

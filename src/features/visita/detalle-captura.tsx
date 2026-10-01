@@ -17,6 +17,8 @@ import { Icono } from '@/components/ui/iconos';
 import { RecategorizarItem } from './recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { enlaceMapa } from '@/lib/geo';
+import { bucketDeTipo } from '@/lib/buckets-visita';
+import { formatearBytes } from '@/lib/documentos-visita';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { TextareaDictado, InputDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
@@ -38,8 +40,10 @@ const ESTADO_SYNC_TEXTO: Record<string, string> = {
 // descarga.
 interface CapturaVista {
   id: string;
-  tipo: 'foto' | 'audio' | 'nota';
+  tipo: 'foto' | 'audio' | 'nota' | 'documento';
   titulo: string;
+  nombreOriginal?: string | null;
+  bytes?: number | null;
   contenidoTexto: string;
   zonaTexto: string;
   visitaId: string | undefined;
@@ -153,6 +157,8 @@ function DetalleCapturaPorId() {
           fuente: 'cola',
           estadoSync: op.estado,
           archivoLocal: op.archivoLocal ?? null,
+          nombreOriginal: p.nombreOriginal ?? null,
+          bytes: p.bytes ?? null,
           latitud: p.latitud ?? null,
           longitud: p.longitud ?? null,
         });
@@ -169,7 +175,7 @@ function DetalleCapturaPorId() {
       const { data, error } = await supabase
         .from('captura_libre')
         .select(
-          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en'
+          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes'
         )
         .eq('id', capturaId)
         .maybeSingle();
@@ -187,6 +193,8 @@ function DetalleCapturaPorId() {
           fuente: 'servidor',
           estadoSync: 'completado',
           storagePath: data.storage_path,
+          nombreOriginal: data.nombre_original,
+          bytes: data.bytes,
           latitud: data.latitud,
           longitud: data.longitud,
         });
@@ -210,12 +218,17 @@ function DetalleCapturaPorId() {
       setUrlMedia(url);
       return () => URL.revokeObjectURL(url);
     }
-    if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio')) {
-      const bucket = captura.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+    if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento')) {
+      const bucket = bucketDeTipo(captura.tipo);
       let vivo = true;
       supabase.storage
         .from(bucket)
-        .createSignedUrl(captura.storagePath, 600)
+        // El documento se descarga con su nombre original, no con el uuid de Storage.
+        .createSignedUrl(
+          captura.storagePath,
+          600,
+          captura.tipo === 'documento' ? { download: captura.nombreOriginal || true } : undefined
+        )
         .then(({ data }) => {
           if (vivo) setUrlMedia(data?.signedUrl ?? null);
         });
@@ -450,7 +463,7 @@ function DetalleCapturaPorId() {
           );
 
           if (storagePath) {
-            const bucket = tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+            const bucket = bucketDeTipo(tipo);
             const { error: errStorage } = await supabase.storage.from(bucket).remove([storagePath]);
             if (errStorage) {
               console.error('No se pudo borrar el archivo de Storage tras borrar la fila:', errStorage.message);
@@ -504,7 +517,9 @@ function DetalleCapturaPorId() {
   return (
     <div className="screen">
       <CabeceraDetalle
-        titulo={captura.tipo === 'nota' ? 'Nota' : captura.tipo === 'foto' ? 'Foto' : 'Audio'}
+        titulo={
+          captura.tipo === 'nota' ? 'Nota' : captura.tipo === 'foto' ? 'Foto' : captura.tipo === 'documento' ? 'Documento' : 'Audio'
+        }
         subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
@@ -547,22 +562,54 @@ function DetalleCapturaPorId() {
 
       {captura.tipo === 'audio' && urlMedia && <audio controls src={urlMedia} style={{ width: '100%' }} />}
 
-      {(captura.tipo === 'foto' || captura.tipo === 'audio') && (
+      {captura.tipo === 'documento' && (
+        <FilaNavegable
+          icono="documento"
+          titulo={captura.nombreOriginal || 'Documento'}
+          subtitulo={
+            urlMedia
+              ? `${captura.bytes != null ? `${formatearBytes(captura.bytes)} · ` : ''}Toca para descargarlo`
+              : 'Preparando la descarga…'
+          }
+          chevron={false}
+          disabled={!urlMedia}
+          onClick={() => {
+            if (!urlMedia) return;
+            const a = document.createElement('a');
+            a.href = urlMedia;
+            a.download = captura.nombreOriginal || 'documento';
+            a.click();
+          }}
+        />
+      )}
+
+      {(captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento') && (
         <>
           <InputDictado
             ref={refDictadoTitulo}
             valor={tituloEdit}
             onCambio={setTituloEdit}
-            placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+            placeholder={
+              captura.tipo === 'foto'
+                ? 'qué es esta foto (opcional)'
+                : captura.tipo === 'documento'
+                  ? 'qué es este documento (opcional)'
+                  : 'qué es este audio (opcional)'
+            }
           />
-          <div className="label">Zona (opcional)</div>
-          <SelectorZona
-            visitaId={captura.visitaId}
-            value={zonaEdit}
-            onChange={setZonaEdit}
-            onGuardar={guardarZonaYa}
-            deshabilitado={guardado.cargando}
-          />
+          {/* Un documento es de la visita entera: no lleva zona. */}
+          {captura.tipo !== 'documento' && (
+            <>
+              <div className="label">Zona (opcional)</div>
+              <SelectorZona
+                visitaId={captura.visitaId}
+                value={zonaEdit}
+                onChange={setZonaEdit}
+                onGuardar={guardarZonaYa}
+                deshabilitado={guardado.cargando}
+              />
+            </>
+          )}
         </>
       )}
 

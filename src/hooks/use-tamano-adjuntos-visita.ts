@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
+import { BUCKETS_VISITA } from '@/lib/buckets-visita';
 
-// Tamaño real (no estimado) de las fotos + audios de una visita, listando
-// los dos buckets por el prefijo `${visitaId}/` que usa sync-engine.ts al
+// Tamaño real (no estimado) de las fotos + audios + documentos de una visita,
+// listando los buckets de adjuntos por el prefijo `${visitaId}/` que usa sync-engine.ts al
 // subirlos. Se usa para mostrar "vas a liberar X MB" ANTES de generar el
 // zip completo (que además lleva el PDF).
 export function useTamanoAdjuntosVisita(visitaId: string | undefined) {
@@ -15,19 +16,15 @@ export function useTamanoAdjuntosVisita(visitaId: string | undefined) {
     if (!visitaId) return;
     let cancelado = false;
     (async () => {
-      const [fotos, audios] = await Promise.all([
-        supabase.storage.from('fotos-visita').list(visitaId),
-        supabase.storage.from('audios-visita').list(visitaId),
-      ]);
+      const listados = await Promise.all(BUCKETS_VISITA.map((b) => supabase.storage.from(b).list(visitaId)));
       if (cancelado) return;
-      if (fotos.error || audios.error) {
+      if (listados.some((l) => l.error)) {
         setError(true);
         return;
       }
-      const total = [...(fotos.data ?? []), ...(audios.data ?? [])].reduce(
-        (suma, f) => suma + (f.metadata?.size ?? 0),
-        0
-      );
+      const total = listados
+        .flatMap((l) => l.data ?? [])
+        .reduce((suma, f) => suma + (f.metadata?.size ?? 0), 0);
       setBytes(total);
     })();
     return () => {

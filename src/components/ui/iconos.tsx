@@ -36,6 +36,7 @@ import {
   Camera,
   Microphone,
   Note,
+  FileText,
   MagnifyingGlass,
   Eye,
   Sparkle,
@@ -106,6 +107,7 @@ const registro = {
   foto: Camera,
   audio: Microphone,
   nota: Note,
+  documento: FileText, // documento adjunto a la visita (PDF, Office…)
   buscar: MagnifyingGlass, // lupa de búsqueda (cabeceras, listados)
   hallazgo: Eye, // algo observado sobre el terreno (NO la lupa: esa es `buscar`)
   oportunidad: Sparkle, // destello — mismo sentido que el acento --signal-600

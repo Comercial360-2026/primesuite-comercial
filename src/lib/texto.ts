@@ -29,6 +29,7 @@ export function desgloseVisita(t: {
   hallazgos: number;
   oportunidades: number;
   pasos: number;
+  documentos?: number;
 }): string {
   const tipos = [
     t.fotos && plural(t.fotos, 'foto', 'fotos'),
@@ -37,9 +38,10 @@ export function desgloseVisita(t: {
     t.hallazgos && plural(t.hallazgos, 'hallazgo', 'hallazgos'),
     t.oportunidades && plural(t.oportunidades, 'oportunidad', 'oportunidades'),
     t.pasos && plural(t.pasos, 'próximo paso', 'próximos pasos'),
+    t.documentos && plural(t.documentos, 'documento', 'documentos'),
   ].filter((x): x is string => !!x);
   if (tipos.length <= 3) return tipos.join(' · ');
-  const total = t.fotos + t.audios + t.notas + t.hallazgos + t.oportunidades + t.pasos;
+  const total = t.fotos + t.audios + t.notas + t.hallazgos + t.oportunidades + t.pasos + (t.documentos ?? 0);
   return plural(total, 'elemento', 'elementos');
 }
 

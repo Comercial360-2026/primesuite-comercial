@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useAccionAsync } from '@/hooks/use-accion-async';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 export interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  num_documentos: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
@@ -82,10 +84,7 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
         const { error } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: visitaBorrarId });
         if (error) throw new Error(error.message);
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
       },
       {
@@ -122,10 +121,7 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
           if (error) throw new Error(error.message);
 
           if (rutas.length) {
-            await Promise.all([
-              supabase.storage.from('fotos-visita').remove(rutas),
-              supabase.storage.from('audios-visita').remove(rutas),
-            ]);
+            await quitarAdjuntosDeStorage(rutas);
           }
         }
       },

@@ -36,6 +36,8 @@ import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { plural } from '@/lib/texto';
+import { uuid } from '@/lib/uuid';
+import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento } from '@/lib/documentos-visita';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -64,6 +66,7 @@ interface DetalleVisita {
   fotos: Foto[];
   audios: Array<{ id: string; titulo: string | null; url: string | null }>;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
+  documentos: Array<{ id: string; titulo: string | null; nombre_original: string | null; bytes: number | null }>;
   hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string; zona_texto: string | null }>;
@@ -152,7 +155,7 @@ export function DetalleVisitaCerrada() {
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
+          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, nombre_original, bytes, ubicacion:ubicacion_id(nombre)')
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -180,6 +183,7 @@ export function DetalleVisitaCerrada() {
       const fotosBrutas = (capturas ?? []).filter((c) => c.tipo === 'foto');
       const audiosBrutos = (capturas ?? []).filter((c) => c.tipo === 'audio');
       const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
+      const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
 
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
@@ -225,6 +229,12 @@ export function DetalleVisitaCerrada() {
           titulo: n.titulo,
           contenido_texto: n.contenido_texto,
           zona_texto: (n as { zona_texto?: string | null }).zona_texto ?? null,
+        })),
+        documentos: documentos.map((d) => ({
+          id: d.id,
+          titulo: d.titulo,
+          nombre_original: d.nombre_original,
+          bytes: d.bytes,
         })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
@@ -445,6 +455,56 @@ export function DetalleVisitaCerrada() {
   // en vivo: sin este candado el botón salía activo en una visita futura sin
   // nada que liberar. "Visita cerrada" es la condición 1 del diseño.
   const visitaCerrada = data?.estado_captura === 'consolidada';
+  // Colgar un documento de una visita ya cerrada: directo a Supabase (esta
+  // pantalla ya exige conexión, igual que "Editar resumen"). Pueden Dirección
+  // y los participantes aceptados; el servidor solo exige ser el autor.
+  const puedeAdjuntar = visitaCerrada && (esDireccionComercial || miParticipacion?.estado === 'aceptado');
+  const adjuntandoDocumento = useAccionAsync();
+  const inputDocumentoRef = useRef<HTMLInputElement>(null);
+  async function adjuntarDocumento(archivo: File) {
+    if (!visitaId || !comercial || !data?.cliente_id) return;
+    const mime = mimeDeDocumento(archivo);
+    if (!mime) {
+      adjuntandoDocumento.establecerError('Ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.');
+      return;
+    }
+    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
+      adjuntandoDocumento.establecerError('Ese documento pesa más de 25 MB. Prueba con una versión más ligera.');
+      return;
+    }
+    await adjuntandoDocumento.ejecutar(
+      async () => {
+        const id = uuid();
+        const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+        const ruta = `${visitaId}/${id}.${/^[a-z0-9]{1,5}$/.test(extension) ? extension : 'bin'}`;
+        const { error: errSubida } = await supabase.storage
+          .from('documentos-visita')
+          .upload(ruta, archivo, { contentType: mime });
+        if (errSubida) throw new Error(errSubida.message);
+        const { error: errFila } = await supabase.from('captura_libre').insert({
+          id,
+          visita_id: visitaId,
+          cliente_id: data.cliente_id!,
+          comercial_autor_id: comercial.id,
+          tipo: 'documento',
+          storage_path: ruta,
+          estado_subida: 'completado',
+          nombre_original: archivo.name,
+          mime,
+          bytes: archivo.size,
+        });
+        if (errFila) {
+          // Sin fila no hay quien lo borre luego: no dejar el archivo huérfano.
+          await supabase.storage.from('documentos-visita').remove([ruta]);
+          throw new Error(errFila.message);
+        }
+      },
+      {
+        onExito: () => queryClient.invalidateQueries({ queryKey }),
+        mensajeError: 'No se pudo adjuntar el documento. Inténtalo de nuevo.',
+      }
+    );
+  }
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
   const puedeLiberarEspacio = visitaCerrada && oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
@@ -485,6 +545,7 @@ export function DetalleVisitaCerrada() {
     !data.notas.length &&
     !data.fotos.length &&
     !data.audios.length &&
+    !data.documentos.length &&
     !data.hallazgos.length &&
     !data.oportunidades.length &&
     !data.proximosPasos.length;
@@ -799,6 +860,45 @@ export function DetalleVisitaCerrada() {
           )}
 
         </div>
+      )}
+
+      {data && visitaId && (data.documentos.length > 0 || puedeAdjuntar) && (
+        <SeccionLista titulo={`Documentos (${data.documentos.length})`}>
+          {data.documentos.map((d) => (
+            <FilaNavegable
+              key={d.id}
+              icono="documento"
+              titulo={d.titulo || d.nombre_original || 'Documento'}
+              subtitulo={d.bytes != null ? formatearTamano(d.bytes) : undefined}
+              to={`/capturas/${d.id}`}
+              state={origen}
+            />
+          ))}
+          {puedeAdjuntar && (
+            <FilaNavegable
+              icono="documento"
+              titulo={adjuntandoDocumento.cargando ? 'Subiendo…' : 'Adjuntar un documento'}
+              subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
+              chevron={false}
+              disabled={adjuntandoDocumento.cargando}
+              onClick={() => inputDocumentoRef.current?.click()}
+            />
+          )}
+          {puedeAdjuntar && (
+            <input
+              ref={inputDocumentoRef}
+              type="file"
+              accept={ACCEPT_DOCUMENTO}
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void adjuntarDocumento(archivo);
+                e.target.value = '';
+              }}
+            />
+          )}
+          {adjuntandoDocumento.error && <Aviso tipo="error">{adjuntandoDocumento.error}</Aviso>}
+        </SeccionLista>
       )}
 
       {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (

@@ -159,6 +159,8 @@ interface CapturaRow {
   // Etiqueta de zona del Recorrido (texto libre). Sustituye a `ubicacion`
   // en las capturas nuevas; las visitas antiguas siguen con `ubicacion`.
   zona_texto: string | null;
+  // Solo documentos: nombre del archivo tal como se subió.
+  nombre_original: string | null;
   ubicacion: Nombrado | null;
 }
 Deno.serve(async (req) => {
@@ -251,7 +253,7 @@ Deno.serve(async (req) => {
   ] = await Promise.all([
     admin
       .from('captura_libre')
-      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
+      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, nombre_original, ubicacion:ubicacion_id(nombre)')
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
     admin
@@ -320,6 +322,7 @@ Deno.serve(async (req) => {
 
   const fotos = (capturas ?? []).filter((c) => c.tipo === 'foto');
   const audios = (capturas ?? []).filter((c) => c.tipo === 'audio');
+  const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
   const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
 
   const pasosOrdenados = proximosPasos ?? [];
@@ -341,6 +344,7 @@ Deno.serve(async (req) => {
   const zip = new JSZip();
   const carpetaFotos = zip.folder('fotos')!;
   const carpetaAudios = zip.folder('audios')!;
+  const carpetaDocumentos = zip.folder('documentos')!;
 
   type FotoLista = {
     titulo: string | null;
@@ -355,6 +359,7 @@ Deno.serve(async (req) => {
   // ninguna pista de por qué. Se cuenta y se avisa (portada + LEEME.txt).
   let fotosFallidas = 0;
   let audiosFallidos = 0;
+  let documentosFallidos = 0;
 
   let indiceFoto = 0;
   for (const f of fotos) {
@@ -418,6 +423,27 @@ Deno.serve(async (req) => {
     const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
     carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
     audiosDescargados.push(a);
+  }
+
+  // Documentos adjuntos: solo van al zip (como los audios), con su nombre
+  // original — nunca el uuid de Storage. Numerados para que dos con el mismo
+  // nombre no se pisen.
+  const documentosDescargados: CapturaRow[] = [];
+  let indiceDocumento = 0;
+  for (const d of documentos) {
+    indiceDocumento += 1;
+    if (!d.storage_path) {
+      documentosFallidos += 1;
+      continue;
+    }
+    const { data, error } = await admin.storage.from('documentos-visita').download(d.storage_path);
+    if (error || !data) {
+      documentosFallidos += 1;
+      continue;
+    }
+    const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
+    carpetaDocumentos.file(`${String(indiceDocumento).padStart(2, '0')} - ${nombre}`, new Uint8Array(await data.arrayBuffer()));
+    documentosDescargados.push(d);
   }
 
   const fotosPorUbicacion = new Map<string, FotoLista[]>();
@@ -637,6 +663,27 @@ Deno.serve(async (req) => {
       ].filter(Boolean)
     : null;
 
+  // --- Anexo de documentos (se omite del todo si no hay ninguno) ---
+  // deno-lint-ignore no-explicit-any
+  const bloquesDocumentos: any[] | null = documentosDescargados.length || documentosFallidos > 0
+    ? [
+        ...documentosDescargados.map((d) => ({
+          text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta documentos/ del zip'}`,
+          fontSize: 9.5,
+          color: COLOR.ink700,
+          margin: [0, 0, 0, 4],
+        })),
+        documentosFallidos > 0
+          ? {
+              text: `${documentosFallidos} ${documentosFallidos === 1 ? 'documento no se pudo recuperar' : 'documentos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${documentosFallidos === 1 ? '' : 'n'} en este backup.`,
+              fontSize: 9,
+              color: COLOR.warning600,
+              margin: [0, 6, 0, 0],
+            }
+          : null,
+      ].filter(Boolean)
+    : null;
+
   // --- Ensamblado final ---
   // deno-lint-ignore no-explicit-any
   const contenido: any[] = [
@@ -676,6 +723,9 @@ Deno.serve(async (req) => {
   );
   if (bloquesAudios) {
     contenido.push(tituloSeccion('Anexo de audios', `(${audiosDescargados.length})`), ...bloquesAudios);
+  }
+  if (bloquesDocumentos) {
+    contenido.push(tituloSeccion('Anexo de documentos', `(${documentosDescargados.length})`), ...bloquesDocumentos);
   }
 
   const docDefinition = {
@@ -738,6 +788,7 @@ Deno.serve(async (req) => {
     `  fotos/        Todas las fotos en su resolución original, numeradas por\n` +
     `                orden de captura. Las del PDF son copias reducidas.\n\n` +
     `  audios/       Grabaciones de voz de la visita.\n\n` +
+    (documentos.length ? `  documentos/   Documentos adjuntos a la visita, con su nombre original.\n\n` : '') +
     `Notas:\n` +
     `  - Este material es de uso interno.\n` +
     `  - El informe refleja el estado de la visita el día indicado; los\n` +
@@ -752,6 +803,9 @@ Deno.serve(async (req) => {
       : '') +
     (audiosFallidos > 0
       ? `  - ${audiosFallidos} audio(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
+      : '') +
+    (documentosFallidos > 0
+      ? `  - ${documentosFallidos} documento(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
       : '') +
     `\nGenerado automáticamente por PrimeNotes. No respondas a este\n` +
     `archivo; para dudas, contacta con tu responsable comercial.\n`;

@@ -1,3 +1,7 @@
+import { bucketDeTipo } from '@/lib/buckets-visita';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { SeccionLista } from '@/components/ui/seccion-lista';
+import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, mimeDeDocumento } from '@/lib/documentos-visita';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -116,6 +120,7 @@ interface CompaneroCaptura {
   zona_texto: string | null;
   latitud: number | null;
   longitud: number | null;
+  nombre_original: string | null;
 }
 interface CompaneroHallazgo {
   id: string;
@@ -150,6 +155,9 @@ interface CapturasPorUbicacionProps {
   fotosCompaneros: CompaneroCaptura[];
   audiosCompaneros: CompaneroCaptura[];
   notasCompaneros: CompaneroCaptura[];
+  // Documentos: no llevan zona — van aparte, en su propia sección.
+  documentos: OperacionPendiente[];
+  documentosCompaneros: CompaneroCaptura[];
   hallazgosCompaneros: CompaneroHallazgo[];
   oportunidadesCompaneros: CompaneroOportunidad[];
   pasosCompaneros: CompaneroPaso[];
@@ -191,6 +199,8 @@ function CapturasPorUbicacion({
   fotosCompaneros,
   audiosCompaneros,
   notasCompaneros,
+  documentos,
+  documentosCompaneros,
   hallazgosCompaneros,
   oportunidadesCompaneros,
   pasosCompaneros,
@@ -461,7 +471,7 @@ function CapturasPorUbicacion({
     });
   };
 
-  if (claves.size === 0) return null;
+  if (claves.size === 0 && documentos.length === 0 && documentosCompaneros.length === 0) return null;
 
   // Cabecera de zona — mismo lenguaje que la cabecera de categoría en
   // Categorías (`.voc-cat-label-row seccion-lista__subcabecera` +
@@ -497,6 +507,27 @@ function CapturasPorUbicacion({
     <div className="seccion-lista__grupo">
       {bloqueGeneral}
       {bloqueZonas}
+      {(documentos.length > 0 || documentosCompaneros.length > 0) && (
+        <>
+          <div className="seccion-lista__subcabecera">Documentos</div>
+          {documentos.map((d) =>
+            itemFila(
+              d.id,
+              'documento',
+              (d.payload as { titulo?: string; nombreOriginal?: string }).titulo ||
+                (d.payload as { nombreOriginal?: string }).nombreOriginal ||
+                'Documento',
+              hora(d.creadoEn),
+              () => onTocarCaptura(d.id)
+            )
+          )}
+          {documentosCompaneros.map((c) =>
+            itemFila(c.id, 'documento', c.titulo || c.nombre_original || 'Documento', deQuien(c.comercial_autor_id), () =>
+              onTocarCaptura(c.id)
+            )
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -613,6 +644,8 @@ export function VisitaActiva() {
   // de zona.
   const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
   const capturaFoto = useAccionAsync();
+  const capturaDocumento = useAccionAsync();
+  const inputDocumentoRef = useRef<HTMLInputElement>(null);
   const capturaAudio = useAccionAsync();
 
   // Al 98% del pozo del equipo se cortan las subidas de binarios (fotos y
@@ -895,6 +928,40 @@ export function VisitaActiva() {
     );
   }
 
+  // Adjuntar un documento (PDF, Office, CSV, TXT…): mismo camino que la foto —
+  // se encola YA con su binario (sube solo cuando hay red) y se sincroniza a
+  // captura_libre con tipo 'documento'. Sin pantalla de confirmación: el
+  // título es opcional y se pone después desde la ficha.
+  async function adjuntarDocumento(archivo: File) {
+    if (espacioBloqueado) {
+      capturaDocumento.establecerError(MSG_ESPACIO_LLENO);
+      return;
+    }
+    const mime = mimeDeDocumento(archivo);
+    if (!mime) {
+      capturaDocumento.establecerError('Ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.');
+      return;
+    }
+    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
+      capturaDocumento.establecerError('Ese documento pesa más de 25 MB. Prueba con una versión más ligera.');
+      return;
+    }
+    capturaDocumento.limpiarError();
+    await encolar(
+      uuid(),
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: 'documento',
+        nombreOriginal: archivo.name,
+        mime,
+        bytes: archivo.size,
+      },
+      { dependeDe: visitaId, archivoLocal: archivo }
+    );
+  }
+
   async function capturarFoto(archivo: File) {
     if (espacioBloqueado) {
       flushSync(() => setFotoPendiente(null));
@@ -948,7 +1015,7 @@ export function VisitaActiva() {
     const { data: fila } = await supabase.from('captura_libre').select('storage_path, tipo').eq('id', id).single();
     await supabase.from('captura_libre').delete().eq('id', id);
     if (fila?.storage_path) {
-      const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+      const bucket = bucketDeTipo(fila.tipo);
       await supabase.storage.from(bucket).remove([fila.storage_path]);
     }
   }
@@ -1371,7 +1438,7 @@ export function VisitaActiva() {
         .throwOnError();
       for (const c of caps ?? []) {
         if (c.storage_path) {
-          const bucket = c.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+          const bucket = bucketDeTipo(c.tipo);
           const { error: errStorage } = await supabase.storage.from(bucket).remove([c.storage_path]);
           if (errStorage) throw errStorage;
         }
@@ -1495,7 +1562,7 @@ export function VisitaActiva() {
       const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto, latitud, longitud')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto, latitud, longitud, nombre_original')
           .eq('visita_id', visitaId!),
         supabase
           .from('hallazgo')
@@ -1586,6 +1653,7 @@ export function VisitaActiva() {
   );
   const notasCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'nota');
   const audiosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'audio');
+  const documentosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'documento');
   // B4 · Las fotos de compañeros también cuentan y se listan (antes se
   // pedían pero no se pintaban). Van como fila de texto —igual que sus
   // notas/audios—, no como miniatura: el binario está en Storage, no en la
@@ -1602,6 +1670,7 @@ export function VisitaActiva() {
   const hayCompaneros =
     notasCompaneros.length +
       audiosCompaneros.length +
+      documentosCompaneros.length +
       fotosCompaneros.length +
       hallazgosCompaneros.length +
       pasosCompaneros.length +
@@ -1773,6 +1842,7 @@ export function VisitaActiva() {
   const fotosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto');
   const audiosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio');
   const notasOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota');
+  const documentosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'documento');
 
   // El nombre del proyecto se añade tal cual (sin la palabra "Proyecto"
   // delante), mismo criterio que Agenda. El `?? ''` es defensivo.
@@ -1854,7 +1924,10 @@ export function VisitaActiva() {
   const totalHallazgos = hallazgosV.length + hallazgosCompanerosV.length;
   const totalOportunidades = oportunidadesV.length + oportunidadesCompanerosV.length;
   const totalPasos = pasosV.length + pasosCompanerosV.length;
-  const totalEnVisita = totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
+  // Los documentos no llevan zona: se cuentan siempre, sea cual sea el filtro.
+  const totalDocumentos = documentosOwn.length + documentosCompaneros.length;
+  const totalEnVisita =
+    totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos + totalDocumentos;
   // D2: desglose corto si hay pocos tipos, si no colapsa a "N elementos".
   const contadorEnVisita = desgloseVisita({
     fotos: totalFotos,
@@ -1863,6 +1936,7 @@ export function VisitaActiva() {
     hallazgos: totalHallazgos,
     oportunidades: totalOportunidades,
     pasos: totalPasos,
+    documentos: totalDocumentos,
   });
   // Solo lo MÍO tiene estado de sincronización — lo de compañeros ya viene
   // del servidor. Regla 5: un único indicador en cristiano, no por ítem.
@@ -1881,6 +1955,7 @@ export function VisitaActiva() {
     fotosOwn.length + fotosCompaneros.length +
     audiosOwn.length + audiosCompaneros.length +
     notasOwn.length + notasCompaneros.length +
+    documentosOwn.length + documentosCompaneros.length +
     hallazgos.length + hallazgosCompaneros.length +
     oportunidadesEnVisita + pasosEnVisita;
   const recordatorioFaltaTexto =
@@ -2162,6 +2237,17 @@ export function VisitaActiva() {
         )}
 
         {/* Captura — es lo que se viene a hacer en esta pantalla. */}
+        <input
+          ref={inputDocumentoRef}
+          type="file"
+          accept={ACCEPT_DOCUMENTO}
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            if (archivo) void adjuntarDocumento(archivo);
+            e.target.value = '';
+          }}
+        />
         <input
           ref={inputFotoRef}
           type="file"
@@ -2467,6 +2553,16 @@ export function VisitaActiva() {
             Próximo paso
           </button>
         </div>
+        <SeccionLista>
+          <FilaNavegable
+            icono="documento"
+            titulo={capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar un documento'}
+            subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
+            chevron={false}
+            disabled={capturaDocumento.cargando || espacioBloqueado}
+            onClick={() => inputDocumentoRef.current?.click()}
+          />
+        </SeccionLista>
 
         {/* B7 · Motivo visible cuando Foto/Audio salen deshabilitados por el
             pozo del equipo lleno — antes solo se veía si conseguías pulsar. */}
@@ -2479,6 +2575,7 @@ export function VisitaActiva() {
         )}
 
         {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
+        {capturaDocumento.error && <Aviso tipo="error">{capturaDocumento.error}</Aviso>}
         {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
         {grabando && (
@@ -2578,6 +2675,8 @@ export function VisitaActiva() {
                 fotosCompaneros={fotosCompaneros}
                 audiosCompaneros={audiosCompaneros}
                 notasCompaneros={notasCompaneros}
+                documentos={documentosOwn}
+                documentosCompaneros={documentosCompaneros}
                 hallazgosCompaneros={hallazgosCompaneros}
                 oportunidadesCompaneros={oportunidadesCompaneros}
                 pasosCompaneros={pasosCompaneros}
@@ -2684,6 +2783,30 @@ export function VisitaActiva() {
                         capitalizarFrase(c.titulo || c.contenido_texto || '(nota vacía)'),
                         `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
                         () => navigate(`/capturas/${c.id}`)
+                      )
+                    )}
+                  </>
+                )}
+                {(documentosOwn.length > 0 || documentosCompaneros.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Documentos</div>
+                    {documentosOwn.map((d) => {
+                      const p = d.payload as { titulo?: string; nombreOriginal?: string };
+                      return filaEnVisita(
+                        d.id,
+                        'documento',
+                        p.titulo || p.nombreOriginal || 'Documento',
+                        subZonaHora(d),
+                        () => navigate(`/capturas/${d.id}`, { state: origen })
+                      );
+                    })}
+                    {documentosCompaneros.map((c) =>
+                      filaEnVisita(
+                        c.id,
+                        'documento',
+                        c.titulo || c.nombre_original || 'Documento',
+                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/capturas/${c.id}`, { state: origen })
                       )
                     )}
                   </>

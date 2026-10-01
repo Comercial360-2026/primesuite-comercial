@@ -35,10 +35,12 @@ import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerra
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  num_documentos: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
@@ -406,10 +408,7 @@ export function FichaCliente() {
         // exige) — eliminar_cliente_completo() las borra como parte de la
         // cascada, así que si se hiciera al revés, fallaría sin permiso.
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
         // A partir de aquí los adjuntos ya no existen en Storage: un fallo
         // de red justo en esta llamada dejaría el cliente vivo pero sin sus
@@ -936,6 +935,7 @@ export function FichaCliente() {
               Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
               {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
               {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_documentos, 'documento', 'documentos')},{' '}
               {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
               {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
               {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
