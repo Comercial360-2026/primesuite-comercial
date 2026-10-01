@@ -11,6 +11,14 @@
 > Probado con ZZ contra SharePoint real: copia (foto, audio, documento con su nombre
 > original), idempotencia, reapertura, liberación y captura tardía.
 >
+> **Salvaguardas (migración 133, probadas):** (1) `archivado_config.liberar_activo` — la fase 2
+> NO borra originales mientras esté en `false`; ponerlo a `true` SOLO cuando la app con soporte de
+> capturas archivadas (PR #16) esté en producción: `update archivado_config set liberar_activo = true;`
+> (2) tope de 5 intentos de copia por archivo (`intentos_archivado`); al llegar al 5.º queda
+> `error_archivado` visible para Dirección. Reintento manual: `update captura_libre set
+> intentos_archivado = 0, error_archivado = null where …`. Probado también con documentos de 12 y
+> 24 MB (copia exacta en SharePoint).
+>
 > **Pendiente anotado (no hecho):** cierre automático por inactividad; subir `informe.html`
 > a la carpeta de la visita al copiar; estado de la copia visible en la app; qué hacer al
 > borrar una captura/visita/cliente ya copiados (`docs/pendiente-borrado-sharepoint.md`);
