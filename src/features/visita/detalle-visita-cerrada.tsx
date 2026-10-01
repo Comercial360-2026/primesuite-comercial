@@ -50,6 +50,7 @@ interface Foto {
   ubicacion_nombre: string | null;
   latitud: number | null;
   longitud: number | null;
+  archivadaSharepoint: boolean;
 }
 interface DetalleVisita {
   fecha: string;
@@ -62,7 +63,8 @@ interface DetalleVisita {
   cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
-  audios: Array<{ id: string; titulo: string | null; url: string | null }>;
+  audios: Array<{ id: string; titulo: string | null; url: string | null; archivadaSharepoint: boolean }>;
+  hayArchivadoSharepoint: boolean;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
   hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
@@ -70,6 +72,26 @@ interface DetalleVisita {
 }
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
+
+// Enlace de descarga de una foto/audio: firmado de Supabase Storage mientras
+// siga ahí, o el enlace temporal de SharePoint (obtener-url-archivo-
+// sharepoint) una vez archivado — nunca guardado, se pide al vuelo cada vez
+// que se abre la visita (ver diseño, "Flujo de lectura").
+async function urlDeCaptura(
+  c: { id: string; storage_path: string | null; ubicacion_archivo?: string | null },
+  bucket: 'fotos-visita' | 'audios-visita'
+): Promise<string | null> {
+  if (c.storage_path) {
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(c.storage_path, URL_FIRMADA_SEGUNDOS);
+    return data?.signedUrl ?? null;
+  }
+  if (c.ubicacion_archivo !== 'sharepoint') return null;
+  const { data, error } = await supabase.functions.invoke('obtener-url-archivo-sharepoint', {
+    body: { capturaId: c.id },
+  });
+  if (error || !data?.url) return null;
+  return data.url as string;
+}
 
 function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
   if (p.estado !== 'pendiente') return false;
@@ -152,7 +174,9 @@ export function DetalleVisitaCerrada() {
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
+          .select(
+            'id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+          )
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -188,20 +212,15 @@ export function DetalleVisitaCerrada() {
             (f.ubicacion as unknown as { nombre: string } | null)?.nombre ??
             null;
           const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
-          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre, ...geo };
-          const { data: firmada } = await supabase.storage
-            .from('fotos-visita')
-            .createSignedUrl(f.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null, ubicacion_nombre, ...geo };
+          const url = await urlDeCaptura(f, 'fotos-visita');
+          const archivadaSharepoint = f.ubicacion_archivo === 'sharepoint';
+          return { id: f.id, titulo: f.titulo, url, ubicacion_nombre, archivadaSharepoint, ...geo };
         })
       );
       const audios = await Promise.all(
         audiosBrutos.map(async (a) => {
-          if (!a.storage_path) return { id: a.id, titulo: a.titulo, url: null };
-          const { data: firmada } = await supabase.storage
-            .from('audios-visita')
-            .createSignedUrl(a.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: a.id, titulo: a.titulo, url: firmada?.signedUrl ?? null };
+          const url = await urlDeCaptura(a, 'audios-visita');
+          return { id: a.id, titulo: a.titulo, url, archivadaSharepoint: a.ubicacion_archivo === 'sharepoint' };
         })
       );
 
@@ -220,6 +239,7 @@ export function DetalleVisitaCerrada() {
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
         audios,
+        hayArchivadoSharepoint: fotos.some((f) => f.archivadaSharepoint) || audios.some((a) => a.archivadaSharepoint),
         notas: notas.map((n) => ({
           id: n.id,
           titulo: n.titulo,
@@ -611,6 +631,15 @@ export function DetalleVisitaCerrada() {
               que no lleva fotos (Cesar, 25 sept). */}
           {visitaId && visitaCerrada && (
             <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+          )}
+
+          {data.hayArchivadoSharepoint && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+              <Aviso tipo="info">
+                Algunas fotos o audios de esta visita se archivaron en SharePoint (más de 30 días cerrada). Se
+                siguen viendo igual que siempre, solo tardan un poco más en cargar.
+              </Aviso>
+            </div>
           )}
 
           {!sinNada && (

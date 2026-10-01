@@ -195,16 +195,21 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto: string | null
           creado_en: string
+          error_archivado: string | null
           estado_subida: string
           estado_validacion: string
           id: string
+          intento_archivado_en: string | null
           latitud: number | null
           longitud: number | null
           origen: string
+          ruta_sharepoint: string | null
+          ruta_sharepoint_thumbnail: string | null
           storage_path: string | null
           storage_path_thumbnail: string | null
           tipo: string
           titulo: string | null
+          ubicacion_archivo: string
           ubicacion_id: string | null
           visita_id: string
           zona_texto: string | null
@@ -216,16 +221,21 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto?: string | null
           creado_en?: string
+          error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string
           id?: string
+          intento_archivado_en?: string | null
           latitud?: number | null
           longitud?: number | null
           origen?: string
+          ruta_sharepoint?: string | null
+          ruta_sharepoint_thumbnail?: string | null
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo: string
           titulo?: string | null
+          ubicacion_archivo?: string
           ubicacion_id?: string | null
           visita_id: string
           zona_texto?: string | null
@@ -237,16 +247,21 @@ export type Database = {
           comercial_autor_id?: string
           contenido_texto?: string | null
           creado_en?: string
+          error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string
           id?: string
+          intento_archivado_en?: string | null
           latitud?: number | null
           longitud?: number | null
           origen?: string
+          ruta_sharepoint?: string | null
+          ruta_sharepoint_thumbnail?: string | null
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo?: string
           titulo?: string | null
+          ubicacion_archivo?: string
           ubicacion_id?: string | null
           visita_id?: string
           zona_texto?: string | null

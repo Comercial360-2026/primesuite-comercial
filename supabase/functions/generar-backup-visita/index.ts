@@ -36,6 +36,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
+import { obtenerEnlaceSharePoint } from '../_shared/sharepoint-enlace.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -160,6 +161,33 @@ interface CapturaRow {
   // en las capturas nuevas; las visitas antiguas siguen con `ubicacion`.
   zona_texto: string | null;
   ubicacion: Nombrado | null;
+  // Archivado a SharePoint (migración 128): si storage_path es null y esto
+  // es 'sharepoint', el binario se trae del enlace temporal, no de Storage.
+  ubicacion_archivo: string;
+  ruta_sharepoint: string | null;
+}
+
+// Bytes de una foto/audio: de Supabase Storage si sigue ahí, o del enlace
+// temporal de SharePoint si ya se archivó (nunca a la vez).
+async function descargarBinario(
+  admin: ReturnType<typeof createClient>,
+  bucket: 'fotos-visita' | 'audios-visita',
+  c: CapturaRow
+): Promise<Uint8Array | null> {
+  if (c.storage_path) {
+    const { data, error } = await admin.storage.from(bucket).download(c.storage_path);
+    if (error || !data) return null;
+    return new Uint8Array(await data.arrayBuffer());
+  }
+  if (c.ubicacion_archivo !== 'sharepoint' || !c.ruta_sharepoint) return null;
+  try {
+    const url = await obtenerEnlaceSharePoint(admin, c.ruta_sharepoint);
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return new Uint8Array(await r.arrayBuffer());
+  } catch {
+    return null;
+  }
 }
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -251,7 +279,9 @@ Deno.serve(async (req) => {
   ] = await Promise.all([
     admin
       .from('captura_libre')
-      .select('id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
+      .select(
+        'id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+      )
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
     admin
@@ -361,16 +391,11 @@ Deno.serve(async (req) => {
     indiceFoto += 1;
     const ubicacionNombre =
       f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
-    if (!f.storage_path) {
+    const bytes = await descargarBinario(admin, 'fotos-visita', f);
+    if (!bytes) {
       fotosFallidas += 1;
-      continue;
+      continue; // fichero huérfano/borrado, o SharePoint no respondió — se omite, no se aborta el backup entero.
     }
-    const { data, error } = await admin.storage.from('fotos-visita').download(f.storage_path);
-    if (error || !data) {
-      fotosFallidas += 1;
-      continue; // fichero huérfano o ya borrado — se omite, no se aborta el backup entero.
-    }
-    const bytes = new Uint8Array(await data.arrayBuffer());
     const formato = detectarFormatoImagen(bytes);
     const extension = EXTENSION_POR_FORMATO[formato];
     const nombreArchivo = [
@@ -404,17 +429,12 @@ Deno.serve(async (req) => {
   let indiceAudio = 0;
   for (const a of audios) {
     indiceAudio += 1;
-    if (!a.storage_path) {
+    const bytes = await descargarBinario(admin, 'audios-visita', a);
+    if (!bytes) {
       audiosFallidos += 1;
       continue;
     }
-    const { data, error } = await admin.storage.from('audios-visita').download(a.storage_path);
-    if (error || !data) {
-      audiosFallidos += 1;
-      continue;
-    }
-    const bytes = new Uint8Array(await data.arrayBuffer());
-    const extension = a.storage_path.split('.').pop() || 'm4a';
+    const extension = a.storage_path?.split('.').pop() || 'm4a';
     const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
     carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
     audiosDescargados.push(a);
