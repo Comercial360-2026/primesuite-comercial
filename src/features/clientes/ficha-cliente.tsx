@@ -449,8 +449,9 @@ export function FichaCliente() {
 
   // Briefing: vive por visita (briefing_visita.visita_id), no hay uno "del
   // cliente" suelto — desde aquí se abre el de su visita en curso o, si no
-  // hay, la agendada más próxima. Sin ninguna de las dos, no hay a qué
-  // visita colgarlo y el botón no se muestra.
+  // hay, la agendada más próxima y, si tampoco, la última visita cerrada
+  // (se puede ver o generar desde ahí, ver detalle-visita-cerrada). Sin
+  // ninguna visita, no hay a qué colgarlo y el botón no se muestra.
   const { data: visitaIdBriefing } = useQuery({
     queryKey: ['ficha-cliente-visita-briefing', clienteId],
     enabled: !!clienteId,
@@ -459,12 +460,13 @@ export function FichaCliente() {
         .from('visita')
         .select('id, estado_captura, fecha')
         .eq('cliente_id', clienteId!)
-        .in('estado_captura', ['en_curso', 'agendada'])
-        .order('fecha', { ascending: true })
-        .limit(10);
+        .order('fecha', { ascending: false })
+        .limit(30);
       if (error) throw error;
       const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
-      return (enCurso ?? data?.[0])?.id ?? null;
+      const proxima = [...(data ?? [])].reverse().find((v) => v.estado_captura === 'agendada');
+      const ultimaCerrada = data?.find((v) => v.estado_captura === 'consolidada');
+      return (enCurso ?? proxima ?? ultimaCerrada)?.id ?? null;
     },
   });
   const [briefingAbierto, setBriefingAbierto] = useState(false);
