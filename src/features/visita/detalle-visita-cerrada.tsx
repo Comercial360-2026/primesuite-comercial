@@ -35,6 +35,7 @@ import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
+import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
@@ -478,6 +479,22 @@ export function DetalleVisitaCerrada() {
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
+  // Briefing: solo se ofrece si esa visita llegó a tener uno (el botón de la
+  // ficha de cliente cubre visitas en curso/agendadas; aquí, las ya cerradas).
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
+  const { data: tieneBriefing } = useQuery({
+    queryKey: ['visita-cerrada-tiene-briefing', visitaId],
+    enabled: !!visitaId,
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from('briefing_visita')
+        .select('visita_id', { count: 'exact', head: true })
+        .eq('visita_id', visitaId!);
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+  });
+
   const sinNada =
     !!data &&
     !data.resumen_texto &&
@@ -505,17 +522,30 @@ export function DetalleVisitaCerrada() {
             : undefined
         }
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-              onClick={() => setPreguntaIAAbierta(true)}
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+                onClick={() => setPreguntaIAAbierta(true)}
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {tieneBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing de esta visita"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+          </>
         }
       />
 
@@ -975,6 +1005,15 @@ export function DetalleVisitaCerrada() {
           indice={visorIndice}
           onCerrar={() => setVisorIndice(null)}
           onCambiar={setVisorIndice}
+        />
+      )}
+
+      {briefingAbierto && data?.cliente_id && (
+        <BriefingHoja
+          visitaId={visitaId!}
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 
