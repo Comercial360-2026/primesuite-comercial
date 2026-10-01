@@ -15,7 +15,7 @@
 // Storage API (`admin.storage...remove`), nunca `DELETE FROM
 // storage.objects` por SQL (Supabase lo bloquea, migración 120).
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -31,8 +31,17 @@ function igualesEnTiempoConstante(a: string, b: string) {
   return diff === 0;
 }
 
+async function tamanoEnStorage(admin: SupabaseClient, bucket: string, ruta: string | null) {
+  if (!ruta) return null;
+  const i = ruta.lastIndexOf('/');
+  const { data } = await admin.storage.from(bucket).list(i < 0 ? '' : ruta.slice(0, i), { search: ruta.slice(i + 1) });
+  const f = data?.find((x) => x.name === ruta.slice(i + 1));
+  const tam = f?.metadata?.size;
+  return typeof tam === 'number' ? tam : null;
+}
+
 Deno.serve(async (req) => {
-  let body: { secreto?: string; captura_id?: string; ruta_sharepoint?: string };
+  let body: { secreto?: string; captura_id?: string; ruta_sharepoint?: string; tamano?: number | string };
   try {
     body = await req.json();
   } catch {
@@ -47,6 +56,24 @@ Deno.serve(async (req) => {
 
   if (!body.captura_id || !body.ruta_sharepoint) {
     return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
+  }
+
+  // Integridad: el original solo se da por archivado si SharePoint guardó
+  // exactamente los mismos bytes (mismo tamaño). Sin tamaño o distinto, NO se
+  // confirma ni se borra nada: el original sigue en Supabase y el cron reintenta.
+  const { data: origen } = await admin
+    .from('captura_libre')
+    .select('tipo, storage_path, ubicacion_archivo')
+    .eq('id', body.captura_id)
+    .maybeSingle();
+  if (!origen) return json({ error: 'Captura no encontrada' }, 404);
+  if (origen.ubicacion_archivo === 'sharepoint') return json({ ok: true, ya_archivada: true });
+  const tamanoSubido = Number(body.tamano);
+  const tamanoOriginal = await tamanoEnStorage(admin, BUCKET_POR_TIPO[origen.tipo], origen.storage_path);
+  if (!tamanoSubido || tamanoOriginal === null || tamanoSubido !== tamanoOriginal) {
+    const motivo = `Tamaño no coincide: subido=${body.tamano ?? 'sin dato'} original=${tamanoOriginal ?? 'desconocido'}`;
+    await admin.from('captura_libre').update({ error_archivado: motivo }).eq('id', body.captura_id);
+    return json({ error: motivo }, 409);
   }
 
   const { data: fila, error } = await admin.rpc('fn_confirmar_archivado_captura', {

@@ -29,6 +29,12 @@ function nombreCarpeta(nombre: string) {
   return nombre.replace(/[\\/:*?"<>|#%~&{}]/g, '-').trim().replace(/\.+$/, '');
 }
 
+function nombreUnico(nombre: string) {
+  const i = nombre.lastIndexOf('.');
+  const sello = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  return i < 0 ? `${nombre}-${sello}` : `${nombre.slice(0, i)}-${sello}${nombre.slice(i)}`;
+}
+
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const { data: claveOk } = await admin.rpc('fn_clave_worker_valida', {
@@ -61,7 +67,9 @@ Deno.serve(async (req) => {
       archivos.push({
         captura_id: c.captura_id,
         tipo: c.tipo,
-        nombre_archivo: c.storage_path.split('/').pop(),
+        // Nombre único por intento: "Create file" de SharePoint no sobrescribe
+        // (409 si existe), y un reintento tras un corte lo atascaría.
+        nombre_archivo: nombreUnico(c.storage_path.split('/').pop()!),
         url_origen: firmada.signedUrl,
       });
     }
