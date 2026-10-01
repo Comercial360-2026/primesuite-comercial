@@ -3,20 +3,16 @@
 -- 1) INTERRUPTOR de liberación. Liberar un original (borrarlo de Supabase) solo es
 --    seguro cuando la app desplegada sabe leer capturas archivadas. Hasta que se
 --    despliegue la app con ese soporte, `liberar_activo` queda en false y la fase 2 no
---    borra nada (la fase 1, copiar, sí corre: no destruye). Activarlo a mano:
---       update archivado_config set liberar_activo = true;
+--    borra nada (la fase 1, copiar, sí corre: no destruye). El interruptor es la fila
+--    'archivado_liberar_activo' de ajustes_app (la tabla de ajustes que ya existe).
+--    Activarlo a mano:
+--       update ajustes_app set valor = true where clave = 'archivado_liberar_activo';
 -- 2) TOPE DE REINTENTOS. Sin él, una copia que no se confirma se reintentaba cada
 --    10 min para siempre, sin que nadie se enterase. Tras 5 intentos deja de
 --    reintentarse y queda `error_archivado` (lo ve Dirección en la visita cerrada).
 --    Reintento manual: update captura_libre set intentos_archivado = 0, error_archivado = null where …;
 
-create table archivado_config (
-  id boolean primary key default true check (id),
-  liberar_activo boolean not null default false
-);
-insert into archivado_config default values;
-alter table archivado_config enable row level security;
-revoke all on archivado_config from anon, authenticated;
+insert into ajustes_app (clave, valor) values ('archivado_liberar_activo', false) on conflict (clave) do nothing;
 
 create or replace function fn_capturas_para_liberar()
 returns table (captura_id uuid, visita_id uuid, tipo text, storage_path text, storage_path_thumbnail text)
@@ -24,7 +20,7 @@ language sql security definer set search_path = public as $$
   select cl.id, cl.visita_id, cl.tipo, cl.storage_path, cl.storage_path_thumbnail
     from captura_libre cl
     join visita v on v.id = cl.visita_id
-   where (select liberar_activo from archivado_config)
+   where coalesce((select valor from ajustes_app where clave = 'archivado_liberar_activo'), false)
      and cl.tipo in ('foto', 'audio')
      and cl.ubicacion_archivo = 'supabase'
      and cl.ruta_sharepoint is not null
