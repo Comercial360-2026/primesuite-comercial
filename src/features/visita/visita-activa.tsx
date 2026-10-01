@@ -932,19 +932,20 @@ export function VisitaActiva() {
   // se encola YA con su binario (sube solo cuando hay red) y se sincroniza a
   // captura_libre con tipo 'documento'. Sin pantalla de confirmación: el
   // título es opcional y se pone después desde la ficha.
-  async function adjuntarDocumento(archivo: File) {
+  // Devuelve false si no se pudo (el aviso ya está puesto): con varios archivos seguidos, se para ahí.
+  async function adjuntarDocumento(archivo: File): Promise<boolean> {
     if (espacioBloqueado) {
       capturaDocumento.establecerError(MSG_ESPACIO_LLENO);
-      return;
+      return false;
     }
     const mime = mimeDeDocumento(archivo);
     if (!mime) {
-      capturaDocumento.establecerError('Ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.');
-      return;
+      capturaDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
+      return false;
     }
     if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
-      capturaDocumento.establecerError('Ese documento pesa más de 25 MB. Prueba con una versión más ligera.');
-      return;
+      capturaDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
+      return false;
     }
     capturaDocumento.limpiarError();
     await encolar(
@@ -960,6 +961,7 @@ export function VisitaActiva() {
       },
       { dependeDe: visitaId, archivoLocal: archivo }
     );
+    return true;
   }
 
   async function capturarFoto(archivo: File) {
@@ -2241,11 +2243,14 @@ export function VisitaActiva() {
           ref={inputDocumentoRef}
           type="file"
           accept={ACCEPT_DOCUMENTO}
+          multiple
           style={{ display: 'none' }}
           onChange={(e) => {
-            const archivo = e.target.files?.[0];
-            if (archivo) void adjuntarDocumento(archivo);
+            const archivos = Array.from(e.target.files ?? []);
             e.target.value = '';
+            void (async () => {
+              for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
+            })();
           }}
         />
         <input

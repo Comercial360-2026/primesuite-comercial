@@ -461,17 +461,19 @@ export function DetalleVisitaCerrada() {
   const puedeAdjuntar = visitaCerrada && (esDireccionComercial || miParticipacion?.estado === 'aceptado');
   const adjuntandoDocumento = useAccionAsync();
   const inputDocumentoRef = useRef<HTMLInputElement>(null);
-  async function adjuntarDocumento(archivo: File) {
-    if (!visitaId || !comercial || !data?.cliente_id) return;
+  // Devuelve false si no se pudo (aviso ya puesto): con varios archivos, se para ahí.
+  async function adjuntarDocumento(archivo: File): Promise<boolean> {
+    if (!visitaId || !comercial || !data?.cliente_id) return false;
     const mime = mimeDeDocumento(archivo);
     if (!mime) {
-      adjuntandoDocumento.establecerError('Ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.');
-      return;
+      adjuntandoDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
+      return false;
     }
     if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
-      adjuntandoDocumento.establecerError('Ese documento pesa más de 25 MB. Prueba con una versión más ligera.');
-      return;
+      adjuntandoDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
+      return false;
     }
+    let ok = false;
     await adjuntandoDocumento.ejecutar(
       async () => {
         const id = uuid();
@@ -500,10 +502,14 @@ export function DetalleVisitaCerrada() {
         }
       },
       {
-        onExito: () => queryClient.invalidateQueries({ queryKey }),
-        mensajeError: 'No se pudo adjuntar el documento. Inténtalo de nuevo.',
+        onExito: () => {
+          ok = true;
+          queryClient.invalidateQueries({ queryKey });
+        },
+        mensajeError: `No se pudo adjuntar «${archivo.name}». Inténtalo de nuevo.`,
       }
     );
+    return ok;
   }
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
@@ -889,11 +895,14 @@ export function DetalleVisitaCerrada() {
               ref={inputDocumentoRef}
               type="file"
               accept={ACCEPT_DOCUMENTO}
+              multiple
               style={{ display: 'none' }}
               onChange={(e) => {
-                const archivo = e.target.files?.[0];
-                if (archivo) void adjuntarDocumento(archivo);
+                const archivos = Array.from(e.target.files ?? []);
                 e.target.value = '';
+                void (async () => {
+                  for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
+                })();
               }}
             />
           )}

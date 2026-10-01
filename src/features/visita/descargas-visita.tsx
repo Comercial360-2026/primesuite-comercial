@@ -2,7 +2,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { formatearMB, type EstadoDescarga, type TipoInforme } from '@/hooks/use-descargar-informe';
 
-// Las dos descargas de una visita, iguales en el cierre y en el detalle de la
+// Las tres descargas de una visita, iguales en el cierre y en el detalle de la
 // visita cerrada. «PDF de la visita» es la normal: lleva las fotos dentro y se
 // abre sin descomprimir nada. «Todo en ZIP» es la copia completa (fotos
 // originales + audios) para quien quiera guardarla o antes de liberar espacio.
@@ -11,7 +11,8 @@ import { formatearMB, type EstadoDescarga, type TipoInforme } from '@/hooks/use-
 
 const FILAS: Array<{ tipo: TipoInforme; titulo: string; queLleva: string; etiqueta: string }> = [
   { tipo: 'visita', titulo: 'PDF de la visita', queLleva: 'Informe con las fotos', etiqueta: 'Descargar PDF' },
-  { tipo: 'visita-zip', titulo: 'Todo en ZIP', queLleva: 'PDF, fotos originales y audios', etiqueta: 'Descargar ZIP' },
+  { tipo: 'visita-web', titulo: 'Informe web', queLleva: 'Fotos con su mapa y coordenadas, en el navegador', etiqueta: 'Descargar informe web' },
+  { tipo: 'visita-zip', titulo: 'Todo en ZIP', queLleva: 'PDF, informe web, fotos originales, audios y documentos', etiqueta: 'Descargar ZIP' },
 ];
 
 function subtitulo(estado: EstadoDescarga, queLleva: string) {

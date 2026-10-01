@@ -12,6 +12,7 @@ import { useVolverA } from '@/lib/volver-a';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { SeccionLista } from '@/components/ui/seccion-lista';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
 import { RecategorizarItem } from './recategorizar-item';
@@ -121,6 +122,9 @@ function DetalleCapturaPorId() {
   const refDictadoTitulo = useRef<RefCampoDictado>(null);
   const [zonaEdit, setZonaEdit] = useState('');
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
+  // Solo documentos: URL para ABRIRLO en el navegador (sin forzar descarga);
+  // `urlMedia` es la de descargarlo con su nombre original.
+  const [urlAbrir, setUrlAbrir] = useState<string | null>(null);
   const guardado = useAccionAsync();
   const borrado = useAccionAsync();
   const [guardadoConExito, setGuardadoConExito] = useState(false);
@@ -216,6 +220,7 @@ function DetalleCapturaPorId() {
     if (captura.archivoLocal) {
       const url = URL.createObjectURL(captura.archivoLocal);
       setUrlMedia(url);
+      setUrlAbrir(url);
       return () => URL.revokeObjectURL(url);
     }
     if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento')) {
@@ -232,11 +237,20 @@ function DetalleCapturaPorId() {
         .then(({ data }) => {
           if (vivo) setUrlMedia(data?.signedUrl ?? null);
         });
+      if (captura.tipo === 'documento') {
+        supabase.storage
+          .from(bucket)
+          .createSignedUrl(captura.storagePath, 600)
+          .then(({ data }) => {
+            if (vivo) setUrlAbrir(data?.signedUrl ?? null);
+          });
+      }
       return () => {
         vivo = false;
       };
     }
     setUrlMedia(null);
+    setUrlAbrir(null);
   }, [captura]);
 
   // Regla 6 (contexto siempre visible): la cabecera dice de qué cliente y
@@ -563,24 +577,36 @@ function DetalleCapturaPorId() {
       {captura.tipo === 'audio' && urlMedia && <audio controls src={urlMedia} style={{ width: '100%' }} />}
 
       {captura.tipo === 'documento' && (
-        <FilaNavegable
-          icono="documento"
-          titulo={captura.nombreOriginal || 'Documento'}
-          subtitulo={
-            urlMedia
-              ? `${captura.bytes != null ? `${formatearBytes(captura.bytes)} · ` : ''}Toca para descargarlo`
-              : 'Preparando la descarga…'
-          }
-          chevron={false}
-          disabled={!urlMedia}
-          onClick={() => {
-            if (!urlMedia) return;
-            const a = document.createElement('a');
-            a.href = urlMedia;
-            a.download = captura.nombreOriginal || 'documento';
-            a.click();
-          }}
-        />
+        <SeccionLista>
+          <FilaNavegable
+            icono="documento"
+            titulo={captura.nombreOriginal || 'Documento'}
+            subtitulo={
+              urlAbrir
+                ? `${captura.bytes != null ? `${formatearBytes(captura.bytes)} · ` : ''}Toca para abrirlo`
+                : 'Preparando…'
+            }
+            chevron={false}
+            disabled={!urlAbrir}
+            onClick={() => {
+              if (urlAbrir) window.open(urlAbrir, '_blank', 'noopener');
+            }}
+          />
+          <FilaNavegable
+            icono="descargar"
+            titulo="Descargar"
+            subtitulo="Con su nombre original"
+            chevron={false}
+            disabled={!urlMedia}
+            onClick={() => {
+              if (!urlMedia) return;
+              const a = document.createElement('a');
+              a.href = urlMedia;
+              a.download = captura.nombreOriginal || 'documento';
+              a.click();
+            }}
+          />
+        </SeccionLista>
       )}
 
       {(captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento') && (

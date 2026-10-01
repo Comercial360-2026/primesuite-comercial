@@ -16,5 +16,11 @@ Un botón «Adjuntar un documento» en la visita en curso y en la visita cerrada
 ## Barrido de sitios tocados (clase: «adjuntos de visita»)
 `BUCKETS_VISITA` / `quitarAdjuntosDeStorage` (`src/lib/buckets-visita.ts`) sustituyen a las listas `fotos-visita`+`audios-visita` sueltas: borrar visita, borrar cliente, Mi espacio, liberar espacio de proyecto, tamaño de adjuntos. En BD: `fn_espacio_*`, `fn_mis_visitas_espacio`, `fn_visitas_liberables_proyecto` cuentan el bucket nuevo; `previsualizar_borrado_visita/cliente` devuelven `num_documentos` (la confirmación de borrado los nombra). ZIP de la visita (`generar-backup-visita`): carpeta `documentos/` + anexo + LEEME. Informe de proyecto: cuenta documentos.
 
+## Informe web (misma rama)
+`generar-backup-visita` admite `formato: 'html'`: un único `informe.html` con las fotos embebidas, un mapa Leaflet/OpenStreetMap con pines numerados y una ficha por foto (zona, hora, coordenadas, enlace a Google Maps, «ver en el mapa»). El ZIP lo incluye. Botón «Informe web» en `DescargasVisita`. Generador: `supabase/functions/_shared/informe-html.ts`. Sin conexión el informe sigue entero (el mapa muestra un aviso).
+
 ## Pendiente fuera de esta rama
 Archivado a SharePoint (PR #16): `BUCKET_POR_TIPO`, `fn_visitas_para_archivar` y `fn_capturas_para_archivar` solo contemplan foto/audio. Hay que añadir `documento` (con su nombre original) cuando #16 esté en `main`.
+
+- Borrar visita/cliente no borra ni avisa de lo archivado en SharePoint: ver `docs/pendiente-borrado-sharepoint.md`.
+- Lectura de documentos por IA para el briefing: requiere decidir con el agente de Copilot Studio (extracción de texto); no implementado.
