@@ -404,7 +404,7 @@ export function AltaRapidaCliente() {
               <FilaNavegable
                 key={c.id}
                 titulo={c.nombre}
-                valor={c.estado_relacion === CLIENTE_ARCHIVADO ? 'archivado' : 'iniciar visita'}
+                valor={c.estado_relacion === CLIENTE_ARCHIVADO ? 'inactivo' : 'iniciar visita'}
                 valorTenue
                 disabled={creacionCliente.cargando}
                 onClick={() => visitarExistente(c.id, c.nombre)}
