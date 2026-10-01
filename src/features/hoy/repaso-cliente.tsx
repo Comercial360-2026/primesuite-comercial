@@ -23,6 +23,7 @@ import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 interface NotaReciente {
@@ -66,6 +67,8 @@ export function RepasoCliente() {
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
@@ -338,17 +341,30 @@ export function RepasoCliente() {
         ayuda="repaso-cliente"
         volverA={volver}
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              onClick={() => setPreguntaIAAbierta(true)}
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setPreguntaIAAbierta(true)}
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+          </>
         }
       />
       <div className="screen__scroll">
@@ -509,6 +525,15 @@ export function RepasoCliente() {
           }
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
+        />
+      )}
+
+      {briefingAbierto && clienteId && cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={clienteId}
+          clienteNombre={cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 

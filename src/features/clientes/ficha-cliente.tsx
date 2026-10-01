@@ -30,7 +30,7 @@ import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
-import { BriefingHoja } from '@/features/visita/briefing-hoja';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
@@ -447,28 +447,8 @@ export function FichaCliente() {
   const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
-  // Briefing: vive por visita (briefing_visita.visita_id), no hay uno "del
-  // cliente" suelto — desde aquí se abre el de su visita en curso o, si no
-  // hay, la agendada más próxima y, si tampoco, la última visita cerrada
-  // (se puede ver o generar desde ahí, ver detalle-visita-cerrada). Sin
-  // ninguna visita, no hay a qué colgarlo y el botón no se muestra.
-  const { data: visitaIdBriefing } = useQuery({
-    queryKey: ['ficha-cliente-visita-briefing', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<string | null> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('id, estado_captura, fecha')
-        .eq('cliente_id', clienteId!)
-        .order('fecha', { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
-      const proxima = [...(data ?? [])].reverse().find((v) => v.estado_captura === 'agendada');
-      const ultimaCerrada = data?.find((v) => v.estado_captura === 'consolidada');
-      return (enCurso ?? proxima ?? ultimaCerrada)?.id ?? null;
-    },
-  });
+  // Briefing: vive por visita; el hook elige a cuál colgarlo.
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
 
   return (

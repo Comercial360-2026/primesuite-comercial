@@ -24,6 +24,7 @@ import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { mismaArea, type Area } from '@/lib/vocabulario';
 import { leerAreasDeOportunidad, guardarAreasDeOportunidad } from '@/lib/oportunidad-areas';
 import { useClasificacionDetallada } from '@/hooks/use-ajustes';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
@@ -108,6 +109,8 @@ export function DetalleOportunidad() {
   });
   const enCola = oportunidad?.enCola === true;
   const puedePreguntarIA = usePuedePreguntarIA(oportunidad?.cliente_id);
+  const visitaIdBriefing = useVisitaBriefing(oportunidad?.cliente_id);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
   // cliente era la oportunidad. El proyecto (siempre con nombre) se añade
   // detrás — mismo criterio que Agenda.
@@ -417,17 +420,30 @@ export function DetalleOportunidad() {
         ayuda="detalle-oportunidad"
         onVolver={alVolver}
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              onClick={() => setPreguntaIAAbierta(true)}
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setPreguntaIAAbierta(true)}
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+          </>
         }
       />
 
@@ -585,6 +601,15 @@ export function DetalleOportunidad() {
           Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
           oportunidad asociada.
         </ConfirmacionBorrado>
+      )}
+
+      {briefingAbierto && oportunidad?.cliente_id && oportunidad.cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={oportunidad?.cliente_id}
+          clienteNombre={oportunidad.cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
+        />
       )}
 
       {preguntaIAAbierta && oportunidad.cliente_id && oportunidad.cliente?.nombre && (
