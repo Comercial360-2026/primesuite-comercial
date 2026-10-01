@@ -34,12 +34,9 @@ create index captura_libre_archivable on captura_libre (visita_id)
   where ubicacion_archivo = 'supabase' and storage_path is not null and tipo in ('foto', 'audio') and estado_subida = 'completado';
 
 -- Secreto compartido que valida el flujo de Power Automate (campo "secreto"
--- del payload, ya configurado dentro de los dos flujos — ver
--- primesuite-archivado-sharepoint-plan.md). Se guarda aquí, no en código.
-select vault.create_secret(
-  '1023a776d2d1f811f9eb786bb5e65b5deddbe6d32f343532911986cc19152f47',
-  'power_automate_shared_secret'
-);
+-- del payload). NO se crea aquí: un valor en el repo es un secreto filtrado.
+-- Se crea a mano en Vault con el nombre 'power_automate_shared_secret' y el
+-- mismo valor que llevan configurados los dos flujos.
 
 create function fn_secreto_power_automate()
 returns text

@@ -23,6 +23,14 @@ function json(body: unknown, status = 200) {
 
 const BUCKET_POR_TIPO: Record<string, string> = { foto: 'fotos-visita', audio: 'audios-visita' };
 
+function igualesEnTiempoConstante(a: string, b: string) {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   let body: { secreto?: string; captura_id?: string; ruta_sharepoint?: string };
   try {
@@ -33,7 +41,9 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const { data: secretoOk } = await admin.rpc('fn_secreto_power_automate');
-  if (!body.secreto || body.secreto !== secretoOk) return json({ error: 'No autorizado' }, 401);
+  if (!body.secreto || !secretoOk || !igualesEnTiempoConstante(body.secreto, secretoOk)) {
+    return json({ error: 'No autorizado' }, 401);
+  }
 
   if (!body.captura_id || !body.ruta_sharepoint) {
     return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
@@ -45,10 +55,13 @@ Deno.serve(async (req) => {
   });
   if (error || !fila?.length) return json({ error: error?.message ?? 'Captura no encontrada' }, 404);
 
-  const { tipo, storage_path_antiguo } = fila[0];
-  if (storage_path_antiguo) {
+  const { tipo, storage_path_antiguo, storage_path_thumbnail_antiguo } = fila[0];
+  // La miniatura no se sube a SharePoint (campo sin lectores hoy); se borra
+  // también para no dejarla huérfana al limpiar su ruta en la fila.
+  const rutasAntiguas = [storage_path_antiguo, storage_path_thumbnail_antiguo].filter(Boolean) as string[];
+  if (rutasAntiguas.length) {
     const bucket = BUCKET_POR_TIPO[tipo];
-    const { error: errorBorrado } = await admin.storage.from(bucket).remove([storage_path_antiguo]);
+    const { error: errorBorrado } = await admin.storage.from(bucket).remove(rutasAntiguas);
     // No se revierte el archivado si falla el borrado del original: el
     // archivo ya está a salvo en SharePoint, un huérfano en Supabase
     // Storage es solo un gasto de cuota, no una pérdida de datos.
