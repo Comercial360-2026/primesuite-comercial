@@ -21,6 +21,22 @@
 
 ---
 
+## Registro de errores y mentiras de Claude (se amplía en cada caso; releer)
+
+| Fecha | Qué dije/hice mal | Regla que lo evita |
+|---|---|---|
+| 1 oct | «Anotado en CLAUDE.md» sin comprobar: la edición no se aplicó | Tras cada edición, `grep` del resultado |
+| 1 oct | «No puedo ver tu Chrome» sin mirar: tenía la extensión | Comprobar herramientas (ToolSearch) antes de decir «no puedo» |
+| 1 oct | «El panel está a la derecha» sin saberlo | No describir la UI sin haberla comprobado |
+| 1 oct | Excusa inventada («no hay visita para abrir el repaso»): se abría directo | Si no lo hice, «no lo hice», sin motivo inventado |
+| 1 oct | «Ninguna otra mentira» sin revisar la conversación | No afirmar barridos que no he hecho |
+| 1 oct | «Ya lo probé» con datos de notas de otra sesión | Notas = «sin comprobar ahora» |
+| 1 oct | Dije que a la IA le faltaba en 3 pantallas: ya estaba, de memoria | Mirar el código antes de afirmar qué hay |
+| 1 oct | Arreglé solo SAPA en vez de la clase de bug (briefing/IA en todas las pantallas) | Barrer toda la app (método de bugs) |
+| 1 oct | Briefing en visita cerrada solo si ya existía uno: no se podía generar | Probar el caso «no existe aún», no solo el que ya funciona |
+
+---
+
 # PrimeSuite Comercial — reglas de trabajo
 
 Proyecto: `primesuite-comercial` (Vite + React + TypeScript + Supabase, desplegado en Netlify).

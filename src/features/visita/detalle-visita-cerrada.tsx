@@ -479,21 +479,8 @@ export function DetalleVisitaCerrada() {
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
-  // Briefing: solo se ofrece si esa visita llegó a tener uno (el botón de la
-  // ficha de cliente cubre visitas en curso/agendadas; aquí, las ya cerradas).
+  // Briefing: siempre disponible en la visita cerrada (verlo o generarlo).
   const [briefingAbierto, setBriefingAbierto] = useState(false);
-  const { data: tieneBriefing } = useQuery({
-    queryKey: ['visita-cerrada-tiene-briefing', visitaId],
-    enabled: !!visitaId,
-    queryFn: async (): Promise<boolean> => {
-      const { count, error } = await supabase
-        .from('briefing_visita')
-        .select('visita_id', { count: 'exact', head: true })
-        .eq('visita_id', visitaId!);
-      if (error) throw error;
-      return (count ?? 0) > 0;
-    },
-  });
 
   const sinNada =
     !!data &&
@@ -534,7 +521,7 @@ export function DetalleVisitaCerrada() {
                 <Icono nombre="ia" size={18} />
               </button>
             )}
-            {tieneBriefing && (
+            {!!data?.cliente_id && (
               <button
                 type="button"
                 className="boton-icono"
