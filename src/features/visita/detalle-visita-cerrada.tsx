@@ -882,7 +882,7 @@ export function DetalleVisitaCerrada() {
           ))}
           {puedeAdjuntar && (
             <FilaNavegable
-              icono="documento"
+              icono="mas"
               titulo={adjuntandoDocumento.cargando ? 'Subiendo…' : 'Adjuntar un documento'}
               subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
               chevron={false}

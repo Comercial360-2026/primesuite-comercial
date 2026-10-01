@@ -1,6 +1,4 @@
 import { bucketDeTipo } from '@/lib/buckets-visita';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
-import { SeccionLista } from '@/components/ui/seccion-lista';
 import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, mimeDeDocumento } from '@/lib/documentos-visita';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -105,6 +103,7 @@ const COLOR_TIPO_ITEM: Partial<Record<NombreIcono, string>> = {
   audio: 'var(--tipo-audio)',
   hallazgo: 'var(--tipo-hallazgo)',
   paso: 'var(--tipo-paso)',
+  documento: 'var(--tipo-documento)',
   oportunidad: 'var(--signal-600)',
 };
 
@@ -2557,17 +2556,16 @@ export function VisitaActiva() {
             <Icono nombre="paso" size={22} weight="duotone" />
             Próximo paso
           </button>
-        </div>
-        <SeccionLista>
-          <FilaNavegable
-            icono="documento"
-            titulo={capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar un documento'}
-            subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
-            chevron={false}
+          <button
+            type="button"
+            className="capture-btn capture-btn--documento capture-btn--ancho"
             disabled={capturaDocumento.cargando || espacioBloqueado}
             onClick={() => inputDocumentoRef.current?.click()}
-          />
-        </SeccionLista>
+          >
+            <Icono nombre="documento" size={22} weight="duotone" />
+            {capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar documento'}
+          </button>
+        </div>
 
         {/* B7 · Motivo visible cuando Foto/Audio salen deshabilitados por el
             pozo del equipo lleno — antes solo se veía si conseguías pulsar. */}
