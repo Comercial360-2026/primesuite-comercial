@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -38,6 +38,7 @@ import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunt
 import { plural } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento } from '@/lib/documentos-visita';
+import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -62,6 +63,9 @@ interface DetalleVisita {
   cerrada_en: string | null;
   reabierta_en: string | null;
   resumen_texto: string | null;
+  resumen_origen: string | null;
+  /** Cerrada sola por inactividad (migración 135), no por el comercial. */
+  cierre_automatico: boolean;
   cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
@@ -192,7 +196,7 @@ export function DetalleVisitaCerrada() {
         supabase
           .from('visita')
           .select(
-            'fecha, tipo_visita, objetivo, estado_captura, cerrada_en, reabierta_en, resumen_texto, cliente_id, cliente:cliente_id(nombre)'
+            'fecha, tipo_visita, objetivo, estado_captura, cerrada_en, reabierta_en, resumen_texto, resumen_origen, cierre_automatico, cliente_id, cliente:cliente_id(nombre)'
           )
           .eq('id', visitaId!)
           .single(),
@@ -260,6 +264,8 @@ export function DetalleVisitaCerrada() {
         cerrada_en: (visita as { cerrada_en?: string | null }).cerrada_en ?? null,
         reabierta_en: (visita as { reabierta_en?: string | null }).reabierta_en ?? null,
         resumen_texto: visita!.resumen_texto,
+        resumen_origen: visita!.resumen_origen,
+        cierre_automatico: visita!.cierre_automatico,
         cliente_id: (visita! as { cliente_id: string | null }).cliente_id,
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
@@ -306,6 +312,19 @@ export function DetalleVisitaCerrada() {
       lng: f.longitud,
     }));
   }, [data?.fotos]);
+
+  // Una visita cerrada sola por inactividad (migración 135) nace SIN resumen: su texto
+  // lo genera el cliente (reglas), así que se genera la primera vez que se abre.
+  // Solo si es el automático ('reglas'): uno escrito a mano nunca se toca.
+  const resumenGenerado = useRef(false);
+  useEffect(() => {
+    if (!data || resumenGenerado.current) return;
+    if (data.estado_captura !== 'consolidada' || data.resumen_texto || data.resumen_origen !== 'reglas') return;
+    resumenGenerado.current = true;
+    void regenerarResumenSiAuto(visitaId).then(() =>
+      queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', visitaId] })
+    );
+  }, [data, visitaId, queryClient]);
 
   const sinConexion = isPaused && data === undefined;
   function reintentar() {
@@ -633,6 +652,12 @@ export function DetalleVisitaCerrada() {
 
       {data && (
         <div className="screen__scroll" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {data.cierre_automatico && data.estado_captura === 'consolidada' && (
+            <Aviso tipo="info" titulo="Cerrada automáticamente">
+              Esta visita se cerró sola tras muchas horas sin actividad. Si faltaba algo por capturar,
+              {puedeReabrirDirecto || puedeSolicitarReapertura ? ' reábrela más abajo.' : ' pide al responsable que la reabra.'}
+            </Aviso>
+          )}
           {kpis.length > 0 && (
             <div className="dvc-kpis">
               {kpis.map((k) => (
