@@ -145,6 +145,27 @@ export function DetalleVisitaCerrada() {
   });
   const soyResponsable = miParticipacion?.rol === 'responsable' && miParticipacion?.estado === 'aceptado';
   const puedeBorrarVisita = esDireccionComercial || soyResponsable;
+
+  // Archivado a SharePoint con problemas: solo Dirección lo ve. Para el
+  // comercial no cambia nada (el archivo sigue en Supabase y el cron lo
+  // reintenta cada día); Dirección necesita el motivo para saber si hay que
+  // revisar el flujo de Power Automate.
+  const { data: fallosArchivado } = useQuery({
+    queryKey: ['fallos-archivado', visitaId],
+    enabled: !!visitaId && esDireccionComercial,
+    queryFn: async (): Promise<string[]> => {
+      const hace1h = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select('error_archivado, intento_archivado_en')
+        .eq('visita_id', visitaId!)
+        .eq('ubicacion_archivo', 'supabase')
+        .not('storage_path', 'is', null)
+        .or(`error_archivado.not.is.null,intento_archivado_en.lt.${hace1h}`);
+      if (error) throw error;
+      return (data ?? []).map((c) => c.error_archivado ?? 'Sin respuesta de SharePoint tras el envío (revisar el flujo de Power Automate).');
+    },
+  });
   // Reabrir directo: mismo criterio que borrar (responsable de la visita o
   // Dirección — lo hace cumplir también el trigger de la BD, esto solo
   // decide si se ofrece el botón). El resto de participantes aceptados no
@@ -631,6 +652,15 @@ export function DetalleVisitaCerrada() {
               que no lleva fotos (Cesar, 25 sept). */}
           {visitaId && visitaCerrada && (
             <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+          )}
+
+          {!!fallosArchivado?.length && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+              <Aviso tipo="atencion">
+                No se pudo archivar {fallosArchivado.length === 1 ? '1 archivo' : `${fallosArchivado.length} archivos`} a
+                SharePoint. Siguen en PrimeNotes y se reintenta cada día. Motivo: {[...new Set(fallosArchivado)].join(' · ')}
+              </Aviso>
+            </div>
           )}
 
           {data.hayArchivadoSharepoint && (
