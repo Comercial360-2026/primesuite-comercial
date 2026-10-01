@@ -472,9 +472,8 @@ export interface PasoTour {
   texto: string;
 }
 
-// Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Se
-// dispara una sola vez tras el primer login (useTourGuiado en
-// layout-shell.tsx) y se puede repetir desde Yo → "Ver guía rápida".
+// Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Ya
+// no sale solo al entrar: solo desde Yo → "Ver guía rápida".
 // Mismo contenido para cualquier rol: el menú de abajo es igual para
 // comercial y Dirección Comercial.
 export const TOUR_NAVEGACION: PasoTour[] = [
