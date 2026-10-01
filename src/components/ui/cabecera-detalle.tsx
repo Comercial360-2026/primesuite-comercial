@@ -32,6 +32,8 @@ type Props = {
   /** Ficha de una PERSONA (comercial/cliente): `Avatar` grande junto al
    *  título, con el nombre completo (decide iniciales y color). */
   avatar?: string;
+  /** `proyecto`: el avatar es la marca de un proyecto (ver `Avatar`). */
+  avatarForma?: 'persona' | 'proyecto';
   /** Ranura a la derecha: chip de estado, botón de acción… */
   derecha?: ReactNode;
 } & (
@@ -39,7 +41,7 @@ type Props = {
   | { volverA: string; onVolver?: () => void }
 );
 
-export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, avatar, derecha }: Props) {
+export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, avatar, avatarForma, derecha }: Props) {
   const navigate = useNavigate();
   const volver = onVolver ?? (() => navigate(volverA!));
 
@@ -53,7 +55,7 @@ export function CabeceraDetalle({ titulo, subtitulo, onVolver, volverA, ayuda, a
       >
         <Icono nombre="atras" size={22} />
       </button>
-      {avatar && <Avatar nombre={avatar} size="md" />}
+      {avatar && <Avatar nombre={avatar} size="md" forma={avatarForma} />}
       <div className="cabecera-detalle__texto">
         <h1 className="cabecera-detalle__titulo">{titulo}</h1>
         {subtitulo && <p className="cabecera-detalle__subtitulo">{subtitulo}</p>}

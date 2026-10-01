@@ -24,6 +24,7 @@ import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { mismaArea, type Area } from '@/lib/vocabulario';
 import { leerAreasDeOportunidad, guardarAreasDeOportunidad } from '@/lib/oportunidad-areas';
 import { useClasificacionDetallada } from '@/hooks/use-ajustes';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
 // minúscula (`e`/`p`/`m`), que es contra lo que compara el estado.
@@ -61,6 +62,7 @@ export function DetalleOportunidad() {
   // oportunidad desde el chip de Etapa.
   const [confirmandoSalida, setConfirmandoSalida] = useState(false);
   const [confirmandoCierre, setConfirmandoCierre] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
 
   const { data: oportunidad, isLoading, isError, refetch } = useQuery({
     queryKey: ['oportunidad', oportunidadId],
@@ -72,7 +74,7 @@ export function DetalleOportunidad() {
       const { data, error: err } = await supabase
         .from('oportunidad')
         .select(
-          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, zona_texto, creado_en, comercial_autor_id, visita_origen_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
+          'id, titulo, etapa, prioridad, horizonte_decision, descripcion, zona_texto, creado_en, comercial_autor_id, visita_origen_id, cliente_id, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('id', oportunidadId!)
         .maybeSingle();
@@ -95,6 +97,7 @@ export function DetalleOportunidad() {
           creado_en: null as string | null,
           comercial_autor_id: p.comercialAutorId ?? null,
           visita_origen_id: p.visitaOrigenId ?? null,
+          cliente_id: p.clienteId,
           cliente: null as { nombre: string } | null,
           proyecto: null as { nombre: string } | null,
           enCola: true,
@@ -104,6 +107,7 @@ export function DetalleOportunidad() {
     },
   });
   const enCola = oportunidad?.enCola === true;
+  const puedePreguntarIA = usePuedePreguntarIA(oportunidad?.cliente_id);
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
   // cliente era la oportunidad. El proyecto (siempre con nombre) se añade
   // detrás — mismo criterio que Agenda.
@@ -412,6 +416,19 @@ export function DetalleOportunidad() {
         subtitulo={contextoCliente || undefined}
         ayuda="detalle-oportunidad"
         onVolver={alVolver}
+        derecha={
+          puedePreguntarIA && (
+            <button
+              type="button"
+              className="boton-icono"
+              onClick={() => setPreguntaIAAbierta(true)}
+              aria-label="Pregunta a la IA"
+              title="Pregunta a la IA sobre este cliente"
+            >
+              <Icono nombre="ia" size={18} />
+            </button>
+          )
+        }
       />
 
       <RecategorizarItem
@@ -568,6 +585,14 @@ export function DetalleOportunidad() {
           Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
           oportunidad asociada.
         </ConfirmacionBorrado>
+      )}
+
+      {preguntaIAAbierta && oportunidad.cliente_id && oportunidad.cliente?.nombre && (
+        <PreguntaIAHoja
+          clienteId={oportunidad.cliente_id}
+          clienteNombre={oportunidad.cliente.nombre}
+          onCerrar={() => setPreguntaIAAbierta(false)}
+        />
       )}
     </div>
   );

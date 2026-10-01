@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
@@ -79,6 +82,7 @@ export function PlanificarVisita() {
       const { data, error } = await supabase
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
+        .neq('estado_relacion', CLIENTE_ARCHIVADO)
         .ilike('cliente_nombre', `%${termino}%`)
         .order('cliente_nombre')
         .limit(8);
@@ -163,6 +167,10 @@ export function PlanificarVisita() {
   const [creandoProyecto, setCreandoProyecto] = useState(false);
   const [nombreProyectoNuevo, setNombreProyectoNuevo] = useState('');
   const creacionProyecto = useAccionAsync();
+  const proyectoDuplicado = hayNombreDuplicado(nombreProyectoNuevo, proyectos ?? []);
+  const [dupProyectoConfirmado, confirmarDupProyecto] = useConfirmacionDuplicado(
+    nombreProyectoNuevo.trim().toLowerCase()
+  );
 
   // Vía "Ahora" — misma que "Iniciar visita ahora" de la ficha de proyecto.
   const { iniciarVisita } = useVisitaActivaContext();
@@ -285,7 +293,7 @@ export function PlanificarVisita() {
 
   async function crearProyectoYElegir() {
     const nombre = nombreProyectoNuevo.trim();
-    if (!clienteId || !nombre) return;
+    if (!clienteId || !nombre || (proyectoDuplicado && !dupProyectoConfirmado)) return;
     await creacionProyecto.ejecutar(
       () => crearProyectoRapido(clienteId, nombre, encolar),
       {
@@ -377,6 +385,8 @@ export function PlanificarVisita() {
               {proyectos.map((p) => (
                 <FilaNavegable
                   key={p.id}
+                  avatar={p.nombre}
+                  avatarForma="proyecto"
                   titulo={p.nombre}
                   onClick={() => setProyectoId(p.id)}
                   chevron
@@ -404,6 +414,13 @@ export function PlanificarVisita() {
                 {creacionProyecto.error && (
                   <div className="field-error-text">{creacionProyecto.error}</div>
                 )}
+                {proyectoDuplicado && !dupProyectoConfirmado && (
+                  <AvisoNombreDuplicado
+                    titulo="Ya hay un proyecto con este nombre."
+                    subtitulo="Si es una línea de negocio distinta, puedes crearlo igual."
+                    onConfirmar={confirmarDupProyecto}
+                  />
+                )}
                 <div className="fila-btns" style={{ marginTop: 8 }}>
                   <button
                     type="button"
@@ -420,7 +437,11 @@ export function PlanificarVisita() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    disabled={creacionProyecto.cargando || !nombreProyectoNuevo.trim()}
+                    disabled={
+                      creacionProyecto.cargando ||
+                      !nombreProyectoNuevo.trim() ||
+                      (proyectoDuplicado && !dupProyectoConfirmado)
+                    }
                     onClick={crearProyectoYElegir}
                   >
                     {creacionProyecto.cargando ? 'Creando…' : 'Crear y seguir'}

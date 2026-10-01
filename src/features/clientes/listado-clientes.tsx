@@ -13,12 +13,14 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Segmentado } from '@/components/ui/segmentado';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
+import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 
 interface ClienteConSemaforo {
   cliente_id: string;
   cliente_nombre: string;
   semaforo: 'verde' | 'amarillo' | 'rojo';
   ultima_visita: string | null;
+  estado_relacion: string;
 }
 
 // Lee directamente de vw_semaforo_cliente (ya cerrada en el modelo físico)
@@ -29,6 +31,7 @@ export function ListadoClientes() {
   const location = useLocation();
   const { comercial } = useSesionActual();
   const [busqueda, setBusqueda] = useState('');
+  const [verArchivados, setVerArchivados] = useState(false);
   const buscador = useBuscador(!!busqueda);
   // Decisión de producto (29/8/2026, ajustada 2026-09-05, abierta a todos
   // 2026-09-18): cualquier comercial ve por defecto solo su cartera, con
@@ -95,7 +98,7 @@ export function ListadoClientes() {
 
       let query = supabase
         .from('vw_semaforo_cliente')
-        .select('cliente_id, cliente_nombre, semaforo, ultima_visita')
+        .select('cliente_id, cliente_nombre, semaforo, ultima_visita, estado_relacion')
         .order('cliente_nombre', { ascending: true });
 
       if (busqueda.trim()) {
@@ -147,6 +150,12 @@ export function ListadoClientes() {
   const clientesFiltrados = clientes?.filter(
     (c) => !restringirACartera || meta?.[c.cliente_id]?.responsable_id === comercial?.id
   );
+  // Archivados («ya no trabajamos con él»): fuera de la lista, plegados al
+  // final tras «Ver archivados (N)» — mismo patrón que los proyectos
+  // terminados de la ficha de cliente.
+  const activos = clientesFiltrados?.filter((c) => c.estado_relacion !== CLIENTE_ARCHIVADO);
+  const archivados = clientesFiltrados?.filter((c) => c.estado_relacion === CLIENTE_ARCHIVADO) ?? [];
+
   // Mientras "meta" sigue en vuelo, el filtro de arriba da longitud 0 por un
   // `undefined === id` — sin esto, cualquier comercial veía un parpadeo real
   // de "Todavía no tienes clientes" antes de que apareciera su cartera.
@@ -207,9 +216,9 @@ export function ListadoClientes() {
         onCambio={cambiarVista}
       />
 
-      {!!clientesFiltrados?.length && (
+      {!!activos?.length && (
         <div className="contador">
-          {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'}
+          {activos.length} {activos.length === 1 ? 'cliente' : 'clientes'}
         </div>
       )}
 
@@ -226,51 +235,20 @@ export function ListadoClientes() {
         />
       )}
 
-      {!!clientesFiltrados?.length && (
+      {(!!activos?.length || archivados.length > 0) && (
         <div className="lista-agrupada">
-          <SeccionLista>
-            {clientesFiltrados.map((c) => {
-              const m = meta?.[c.cliente_id];
-              const respId = m?.responsable_id ?? null;
-              const creadorId = m?.creado_por ?? null;
-              // "Heredado": es de mi cartera (responsable) pero NO lo creé yo
-              // → me lo traspasaron. Marca azul para no confundirlo con los
-              // míos de siempre.
-              const heredado = respId === comercial?.id && !!creadorId && creadorId !== comercial?.id;
-              const sinResponsable = !soloMios && !respId;
-              const subtitulo =
-                [
-                  // En "Todos": quién lleva la cuenta, o el aviso.
-                  !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : 'Sin responsable') : null,
-                  heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
-                  c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || undefined;
-              return (
-                <FilaNavegable
-                  key={c.cliente_id}
-                  avatar={c.cliente_nombre}
-                  titulo={
-                    heredado ? (
-                      <>
-                        {c.cliente_nombre} <span className="info-tag">Heredado</span>
-                      </>
-                    ) : (
-                      c.cliente_nombre
-                    )
-                  }
-                  subtitulo={subtitulo}
-                  // Cliente frío ("Sin visitar") o sin responsable → barra de
-                  // atención; lo sano (verde/amarillo) no distrae.
-                  tono={sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
-                  valor={<EtiquetaSemaforo valor={c.semaforo} />}
-                  to={`/clientes/${c.cliente_id}`}
-                  state={desde(location)}
-                />
-              );
-            })}
-          </SeccionLista>
+          {!!activos?.length && <SeccionLista>{activos.map(filaCliente)}</SeccionLista>}
+          {archivados.length > 0 && (
+            <SeccionLista>
+              <FilaNavegable
+                titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${archivados.length})`}
+                chevron={false}
+                valorTenue
+                onClick={() => setVerArchivados((v) => !v)}
+              />
+              {verArchivados && archivados.map(filaCliente)}
+            </SeccionLista>
+          )}
         </div>
       )}
 
@@ -289,4 +267,48 @@ export function ListadoClientes() {
       </div>
     </div>
   );
+
+  function filaCliente(c: ClienteConSemaforo) {
+    const m = meta?.[c.cliente_id];
+    const respId = m?.responsable_id ?? null;
+    const creadorId = m?.creado_por ?? null;
+    // "Heredado": es de mi cartera (responsable) pero NO lo creé yo
+    // → me lo traspasaron. Marca azul para no confundirlo con los
+    // míos de siempre.
+    const heredado = respId === comercial?.id && !!creadorId && creadorId !== comercial?.id;
+    const sinResponsable = !soloMios && !respId;
+    const archivado = c.estado_relacion === CLIENTE_ARCHIVADO;
+    const subtitulo =
+      [
+        // En "Todos": quién lleva la cuenta, o el aviso.
+        !soloMios ? (respId ? nombresComerciales?.[respId] ?? '…' : 'Sin responsable') : null,
+        heredado ? `antes de ${nombresComerciales?.[creadorId] ?? '…'}` : null,
+        c.ultima_visita ? `última visita ${fechaDiaMes(c.ultima_visita)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || undefined;
+    return (
+      <FilaNavegable
+        key={c.cliente_id}
+        avatar={c.cliente_nombre}
+        titulo={
+          heredado ? (
+            <>
+              {c.cliente_nombre} <span className="info-tag">Heredado</span>
+            </>
+          ) : (
+            c.cliente_nombre
+          )
+        }
+        subtitulo={subtitulo}
+        // Cliente frío ("Sin visitar") o sin responsable → barra de
+        // atención; lo sano (verde/amarillo) no distrae.
+        tono={archivado ? 'neutral' : sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
+        valor={archivado ? 'archivado' : <EtiquetaSemaforo valor={c.semaforo} />}
+        valorTenue={archivado}
+        to={`/clientes/${c.cliente_id}`}
+        state={desde(location)}
+      />
+    );
+  }
 }

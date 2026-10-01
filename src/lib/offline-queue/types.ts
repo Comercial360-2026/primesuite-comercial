@@ -34,6 +34,7 @@ export interface ClientePayload {
   // "Cambiar responsable" (RPC de traspaso de cartera, migración 77).
   responsableId: string;
   estadoRelacion?: string; // por defecto 'borrador' en la BD
+  crmAccountid?: string; // cuenta del CRM elegida en el alta (migración 121)
 }
 
 // Igual que ClientePayload: reserva para cuando no hay red. Con conexión,

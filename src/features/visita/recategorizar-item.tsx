@@ -91,7 +91,7 @@ export function RecategorizarItem({ id, tipoActual, visitaId, origen, sinSubir, 
     ? 'Podrás cambiarlo de tipo cuando termine de guardarse (unos segundos con conexión).'
     : motivoBloqueo
       ? motivoBloqueo
-      : 'Nota: queda en la visita. Hallazgo: algo que tienen, suma al ecosistema del cliente. Oportunidad: algo para venderles, entra en el seguimiento.';
+      : 'Nota: queda en la visita. Hallazgo: algo que tienen, suma a lo que tiene instalado el cliente. Oportunidad: algo para venderles, entra en el seguimiento.';
 
   return (
     <div>

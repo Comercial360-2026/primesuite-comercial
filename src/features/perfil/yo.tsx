@@ -137,7 +137,7 @@ export function Yo() {
   // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
   // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
   // LayoutShell, ver use-avisos-gestion.ts.
-  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados } = useAvisosGestion();
+  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing } = useAvisosGestion();
 
   // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
   // visitas de equipo), no en una pantalla aparte.
@@ -716,6 +716,17 @@ export function Yo() {
               titulo="Sectores"
               subtitulo="La lista de sectores que se elige en la ficha de cliente"
               to="/sectores"
+            />
+            <FilaNavegable
+              icono="briefing"
+              titulo="Briefings"
+              subtitulo={
+                topeBriefing?.alcanzado
+                  ? `Tope diario alcanzado (${topeBriefing.enviados_hoy}/${topeBriefing.tope}): el resto espera a mañana`
+                  : 'Consumo del agente de Copilot y controles'
+              }
+              tono={topeBriefing?.alcanzado ? 'aviso' : 'neutral'}
+              to="/briefings"
             />
           </SeccionLista>
         )}

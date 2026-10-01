@@ -34,6 +34,7 @@ import { DetalleProximoPaso } from '@/features/tareas/detalle-proximo-paso';
 import { ColaVocabulario } from '@/features/vocabulario/cola-vocabulario';
 import { SolicitudesReasignacion } from '@/features/visita/solicitudes-reasignacion';
 import { Yo } from '@/features/perfil/yo';
+import { BriefingsUso } from '@/features/perfil/briefings-uso';
 import { AyudaManual } from '@/features/ayuda/ayuda-manual';
 import { MiEspacio } from '@/features/perfil/mi-espacio';
 import { ActividadComerciales } from '@/features/perfil/actividad-comerciales';
@@ -117,6 +118,16 @@ export function AppRoutes() {
               "Por comercial" (segmentado, solo Dirección). Se mantiene la
               ruta como redirección por si hay algún enlace guardado. */}
           <Route path="/consumo-comerciales" element={<Navigate to="/mi-espacio?vista=equipo" replace />} />
+
+          {/* Consumo y controles del briefing del agente — Dirección Comercial */}
+          <Route
+            path="/briefings"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <BriefingsUso />
+              </RequireRole>
+            }
+          />
 
           {/* Catálogo de sectores de cliente — exclusivo de Dirección Comercial */}
           <Route

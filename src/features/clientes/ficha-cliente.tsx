@@ -14,6 +14,7 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
+import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -23,8 +24,13 @@ import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
+import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
+import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
+import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
@@ -56,6 +62,7 @@ export function FichaCliente() {
   const queryClient = useQueryClient();
 
   const [ecoTodos, setEcoTodos] = useState(false);
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const ECO_VISIBLE = 10;
   const [confirmandoBorrarCliente, setConfirmandoBorrarCliente] = useState(false);
   const [previsualizacionCliente, setPrevisualizacionCliente] = useState<PrevisualizacionBorradoCliente | null>(null);
@@ -90,7 +97,12 @@ export function FichaCliente() {
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
   const [formUbicacion, setFormUbicacion] = useState('');
+  // Cuenta del CRM (migración 121): se busca en el propio formulario. Elegir
+  // una vacía el buscador y la deja como fila con "quitar".
+  const [formCrm, setFormCrm] = useState<CuentaCrm | null>(null);
+  const [buscaCrm, setBuscaCrm] = useState('');
   const guardadoDatos = useAccionAsync();
+  const cambioArchivado = useAccionAsync();
 
   const { data: sectores } = useQuery({
     queryKey: ['sectores-activos'],
@@ -110,6 +122,8 @@ export function FichaCliente() {
     setFormSector(cliente?.sector ?? '');
     setFormTamano(cliente?.tamano_aprox ?? '');
     setFormUbicacion(cliente?.ubicacion_general ?? '');
+    setFormCrm(cuentaCrm ?? null);
+    setBuscaCrm('');
     guardadoDatos.limpiarError();
     setEditandoDatos(true);
   }
@@ -132,6 +146,7 @@ export function FichaCliente() {
                   sector: formSector || null,
                   tamano_aprox: formTamano || null,
                   ubicacion_general: formUbicacion.trim() || null,
+                  crm_accountid: formCrm?.accountid ?? null,
                 },
                 { count: 'exact' }
               )
@@ -144,6 +159,39 @@ export function FichaCliente() {
           setEditandoDatos(false);
           queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
           queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+        },
+      }
+    );
+  }
+
+  // Archivar = «ya no trabajamos con él» (prompt maestro 13): sale de
+  // Clientes y de los buscadores de Nueva visita, conserva todo. Reversible,
+  // así que sin confirmación. Mismo permiso y misma vía que Editar datos.
+  async function cambiarArchivado(archivar: boolean) {
+    if (!clienteId) return;
+    if (!navigator.onLine) {
+      cambioArchivado.establecerError('Necesitas conexión para archivar o reactivar el cliente.');
+      return;
+    }
+    await cambioArchivado.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update({ estado_relacion: archivar ? CLIENTE_ARCHIVADO : 'activo' }, { count: 'exact' })
+              .eq('id', clienteId),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['cliente-nombre', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['planificar-buscar-cliente'] });
+          queryClient.invalidateQueries({ queryKey: ['empezar-visita-buscar'] });
         },
       }
     );
@@ -188,7 +236,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por')
+        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -196,6 +244,20 @@ export function FichaCliente() {
     },
   });
   const sinConexionCliente = pausadoCliente && cliente === undefined;
+
+  const { data: cuentaCrm } = useQuery({
+    queryKey: ['crm-cuenta', cliente?.crm_accountid],
+    enabled: !!cliente?.crm_accountid,
+    queryFn: async (): Promise<CuentaCrm | null> => {
+      const { data, error } = await supabase
+        .from('crm_cuenta')
+        .select('accountid, nombre, ciudad')
+        .eq('accountid', cliente!.crm_accountid!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   function reintentarCliente() {
     queryClient.resetQueries({ queryKey: ['cliente', clienteId] });
     refetchCliente();
@@ -227,6 +289,10 @@ export function FichaCliente() {
   });
 
   const { data: proyectos } = useProyectosCliente(clienteId);
+  const proyectoDuplicado = hayNombreDuplicado(nombreProyecto, proyectos ?? []);
+  const [dupProyectoConfirmado, confirmarDupProyecto] = useConfirmacionDuplicado(
+    nombreProyecto.trim().toLowerCase()
+  );
 
   // Solo el recuento, para el badge del icono de Interlocutores en la
   // cabecera. Clave propia (no la del directorio, que trae más columnas) para
@@ -257,7 +323,7 @@ export function FichaCliente() {
   // sincronice no encontraría la fila todavía, así que solo se navega si se
   // pudo confirmar al momento.
   async function crearProyecto() {
-    if (!nombreProyecto.trim() || !comercial || !clienteId) return;
+    if (!nombreProyecto.trim() || !comercial || !clienteId || (proyectoDuplicado && !dupProyectoConfirmado)) return;
     await creacionProyecto.ejecutar(
       async () => {
         const proyectoId = uuid();
@@ -297,8 +363,6 @@ export function FichaCliente() {
     ? nombresComerciales?.[cliente.creado_por] ?? null
     : null;
   const ultimaVisitaRel = semaforo?.ultima_visita ? haceRelativo(semaforo.ultima_visita) : null;
-  const hayBasicos =
-    !!cliente?.sector || !!cliente?.ubicacion_general || !!cliente?.tamano_aprox;
 
   // Todo cliente tiene ≥1 proyecto y todos son fila navegable, con nombre.
   // Terminados: se pliegan tras "Ver terminados (N)" — no ensucian la lista
@@ -379,6 +443,32 @@ export function FichaCliente() {
     );
   }
 
+  const puedeEditar = esDireccionComercial || cliente?.responsable_id === comercial?.id;
+  const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
+  const puedePreguntarIA = usePuedePreguntarIA(clienteId);
+
+  // Briefing: vive por visita (briefing_visita.visita_id), no hay uno "del
+  // cliente" suelto — desde aquí se abre el de su visita en curso o, si no
+  // hay, la agendada más próxima. Sin ninguna de las dos, no hay a qué
+  // visita colgarlo y el botón no se muestra.
+  const { data: visitaIdBriefing } = useQuery({
+    queryKey: ['ficha-cliente-visita-briefing', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, estado_captura, fecha')
+        .eq('cliente_id', clienteId!)
+        .in('estado_captura', ['en_curso', 'agendada'])
+        .order('fecha', { ascending: true })
+        .limit(10);
+      if (error) throw error;
+      const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
+      return (enCurso ?? data?.[0])?.id ?? null;
+    },
+  });
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -403,7 +493,29 @@ export function FichaCliente() {
                 )}
               </button>
             )}
-            {(esDireccionComercial || cliente?.responsable_id === comercial?.id) && (
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+                onClick={() => setPreguntaIAAbierta(true)}
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing de la próxima visita"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+            {puedeEditar && (
               <button
                 type="button"
                 className="boton-icono"
@@ -434,6 +546,12 @@ export function FichaCliente() {
            {ultimaVisitaRel && <span>Última visita <b>{ultimaVisitaRel}</b></span>}
            {semaforo && <EtiquetaSemaforo valor={semaforo.semaforo} />}
          </div>
+       )}
+       {archivado && (
+         <Aviso titulo="Archivado">
+           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo al final
+           de esta ficha.
+         </Aviso>
        )}
        {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
@@ -549,6 +667,35 @@ export function FichaCliente() {
              onChange={(e) => setFormUbicacion(e.target.value)}
              placeholder="p. ej. Polígono Norte, Sevilla"
            />
+           <div className="label">Cuenta en el CRM</div>
+           {formCrm ? (
+             <FilaNavegable
+               titulo={textoCuentaCrm(formCrm)}
+               valor="quitar"
+               valorTenue
+               chevron={false}
+               onClick={() => setFormCrm(null)}
+             />
+           ) : (
+             <>
+               <input
+                 className="field"
+                 autoComplete="off"
+                 value={buscaCrm}
+                 onChange={(e) => setBuscaCrm(e.target.value)}
+                 placeholder="busca por nombre (mín. 3 letras)"
+               />
+               <ResultadosCuentaCrm
+                 texto={buscaCrm}
+                 excluirClienteId={clienteId}
+                 titulo="Resultados"
+                 onElegir={(c) => {
+                   setFormCrm(c);
+                   setBuscaCrm('');
+                 }}
+               />
+             </>
+           )}
            {guardadoDatos.error && (
              <div style={{ marginTop: 8 }}>
                <Aviso tipo="error">{guardadoDatos.error}</Aviso>
@@ -577,7 +724,7 @@ export function FichaCliente() {
        )}
 
        <div className="lista-agrupada">
-        {(hayBasicos || (responsableNombre && !esDireccionComercial)) && (
+        {cliente && (
           <SeccionLista titulo="Datos" prominencia="tenue">
             {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
             {cliente?.ubicacion_general && (
@@ -587,6 +734,34 @@ export function FichaCliente() {
             {responsableNombre && !esDireccionComercial && (
               <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
+            {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
+                cliente buscar. Se vincula con el lápiz de la cabecera. */}
+            <FilaDato
+              etiqueta="Cuenta CRM"
+              valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+            />
+          </SeccionLista>
+        )}
+
+        {/* Lo que sabemos que tiene, sacado de los hallazgos de todas sus
+            visitas: es del cliente entero, no de un proyecto — por eso va
+            con sus datos y no bajo los proyectos (prompt maestro 13). */}
+        {!!ecosistema?.length && (
+          <SeccionLista titulo="Qué tiene instalado">
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
+              {/* Ya viene ordenado (términos antes que categorías sueltas).
+                  Se recorta a ECO_VISIBLE. */}
+              {ecosistema
+                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
+                .map((item) => (
+                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
+                ))}
+              {ecosistema.length > ECO_VISIBLE && (
+                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
+                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
+                </button>
+              )}
+            </div>
           </SeccionLista>
         )}
 
@@ -625,6 +800,8 @@ export function FichaCliente() {
               return (
                 <FilaNavegable
                   key={p.id}
+                  avatar={p.nombre}
+                  avatarForma="proyecto"
                   titulo={p.nombre}
                   subtitulo={[estadoTxt, actividadTxt].filter(Boolean).join(' · ')}
                   tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
@@ -683,10 +860,17 @@ export function FichaCliente() {
               placeholder="mantenimiento, obra nueva, postventa…"
             />
             {creacionProyecto.error && <div className="field-error-text">{creacionProyecto.error}</div>}
+            {proyectoDuplicado && !dupProyectoConfirmado && (
+              <AvisoNombreDuplicado
+                titulo="Ya hay un proyecto con este nombre."
+                subtitulo="Si es una línea de negocio distinta, puedes crearlo igual."
+                onConfirmar={confirmarDupProyecto}
+              />
+            )}
             <button
               className="btn btn-primary"
               style={{ marginTop: 12, width: '100%' }}
-              disabled={creacionProyecto.cargando || !nombreProyecto.trim()}
+              disabled={creacionProyecto.cargando || !nombreProyecto.trim() || (proyectoDuplicado && !dupProyectoConfirmado)}
               onClick={crearProyecto}
             >
               {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
@@ -702,37 +886,37 @@ export function FichaCliente() {
           <HistorialVisitasCliente clienteId={clienteId} />
         )}
 
-        {!!ecosistema?.length && (
-          <SeccionLista titulo="Ecosistema">
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px var(--fila-pad-x)' }}>
-              {/* Ya viene ordenado (términos antes que categorías sueltas).
-                  Se recorta a ECO_VISIBLE. */}
-              {ecosistema
-                .slice(0, ecoTodos ? undefined : ECO_VISIBLE)
-                .map((item) => (
-                  <EcoTag key={item.clave} nombre={item.nombre} tipo={item.tipo} />
-                ))}
-              {ecosistema.length > ECO_VISIBLE && (
-                <button type="button" className="eco-tag-mas" onClick={() => setEcoTodos((v) => !v)}>
-                  {ecoTodos ? 'ver menos' : `+${ecosistema.length - ECO_VISIBLE} más`}
-                </button>
-              )}
-            </div>
-          </SeccionLista>
-        )}
 
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}
 
-        {/* Borrar cliente — al fondo y en tono riesgo, como en el resto de
-            la app (detalle de visita, "Cerrar sesión" en Yo). Solo se
-            OFRECE a quien realmente puede: mismo criterio que el backend
-            (eliminar_cliente_completo: creado_por = auth.uid() OR
-            dirección) — antes se mostraba a cualquier comercial aunque el
-            servidor fuera a rechazarlo (hallazgo de la auditoría 2026-09-05:
-            Borja veía "Borrar cliente" en una ficha ajena). */}
-        {(esDireccionComercial || cliente?.creado_por === comercial?.id) && (
+        {puedeEditar && (
+          <SeccionLista>
+            <FilaNavegable
+              icono={archivado ? 'restaurar' : 'oculto'}
+              titulo={archivado ? 'Reactivar cliente' : 'Archivar cliente'}
+              subtitulo={
+                cambioArchivado.cargando
+                  ? 'Guardando…'
+                  : archivado
+                    ? 'Vuelve a Clientes y se puede visitar otra vez'
+                    : 'Ya no trabajáis con él: sale de las listas y se conserva todo'
+              }
+              chevron={false}
+              disabled={cambioArchivado.cargando}
+              onClick={() => cambiarArchivado(!archivado)}
+            />
+          </SeccionLista>
+        )}
+        {cambioArchivado.error && <Aviso tipo="error">{cambioArchivado.error}</Aviso>}
+
+        {/* Borrar cliente — solo Dirección (prompt maestro 13): con los
+            clientes del CRM, borrar es para errores (duplicado, prueba); lo
+            normal es Archivar. Al fondo y en tono riesgo, como en el resto
+            de la app. El backend (eliminar_cliente_completo) sigue
+            admitiendo también al creador; la UI ya no se lo ofrece. */}
+        {esDireccionComercial && (
         confirmandoBorrarCliente ? (
           previsualizandoCliente.cargando || !previsualizacionCliente ? (
             <div className="card card--riesgo">
@@ -779,7 +963,7 @@ export function FichaCliente() {
        </div>
       </div>
 
-      {proyectoBase && clienteId && (
+      {proyectoBase && clienteId && !archivado && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoBase.id}
@@ -792,6 +976,23 @@ export function FichaCliente() {
         <InterlocutoresClienteHoja
           clienteId={clienteId}
           onCerrar={() => setInterlocutoresHojaAbierta(false)}
+        />
+      )}
+
+      {preguntaIAAbierta && clienteId && cliente?.nombre && (
+        <PreguntaIAHoja
+          clienteId={clienteId}
+          clienteNombre={cliente.nombre}
+          onCerrar={() => setPreguntaIAAbierta(false)}
+        />
+      )}
+
+      {briefingAbierto && clienteId && cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={clienteId}
+          clienteNombre={cliente.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
     </div>

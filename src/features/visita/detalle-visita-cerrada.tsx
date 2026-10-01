@@ -13,6 +13,7 @@ import {
 import type { Area } from '@/lib/vocabulario';
 import { areasDeHallazgos } from '@/lib/hallazgo-areas';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
+import { DescargasVisita } from '@/features/visita/descargas-visita';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
@@ -33,6 +34,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
+import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
@@ -428,7 +430,9 @@ export function DetalleVisitaCerrada() {
   if (vencidosN > 0)
     kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
 
-  const estadoDescarga = visitaId ? estadoDe(visitaId) : 'inactivo';
+  // Liberar espacio descarga antes la copia completa (ZIP): es lo que queda
+  // cuando la visita ya no esté en PrimeNotes.
+  const estadoDescarga = visitaId ? estadoDe('visita-zip', visitaId) : 'inactivo';
   const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
 
   // Candados de "Descargar y liberar espacio" (diseño acordado 12/9): sin
@@ -451,7 +455,7 @@ export function DetalleVisitaCerrada() {
     if (!visitaId) return;
     setQuiereLiberar(true);
     void liberar.pedir(visitaId);
-    void descargar('visita', visitaId);
+    void descargar('visita-zip', visitaId);
   }
 
   function cancelarLiberarEspacio() {
@@ -464,12 +468,15 @@ export function DetalleVisitaCerrada() {
       ? 'Sin conexión. Inténtalo cuando tengas red'
       : estadoDescarga === 'error'
         ? 'No se pudo generar, toca de nuevo'
-        : 'Generando el informe…'
+        : 'Generando el ZIP…'
     : !puedeLiberarEspacio
       ? 'Resuelve el aviso de arriba para poder liberar espacio'
       : tamanoMB
-        ? `Descarga el informe (${tamanoMB} MB) y elimina la visita de PrimeNotes`
-        : 'Descarga el informe y elimina la visita de PrimeNotes';
+        ? `Descarga todo en ZIP (${tamanoMB} MB) y elimina la visita de PrimeNotes`
+        : 'Descarga todo en ZIP y elimina la visita de PrimeNotes';
+
+  const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
   const sinNada =
     !!data &&
@@ -496,6 +503,19 @@ export function DetalleVisitaCerrada() {
                 data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''
               }${data.reabierta_en ? ` · reabierta el ${fechaCorta(data.reabierta_en)}` : ''}`
             : undefined
+        }
+        derecha={
+          puedePreguntarIA && (
+            <button
+              type="button"
+              className="boton-icono"
+              aria-label="Pregunta a la IA"
+              title="Pregunta a la IA sobre este cliente"
+              onClick={() => setPreguntaIAAbierta(true)}
+            >
+              <Icono nombre="ia" size={18} />
+            </button>
+          )
         }
       />
 
@@ -584,6 +604,13 @@ export function DetalleVisitaCerrada() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Descargas justo bajo el resumen: al fondo de la pantalla nadie
+              las encontraba y se acababa pidiendo el informe del proyecto,
+              que no lleva fotos (Cesar, 25 sept). */}
+          {visitaId && visitaCerrada && (
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
           )}
 
           {!sinNada && (
@@ -771,35 +798,6 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {visitaId && (
-            <SeccionLista>
-              <FilaAccion
-                densidad="compacta"
-                titulo="Informe de la visita"
-                subtitulo={
-                  descargaLista
-                    ? `Descargado (${formatearMB(descargaLista.tamanoBytes)} MB)`
-                    : estadoDescarga === 'generando'
-                      ? 'Generando el informe…'
-                      : estadoDescarga === 'sin-red'
-                        ? 'Sin conexión. Inténtalo cuando tengas red'
-                        : estadoDescarga === 'error'
-                          ? 'No se pudo generar, toca de nuevo'
-                          : 'PDF con las fotos y los audios, en un ZIP'
-                }
-                acciones={[
-                  {
-                    icono: 'descargar',
-                    etiqueta: descargaLista ? 'Descargar el informe otra vez' : 'Descargar informe',
-                    onClick: descargaLista ? undefined : () => descargar('visita', visitaId),
-                    href: descargaLista ? descargaLista.url : undefined,
-                    disabled: estadoDescarga === 'generando',
-                    tono: estadoDescarga === 'error' ? 'riesgo' : descargaLista ? 'brand' : 'neutral',
-                  },
-                ]}
-              />
-            </SeccionLista>
-          )}
         </div>
       )}
 
@@ -977,6 +975,15 @@ export function DetalleVisitaCerrada() {
           indice={visorIndice}
           onCerrar={() => setVisorIndice(null)}
           onCambiar={setVisorIndice}
+        />
+      )}
+
+      {preguntaIAAbierta && data?.cliente_id && (
+        <PreguntaIAHoja
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          visitaId={visitaId}
+          onCerrar={() => setPreguntaIAAbierta(false)}
         />
       )}
     </div>
