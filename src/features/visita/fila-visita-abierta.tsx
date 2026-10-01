@@ -2,6 +2,7 @@ import { desdeHace } from '@/lib/fechas';
 import { tonoPorAntiguedad } from '@/lib/tono-antiguedad';
 import { plural } from '@/lib/texto';
 import { FilaToggle, type EstadoSeleccion } from '@/components/ui/fila-toggle';
+import { useInactividadVisita } from '@/hooks/use-inactividad-visita';
 
 export interface VisitaAbierta {
   id: string;
@@ -46,11 +47,13 @@ export function FilaVisitaAbierta({
   seleccion?: EstadoSeleccion;
 }) {
   const tono = tonoPorAntiguedad(visita.desde);
+  const inactividad = useInactividadVisita(visita.id, true);
   const esMia = visita.esMia ?? true;
   const bloqueadaPorOportunidad = esMia && (visita.oportunidadesAbiertas ?? 0) > 0;
   const meta = [
     visita.proyectoNombre || null,
     visita.desde ? `abierta ${desdeHace(visita.desde)}` : null,
+    inactividad ? `sin actividad ${inactividad.horasInactiva} h · se cierra sola en ${inactividad.horasRestantes} h` : null,
   ]
     .filter(Boolean)
     .join(' · ');

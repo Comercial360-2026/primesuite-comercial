@@ -14,8 +14,8 @@ export interface VisitasSinCerrar {
 
 // Visitas EN CURSO (sin cerrar) de un cliente o de un proyecto concreto. Para
 // el aviso "N visita(s) sin cerrar" arriba de la ficha y el panel que abre:
-// las visitas abiertas no se cierran solas (ya no hay auto-cierre, ver
-// migración 102), así que hay que empujar a cerrarlas. `comercialId` marca
+// las visitas con actividad no se cierran solas (solo las abandonadas, migración
+// 135), así que hay que empujar a cerrarlas. `comercialId` marca
 // cuáles son mías (las de otro comercial se ven pero no se pueden cerrar).
 export function useVisitasSinCerrar(args: {
   clienteId?: string;

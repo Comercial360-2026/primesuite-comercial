@@ -1993,6 +1993,7 @@ export type Database = {
       visita: {
         Row: {
           actualizado_en: string
+          cierre_automatico: boolean
           cerrada_en: string | null
           cliente_id: string
           creado_en: string
@@ -2013,6 +2014,7 @@ export type Database = {
         }
         Insert: {
           actualizado_en?: string
+          cierre_automatico?: boolean
           cerrada_en?: string | null
           cliente_id: string
           creado_en?: string
@@ -2033,6 +2035,7 @@ export type Database = {
         }
         Update: {
           actualizado_en?: string
+          cierre_automatico?: boolean
           cerrada_en?: string | null
           cliente_id?: string
           creado_en?: string
@@ -2718,6 +2721,7 @@ export type Database = {
         Returns: undefined
       }
       fn_solo_digitos: { Args: { t: string }; Returns: string }
+      fn_ultima_actividad_visita: { Args: { p_visita_id: string }; Returns: string }
       fn_tope_briefing: {
         Args: never
         Returns: {

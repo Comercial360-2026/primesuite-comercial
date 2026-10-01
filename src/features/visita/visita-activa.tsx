@@ -14,6 +14,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useInactividadVisita } from '@/hooks/use-inactividad-visita';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { AnotarHoja } from './anotar-hoja';
@@ -675,10 +676,10 @@ export function VisitaActiva() {
       if (d == null) return 4000;
       return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
-    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
+    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string; cierre_automatico: boolean } | null> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo, estado_captura')
+        .select('objetivo, estado_captura, cierre_automatico')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -689,6 +690,8 @@ export function VisitaActiva() {
   // por un compañero). Solo lo sabemos cuando la fila del servidor ya
   // existe: mientras `visitaServidor` es null asumimos "en curso".
   const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
+  // Aviso previo al cierre automático por inactividad (migración 135).
+  const inactividad = useInactividadVisita(visitaId, !!visitaServidor && !visitaCerrada);
 
   // Asegura que el banner "visita en curso" aparece aunque se haya llegado
   // aquí directamente (por ejemplo, retomando desde Agenda), no solo tras
@@ -1752,10 +1755,17 @@ export function VisitaActiva() {
           onVolver={() => navigate(volver)}
         />
         <div className="screen__scroll">
-          <Aviso tipo="info" titulo="Esta visita ya está cerrada">
-            No se pueden añadir más capturas. Si te falta algo, míralo en el
-            detalle o empieza una visita nueva.
-          </Aviso>
+          {visitaServidor?.cierre_automatico ? (
+            <Aviso tipo="info" titulo="Se cerró sola por inactividad">
+              Llevaba muchas horas sin actividad. Si seguías con ella, ábrela en el detalle y reábrela
+              (lo que tengas sin subir en este móvil se sube igualmente).
+            </Aviso>
+          ) : (
+            <Aviso tipo="info" titulo="Esta visita ya está cerrada">
+              No se pueden añadir más capturas. Si te falta algo, míralo en el
+              detalle o empieza una visita nueva.
+            </Aviso>
+          )}
           <button
             className="btn btn-primary"
             style={{ marginTop: 12 }}
@@ -2478,6 +2488,12 @@ export function VisitaActiva() {
           </Aviso>
         )}
 
+        {inactividad && (
+          <Aviso tipo="atencion" titulo="Visita sin actividad">
+            Lleva {inactividad.horasInactiva} h sin actividad. Si no hay nada nuevo, se cerrará sola en{' '}
+            {inactividad.horasRestantes} h (se puede reabrir). Captura algo o ciérrala tú.
+          </Aviso>
+        )}
         {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
         {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
