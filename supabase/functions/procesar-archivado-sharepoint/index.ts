@@ -79,6 +79,16 @@ Deno.serve(async (req) => {
     // pasada del cron (o un reintento manual) coja la misma fila a la vez.
     await admin.rpc('fn_marcar_intento_archivado', { p_captura_ids: archivos.map((a) => a.captura_id) });
 
+    // Carpetas legibles (migración 130): se fijan la primera vez y se reutilizan.
+    const { data: carpetas, error: errorCarpetas } = await admin.rpc('fn_carpetas_archivado', {
+      p_visita_id: v.visita_id,
+    });
+    if (errorCarpetas || !carpetas?.[0]) {
+      console.error(`No se pudieron fijar las carpetas de la visita ${v.visita_id}`, errorCarpetas);
+      resumen.errores++;
+      continue;
+    }
+
     try {
       const r = await fetch(webhookUrl as string, {
         method: 'POST',
@@ -92,6 +102,10 @@ Deno.serve(async (req) => {
           proyecto_nombre: nombreCarpeta(v.proyecto_nombre),
           // Solo la fecha: ":" y "+" del timestamp completo no valen en una carpeta de SharePoint.
           fecha_visita: String(v.fecha_visita).slice(0, 10),
+          // Nombres de carpeta definitivos; el flujo de Power Automate los usa tal cual.
+          carpeta_cliente: carpetas[0].carpeta_cliente,
+          carpeta_proyecto: carpetas[0].carpeta_proyecto,
+          carpeta_visita: carpetas[0].carpeta_visita,
           archivos,
         }),
       });
