@@ -39,6 +39,7 @@
   --tipo-audio: #4A5FA5;
   --tipo-hallazgo: #9C5B3C;
   --tipo-paso: #6B4FA0;
+  --tipo-documento: #5B6B7A; /* documento adjunto: gris pizarra, el "archivo" frente a lo capturado en directo */
 
   /* Identidad de PERSONA — fondo del `Avatar` de un comercial o cliente
      (iniciales en blanco encima). Color por hash del nombre (determinista,

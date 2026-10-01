@@ -52,6 +52,7 @@ export function ConfirmarBorradoVisita({
   const vacia =
     previsualizacion.num_fotos === 0 &&
     previsualizacion.num_audios === 0 &&
+    previsualizacion.num_documentos === 0 &&
     previsualizacion.num_notas === 0 &&
     previsualizacion.num_hallazgos === 0 &&
     previsualizacion.num_oportunidades === 0 &&
@@ -71,6 +72,7 @@ export function ConfirmarBorradoVisita({
         <>
           Esta visita arrastra: {plural(previsualizacion.num_fotos, 'foto', 'fotos')},{' '}
           {plural(previsualizacion.num_audios, 'audio', 'audios')},{' '}
+          {plural(previsualizacion.num_documentos, 'documento', 'documentos')},{' '}
           {plural(previsualizacion.num_notas, 'nota', 'notas')},{' '}
           {plural(previsualizacion.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
           {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}

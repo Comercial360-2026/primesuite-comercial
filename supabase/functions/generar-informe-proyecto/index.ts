@@ -421,6 +421,7 @@ Deno.serve(async (req) => {
       const fotosVisita = caps.filter((c) => c.tipo === 'foto');
       const nFotos = fotosVisita.length;
       const nAudios = caps.filter((c) => c.tipo === 'audio').length;
+      const nDocumentos = caps.filter((c) => c.tipo === 'documento').length;
       const notasVisita = caps.filter((c) => c.tipo === 'nota');
 
       let lineaHora = '';
@@ -440,6 +441,7 @@ Deno.serve(async (req) => {
       const adjuntos: string[] = [];
       if (nFotos) adjuntos.push(`${nFotos} foto${nFotos === 1 ? '' : 's'}`);
       if (nAudios) adjuntos.push(`${nAudios} audio${nAudios === 1 ? '' : 's'}`);
+      if (nDocumentos) adjuntos.push(`${nDocumentos} documento${nDocumentos === 1 ? '' : 's'}`);
 
       // deno-lint-ignore no-explicit-any
       const bloque: any[] = [

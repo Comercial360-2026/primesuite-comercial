@@ -206,6 +206,9 @@ export type Database = {
           tipo: string
           titulo: string | null
           ubicacion_id: string | null
+          nombre_original: string | null
+          mime: string | null
+          bytes: number | null
           visita_id: string
           zona_texto: string | null
         }
@@ -227,6 +230,9 @@ export type Database = {
           tipo: string
           titulo?: string | null
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id: string
           zona_texto?: string | null
         }
@@ -248,6 +254,9 @@ export type Database = {
           tipo?: string
           titulo?: string | null
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id?: string
           zona_texto?: string | null
         }
@@ -2781,6 +2790,7 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: {
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number
@@ -2805,6 +2815,7 @@ export type Database = {
         Args: { p_visita_id: string }
         Returns: {
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number

@@ -22,6 +22,7 @@ import { Segmentado } from '@/components/ui/segmentado';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { Avatar } from '@/components/ui/avatar';
 import { GraficoBarras } from '@/components/ui/grafico-barras';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 type VisitaEspacio = {
   visita_id: string;
@@ -241,10 +242,7 @@ function MisVisitas() {
         const { error: errDel } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
         if (errDel) throw new Error(errDel.message);
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
       } catch {
         fallos.push(id);
