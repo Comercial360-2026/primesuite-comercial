@@ -15,7 +15,9 @@ alter table visita
   add column cierre_automatico boolean not null default false,
   add column ultima_actividad_en timestamptz;
 
-insert into ajustes_app (clave, valor, valor_numero) values ('visita_autocierre_horas', true, 18) on conflict (clave) do nothing;
+-- Nace APAGADO (valor = false): se enciende al desplegar la app con los avisos (PR #24):
+--   update ajustes_app set valor = true where clave = 'visita_autocierre_horas';
+insert into ajustes_app (clave, valor, valor_numero) values ('visita_autocierre_horas', false, 18) on conflict (clave) do nothing;
 
 -- Última señal de vida de una visita: lo más reciente entre sus propios campos y lo capturado
 -- (la hora de las capturas es la de sincronización con el servidor).

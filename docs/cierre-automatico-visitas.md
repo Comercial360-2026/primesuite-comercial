@@ -25,6 +25,10 @@ actividad durante 18 h** (`ajustes_app.visita_autocierre_horas`; `valor` = activ
 Cerrar dispara la copia a SharePoint en ≤10 min (`docs/archivado-sharepoint/`) y borra el briefing pendiente.
 Una captura sin sincronizar en el móvil que llega después del cierre se sube igual y se copia sola.
 
+## Encenderlo (tras desplegar el PR #24)
+El cron (cada hora, minuto 7) ya está programado pero el ajuste nace **apagado**, para no cerrar visitas reales antes de que la app muestre los avisos:
+`update ajustes_app set valor = true where clave = 'visita_autocierre_horas';`
+
 ## Apagarlo / ajustarlo
 `update ajustes_app set valor = false where clave = 'visita_autocierre_horas';` (apagado) ·
 `update ajustes_app set valor_numero = 24 where clave = 'visita_autocierre_horas';` (horas).
