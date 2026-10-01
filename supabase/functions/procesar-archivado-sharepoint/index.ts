@@ -24,6 +24,11 @@ function json(body: unknown, status = 200) {
 
 const BUCKET_POR_TIPO: Record<string, string> = { foto: 'fotos-visita', audio: 'audios-visita' };
 
+// SharePoint no admite " * : < > ? / \ | en nombres de carpeta, ni acabar en punto o espacio.
+function nombreCarpeta(nombre: string) {
+  return nombre.replace(/[\\/:*?"<>|#%~&{}]/g, '-').trim().replace(/\.+$/, '');
+}
+
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const { data: claveOk } = await admin.rpc('fn_clave_worker_valida', {
@@ -74,10 +79,11 @@ Deno.serve(async (req) => {
           secreto,
           visita_id: v.visita_id,
           cliente_id: v.cliente_id,
-          cliente_nombre: v.cliente_nombre,
+          cliente_nombre: nombreCarpeta(v.cliente_nombre),
           proyecto_id: v.proyecto_id,
-          proyecto_nombre: v.proyecto_nombre,
-          fecha_visita: v.fecha_visita,
+          proyecto_nombre: nombreCarpeta(v.proyecto_nombre),
+          // Solo la fecha: ":" y "+" del timestamp completo no valen en una carpeta de SharePoint.
+          fecha_visita: String(v.fecha_visita).slice(0, 10),
           archivos,
         }),
       });
