@@ -946,7 +946,8 @@ export function FichaCliente() {
               {!!previsualizacionCliente.num_archivos_sharepoint && (
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
                   {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
-                  SharePoint se conservan allí: la app no los borra.
+                  SharePoint {previsualizacionCliente.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
+                  {previsualizacionCliente.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
                 </div>
               )}
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
