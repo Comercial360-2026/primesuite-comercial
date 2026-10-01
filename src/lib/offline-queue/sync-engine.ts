@@ -1,3 +1,4 @@
+import { bucketDeTipo } from '@/lib/buckets-visita';
 import { supabase } from '@/lib/supabase-client';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -349,24 +350,42 @@ function extensionAudio(mime: string): string {
   return 'm4a';
 }
 
+// Extensión (solo letras/números, en minúsculas) del nombre original de un documento.
+function extensionDocumento(nombre?: string): string {
+  const ext = nombre?.split('.').pop()?.toLowerCase() ?? '';
+  return /^[a-z0-9]{1,5}$/.test(ext) ? ext : 'bin';
+}
+
 async function sincronizarCapturaLibre(
   operacion: OperacionPendiente<'captura_libre'>
 ): Promise<void> {
   const payload = operacion.payload;
   let storagePath: string | null = null;
 
-  if (operacion.archivoLocal && (payload.tipo === 'foto' || payload.tipo === 'audio')) {
-    const bucket = payload.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+  if (operacion.archivoLocal && (payload.tipo === 'foto' || payload.tipo === 'audio' || payload.tipo === 'documento')) {
+    const bucket = bucketDeTipo(payload.tipo);
     // La extensión del audio se deriva del tipo real del blob (iOS graba
     // mp4/m4a, Android/desktop webm). Antes se forzaba .m4a siempre, aunque
-    // el contenido fuera webm — playback y descargas rotas.
+    // el contenido fuera webm — playback y descargas rotas. El documento
+    // conserva la extensión de su nombre original.
     const extension =
-      payload.tipo === 'foto' ? 'jpg' : extensionAudio(operacion.archivoLocal.type);
+      payload.tipo === 'foto'
+        ? 'jpg'
+        : payload.tipo === 'documento'
+          ? extensionDocumento(payload.nombreOriginal)
+          : extensionAudio(operacion.archivoLocal.type);
     const ruta = `${payload.visitaId}/${operacion.id}.${extension}`;
 
-    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, operacion.archivoLocal, {
+    // El MIME que cuenta es el del propio Blob (supabase-js lo manda en el
+    // multipart): un .csv/.docx sin tipo del navegador subía como
+    // application/octet-stream y el bucket lo rechazaba. Se reetiqueta.
+    const cuerpo =
+      payload.mime && operacion.archivoLocal.type !== payload.mime
+        ? new Blob([operacion.archivoLocal], { type: payload.mime })
+        : operacion.archivoLocal;
+    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, cuerpo, {
       upsert: true,
-      contentType: operacion.archivoLocal.type || undefined,
+      contentType: payload.mime || operacion.archivoLocal.type || undefined,
     });
     if (errorSubida) throw new Error(errorSubida.message);
     storagePath = ruta;
@@ -380,7 +399,7 @@ async function sincronizarCapturaLibre(
     () =>
       supabase
         .from('captura_libre')
-        .upsert({ id: operacion.id, ...fila, storage_path: storagePath } as never, {
+        .upsert({ id: operacion.id, ...fila, storage_path: storagePath, estado_subida: 'completado' } as never, {
           onConflict: 'id',
           ignoreDuplicates: true,
         }),

@@ -39,11 +39,12 @@ function useRecuentoVisitas(ids: string[]) {
 
       const t: Record<string, Totales> = {};
       const de = (id: string | null) =>
-        (t[id ?? ''] ??= { fotos: 0, audios: 0, notas: 0, hallazgos: 0, oportunidades: 0, pasos: 0 });
+        (t[id ?? ''] ??= { fotos: 0, audios: 0, notas: 0, hallazgos: 0, oportunidades: 0, pasos: 0, documentos: 0 });
       for (const c of capturas.data ?? []) {
         if (c.tipo === 'foto') de(c.visita_id).fotos++;
         else if (c.tipo === 'audio') de(c.visita_id).audios++;
         else if (c.tipo === 'nota') de(c.visita_id).notas++;
+        else if (c.tipo === 'documento') de(c.visita_id).documentos = (de(c.visita_id).documentos ?? 0) + 1;
       }
       for (const h of hallazgos.data ?? []) de(h.visita_id).hallazgos++;
       for (const o of oportunidades.data ?? []) de(o.visita_origen_id).oportunidades++;

@@ -35,10 +35,13 @@ import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerra
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  num_archivos_sharepoint?: number;
+  num_documentos: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
@@ -406,10 +409,7 @@ export function FichaCliente() {
         // exige) — eliminar_cliente_completo() las borra como parte de la
         // cascada, así que si se hiciera al revés, fallaría sin permiso.
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
         // A partir de aquí los adjuntos ya no existen en Storage: un fallo
         // de red justo en esta llamada dejaría el cliente vivo pero sin sus
@@ -936,12 +936,20 @@ export function FichaCliente() {
               Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
               {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
               {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_documentos, 'documento', 'documentos')},{' '}
               {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
               {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
               {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
               {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
               {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
               borrará también, para siempre.
+              {!!previsualizacionCliente.num_archivos_sharepoint && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                  {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
+                  SharePoint {previsualizacionCliente.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
+                  {previsualizacionCliente.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
+                </div>
+              )}
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
                 Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
                 antes desde "mi espacio".

@@ -36,6 +36,8 @@ import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { plural } from '@/lib/texto';
+import { uuid } from '@/lib/uuid';
+import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento } from '@/lib/documentos-visita';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -50,6 +52,7 @@ interface Foto {
   ubicacion_nombre: string | null;
   latitud: number | null;
   longitud: number | null;
+  archivadaSharepoint: boolean;
 }
 interface DetalleVisita {
   fecha: string;
@@ -62,14 +65,36 @@ interface DetalleVisita {
   cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
-  audios: Array<{ id: string; titulo: string | null; url: string | null }>;
+  audios: Array<{ id: string; titulo: string | null; url: string | null; archivadaSharepoint: boolean }>;
+  hayArchivadoSharepoint: boolean;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
+  documentos: Array<{ id: string; titulo: string | null; nombre_original: string | null; bytes: number | null }>;
   hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string; zona_texto: string | null }>;
 }
 
 const URL_FIRMADA_SEGUNDOS = 60 * 10;
+
+// Enlace de descarga de una foto/audio: firmado de Supabase Storage mientras
+// siga ahí, o el enlace temporal de SharePoint (obtener-url-archivo-
+// sharepoint) una vez archivado — nunca guardado, se pide al vuelo cada vez
+// que se abre la visita (ver diseño, "Flujo de lectura").
+async function urlDeCaptura(
+  c: { id: string; storage_path: string | null; ubicacion_archivo?: string | null },
+  bucket: 'fotos-visita' | 'audios-visita'
+): Promise<string | null> {
+  if (c.storage_path) {
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(c.storage_path, URL_FIRMADA_SEGUNDOS);
+    return data?.signedUrl ?? null;
+  }
+  if (c.ubicacion_archivo !== 'sharepoint') return null;
+  const { data, error } = await supabase.functions.invoke('obtener-url-archivo-sharepoint', {
+    body: { capturaId: c.id },
+  });
+  if (error || !data?.url) return null;
+  return data.url as string;
+}
 
 function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
   if (p.estado !== 'pendiente') return false;
@@ -123,6 +148,27 @@ export function DetalleVisitaCerrada() {
   });
   const soyResponsable = miParticipacion?.rol === 'responsable' && miParticipacion?.estado === 'aceptado';
   const puedeBorrarVisita = esDireccionComercial || soyResponsable;
+
+  // Archivado a SharePoint con problemas: solo Dirección lo ve. Para el
+  // comercial no cambia nada (el archivo sigue en Supabase y el cron lo
+  // reintenta cada día); Dirección necesita el motivo para saber si hay que
+  // revisar el flujo de Power Automate.
+  const { data: fallosArchivado } = useQuery({
+    queryKey: ['fallos-archivado', visitaId],
+    enabled: !!visitaId && esDireccionComercial,
+    queryFn: async (): Promise<string[]> => {
+      const hace1h = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('captura_libre')
+        .select('error_archivado, intento_archivado_en')
+        .eq('visita_id', visitaId!)
+        .eq('ubicacion_archivo', 'supabase')
+        .not('storage_path', 'is', null)
+        .or(`error_archivado.not.is.null,intento_archivado_en.lt.${hace1h}`);
+      if (error) throw error;
+      return (data ?? []).map((c) => c.error_archivado ?? 'Sin respuesta de SharePoint tras el envío (revisar el flujo de Power Automate).');
+    },
+  });
   // Reabrir directo: mismo criterio que borrar (responsable de la visita o
   // Dirección — lo hace cumplir también el trigger de la BD, esto solo
   // decide si se ofrece el botón). El resto de participantes aceptados no
@@ -152,7 +198,9 @@ export function DetalleVisitaCerrada() {
           .single(),
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
+          .select(
+            'id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, nombre_original, bytes, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+          )
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
         supabase
@@ -180,6 +228,7 @@ export function DetalleVisitaCerrada() {
       const fotosBrutas = (capturas ?? []).filter((c) => c.tipo === 'foto');
       const audiosBrutos = (capturas ?? []).filter((c) => c.tipo === 'audio');
       const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
+      const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
 
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
@@ -188,20 +237,15 @@ export function DetalleVisitaCerrada() {
             (f.ubicacion as unknown as { nombre: string } | null)?.nombre ??
             null;
           const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
-          if (!f.storage_path) return { id: f.id, titulo: f.titulo, url: null, ubicacion_nombre, ...geo };
-          const { data: firmada } = await supabase.storage
-            .from('fotos-visita')
-            .createSignedUrl(f.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: f.id, titulo: f.titulo, url: firmada?.signedUrl ?? null, ubicacion_nombre, ...geo };
+          const url = await urlDeCaptura(f, 'fotos-visita');
+          const archivadaSharepoint = f.ubicacion_archivo === 'sharepoint';
+          return { id: f.id, titulo: f.titulo, url, ubicacion_nombre, archivadaSharepoint, ...geo };
         })
       );
       const audios = await Promise.all(
         audiosBrutos.map(async (a) => {
-          if (!a.storage_path) return { id: a.id, titulo: a.titulo, url: null };
-          const { data: firmada } = await supabase.storage
-            .from('audios-visita')
-            .createSignedUrl(a.storage_path, URL_FIRMADA_SEGUNDOS);
-          return { id: a.id, titulo: a.titulo, url: firmada?.signedUrl ?? null };
+          const url = await urlDeCaptura(a, 'audios-visita');
+          return { id: a.id, titulo: a.titulo, url, archivadaSharepoint: a.ubicacion_archivo === 'sharepoint' };
         })
       );
 
@@ -220,11 +264,18 @@ export function DetalleVisitaCerrada() {
         cliente_nombre: (visita!.cliente as unknown as { nombre: string } | null)?.nombre ?? 'cliente',
         fotos,
         audios,
+        hayArchivadoSharepoint: fotos.some((f) => f.archivadaSharepoint) || audios.some((a) => a.archivadaSharepoint),
         notas: notas.map((n) => ({
           id: n.id,
           titulo: n.titulo,
           contenido_texto: n.contenido_texto,
           zona_texto: (n as { zona_texto?: string | null }).zona_texto ?? null,
+        })),
+        documentos: documentos.map((d) => ({
+          id: d.id,
+          titulo: d.titulo,
+          nombre_original: d.nombre_original,
+          bytes: d.bytes,
         })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
@@ -445,6 +496,62 @@ export function DetalleVisitaCerrada() {
   // en vivo: sin este candado el botón salía activo en una visita futura sin
   // nada que liberar. "Visita cerrada" es la condición 1 del diseño.
   const visitaCerrada = data?.estado_captura === 'consolidada';
+  // Colgar un documento de una visita ya cerrada: directo a Supabase (esta
+  // pantalla ya exige conexión, igual que "Editar resumen"). Pueden Dirección
+  // y los participantes aceptados; el servidor solo exige ser el autor.
+  const puedeAdjuntar = visitaCerrada && (esDireccionComercial || miParticipacion?.estado === 'aceptado');
+  const adjuntandoDocumento = useAccionAsync();
+  const inputDocumentoRef = useRef<HTMLInputElement>(null);
+  // Devuelve false si no se pudo (aviso ya puesto): con varios archivos, se para ahí.
+  async function adjuntarDocumento(archivo: File): Promise<boolean> {
+    if (!visitaId || !comercial || !data?.cliente_id) return false;
+    const mime = mimeDeDocumento(archivo);
+    if (!mime) {
+      adjuntandoDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
+      return false;
+    }
+    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
+      adjuntandoDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
+      return false;
+    }
+    let ok = false;
+    await adjuntandoDocumento.ejecutar(
+      async () => {
+        const id = uuid();
+        const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+        const ruta = `${visitaId}/${id}.${/^[a-z0-9]{1,5}$/.test(extension) ? extension : 'bin'}`;
+        const { error: errSubida } = await supabase.storage
+          .from('documentos-visita')
+          .upload(ruta, archivo.type === mime ? archivo : new Blob([archivo], { type: mime }), { contentType: mime });
+        if (errSubida) throw new Error(errSubida.message);
+        const { error: errFila } = await supabase.from('captura_libre').insert({
+          id,
+          visita_id: visitaId,
+          cliente_id: data.cliente_id!,
+          comercial_autor_id: comercial.id,
+          tipo: 'documento',
+          storage_path: ruta,
+          estado_subida: 'completado',
+          nombre_original: archivo.name,
+          mime,
+          bytes: archivo.size,
+        });
+        if (errFila) {
+          // Sin fila no hay quien lo borre luego: no dejar el archivo huérfano.
+          await supabase.storage.from('documentos-visita').remove([ruta]);
+          throw new Error(errFila.message);
+        }
+      },
+      {
+        onExito: () => {
+          ok = true;
+          queryClient.invalidateQueries({ queryKey });
+        },
+        mensajeError: `No se pudo adjuntar «${archivo.name}». Inténtalo de nuevo.`,
+      }
+    );
+    return ok;
+  }
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
   const puedeLiberarEspacio = visitaCerrada && oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
@@ -485,6 +592,7 @@ export function DetalleVisitaCerrada() {
     !data.notas.length &&
     !data.fotos.length &&
     !data.audios.length &&
+    !data.documentos.length &&
     !data.hallazgos.length &&
     !data.oportunidades.length &&
     !data.proximosPasos.length;
@@ -611,6 +719,24 @@ export function DetalleVisitaCerrada() {
               que no lleva fotos (Cesar, 25 sept). */}
           {visitaId && visitaCerrada && (
             <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+          )}
+
+          {!!fallosArchivado?.length && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+              <Aviso tipo="atencion">
+                No se pudo archivar {fallosArchivado.length === 1 ? '1 archivo' : `${fallosArchivado.length} archivos`} a
+                SharePoint. Siguen en PrimeNotes y se reintenta cada día. Motivo: {[...new Set(fallosArchivado)].join(' · ')}
+              </Aviso>
+            </div>
+          )}
+
+          {data.hayArchivadoSharepoint && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
+              <Aviso tipo="info">
+                Algunas fotos o audios de esta visita se archivaron en SharePoint (más de 30 días cerrada). Se
+                siguen viendo igual que siempre, solo tardan un poco más en cargar.
+              </Aviso>
+            </div>
           )}
 
           {!sinNada && (
@@ -799,6 +925,48 @@ export function DetalleVisitaCerrada() {
           )}
 
         </div>
+      )}
+
+      {data && visitaId && (data.documentos.length > 0 || puedeAdjuntar) && (
+        <SeccionLista titulo={`Documentos (${data.documentos.length})`}>
+          {data.documentos.map((d) => (
+            <FilaNavegable
+              key={d.id}
+              icono="documento"
+              titulo={d.titulo || d.nombre_original || 'Documento'}
+              subtitulo={d.bytes != null ? formatearTamano(d.bytes) : undefined}
+              to={`/capturas/${d.id}`}
+              state={origen}
+            />
+          ))}
+          {puedeAdjuntar && (
+            <FilaNavegable
+              icono="mas"
+              titulo={adjuntandoDocumento.cargando ? 'Subiendo…' : 'Adjuntar un documento'}
+              subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
+              chevron={false}
+              disabled={adjuntandoDocumento.cargando}
+              onClick={() => inputDocumentoRef.current?.click()}
+            />
+          )}
+          {puedeAdjuntar && (
+            <input
+              ref={inputDocumentoRef}
+              type="file"
+              accept={ACCEPT_DOCUMENTO}
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const archivos = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                void (async () => {
+                  for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
+                })();
+              }}
+            />
+          )}
+          {adjuntandoDocumento.error && <Aviso tipo="error">{adjuntandoDocumento.error}</Aviso>}
+        </SeccionLista>
       )}
 
       {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (

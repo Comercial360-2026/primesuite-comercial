@@ -195,17 +195,25 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto: string | null
           creado_en: string
+          error_archivado: string | null
           estado_subida: string
           estado_validacion: string
           id: string
+          intento_archivado_en: string | null
           latitud: number | null
           longitud: number | null
           origen: string
+          ruta_sharepoint: string | null
+          ruta_sharepoint_thumbnail: string | null
           storage_path: string | null
           storage_path_thumbnail: string | null
           tipo: string
           titulo: string | null
+          ubicacion_archivo: string
           ubicacion_id: string | null
+          nombre_original: string | null
+          mime: string | null
+          bytes: number | null
           visita_id: string
           zona_texto: string | null
         }
@@ -216,17 +224,25 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto?: string | null
           creado_en?: string
+          error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string
           id?: string
+          intento_archivado_en?: string | null
           latitud?: number | null
           longitud?: number | null
           origen?: string
+          ruta_sharepoint?: string | null
+          ruta_sharepoint_thumbnail?: string | null
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo: string
           titulo?: string | null
+          ubicacion_archivo?: string
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id: string
           zona_texto?: string | null
         }
@@ -237,17 +253,25 @@ export type Database = {
           comercial_autor_id?: string
           contenido_texto?: string | null
           creado_en?: string
+          error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string
           id?: string
+          intento_archivado_en?: string | null
           latitud?: number | null
           longitud?: number | null
           origen?: string
+          ruta_sharepoint?: string | null
+          ruta_sharepoint_thumbnail?: string | null
           storage_path?: string | null
           storage_path_thumbnail?: string | null
           tipo?: string
           titulo?: string | null
+          ubicacion_archivo?: string
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id?: string
           zona_texto?: string | null
         }
@@ -2718,6 +2742,15 @@ export type Database = {
         Returns: undefined
       }
       fn_solo_digitos: { Args: { t: string }; Returns: string }
+      fn_reintentar_archivado: { Args: never; Returns: number }
+      fn_estado_archivado: {
+        Args: never
+        Returns: {
+          agotadas: number
+          posibles_duplicados: number
+          sin_copiar: number
+        }[]
+      }
       fn_tope_briefing: {
         Args: never
         Returns: {
@@ -2780,7 +2813,9 @@ export type Database = {
       previsualizar_borrado_cliente: {
         Args: { p_cliente_id: string }
         Returns: {
+          num_archivos_sharepoint: number
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number
@@ -2804,7 +2839,9 @@ export type Database = {
       previsualizar_borrado_visita: {
         Args: { p_visita_id: string }
         Returns: {
+          num_archivos_sharepoint: number
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number

@@ -1,3 +1,9 @@
+# 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
+- **Comprobar todo en ESTA sesión antes de afirmar. Las notas/memoria NO son hechos.** «No puedo / no hay sesión / está bloqueado» = probarlo primero.
+- **Prohibido enseñar imágenes/capturas y explicar de más.** Verificar con JS/SQL/`get_page_text`.
+- **Prohibido escribir contraseñas/tokens en webs:** usar `request_credentials` (1Password; si `not_connected`, pedir pulsar Connect) o que Cesar inicie sesión.
+- Producción solo con `HAZ DEPLOY A PRODUCCIÓN`. No dejar pendiente lo que pueda hacer yo (CLI de Supabase, SQL, Chrome, MCP).
+
 # PrimeSuite Comercial — reglas de trabajo
 
 Proyecto: `primesuite-comercial` (Vite + React + TypeScript + Supabase, desplegado en Netlify).
@@ -111,6 +117,29 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   cuando el buscador desaparece solo al pasar de paso
   (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
   listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
+
+- **Adjuntos de visita: una sola lista de buckets.** Todo sitio que borre,
+  liste o mida adjuntos de una visita usa `BUCKETS_VISITA` /
+  `quitarAdjuntosDeStorage` / `bucketDeTipo` (`src/lib/buckets-visita.ts`).
+  Nunca `from('fotos-visita')` + `from('audios-visita')` sueltos: un bucket
+  nuevo (como `documentos-visita`) se olvidaría en un borrado y dejaría
+  archivos huérfanos. En SQL, las funciones `fn_espacio_*` /
+  `fn_mis_visitas_espacio` / `fn_visitas_liberables_proyecto` llevan la misma
+  lista: al añadir un bucket se actualizan todas en la misma migración.
+
+## Cómo comunicarse con Cesar (obligatorio, repetido muchas veces)
+
+- **Sin explicaciones ni narración.** No anunciar qué voy a hacer ni explicar causas
+  salvo que se pidan. Un resultado en una línea; si le toca algo a él, los pasos exactos.
+- **Sin pantallazos.** Verificar en navegador con JS / `get_page_text` / `find`, nunca
+  con `screenshot` en la respuesta. Si hace falta uno para ubicar un clic, no se
+  menciona ni se describe.
+- **Hacerlo yo antes de pasarle trabajo.** Si el clasificador de Claude Code lo
+  bloquea, decirlo en una línea y dar los pasos.
+- **Documentarse antes de programar integraciones externas** (Power Automate, SharePoint,
+  Supabase Edge, etc.): comprobar en la documentación cómo funciona cada pieza
+  (formatos, límites, nombres reales) ANTES de escribir código, y probar por capas.
+  Nada de «probar a ver si cuela».
 
 ## Despliegue (Netlify)
 
