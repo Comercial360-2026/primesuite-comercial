@@ -35,6 +35,7 @@ import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
+import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { plural } from '@/lib/texto';
 import { VisorFotos } from './visor-fotos';
 
@@ -478,6 +479,9 @@ export function DetalleVisitaCerrada() {
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
+  // Briefing: siempre disponible en la visita cerrada (verlo o generarlo).
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
+
   const sinNada =
     !!data &&
     !data.resumen_texto &&
@@ -505,17 +509,30 @@ export function DetalleVisitaCerrada() {
             : undefined
         }
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-              onClick={() => setPreguntaIAAbierta(true)}
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+                onClick={() => setPreguntaIAAbierta(true)}
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!data?.cliente_id && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing de esta visita"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+          </>
         }
       />
 
@@ -975,6 +992,15 @@ export function DetalleVisitaCerrada() {
           indice={visorIndice}
           onCerrar={() => setVisorIndice(null)}
           onCambiar={setVisorIndice}
+        />
+      )}
+
+      {briefingAbierto && data?.cliente_id && (
+        <BriefingHoja
+          visitaId={visitaId!}
+          clienteId={data.cliente_id}
+          clienteNombre={data.cliente_nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 

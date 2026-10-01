@@ -30,7 +30,7 @@ import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
-import { BriefingHoja } from '@/features/visita/briefing-hoja';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
 import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
@@ -447,26 +447,8 @@ export function FichaCliente() {
   const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
-  // Briefing: vive por visita (briefing_visita.visita_id), no hay uno "del
-  // cliente" suelto — desde aquí se abre el de su visita en curso o, si no
-  // hay, la agendada más próxima. Sin ninguna de las dos, no hay a qué
-  // visita colgarlo y el botón no se muestra.
-  const { data: visitaIdBriefing } = useQuery({
-    queryKey: ['ficha-cliente-visita-briefing', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<string | null> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('id, estado_captura, fecha')
-        .eq('cliente_id', clienteId!)
-        .in('estado_captura', ['en_curso', 'agendada'])
-        .order('fecha', { ascending: true })
-        .limit(10);
-      if (error) throw error;
-      const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
-      return (enCurso ?? data?.[0])?.id ?? null;
-    },
-  });
+  // Briefing: vive por visita; el hook elige a cuál colgarlo.
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
 
   return (

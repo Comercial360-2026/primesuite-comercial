@@ -23,6 +23,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
@@ -222,6 +223,8 @@ export function FichaProyecto() {
   }
 
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
   // Renombrar (lápiz de la cabecera) — UPDATE directo, requiere conexión,
@@ -422,6 +425,17 @@ export function FichaProyecto() {
                 onClick={() => setPreguntaIAAbierta(true)}
               >
                 <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
               </button>
             )}
             <button
@@ -646,6 +660,15 @@ export function FichaProyecto() {
           clienteId={clienteId}
           proyectoId={proyectoId}
           clienteNombre={cliente?.nombre}
+        />
+      )}
+
+      {briefingAbierto && clienteId && cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={clienteId}
+          clienteNombre={cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 
