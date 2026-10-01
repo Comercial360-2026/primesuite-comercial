@@ -146,16 +146,3 @@ end;
 $$;
 revoke all on function fn_confirmar_archivado_captura(uuid, text, text) from public, anon, authenticated;
 grant execute on function fn_confirmar_archivado_captura(uuid, text, text) to service_role;
-
-select cron.schedule('procesar-archivado-sharepoint', '0 3 * * *', $$
-  select net.http_post(
-    url := 'https://umrjzvpbcpzzqmkjahhn.supabase.co/functions/v1/procesar-archivado-sharepoint',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-clave-worker', (select decrypted_secret from vault.decrypted_secrets where name = 'briefing_worker_key')
-    ),
-    body := '{}'::jsonb,
-    timeout_milliseconds := 60000
-  )
-  where exists (select 1 from fn_visitas_para_archivar());
-$$);
