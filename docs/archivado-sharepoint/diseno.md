@@ -1,3 +1,21 @@
+> **REVISIÓN 2 oct 2026 — dos fases (migración 132).** El archivado ya no ocurre de golpe a los
+> 30 días. **Fase 1 (al cerrar):** cada 10 min el worker copia a SharePoint lo de las visitas
+> cerradas (fotos, audios y documentos); `confirmar-archivado-sharepoint` solo comprueba el
+> tamaño y anota `ruta_sharepoint` + `copiada_sharepoint_en`; el original NO se toca y
+> `ubicacion_archivo` sigue en `supabase`. **Fase 2 (a los 30 días del cierre y ≥1 día tras
+> copiar):** se borra el original (solo fotos y audios: la app aún no abre documentos
+> archivados) y `ubicacion_archivo` pasa a `sharepoint`. Una visita reabierta no se libera.
+> Ya no se exige `estado_subida='completado'` (la app no lo marcaba: no se habría archivado
+> ninguna captura real); basta `storage_path` no nulo. `procesar-archivado-sharepoint`
+> acepta `{ "visita_id": … }` para procesar solo una visita (pruebas / reintento manual).
+> Probado con ZZ contra SharePoint real: copia (foto, audio, documento con su nombre
+> original), idempotencia, reapertura, liberación y captura tardía.
+>
+> **Pendiente anotado (no hecho):** cierre automático por inactividad; subir `informe.html`
+> a la carpeta de la visita al copiar; estado de la copia visible en la app; qué hacer al
+> borrar una captura/visita/cliente ya copiados (`docs/pendiente-borrado-sharepoint.md`);
+> abrir documentos archivados en la app y liberar sus originales.
+
 # Archivado automático de fotos/audios a SharePoint — diseño cerrado
 
 Estado: **diseño cerrado, sin código todavío implementado** (sesión 2026-09-28,

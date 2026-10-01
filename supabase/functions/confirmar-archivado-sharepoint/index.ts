@@ -10,10 +10,10 @@
 // flujo y se decide añadir también una cabecera, este endpoint no la exige
 // hoy.
 //
-// Regla no negociable (ver diseño): el original de Supabase Storage solo se
-// borra AQUÍ, tras la confirmación de éxito — nunca antes. Y siempre con la
-// Storage API (`admin.storage...remove`), nunca `DELETE FROM
-// storage.objects` por SQL (Supabase lo bloquea, migración 120).
+// Desde la migración 132 esto solo CONFIRMA LA COPIA: comprueba que SharePoint
+// guardó los mismos bytes y anota ruta_sharepoint + copiada_sharepoint_en. El
+// original de Supabase Storage NO se toca aquí; lo libera procesar-archivado-
+// sharepoint (fase 2) a los 30 días del cierre.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -21,7 +21,11 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-const BUCKET_POR_TIPO: Record<string, string> = { foto: 'fotos-visita', audio: 'audios-visita' };
+const BUCKET_POR_TIPO: Record<string, string> = {
+  foto: 'fotos-visita',
+  audio: 'audios-visita',
+  documento: 'documentos-visita',
+};
 
 function igualesEnTiempoConstante(a: string, b: string) {
   const ea = new TextEncoder().encode(a);
@@ -58,16 +62,16 @@ Deno.serve(async (req) => {
     return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
   }
 
-  // Integridad: el original solo se da por archivado si SharePoint guardó
-  // exactamente los mismos bytes (mismo tamaño). Sin tamaño o distinto, NO se
-  // confirma ni se borra nada: el original sigue en Supabase y el cron reintenta.
+  // Integridad: la copia solo se da por buena si SharePoint guardó exactamente
+  // los mismos bytes (mismo tamaño). Sin tamaño o distinto, NO se confirma: el
+  // original sigue en Supabase y el cron reintenta.
   const { data: origen } = await admin
     .from('captura_libre')
-    .select('tipo, storage_path, ubicacion_archivo')
+    .select('tipo, storage_path, ubicacion_archivo, ruta_sharepoint')
     .eq('id', body.captura_id)
     .maybeSingle();
   if (!origen) return json({ error: 'Captura no encontrada' }, 404);
-  if (origen.ubicacion_archivo === 'sharepoint') return json({ ok: true, ya_archivada: true });
+  if (origen.ubicacion_archivo === 'sharepoint' || origen.ruta_sharepoint) return json({ ok: true, ya_copiada: true });
   const tamanoSubido = Number(body.tamano);
   const tamanoOriginal = await tamanoEnStorage(admin, BUCKET_POR_TIPO[origen.tipo], origen.storage_path);
   if (!tamanoSubido || tamanoOriginal === null || tamanoSubido !== tamanoOriginal) {
@@ -76,24 +80,11 @@ Deno.serve(async (req) => {
     return json({ error: motivo }, 409);
   }
 
-  const { data: fila, error } = await admin.rpc('fn_confirmar_archivado_captura', {
+  const { error } = await admin.rpc('fn_confirmar_copia_captura', {
     p_captura_id: body.captura_id,
     p_ruta_sharepoint: body.ruta_sharepoint,
   });
-  if (error || !fila?.length) return json({ error: error?.message ?? 'Captura no encontrada' }, 404);
-
-  const { tipo, storage_path_antiguo, storage_path_thumbnail_antiguo } = fila[0];
-  // La miniatura no se sube a SharePoint (campo sin lectores hoy); se borra
-  // también para no dejarla huérfana al limpiar su ruta en la fila.
-  const rutasAntiguas = [storage_path_antiguo, storage_path_thumbnail_antiguo].filter(Boolean) as string[];
-  if (rutasAntiguas.length) {
-    const bucket = BUCKET_POR_TIPO[tipo];
-    const { error: errorBorrado } = await admin.storage.from(bucket).remove(rutasAntiguas);
-    // No se revierte el archivado si falla el borrado del original: el
-    // archivo ya está a salvo en SharePoint, un huérfano en Supabase
-    // Storage es solo un gasto de cuota, no una pérdida de datos.
-    if (errorBorrado) console.error(`No se pudo borrar el original de ${bucket}/${storage_path_antiguo}`, errorBorrado);
-  }
+  if (error) return json({ error: error.message }, 500);
 
   return json({ ok: true });
 });

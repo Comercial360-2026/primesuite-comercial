@@ -218,7 +218,7 @@ const _PANTALLAS = {
       'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
     cuando:
       'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas. Justo debajo del resumen: «PDF de la visita» (el informe con las fotos, se abre directamente) y «Todo en ZIP» (el PDF más las fotos originales y los audios, para guardar una copia completa).',
-    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero.',
+    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero. Al cerrar la visita, sus fotos y audios se copian solos a SharePoint (carpeta Cliente / Proyecto / fecha de la visita); a los 30 días, si la copia está comprobada, se liberan de la app y se abren desde SharePoint (necesitas tener acceso a esa carpeta).',
   },
 
   // — Lo que registras en una visita —

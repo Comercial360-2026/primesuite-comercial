@@ -1,18 +1,22 @@
 // supabase/functions/procesar-archivado-sharepoint/index.ts
 //
-// Worker de archivado a SharePoint (migración 128). Lo llama pg_cron una vez
-// al día (solo si hay algo que archivar), con `x-clave-worker` validada
-// contra Vault (mismo patrón que procesar-briefings/procesar-consultas).
+// Worker de archivado a SharePoint (migraciones 128-132). Lo llama pg_cron cada
+// 10 min (solo si hay algo que hacer), con `x-clave-worker` validada contra
+// Vault (mismo patrón que procesar-briefings/procesar-consultas). Dos fases:
 //
-// Por cada visita cerrada hace más de 30 días con capturas sin archivar:
-// genera una signed URL corta de Supabase Storage por archivo y llama al
-// webhook de Power Automate ("Archivar visita a SharePoint") con todos los
-// archivos de esa visita de una vez. No espera respuesta síncrona — Power
-// Automate confirma archivo a archivo llamando a confirmar-archivado-
-// sharepoint cuando termina de subirlo (puede tardar minutos). Si el webhook
-// falla o Power Automate nunca confirma, intento_archivado_en queda puesto y
-// la siguiente pasada (al día siguiente, pasados los 15 min de margen) lo
-// reintenta — nunca se borra el original sin confirmación.
+// 1. COPIAR (visitas cerradas, a cualquier edad): por cada visita con archivos
+//    sin copiar, genera una signed URL corta de Supabase Storage por archivo y
+//    llama al webhook de Power Automate ("Archivar visita a SharePoint") con
+//    todos los archivos de esa visita. No espera respuesta síncrona — Power
+//    Automate confirma archivo a archivo en confirmar-archivado-sharepoint
+//    (que comprueba el tamaño y anota la copia, SIN borrar el original). Si
+//    el webhook falla o no confirma, intento_archivado_en queda puesto y la
+//    siguiente pasada (pasados 15 min) lo reintenta.
+// 2. LIBERAR (cierre > 30 días y copia confirmada hace > 1 día): borra el
+//    original de Supabase Storage y deja la captura solo en SharePoint.
+//
+// Cuerpo opcional { visita_id } para procesar solo esa visita (pruebas y
+// reintento manual).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -22,22 +26,44 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-const BUCKET_POR_TIPO: Record<string, string> = { foto: 'fotos-visita', audio: 'audios-visita' };
+const BUCKET_POR_TIPO: Record<string, string> = {
+  foto: 'fotos-visita',
+  audio: 'audios-visita',
+  documento: 'documentos-visita',
+};
 
 // SharePoint no admite " * : < > ? / \ | en nombres de carpeta, ni acabar en punto o espacio.
 function nombreCarpeta(nombre: string) {
   return nombre.replace(/[\\/:*?"<>|#%~&{}]/g, '-').trim().replace(/\.+$/, '');
 }
 
-// "Foto 14-32-05.jpg" / "Audio 14-32-05.m4a" (hora de Madrid). Si ya hubo un intento
-// previo (Power Automate pudo dejar el archivo sin confirmar) se añade un sello:
-// "Create file" de SharePoint no sobrescribe (409) y un reintento se atascaría.
-function nombreArchivo(tipo: string, storagePath: string, creadoEn: string, reintento: boolean, usados: Set<string>) {
-  const hora = new Date(creadoEn).toLocaleTimeString('es-ES', {
-    timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).replace(/:/g, '-');
-  const ext = storagePath.includes('.') ? storagePath.slice(storagePath.lastIndexOf('.')) : '';
-  const base = `${tipo === 'audio' ? 'Audio' : 'Foto'} ${hora}${reintento ? ` (reintento ${new Date().toISOString().replace(/\D/g, '').slice(8, 14)})` : ''}`;
+// "Foto 14-32-05.jpg" / "Audio 14-32-05.m4a" (hora de Madrid); un documento
+// conserva su nombre original. Si ya hubo un intento previo (Power Automate
+// pudo dejar el archivo sin confirmar) se añade un sello: "Create file" de
+// SharePoint no sobrescribe (409) y un reintento se atascaría.
+function nombreArchivo(
+  tipo: string,
+  storagePath: string,
+  creadoEn: string,
+  reintento: boolean,
+  usados: Set<string>,
+  nombreOriginal?: string | null
+) {
+  const sello = reintento ? ` (reintento ${new Date().toISOString().replace(/\D/g, '').slice(8, 14)})` : '';
+  let base: string;
+  let ext: string;
+  if (tipo === 'documento' && nombreOriginal) {
+    const limpio = nombreCarpeta(nombreOriginal);
+    const i = limpio.lastIndexOf('.');
+    base = `${i > 0 ? limpio.slice(0, i) : limpio}${sello}`;
+    ext = i > 0 ? limpio.slice(i) : '';
+  } else {
+    const hora = new Date(creadoEn).toLocaleTimeString('es-ES', {
+      timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).replace(/:/g, '-');
+    base = `${tipo === 'audio' ? 'Audio' : tipo === 'documento' ? 'Documento' : 'Foto'} ${hora}${sello}`;
+    ext = storagePath.includes('.') ? storagePath.slice(storagePath.lastIndexOf('.')) : '';
+  }
   let nombre = `${base}${ext}`;
   for (let n = 2; usados.has(nombre); n++) nombre = `${base} (${n})${ext}`;
   usados.add(nombre);
@@ -57,13 +83,20 @@ Deno.serve(async (req) => {
   ]);
   if (!webhookUrl || !secreto) return json({ error: 'Falta configuración del webhook de archivado.' }, 500);
 
-  const { data: visitas, error: errorVisitas } = await admin.rpc('fn_visitas_para_archivar');
+  let soloVisita: string | null = null;
+  try {
+    soloVisita = (await req.json())?.visita_id ?? null;
+  } catch {
+    /* sin cuerpo: se procesa todo */
+  }
+
+  const { data: visitas, error: errorVisitas } = await admin.rpc('fn_visitas_para_copiar');
   if (errorVisitas) return json({ error: errorVisitas.message }, 500);
 
-  const resumen = { visitas: 0, archivos_enviados: 0, errores: 0 };
+  const resumen = { visitas: 0, archivos_enviados: 0, errores: 0, originales_liberados: 0 };
 
-  for (const v of visitas ?? []) {
-    const { data: capturas, error: errorCapturas } = await admin.rpc('fn_capturas_para_archivar', {
+  for (const v of (visitas ?? []).filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)) {
+    const { data: capturas, error: errorCapturas } = await admin.rpc('fn_capturas_para_copiar', {
       p_visita_id: v.visita_id,
     });
     if (errorCapturas || !capturas?.length) continue;
@@ -71,7 +104,7 @@ Deno.serve(async (req) => {
     // creado_en e intento previo, leídos ANTES de marcar el intento nuevo.
     const { data: meta } = await admin
       .from('captura_libre')
-      .select('id, creado_en, intento_archivado_en')
+      .select('id, creado_en, intento_archivado_en, nombre_original')
       .in('id', capturas.map((c: { captura_id: string }) => c.captura_id));
     const metaPorId = new Map((meta ?? []).map((m) => [m.id, m]));
     const usados = new Set<string>();
@@ -90,6 +123,7 @@ Deno.serve(async (req) => {
           metaPorId.get(c.captura_id)?.creado_en ?? new Date().toISOString(),
           !!metaPorId.get(c.captura_id)?.intento_archivado_en,
           usados,
+          metaPorId.get(c.captura_id)?.nombre_original
         ),
         url_origen: firmada.signedUrl,
       });
@@ -140,6 +174,24 @@ Deno.serve(async (req) => {
       console.error(`No se pudo archivar la visita ${v.visita_id}`, e);
       resumen.errores++;
     }
+  }
+
+  // FASE 2 — liberar los originales cuya copia lleva > 1 día y cuya visita se
+  // cerró hace > 30 días. Primero se marca la fila (solo SharePoint) y después
+  // se borra el archivo con la Storage API: si el borrado falla queda un
+  // huérfano (gasto de cuota), nunca una pérdida de datos.
+  const { data: aLiberar, error: errorLiberar } = await admin.rpc('fn_capturas_para_liberar');
+  if (errorLiberar) console.error('No se pudo listar lo que liberar', errorLiberar);
+  for (const c of (aLiberar ?? []).filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)) {
+    const { data: fila, error: errorFila } = await admin.rpc('fn_liberar_original_captura', { p_captura_id: c.captura_id });
+    if (errorFila || !fila?.length) continue;
+    const rutas = [fila[0].storage_path_antiguo, fila[0].storage_path_thumbnail_antiguo].filter(Boolean) as string[];
+    if (rutas.length) {
+      const bucket = BUCKET_POR_TIPO[fila[0].tipo];
+      const { error: errorBorrado } = await admin.storage.from(bucket).remove(rutas);
+      if (errorBorrado) console.error(`No se pudo borrar el original de ${bucket}/${rutas[0]}`, errorBorrado);
+    }
+    resumen.originales_liberados++;
   }
 
   return json(resumen);
