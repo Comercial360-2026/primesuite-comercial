@@ -3,6 +3,44 @@
 - **Prohibido enseñar imágenes/capturas y explicar de más.** Verificar con JS/SQL/`get_page_text`.
 - **Prohibido escribir contraseñas/tokens en webs:** usar `request_credentials` (1Password; si `not_connected`, pedir pulsar Connect) o que Cesar inicie sesión.
 - Producción solo con `HAZ DEPLOY A PRODUCCIÓN`. No dejar pendiente lo que pueda hacer yo (CLI de Supabase, SQL, Chrome, MCP).
+# 🚫🚫🚫 PROHIBIDO MENTIR, INVENTAR O SUPONER — REGLA Nº 1, ABSOLUTA 🚫🚫🚫
+
+## ⛔ TOTALMENTE PROHIBIDO MENTIR. TOTALMENTE PROHIBIDO INVENTAR. ⛔
+
+**LEER ESTO ANTES DE CADA RESPUESTA. SIN EXCEPCIONES.**
+
+- **MIRAR ANTES DE RESPONDER.** Todo lo que afirmo lo he comprobado AHORA (código, BD, navegador, salida real de un comando). Si no lo he mirado, NO lo digo.
+- **«No puedo» / «no tengo» / «no veo» también hay que comprobarlo** (herramientas disponibles, ToolSearch) ANTES de decirlo. Decir «no puedo ver tu Chrome» sin mirar es mentir.
+- «Hecho», «arreglado», «subido», «anotado» = he mirado el resultado real después. Un comando sin error NO prueba que hizo lo que quería.
+- Lo que viene de memoria, notas o suposición se dice «según mis notas, SIN comprobar» y se comprueba antes de darlo por bueno.
+- Si no sé algo: «no lo sé». Nunca rellenar el hueco.
+- Si descubro que dije algo falso, lo corrijo YO al instante.
+
+- **PROHIBIDO decir «no he mentido en nada más» / «no hay más» sin haber REVISADO la conversación entera.** Afirmar un barrido que no he hecho es otra mentira.
+- **PROHIBIDO dar como hecho por mí lo que sale de notas de otra sesión** («ya lo probé», «ya está verificado»). Si no lo he hecho en ESTA sesión, se dice «según mis notas, no verificado ahora».
+- **PROHIBIDO poner excusas** («no hay visita para abrirlo»): si no lo hice, digo «no lo hice», no invento un motivo.
+- **Si Cesar dice que he mentido, NO me defiendo:** reviso lo dicho línea a línea, comprobando cada afirmación, y le digo cuáles eran falsas.
+- **Lo escrito en esta regla no sirve si no lo releo antes de cada respuesta. Releerla SIEMPRE.**
+
+**Historial (1 oct 2026):** Claude mintió o afirmó sin comprobar varias veces seguidas —dijo «anotado en CLAUDE.md» sin que se hubiera aplicado, dijo que no podía ver Chrome sin mirar, dio como cierto lo que sacó de notas— y le costó la confianza a Cesar. Después volvió a afirmar «no hay más mentiras» sin revisar y a decir «ya lo probé» desde notas. No se repite.
+
+---
+
+## Registro de errores y mentiras de Claude (se amplía en cada caso; releer)
+
+| Fecha | Qué dije/hice mal | Regla que lo evita |
+|---|---|---|
+| 1 oct | «Anotado en CLAUDE.md» sin comprobar: la edición no se aplicó | Tras cada edición, `grep` del resultado |
+| 1 oct | «No puedo ver tu Chrome» sin mirar: tenía la extensión | Comprobar herramientas (ToolSearch) antes de decir «no puedo» |
+| 1 oct | «El panel está a la derecha» sin saberlo | No describir la UI sin haberla comprobado |
+| 1 oct | Excusa inventada («no hay visita para abrir el repaso»): se abría directo | Si no lo hice, «no lo hice», sin motivo inventado |
+| 1 oct | «Ninguna otra mentira» sin revisar la conversación | No afirmar barridos que no he hecho |
+| 1 oct | «Ya lo probé» con datos de notas de otra sesión | Notas = «sin comprobar ahora» |
+| 1 oct | Dije que a la IA le faltaba en 3 pantallas: ya estaba, de memoria | Mirar el código antes de afirmar qué hay |
+| 1 oct | Arreglé solo SAPA en vez de la clase de bug (briefing/IA en todas las pantallas) | Barrer toda la app (método de bugs) |
+| 1 oct | Briefing en visita cerrada solo si ya existía uno: no se podía generar | Probar el caso «no existe aún», no solo el que ya funciona |
+
+---
 
 # PrimeSuite Comercial — reglas de trabajo
 
@@ -140,6 +178,13 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   Supabase Edge, etc.): comprobar en la documentación cómo funciona cada pieza
   (formatos, límites, nombres reales) ANTES de escribir código, y probar por capas.
   Nada de «probar a ver si cuela».
+- **Briefing y «Pregunta a la IA» en TODA pantalla de un cliente o visita.**
+  Ficha de cliente, repaso, ficha de proyecto, detalle de oportunidad y las
+  tres visitas (en curso, planificada, cerrada) llevan los dos iconos en la
+  cabecera: `useVisitaBriefing(clienteId)` + `BriefingHoja`, y
+  `usePuedePreguntarIA` + `PreguntaIAHoja`. `npm run lint` falla si una
+  pantalla tiene uno sin el otro. Las filas de Hoy no llevan iconos: abren
+  una de esas pantallas, a un toque.
 
 ## Despliegue (Netlify)
 
