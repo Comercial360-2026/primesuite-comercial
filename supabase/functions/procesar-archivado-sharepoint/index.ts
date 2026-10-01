@@ -29,10 +29,19 @@ function nombreCarpeta(nombre: string) {
   return nombre.replace(/[\\/:*?"<>|#%~&{}]/g, '-').trim().replace(/\.+$/, '');
 }
 
-function nombreUnico(nombre: string) {
-  const i = nombre.lastIndexOf('.');
-  const sello = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
-  return i < 0 ? `${nombre}-${sello}` : `${nombre.slice(0, i)}-${sello}${nombre.slice(i)}`;
+// "Foto 14-32-05.jpg" / "Audio 14-32-05.m4a" (hora de Madrid). Si ya hubo un intento
+// previo (Power Automate pudo dejar el archivo sin confirmar) se añade un sello:
+// "Create file" de SharePoint no sobrescribe (409) y un reintento se atascaría.
+function nombreArchivo(tipo: string, storagePath: string, creadoEn: string, reintento: boolean, usados: Set<string>) {
+  const hora = new Date(creadoEn).toLocaleTimeString('es-ES', {
+    timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).replace(/:/g, '-');
+  const ext = storagePath.includes('.') ? storagePath.slice(storagePath.lastIndexOf('.')) : '';
+  const base = `${tipo === 'audio' ? 'Audio' : 'Foto'} ${hora}${reintento ? ` (reintento ${new Date().toISOString().replace(/\D/g, '').slice(8, 14)})` : ''}`;
+  let nombre = `${base}${ext}`;
+  for (let n = 2; usados.has(nombre); n++) nombre = `${base} (${n})${ext}`;
+  usados.add(nombre);
+  return nombre;
 }
 
 Deno.serve(async (req) => {
@@ -59,6 +68,14 @@ Deno.serve(async (req) => {
     });
     if (errorCapturas || !capturas?.length) continue;
 
+    // creado_en e intento previo, leídos ANTES de marcar el intento nuevo.
+    const { data: meta } = await admin
+      .from('captura_libre')
+      .select('id, creado_en, intento_archivado_en')
+      .in('id', capturas.map((c: { captura_id: string }) => c.captura_id));
+    const metaPorId = new Map((meta ?? []).map((m) => [m.id, m]));
+    const usados = new Set<string>();
+
     const archivos = [];
     for (const c of capturas) {
       const bucket = BUCKET_POR_TIPO[c.tipo];
@@ -67,9 +84,13 @@ Deno.serve(async (req) => {
       archivos.push({
         captura_id: c.captura_id,
         tipo: c.tipo,
-        // Nombre único por intento: "Create file" de SharePoint no sobrescribe
-        // (409 si existe), y un reintento tras un corte lo atascaría.
-        nombre_archivo: nombreUnico(c.storage_path.split('/').pop()!),
+        nombre_archivo: nombreArchivo(
+          c.tipo,
+          c.storage_path,
+          metaPorId.get(c.captura_id)?.creado_en ?? new Date().toISOString(),
+          !!metaPorId.get(c.captura_id)?.intento_archivado_en,
+          usados,
+        ),
         url_origen: firmada.signedUrl,
       });
     }
