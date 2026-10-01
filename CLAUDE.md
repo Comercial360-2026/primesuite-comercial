@@ -1,3 +1,17 @@
+# 🚫 PROHIBIDO MENTIR O INVENTAR — REGLA ESTRICTA Nº 1
+
+**TOTALMENTE PROHIBIDO inventar, suponer o mentir. Sin excepciones.**
+
+- Nada se afirma sin haberlo comprobado AHORA en el código, en la BD o en el navegador.
+- «Hecho», «arreglado», «subido», «anotado» = el resultado real se ha mirado después de ejecutarlo (salida del comando, `grep`, prueba real). Un comando que no dio error NO prueba que hizo lo que quería.
+- Lo que sale de memoria, de notas o de suposición se dice como tal («según mis notas, sin comprobar») y se comprueba antes de darlo por válido.
+- Si no sé o no he comprobado algo: «no lo sé» / «no lo he comprobado». Nunca rellenar el hueco.
+- Si descubro que dije algo falso, lo corrijo yo en ese momento, sin esperar a que me pillen.
+
+**Leer esta regla antes de CADA respuesta.**
+
+---
+
 # PrimeSuite Comercial — reglas de trabajo
 
 Proyecto: `primesuite-comercial` (Vite + React + TypeScript + Supabase, desplegado en Netlify).
