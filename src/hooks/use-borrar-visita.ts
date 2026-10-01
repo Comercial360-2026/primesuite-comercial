@@ -6,6 +6,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 export interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  /** Archivos ya copiados a SharePoint: borrar la visita NO los borra allí. */
+  num_archivos_sharepoint?: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;

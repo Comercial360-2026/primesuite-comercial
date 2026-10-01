@@ -76,6 +76,12 @@ export function ConfirmarBorradoVisita({
           {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}
           {plural(previsualizacion.num_proximos_pasos, 'próximo paso', 'próximos pasos')}. Todo eso se
           borrará también.
+          {!!previsualizacion.num_archivos_sharepoint && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+              {plural(previsualizacion.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en SharePoint
+              se conservan allí: la app no los borra.
+            </div>
+          )}
         </>
       )}
     </ConfirmacionBorrado>

@@ -121,6 +121,13 @@ export function Yo() {
     }
   }
 
+  // Tocar el aviso de «Copia a SharePoint»: vuelve a dar 5 intentos a las copias
+  // agotadas (el cron las retoma en ≤10 min) y refresca el aviso.
+  async function reintentarArchivado() {
+    await supabase.rpc('fn_reintentar_archivado');
+    void queryClient.invalidateQueries({ queryKey: ['avisos-estado-archivado'] });
+  }
+
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
 
@@ -137,7 +144,7 @@ export function Yo() {
   // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
   // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
   // LayoutShell, ver use-avisos-gestion.ts.
-  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing } = useAvisosGestion();
+  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing, estadoArchivado } = useAvisosGestion();
 
   // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
   // visitas de equipo), no en una pantalla aparte.
@@ -699,6 +706,28 @@ export function Yo() {
                 to="/deduplicacion"
               />
             )}
+            {!!estadoArchivado &&
+              Number(estadoArchivado.sin_copiar) + Number(estadoArchivado.agotadas) + Number(estadoArchivado.posibles_duplicados) > 0 && (
+                <FilaNavegable
+                  icono="almacenamiento"
+                  titulo="Copia a SharePoint"
+                  subtitulo={[
+                    Number(estadoArchivado.agotadas) > 0 &&
+                      `${estadoArchivado.agotadas} sin copiar tras 5 intentos — revisar el flujo de Power Automate`,
+                    Number(estadoArchivado.sin_copiar) > 0 && `${estadoArchivado.sin_copiar} esperando copia desde hace horas`,
+                    Number(estadoArchivado.posibles_duplicados) > 0 &&
+                      `${estadoArchivado.posibles_duplicados} con posible duplicado «(reintento …)» en SharePoint`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  badge={
+                    Number(estadoArchivado.sin_copiar) + Number(estadoArchivado.agotadas) + Number(estadoArchivado.posibles_duplicados)
+                  }
+                  tono="aviso"
+                  chevron={false}
+                  onClick={() => void reintentarArchivado()}
+                />
+              )}
             <FilaNavegable
               icono="clientes"
               titulo="Equipo"

@@ -2733,6 +2733,15 @@ export type Database = {
         Returns: undefined
       }
       fn_solo_digitos: { Args: { t: string }; Returns: string }
+      fn_reintentar_archivado: { Args: never; Returns: number }
+      fn_estado_archivado: {
+        Args: never
+        Returns: {
+          agotadas: number
+          posibles_duplicados: number
+          sin_copiar: number
+        }[]
+      }
       fn_tope_briefing: {
         Args: never
         Returns: {
@@ -2795,6 +2804,7 @@ export type Database = {
       previsualizar_borrado_cliente: {
         Args: { p_cliente_id: string }
         Returns: {
+          num_archivos_sharepoint: number
           num_audios: number
           num_fotos: number
           num_hallazgos: number
@@ -2819,6 +2829,7 @@ export type Database = {
       previsualizar_borrado_visita: {
         Args: { p_visita_id: string }
         Returns: {
+          num_archivos_sharepoint: number
           num_audios: number
           num_fotos: number
           num_hallazgos: number

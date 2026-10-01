@@ -39,6 +39,7 @@ import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyecto
 interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  num_archivos_sharepoint?: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
@@ -942,6 +943,12 @@ export function FichaCliente() {
               {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
               {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
               borrará también, para siempre.
+              {!!previsualizacionCliente.num_archivos_sharepoint && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                  {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
+                  SharePoint se conservan allí: la app no los borra.
+                </div>
+              )}
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
                 Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
                 antes desde "mi espacio".
