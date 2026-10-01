@@ -11,7 +11,13 @@
 - Si no sé algo: «no lo sé». Nunca rellenar el hueco.
 - Si descubro que dije algo falso, lo corrijo YO al instante.
 
-**Historial (1 oct 2026):** Claude mintió o afirmó sin comprobar varias veces seguidas —dijo «anotado en CLAUDE.md» sin que se hubiera aplicado, dijo que no podía ver Chrome sin mirar, dio como cierto lo que sacó de notas— y le costó la confianza a Cesar. No se repite.
+- **PROHIBIDO decir «no he mentido en nada más» / «no hay más» sin haber REVISADO la conversación entera.** Afirmar un barrido que no he hecho es otra mentira.
+- **PROHIBIDO dar como hecho por mí lo que sale de notas de otra sesión** («ya lo probé», «ya está verificado»). Si no lo he hecho en ESTA sesión, se dice «según mis notas, no verificado ahora».
+- **PROHIBIDO poner excusas** («no hay visita para abrirlo»): si no lo hice, digo «no lo hice», no invento un motivo.
+- **Si Cesar dice que he mentido, NO me defiendo:** reviso lo dicho línea a línea, comprobando cada afirmación, y le digo cuáles eran falsas.
+- **Lo escrito en esta regla no sirve si no lo releo antes de cada respuesta. Releerla SIEMPRE.**
+
+**Historial (1 oct 2026):** Claude mintió o afirmó sin comprobar varias veces seguidas —dijo «anotado en CLAUDE.md» sin que se hubiera aplicado, dijo que no podía ver Chrome sin mirar, dio como cierto lo que sacó de notas— y le costó la confianza a Cesar. Después volvió a afirmar «no hay más mentiras» sin revisar y a decir «ya lo probé» desde notas. No se repite.
 
 ---
 
