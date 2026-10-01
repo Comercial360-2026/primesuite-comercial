@@ -8,8 +8,9 @@ import { useVisitasSinCerrar } from '@/hooks/use-visitas-sin-cerrar';
 import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
 
 // Línea de aviso arriba de la ficha de cliente / proyecto: "N visita(s) sin
-// cerrar". Las visitas abiertas no se cierran solas (ver migración 102), así
-// que se empuja a cerrarlas desde donde el comercial mira el cliente.
+// cerrar". Solo se cierran solas las ABANDONADAS (sin actividad durante horas,
+// migración 135; la 102 había quitado el cierre a las 48 h), así que se empuja a
+// cerrarlas desde donde el comercial mira el cliente.
 //   · 1 visita  → enlaza directo a esa visita.
 //   · 2+        → abre un panel con la lista SIN salir de esta pantalla;
 //                 desde ahí se va, se cierra o se descarta cada una.
