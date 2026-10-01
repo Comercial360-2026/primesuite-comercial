@@ -500,7 +500,7 @@ export const TOUR_NAVEGACION: PasoTour[] = [
 ];
 
 // Paso extra solo para Dirección Comercial — se lanza desde Yo → "Ver guía
-// rápida" (junto a TOUR_NAVEGACION) y señala el bloque de gestión que un
+// de Dirección" y señala el bloque de gestión que un
 // comercial no tiene.
 export const TOUR_DIRECCION: PasoTour[] = [
   {
