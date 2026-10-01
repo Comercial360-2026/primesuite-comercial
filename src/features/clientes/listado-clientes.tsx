@@ -241,7 +241,7 @@ export function ListadoClientes() {
           {archivados.length > 0 && (
             <SeccionLista>
               <FilaNavegable
-                titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${archivados.length})`}
+                titulo={verArchivados ? 'Ocultar inactivos' : `Ver inactivos (${archivados.length})`}
                 chevron={false}
                 valorTenue
                 onClick={() => setVerArchivados((v) => !v)}
@@ -304,7 +304,7 @@ export function ListadoClientes() {
         // Cliente frío ("Sin visitar") o sin responsable → barra de
         // atención; lo sano (verde/amarillo) no distrae.
         tono={archivado ? 'neutral' : sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
-        valor={archivado ? 'archivado' : <EtiquetaSemaforo valor={c.semaforo} />}
+        valor={archivado ? 'inactivo' : <EtiquetaSemaforo valor={c.semaforo} />}
         valorTenue={archivado}
         to={`/clientes/${c.cliente_id}`}
         state={desde(location)}

@@ -483,7 +483,7 @@ export function FichaProyecto() {
         )}
         {!terminado && cliente?.estado_relacion === CLIENTE_ARCHIVADO && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
-            Cliente archivado: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
+            Cliente inactivo: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
           </div>
         )}
 
@@ -639,7 +639,7 @@ export function FichaProyecto() {
         </div>
       </div>
 
-      {/* Cliente archivado: solo consulta, como un proyecto terminado — se
+      {/* Cliente inactivo: solo consulta, como un proyecto terminado — se
           reactiva desde su ficha (prompt maestro 13). */}
       {clienteId && proyectoId && !terminado && cliente?.estado_relacion !== CLIENTE_ARCHIVADO && (
         <AccionesProyecto
