@@ -6,12 +6,15 @@ export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { 
 
 /** Qué informe se pide. 'visita' → PDF de UNA visita, con las fotos dentro
  *  (la descarga normal). 'visita-zip' → copia completa: ese PDF + fotos
- *  originales + audios en un zip (la que exige liberar espacio antes de
- *  borrar). 'proyecto' → PDF de UN proyecto, sin fotos. */
-export type TipoInforme = 'visita' | 'visita-zip' | 'proyecto';
+ *  originales + audios + documentos + informe web en un zip (la que exige
+ *  liberar espacio antes de borrar). 'visita-web' → el informe en formato web
+ *  (.html, con mapa de las fotos). 'proyecto' → PDF de UN proyecto, sin fotos. */
+export type TipoInforme = 'visita' | 'visita-web' | 'visita-zip' | 'proyecto';
 
 const PETICION_POR_TIPO: Record<TipoInforme, (id: string) => { funcion: string; body: object }> = {
   visita: (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'pdf' } }),
+  // Informe web: un único .html con las fotos, su ubicación y un mapa juntos.
+  'visita-web': (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'html' } }),
   'visita-zip': (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'zip' } }),
   proyecto: (id) => ({ funcion: 'generar-informe-proyecto', body: { proyectoId: id } }),
 };

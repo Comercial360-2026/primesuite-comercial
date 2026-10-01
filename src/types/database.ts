@@ -211,6 +211,9 @@ export type Database = {
           titulo: string | null
           ubicacion_archivo: string
           ubicacion_id: string | null
+          nombre_original: string | null
+          mime: string | null
+          bytes: number | null
           visita_id: string
           zona_texto: string | null
         }
@@ -237,6 +240,9 @@ export type Database = {
           titulo?: string | null
           ubicacion_archivo?: string
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id: string
           zona_texto?: string | null
         }
@@ -263,6 +269,9 @@ export type Database = {
           titulo?: string | null
           ubicacion_archivo?: string
           ubicacion_id?: string | null
+          nombre_original?: string | null
+          mime?: string | null
+          bytes?: number | null
           visita_id?: string
           zona_texto?: string | null
         }
@@ -2806,6 +2815,7 @@ export type Database = {
         Returns: {
           num_archivos_sharepoint: number
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number
@@ -2831,6 +2841,7 @@ export type Database = {
         Returns: {
           num_archivos_sharepoint: number
           num_audios: number
+          num_documentos: number
           num_fotos: number
           num_hallazgos: number
           num_notas: number

@@ -37,6 +37,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
 import { obtenerArchivoSharePoint } from '../_shared/sharepoint-enlace.ts';
+import { generarInformeHtml, type FotoHtml, type ArchivoHtml } from '../_shared/informe-html.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -160,6 +161,8 @@ interface CapturaRow {
   // Etiqueta de zona del Recorrido (texto libre). Sustituye a `ubicacion`
   // en las capturas nuevas; las visitas antiguas siguen con `ubicacion`.
   zona_texto: string | null;
+  // Solo documentos: nombre del archivo tal como se subió.
+  nombre_original: string | null;
   ubicacion: Nombrado | null;
   // Archivado a SharePoint (migración 128): si storage_path es null y esto
   // es 'sharepoint', el binario se trae del enlace temporal, no de Storage.
@@ -201,11 +204,13 @@ Deno.serve(async (req) => {
   // 'pdf' = solo informe.pdf (lleva las fotos embebidas): la descarga normal
   // del comercial. 'zip' (por defecto, lo que pedían las versiones previas de
   // la app) = PDF + fotos originales + audios: la copia completa.
-  let formato: 'pdf' | 'zip' = 'zip';
+  // 'html' = solo informe.html (informe web con mapa de fotos, un único archivo).
+  let formato: 'pdf' | 'zip' | 'html' = 'zip';
   try {
     const body = await req.json();
     visitaId = body.visitaId;
     if (body.formato === 'pdf') formato = 'pdf';
+    if (body.formato === 'html') formato = 'html';
   } catch {
     return jsonResponse({ error: 'Cuerpo de la petición inválido, se esperaba { visitaId }' }, 400);
   }
@@ -280,7 +285,7 @@ Deno.serve(async (req) => {
     admin
       .from('captura_libre')
       .select(
-        'id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+        'id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, nombre_original, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
       )
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
@@ -350,6 +355,7 @@ Deno.serve(async (req) => {
 
   const fotos = (capturas ?? []).filter((c) => c.tipo === 'foto');
   const audios = (capturas ?? []).filter((c) => c.tipo === 'audio');
+  const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
   const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
 
   const pasosOrdenados = proximosPasos ?? [];
@@ -371,6 +377,7 @@ Deno.serve(async (req) => {
   const zip = new JSZip();
   const carpetaFotos = zip.folder('fotos')!;
   const carpetaAudios = zip.folder('audios')!;
+  const carpetaDocumentos = zip.folder('documentos')!;
 
   type FotoLista = {
     titulo: string | null;
@@ -379,12 +386,17 @@ Deno.serve(async (req) => {
     dataUri: string;
   };
   const fotosParaPdf: FotoLista[] = [];
+  // Para el informe web: TODAS las fotos recuperadas (también las de formato no embebible), con su GPS.
+  const fotosHtml: FotoHtml[] = [];
+  const audiosHtml: ArchivoHtml[] = [];
+  const documentosHtml: ArchivoHtml[] = [];
   const fotosNoIncluidas: { titulo: string; formato: string }[] = [];
   // Antes de este cambio, un archivo huérfano/borrado se omitía en silencio:
   // el comercial veía "5 fotos" en la app pero el PDF/zip solo traía 4, sin
   // ninguna pista de por qué. Se cuenta y se avisa (portada + LEEME.txt).
   let fotosFallidas = 0;
   let audiosFallidos = 0;
+  let documentosFallidos = 0;
 
   let indiceFoto = 0;
   for (const f of fotos) {
@@ -406,6 +418,15 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join(' - ');
     carpetaFotos.file(`${nombreArchivo}.${extension}`, bytes);
+    fotosHtml.push({
+      n: indiceFoto,
+      titulo: f.titulo,
+      zona: ubicacionNombre,
+      creadoEn: f.creado_en,
+      dataUri: formato === 'jpeg' || formato === 'png' ? `data:image/${formato};base64,${base64Encode(bytes)}` : null,
+      latitud: f.latitud,
+      longitud: f.longitud,
+    });
 
     if (formato === 'jpeg' || formato === 'png') {
       fotosParaPdf.push({
@@ -437,7 +458,31 @@ Deno.serve(async (req) => {
     const extension = a.storage_path?.split('.').pop() || 'm4a';
     const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
     carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
+    audiosHtml.push({ titulo: a.titulo || 'Audio sin título', creadoEn: a.creado_en, ruta: `audios/${nombreArchivo}.${extension}` });
     audiosDescargados.push(a);
+  }
+
+  // Documentos adjuntos: solo van al zip (como los audios), con su nombre
+  // original — nunca el uuid de Storage. Numerados para que dos con el mismo
+  // nombre no se pisen.
+  const documentosDescargados: CapturaRow[] = [];
+  let indiceDocumento = 0;
+  for (const d of documentos) {
+    indiceDocumento += 1;
+    if (!d.storage_path) {
+      documentosFallidos += 1;
+      continue;
+    }
+    const { data, error } = await admin.storage.from('documentos-visita').download(d.storage_path);
+    if (error || !data) {
+      documentosFallidos += 1;
+      continue;
+    }
+    const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
+    const nombreEnZip = `${String(indiceDocumento).padStart(2, '0')} - ${nombre}`;
+    carpetaDocumentos.file(nombreEnZip, new Uint8Array(await data.arrayBuffer()));
+    documentosHtml.push({ titulo: d.titulo || d.nombre_original || 'Documento', creadoEn: d.creado_en, ruta: `documentos/${nombreEnZip}` });
+    documentosDescargados.push(d);
   }
 
   const fotosPorUbicacion = new Map<string, FotoLista[]>();
@@ -657,6 +702,27 @@ Deno.serve(async (req) => {
       ].filter(Boolean)
     : null;
 
+  // --- Anexo de documentos (se omite del todo si no hay ninguno) ---
+  // deno-lint-ignore no-explicit-any
+  const bloquesDocumentos: any[] | null = documentosDescargados.length || documentosFallidos > 0
+    ? [
+        ...documentosDescargados.map((d) => ({
+          text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta documentos/ del zip'}`,
+          fontSize: 9.5,
+          color: COLOR.ink700,
+          margin: [0, 0, 0, 4],
+        })),
+        documentosFallidos > 0
+          ? {
+              text: `${documentosFallidos} ${documentosFallidos === 1 ? 'documento no se pudo recuperar' : 'documentos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${documentosFallidos === 1 ? '' : 'n'} en este backup.`,
+              fontSize: 9,
+              color: COLOR.warning600,
+              margin: [0, 6, 0, 0],
+            }
+          : null,
+      ].filter(Boolean)
+    : null;
+
   // --- Ensamblado final ---
   // deno-lint-ignore no-explicit-any
   const contenido: any[] = [
@@ -697,6 +763,9 @@ Deno.serve(async (req) => {
   if (bloquesAudios) {
     contenido.push(tituloSeccion('Anexo de audios', `(${audiosDescargados.length})`), ...bloquesAudios);
   }
+  if (bloquesDocumentos) {
+    contenido.push(tituloSeccion('Anexo de documentos', `(${documentosDescargados.length})`), ...bloquesDocumentos);
+  }
 
   const docDefinition = {
     info: {
@@ -736,14 +805,49 @@ Deno.serve(async (req) => {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
   };
 
-  let pdfBytes: Uint8Array;
-  try {
-    pdfBytes = await generarPdfBytes(docDefinition);
-  } catch (e) {
-    console.error('Fallo generando el PDF del informe', e);
-    return jsonResponse({ error: 'No se pudo maquetar el informe de la visita.' }, 500);
+  // El informe web (solo .html) no necesita el PDF: se ahorra su maquetación.
+  let pdfBytes = new Uint8Array();
+  if (formato !== 'html') {
+    try {
+      pdfBytes = await generarPdfBytes(docDefinition);
+    } catch (e) {
+      console.error('Fallo generando el PDF del informe', e);
+      return jsonResponse({ error: 'No se pudo maquetar el informe de la visita.' }, 500);
+    }
+    zip.file('informe.pdf', pdfBytes);
   }
-  zip.file('informe.pdf', pdfBytes);
+
+  // --- Informe web: mapa + fichas de foto con su ubicación, todo junto ---
+  const avisosHtml = [
+    fotosFallidas > 0 ? `${fotosFallidas} foto(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este informe.` : null,
+    audiosFallidos > 0 ? `${audiosFallidos} audio(s) no se pudieron recuperar y no están en este backup.` : null,
+    documentosFallidos > 0 ? `${documentosFallidos} documento(s) no se pudieron recuperar y no están en este backup.` : null,
+  ].filter((t): t is string => !!t);
+  const informeHtml = generarInformeHtml({
+    clienteNombre: clienteInfo?.nombre ?? 'Cliente',
+    proyectoNombre: proyectoInfo?.nombre ?? '—',
+    metaCliente,
+    lineaVisita: `${frasesVisita} · ${fechaLarga(visita.fecha)}${lineaHora}`,
+    lineaHistorico,
+    participantes: participantesVisita,
+    interlocutores: interlocutoresVisita,
+    enCurso: visitaEnCurso,
+    resumenTexto: visita.resumen_texto,
+    resumenManual: visita.resumen_origen === 'manual',
+    objetivo: visita.objetivo,
+    oportunidades: oportunidadesOrdenadas,
+    hallazgos,
+    pasos: pasosOrdenados,
+    notas: notas.map((n) => ({ titulo: n.titulo, texto: n.contenido_texto })),
+    fotos: fotosHtml,
+    audios: audiosHtml,
+    documentos: documentosHtml,
+    enZip: formato === 'zip',
+    avisos: avisosHtml,
+    generadoEn: `${fechaLarga(ahora)}, ${horaDe(ahora)}`,
+    logo: typeof PRIMION_LOGO === 'string' ? PRIMION_LOGO : null,
+  });
+  if (formato !== 'html') zip.file('informe.html', informeHtml);
 
   // --- LEEME.txt ---
   const leeme =
@@ -755,9 +859,12 @@ Deno.serve(async (req) => {
     `Contenido de este archivo comprimido:\n\n` +
     `  informe.pdf   Informe completo de la visita: resumen, notas, hallazgos,\n` +
     `                oportunidades, próximos pasos y anexo fotográfico.\n\n` +
+    `  informe.html  El mismo informe en formato web: ábrelo en el navegador. Las\n` +
+    `                fotos salen con su ubicación y un mapa con todas ellas.\n\n` +
     `  fotos/        Todas las fotos en su resolución original, numeradas por\n` +
     `                orden de captura. Las del PDF son copias reducidas.\n\n` +
     `  audios/       Grabaciones de voz de la visita.\n\n` +
+    (documentos.length ? `  documentos/   Documentos adjuntos a la visita, con su nombre original.\n\n` : '') +
     `Notas:\n` +
     `  - Este material es de uso interno.\n` +
     `  - El informe refleja el estado de la visita el día indicado; los\n` +
@@ -773,6 +880,9 @@ Deno.serve(async (req) => {
     (audiosFallidos > 0
       ? `  - ${audiosFallidos} audio(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
       : '') +
+    (documentosFallidos > 0
+      ? `  - ${documentosFallidos} documento(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
+      : '') +
     `\nGenerado automáticamente por PrimeNotes. No respondas a este\n` +
     `archivo; para dudas, contacta con tu responsable comercial.\n`;
   zip.file('LEEME.txt', leeme);
@@ -780,7 +890,9 @@ Deno.serve(async (req) => {
   const archivo =
     formato === 'pdf'
       ? { bytes: pdfBytes, extension: 'pdf', contentType: 'application/pdf' }
-      : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
+      : formato === 'html'
+        ? { bytes: new TextEncoder().encode(informeHtml), extension: 'html', contentType: 'text/html; charset=utf-8' }
+        : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
 
   // --- Subida al bucket de backups ---
   const timestamp = Date.now();
