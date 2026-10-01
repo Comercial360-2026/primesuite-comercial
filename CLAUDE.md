@@ -112,6 +112,14 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
   listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
 
+- **Briefing y «Pregunta a la IA» en TODA pantalla de un cliente o visita.**
+  Ficha de cliente, repaso, ficha de proyecto, detalle de oportunidad y las
+  tres visitas (en curso, planificada, cerrada) llevan los dos iconos en la
+  cabecera: `useVisitaBriefing(clienteId)` + `BriefingHoja`, y
+  `usePuedePreguntarIA` + `PreguntaIAHoja`. `npm run lint` falla si una
+  pantalla tiene uno sin el otro. Las filas de Hoy no llevan iconos: abren
+  una de esas pantallas, a un toque.
+
 ## Despliegue (Netlify)
 
 | Concepto                  | Valor                                                     |
