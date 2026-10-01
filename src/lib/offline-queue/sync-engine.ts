@@ -376,7 +376,14 @@ async function sincronizarCapturaLibre(
           : extensionAudio(operacion.archivoLocal.type);
     const ruta = `${payload.visitaId}/${operacion.id}.${extension}`;
 
-    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, operacion.archivoLocal, {
+    // El MIME que cuenta es el del propio Blob (supabase-js lo manda en el
+    // multipart): un .csv/.docx sin tipo del navegador subía como
+    // application/octet-stream y el bucket lo rechazaba. Se reetiqueta.
+    const cuerpo =
+      payload.mime && operacion.archivoLocal.type !== payload.mime
+        ? new Blob([operacion.archivoLocal], { type: payload.mime })
+        : operacion.archivoLocal;
+    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, cuerpo, {
       upsert: true,
       contentType: payload.mime || operacion.archivoLocal.type || undefined,
     });
@@ -392,7 +399,7 @@ async function sincronizarCapturaLibre(
     () =>
       supabase
         .from('captura_libre')
-        .upsert({ id: operacion.id, ...fila, storage_path: storagePath } as never, {
+        .upsert({ id: operacion.id, ...fila, storage_path: storagePath, estado_subida: 'completado' } as never, {
           onConflict: 'id',
           ignoreDuplicates: true,
         }),

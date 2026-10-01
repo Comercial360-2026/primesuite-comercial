@@ -481,7 +481,7 @@ export function DetalleVisitaCerrada() {
         const ruta = `${visitaId}/${id}.${/^[a-z0-9]{1,5}$/.test(extension) ? extension : 'bin'}`;
         const { error: errSubida } = await supabase.storage
           .from('documentos-visita')
-          .upload(ruta, archivo, { contentType: mime });
+          .upload(ruta, archivo.type === mime ? archivo : new Blob([archivo], { type: mime }), { contentType: mime });
         if (errSubida) throw new Error(errSubida.message);
         const { error: errFila } = await supabase.from('captura_libre').insert({
           id,
