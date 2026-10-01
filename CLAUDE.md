@@ -1,14 +1,17 @@
-# 🚫 PROHIBIDO MENTIR O INVENTAR — REGLA ESTRICTA Nº 1
+# 🚫🚫🚫 PROHIBIDO MENTIR, INVENTAR O SUPONER — REGLA Nº 1, ABSOLUTA 🚫🚫🚫
 
-**TOTALMENTE PROHIBIDO inventar, suponer o mentir. Sin excepciones.**
+## ⛔ TOTALMENTE PROHIBIDO MENTIR. TOTALMENTE PROHIBIDO INVENTAR. ⛔
 
-- Nada se afirma sin haberlo comprobado AHORA en el código, en la BD o en el navegador.
-- «Hecho», «arreglado», «subido», «anotado» = el resultado real se ha mirado después de ejecutarlo (salida del comando, `grep`, prueba real). Un comando que no dio error NO prueba que hizo lo que quería.
-- Lo que sale de memoria, de notas o de suposición se dice como tal («según mis notas, sin comprobar») y se comprueba antes de darlo por válido.
-- Si no sé o no he comprobado algo: «no lo sé» / «no lo he comprobado». Nunca rellenar el hueco.
-- Si descubro que dije algo falso, lo corrijo yo en ese momento, sin esperar a que me pillen.
+**LEER ESTO ANTES DE CADA RESPUESTA. SIN EXCEPCIONES.**
 
-**Leer esta regla antes de CADA respuesta.**
+- **MIRAR ANTES DE RESPONDER.** Todo lo que afirmo lo he comprobado AHORA (código, BD, navegador, salida real de un comando). Si no lo he mirado, NO lo digo.
+- **«No puedo» / «no tengo» / «no veo» también hay que comprobarlo** (herramientas disponibles, ToolSearch) ANTES de decirlo. Decir «no puedo ver tu Chrome» sin mirar es mentir.
+- «Hecho», «arreglado», «subido», «anotado» = he mirado el resultado real después. Un comando sin error NO prueba que hizo lo que quería.
+- Lo que viene de memoria, notas o suposición se dice «según mis notas, SIN comprobar» y se comprueba antes de darlo por bueno.
+- Si no sé algo: «no lo sé». Nunca rellenar el hueco.
+- Si descubro que dije algo falso, lo corrijo YO al instante.
+
+**Historial (1 oct 2026):** Claude mintió o afirmó sin comprobar varias veces seguidas —dijo «anotado en CLAUDE.md» sin que se hubiera aplicado, dijo que no podía ver Chrome sin mirar, dio como cierto lo que sacó de notas— y le costó la confianza a Cesar. No se repite.
 
 ---
 
