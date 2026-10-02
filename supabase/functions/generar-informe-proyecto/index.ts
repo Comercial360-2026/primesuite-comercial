@@ -45,6 +45,7 @@ import {
   type ParticipanteRow,
   type InterlocutorRow,
 } from '../_shared/informe-pdf.ts';
+import { zonaDe, ordenarZonas } from '../_shared/informe-html.ts';
 
 const URL_FIRMADA_SEGUNDOS = 60 * 60;
 // Tope de visitas por informe. Sin fotos/audios embebidos el PDF pesa poco
@@ -84,6 +85,8 @@ interface CapturaProyectoRow {
   creado_en: string;
   latitud: number | null;
   longitud: number | null;
+  zona_texto: string | null;
+  ubicacion: { nombre: string } | null;
 }
 
 Deno.serve(async (req) => {
@@ -213,7 +216,7 @@ Deno.serve(async (req) => {
     const [r1, r2, r3, r4, r5, r6] = await Promise.all([
       admin
         .from('oportunidad')
-        .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision, visita_origen_id')
+        .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision, visita_origen_id, zona_texto, ubicacion:ubicacion_id(nombre)')
         .in('visita_origen_id', visitaIds),
       admin
         .from('hallazgo')
@@ -226,12 +229,12 @@ Deno.serve(async (req) => {
         .order('creado_en', { ascending: true }),
       admin
         .from('proximo_paso')
-        .select('id, descripcion, fecha_objetivo, estado, visita_id, comercial_responsable:comercial_responsable_id(nombre)')
+        .select('id, descripcion, fecha_objetivo, estado, visita_id, zona_texto, comercial_responsable:comercial_responsable_id(nombre)')
         .in('visita_id', visitaIds)
         .order('fecha_objetivo', { ascending: true }),
       admin
         .from('captura_libre')
-        .select('visita_id, tipo, titulo, contenido_texto, creado_en, latitud, longitud')
+        .select('visita_id, tipo, titulo, contenido_texto, creado_en, latitud, longitud, zona_texto, ubicacion:ubicacion_id(nombre)')
         .in('visita_id', visitaIds)
         .order('creado_en', { ascending: true }),
       // Todos los participantes, no solo el responsable (huecos detectados en
@@ -477,37 +480,98 @@ Deno.serve(async (req) => {
         bloque.push(subtitulo('Objetivo'));
         bloque.push({ text: v.objetivo, fontSize: 9.5, color: COLOR.ink700 });
       }
-      // PM11 Fase 4 — mismo orden y palabras que la app: Notas · Hallazgos ·
-      // Oportunidades · Próximos pasos.
-      bloque.push(subtitulo(`Notas${notasVisita.length ? ` (${notasVisita.length})` : ''}`));
-      if (notasVisita.length) {
-        for (const n of notasVisita) {
-          bloque.push({
-            margin: [0, 0, 0, 5],
-            text: [
-              n.titulo?.trim() ? { text: `${n.titulo.trim()}. `, bold: true, fontSize: 9.5, color: COLOR.ink900 } : null,
-              { text: n.contenido_texto?.trim() || '(nota sin texto)', fontSize: 9.5, color: COLOR.ink700 },
-            ].filter(Boolean),
-          });
-        }
-      } else {
-        bloque.push(estadoVacio('Ninguna en esta visita.'));
-      }
-      bloque.push(subtitulo(`Hallazgos${hall.length ? ` (${hall.length})` : ''}`));
-      bloque.push(...bloquesHallazgos(hall, 'Ninguno en esta visita.'));
-      bloque.push(subtitulo(`Oportunidades${ops.length ? ` (${ops.length})` : ''}`));
-      bloque.push(ops.length ? tablaOportunidades(ops) : estadoVacio('Ninguna en esta visita.'));
-      bloque.push(subtitulo(`Próximos pasos${pasos.length ? ` (${pasos.length})` : ''}`));
-      bloque.push(pasos.length ? tablaPasos(pasos) : estadoVacio('Ninguno en esta visita.'));
-      bloque.push({
-        text: adjuntos.length
-          ? `Adjuntos: ${adjuntos.join(' · ')} — en el backup de esta visita.`
-          : 'Sin adjuntos.',
-        fontSize: 8.5,
-        italics: true,
-        color: COLOR.ink400,
-        margin: [0, 8, 0, 0],
+      // Con zonas, la visita se cuenta zona a zona (todo lo de una zona junto) y lo que no tiene zona
+      // va al final como «Sin zona»; sin zonas, el orden de siempre: Notas · Hallazgos · Oportunidades
+      // · Próximos pasos. Mismo criterio que el informe de la visita y el informe web.
+      const zonaCaptura = (c: CapturaProyectoRow) => zonaDe(c.zona_texto, c.ubicacion);
+      const contadorZonas = new Map<string, number>();
+      const cuentaZona = (z: string) => contadorZonas.set(z, (contadorZonas.get(z) ?? 0) + 1);
+      ops.forEach((o) => cuentaZona(zonaDe(o.zona_texto, o.ubicacion)));
+      hall.forEach((h) => cuentaZona(zonaDe(h.zona_texto, h.ubicacion)));
+      pasos.forEach((p) => cuentaZona(zonaDe(p.zona_texto)));
+      caps.forEach((c) => cuentaZona(zonaCaptura(c)));
+      const zonasVisita = ordenarZonas(contadorZonas);
+      const hayZonas = zonasVisita.some((z) => z !== '');
+      const textoNota = (n: CapturaProyectoRow) => ({
+        margin: [0, 0, 0, 5],
+        text: [
+          n.titulo?.trim() ? { text: `${n.titulo.trim()}. `, bold: true, fontSize: 9.5, color: COLOR.ink900 } : null,
+          { text: n.contenido_texto?.trim() || '(nota sin texto)', fontSize: 9.5, color: COLOR.ink700 },
+        ].filter(Boolean),
       });
+      const nombreAdjuntos = (lista: CapturaProyectoRow[]) => {
+        const n = (t: string) => lista.filter((c) => c.tipo === t).length;
+        return [
+          n('foto') ? `${n('foto')} foto${n('foto') === 1 ? '' : 's'}` : '',
+          n('audio') ? `${n('audio')} audio${n('audio') === 1 ? '' : 's'}` : '',
+          n('documento') ? `${n('documento')} documento${n('documento') === 1 ? '' : 's'}` : '',
+        ].filter(Boolean);
+      };
+
+      if (hayZonas) {
+        for (const z of zonasVisita) {
+          const opsZ = ops.filter((o) => zonaDe(o.zona_texto, o.ubicacion) === z);
+          const hallZ = hall.filter((h) => zonaDe(h.zona_texto, h.ubicacion) === z);
+          const pasosZ = pasos.filter((p) => zonaDe(p.zona_texto) === z);
+          const notasZ = notasVisita.filter((n) => zonaCaptura(n) === z);
+          const adjuntosZ = nombreAdjuntos(caps.filter((c) => zonaCaptura(c) === z));
+          bloque.push({
+            margin: [0, 14, 0, 2],
+            keepWithNext: true,
+            text: [
+              { text: z || 'Sin zona', bold: true, fontSize: 11, color: COLOR.brand600 },
+            ],
+          });
+          if (notasZ.length) {
+            bloque.push(subtitulo(`Notas (${notasZ.length})`));
+            for (const n of notasZ) bloque.push(textoNota(n));
+          }
+          if (hallZ.length) {
+            bloque.push(subtitulo(`Hallazgos (${hallZ.length})`));
+            bloque.push(...bloquesHallazgos(hallZ, ''));
+          }
+          if (opsZ.length) {
+            bloque.push(subtitulo(`Oportunidades (${opsZ.length})`));
+            bloque.push(tablaOportunidades(opsZ));
+          }
+          if (pasosZ.length) {
+            bloque.push(subtitulo(`Próximos pasos (${pasosZ.length})`));
+            bloque.push(tablaPasos(pasosZ));
+          }
+          if (adjuntosZ.length) {
+            bloque.push({ text: `Adjuntos: ${adjuntosZ.join(' · ')}`, fontSize: 8.5, italics: true, color: COLOR.ink400, margin: [0, 6, 0, 0] });
+          }
+        }
+        bloque.push({
+          text: adjuntos.length ? 'Los adjuntos están en el backup de esta visita.' : 'Sin adjuntos.',
+          fontSize: 8.5,
+          italics: true,
+          color: COLOR.ink400,
+          margin: [0, 8, 0, 0],
+        });
+      } else {
+        bloque.push(subtitulo(`Notas${notasVisita.length ? ` (${notasVisita.length})` : ''}`));
+        if (notasVisita.length) {
+          for (const n of notasVisita) bloque.push(textoNota(n));
+        } else {
+          bloque.push(estadoVacio('Ninguna en esta visita.'));
+        }
+        bloque.push(subtitulo(`Hallazgos${hall.length ? ` (${hall.length})` : ''}`));
+        bloque.push(...bloquesHallazgos(hall, 'Ninguno en esta visita.'));
+        bloque.push(subtitulo(`Oportunidades${ops.length ? ` (${ops.length})` : ''}`));
+        bloque.push(ops.length ? tablaOportunidades(ops) : estadoVacio('Ninguna en esta visita.'));
+        bloque.push(subtitulo(`Próximos pasos${pasos.length ? ` (${pasos.length})` : ''}`));
+        bloque.push(pasos.length ? tablaPasos(pasos) : estadoVacio('Ninguno en esta visita.'));
+        bloque.push({
+          text: adjuntos.length
+            ? `Adjuntos: ${adjuntos.join(' · ')} — en el backup de esta visita.`
+            : 'Sin adjuntos.',
+          fontSize: 8.5,
+          italics: true,
+          color: COLOR.ink400,
+          margin: [0, 8, 0, 0],
+        });
+      }
       // Ubicación de fotos (hueco [FALTA] de la auditoría: la consulta ni
       // siquiera traía lat/lng antes de este cambio) — mismo bloque
       // compartido que el informe de visita individual.

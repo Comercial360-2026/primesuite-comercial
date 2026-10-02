@@ -90,8 +90,15 @@ const enlaceMapa = (lat: number, lng: number) => `https://www.google.com/maps/se
 // Texto en el que busca el buscador (minúsculas y sin tildes se normalizan en el navegador).
 const busca = (...partes: unknown[]) => esc(partes.filter((p) => p != null && p !== '').join(' '));
 
-const zonaDe = (texto: string | null | undefined, ubicacion?: { nombre: string } | null) =>
+export const zonaDe = (texto: string | null | undefined, ubicacion?: { nombre: string } | null) =>
   (texto || ubicacion?.nombre || '').trim();
+
+// Zonas ('' = sin zona) de más a menos elementos; «Sin zona» siempre al final. Las usan el informe web y el PDF.
+export function ordenarZonas(contadores: Map<string, number>): string[] {
+  const orden = [...contadores.keys()].filter((z) => z !== '').sort((a, b) => (contadores.get(b) ?? 0) - (contadores.get(a) ?? 0));
+  if (contadores.has('')) orden.push('');
+  return orden;
+}
 const chipZona = (z: string) => (z ? `<span class="chip zona">${esc(z)}</span>` : '');
 // Atributos comunes de todo elemento filtrable: tipo, zona ('' = sin zona) y texto de búsqueda.
 const attrs = (tipo: string, zona: string, texto: string, clase = '') =>
@@ -643,9 +650,7 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
   d.notas.forEach((n) => cuenta(n.zona));
   d.audios.forEach((a) => cuenta(a.zona));
   d.documentos.forEach((a) => cuenta(a.zona));
-  // Con nombre, de más a menos elementos; «Sin zona» siempre al final.
-  const zonasOrden = [...zonas.keys()].filter((z) => z !== '').sort((a, b) => (zonas.get(b) ?? 0) - (zonas.get(a) ?? 0));
-  if (zonas.has('')) zonasOrden.push('');
+  const zonasOrden = ordenarZonas(zonas);
   const hayZonas = zonasOrden.some((z) => z !== '');
   const totalElementos = [...zonas.values()].reduce((s, n) => s + n, 0);
 

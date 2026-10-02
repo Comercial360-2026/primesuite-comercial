@@ -38,7 +38,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
 import { obtenerArchivoSharePoint, urlSharePoint } from '../_shared/sharepoint-enlace.ts';
 import { reducirParaInforme } from '../_shared/imagen-reducida.ts';
-import { generarInformeHtml, type FotoHtml, type ArchivoHtml } from '../_shared/informe-html.ts';
+import { generarInformeHtml, zonaDe, ordenarZonas, type FotoHtml, type ArchivoHtml } from '../_shared/informe-html.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
 // @ts-ignore — default export presente en runtime
@@ -458,6 +458,7 @@ Deno.serve(async (req) => {
   type FotoLista = {
     titulo: string | null;
     ubicacionNombre: string;
+    zona: string; // '' = sin zona
     creadoEn: string;
     dataUri: string;
   };
@@ -490,6 +491,7 @@ Deno.serve(async (req) => {
         fotosParaPdf.push({
           titulo: f.titulo,
           ubicacionNombre,
+          zona: zonaDeCaptura(f),
           creadoEn: f.creado_en,
           dataUri: `data:image/${formatoCache};base64,${base64Encode(enCache)}`,
         });
@@ -560,6 +562,7 @@ Deno.serve(async (req) => {
       fotosParaPdf.push({
         titulo: f.titulo,
         ubicacionNombre,
+        zona: zonaDeCaptura(f),
         creadoEn: f.creado_en,
         dataUri: usaMini
           ? `data:image/${formatoMini};base64,${base64Encode(mini as Uint8Array)}`
@@ -725,24 +728,24 @@ Deno.serve(async (req) => {
   // --- Notas (sección fija; si no hay, un estado vacío como Hallazgos u
   // Oportunidades) ---
   // deno-lint-ignore no-explicit-any
-  const bloquesNotas: any[] = notas.length
-    ? notas.map((n) => ({
-        margin: [0, 0, 0, 8],
-        table: {
-          widths: ['*'],
-          body: [[
-            {
-              stack: [
-                n.titulo ? { text: n.titulo, bold: true, fontSize: 10 } : null,
-                { text: n.contenido_texto || '', fontSize: 9.5, color: COLOR.ink700, margin: [0, n.titulo ? 2 : 0, 0, 0] },
-              ].filter(Boolean),
-              margin: [10, 8, 10, 8],
-            },
-          ]],
+  const bloqueNota = (n: CapturaRow): any => ({
+    margin: [0, 0, 0, 8],
+    table: {
+      widths: ['*'],
+      body: [[
+        {
+          stack: [
+            n.titulo ? { text: n.titulo, bold: true, fontSize: 10 } : null,
+            { text: n.contenido_texto || '', fontSize: 9.5, color: COLOR.ink700, margin: [0, n.titulo ? 2 : 0, 0, 0] },
+          ].filter(Boolean),
+          margin: [10, 8, 10, 8],
         },
-        layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
-      }))
-    : [estadoVacio('No se registraron notas en esta visita.')];
+      ]],
+    },
+    layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => COLOR.ink200, vLineColor: () => COLOR.ink200 },
+  });
+  // deno-lint-ignore no-explicit-any
+  const bloquesNotas: any[] = notas.length ? notas.map(bloqueNota) : [estadoVacio('No se registraron notas en esta visita.')];
 
   // --- Anexo fotográfico, agrupado por ubicación ---
   // deno-lint-ignore no-explicit-any
@@ -763,16 +766,46 @@ Deno.serve(async (req) => {
   }
 
   // deno-lint-ignore no-explicit-any
+  const filaColumnas = (par: FotoLista[]): any => ({
+    margin: [0, 0, 0, 12],
+    columnGap: 14,
+    columns: [celdaFoto(par[0]), par[1] ? celdaFoto(par[1]) : { width: '*', text: '' }],
+  });
+
+  // Avisos sobre las fotos (no incluidas por formato / no recuperadas): van tras las fotos, en
+  // cualquiera de las dos organizaciones del PDF.
+  // deno-lint-ignore no-explicit-any
+  const avisosFotos = (): any[] => {
+    // deno-lint-ignore no-explicit-any
+    const out: any[] = [];
+    if (fotosNoIncluidas.length) {
+      out.push({
+        margin: [0, 6, 0, 4],
+        text: [
+          { text: 'No incluidas en el PDF ', bold: true, fontSize: 9, color: COLOR.ink700 },
+          { text: '(formato no compatible con la vista previa; están en la carpeta fotos/ del zip):', fontSize: 9, color: COLOR.ink400 },
+        ],
+      });
+      for (const nf of fotosNoIncluidas) {
+        out.push({ text: `•  ${nf.titulo} (${nf.formato})`, fontSize: 9, color: COLOR.ink700, margin: [8, 2, 0, 0] });
+      }
+    }
+    if (fotosFallidas > 0) {
+      out.push({
+        margin: [0, 6, 0, 0],
+        text: `${fotosFallidas} ${fotosFallidas === 1 ? 'foto no se pudo recuperar' : 'fotos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${fotosFallidas === 1 ? '' : 'n'} en este backup.`,
+        fontSize: 9,
+        color: COLOR.warning600,
+      });
+    }
+    return out;
+  };
+
+  // deno-lint-ignore no-explicit-any
   const bloquesFotos: any[] = [];
   if (fotos.length === 0) {
     bloquesFotos.push(estadoVacio('Sin fotografías.'));
   } else {
-    // deno-lint-ignore no-explicit-any
-    const filaColumnas = (par: FotoLista[]): any => ({
-      margin: [0, 0, 0, 12],
-      columnGap: 14,
-      columns: [celdaFoto(par[0]), par[1] ? celdaFoto(par[1]) : { width: '*', text: '' }],
-    });
     for (const [ubicacionNombre, lista] of fotosPorUbicacion) {
       const pares = filasDeAPares(lista);
       const encabezado = { text: ubicacionNombre, bold: true, fontSize: 10.5, margin: [0, 10, 0, 6] };
@@ -785,73 +818,123 @@ Deno.serve(async (req) => {
         bloquesFotos.push(encabezado);
       }
     }
-    if (fotosNoIncluidas.length) {
-      bloquesFotos.push({
-        margin: [0, 6, 0, 4],
-        text: [
-          { text: 'No incluidas en el PDF ', bold: true, fontSize: 9, color: COLOR.ink700 },
-          { text: '(formato no compatible con la vista previa; están en la carpeta fotos/ del zip):', fontSize: 9, color: COLOR.ink400 },
-        ],
-      });
-      for (const nf of fotosNoIncluidas) {
-        bloquesFotos.push({ text: `•  ${nf.titulo} (${nf.formato})`, fontSize: 9, color: COLOR.ink700, margin: [8, 2, 0, 0] });
-      }
-    }
-    if (fotosFallidas > 0) {
-      bloquesFotos.push({
-        margin: [0, 6, 0, 0],
-        text: `${fotosFallidas} ${fotosFallidas === 1 ? 'foto no se pudo recuperar' : 'fotos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${fotosFallidas === 1 ? '' : 'n'} en este backup.`,
-        fontSize: 9,
-        color: COLOR.warning600,
-      });
-    }
+    bloquesFotos.push(...avisosFotos());
   }
 
   // --- Fotos con ubicación: coordenadas GPS + enlace a Google Maps ---
   // Compartido con generar-informe-proyecto (_shared/informe-pdf.ts).
   const bloquesFotosUbicacion = bloqueFotosConUbicacion(fotos);
 
+  // Una línea de la lista de audios / documentos (en el anexo, o dentro de su zona).
+  // deno-lint-ignore no-explicit-any
+  const lineaAudio = (a: CapturaRow): any => ({
+    text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta audios/ del zip'}`,
+    fontSize: 9.5,
+    color: COLOR.ink700,
+    margin: [0, 0, 0, 4],
+  });
+  // deno-lint-ignore no-explicit-any
+  const lineaDocumento = (d: CapturaRow): any => ({
+    text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta documentos/ del zip'}`,
+    fontSize: 9.5,
+    color: COLOR.ink700,
+    margin: [0, 0, 0, 4],
+  });
+
+  // deno-lint-ignore no-explicit-any
+  const avisoAudiosFallidos: any = audiosFallidos > 0
+    ? {
+        text: `${audiosFallidos} ${audiosFallidos === 1 ? 'audio no se pudo recuperar' : 'audios no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${audiosFallidos === 1 ? '' : 'n'} en este backup.`,
+        fontSize: 9,
+        color: COLOR.warning600,
+        margin: [0, 6, 0, 0],
+      }
+    : null;
+  // deno-lint-ignore no-explicit-any
+  const avisoDocumentosFallidos: any = documentosFallidos > 0
+    ? {
+        text: `${documentosFallidos} ${documentosFallidos === 1 ? 'documento no se pudo recuperar' : 'documentos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${documentosFallidos === 1 ? '' : 'n'} en este backup.`,
+        fontSize: 9,
+        color: COLOR.warning600,
+        margin: [0, 6, 0, 0],
+      }
+    : null;
+
   // --- Anexo de audios (se omite del todo si no hay ninguno) ---
   // deno-lint-ignore no-explicit-any
   const bloquesAudios: any[] | null = audiosDescargados.length || audiosFallidos > 0
-    ? [
-        ...audiosDescargados.map((a) => ({
-          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta audios/ del zip'}`,
-          fontSize: 9.5,
-          color: COLOR.ink700,
-          margin: [0, 0, 0, 4],
-        })),
-        audiosFallidos > 0
-          ? {
-              text: `${audiosFallidos} ${audiosFallidos === 1 ? 'audio no se pudo recuperar' : 'audios no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${audiosFallidos === 1 ? '' : 'n'} en este backup.`,
-              fontSize: 9,
-              color: COLOR.warning600,
-              margin: [0, 6, 0, 0],
-            }
-          : null,
-      ].filter(Boolean)
+    ? [...audiosDescargados.map(lineaAudio), avisoAudiosFallidos].filter(Boolean)
     : null;
 
   // --- Anexo de documentos (se omite del todo si no hay ninguno) ---
   // deno-lint-ignore no-explicit-any
   const bloquesDocumentos: any[] | null = documentosDescargados.length || documentosFallidos > 0
-    ? [
-        ...documentosDescargados.map((d) => ({
-          text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta documentos/ del zip'}`,
-          fontSize: 9.5,
-          color: COLOR.ink700,
-          margin: [0, 0, 0, 4],
-        })),
-        documentosFallidos > 0
-          ? {
-              text: `${documentosFallidos} ${documentosFallidos === 1 ? 'documento no se pudo recuperar' : 'documentos no se pudieron recuperar'} (puede que el archivo se haya perdido o borrado) y no está${documentosFallidos === 1 ? '' : 'n'} en este backup.`,
-              fontSize: 9,
-              color: COLOR.warning600,
-              margin: [0, 6, 0, 0],
-            }
-          : null,
-      ].filter(Boolean)
+    ? [...documentosDescargados.map(lineaDocumento), avisoDocumentosFallidos].filter(Boolean)
     : null;
+
+  // --- Organización por zona ---
+  // Si la visita tiene zonas, el informe se cuenta zona a zona: todo lo de una zona junto
+  // (oportunidades, hallazgos, notas, próximos pasos, audios, documentos y fotos) y lo que no tiene
+  // zona, al final como «Sin zona». Sin zonas, el orden clásico por tipo. Mismo criterio que el
+  // informe web.
+  const contadorZonas = new Map<string, number>();
+  const cuentaZona = (z: string) => contadorZonas.set(z, (contadorZonas.get(z) ?? 0) + 1);
+  fotosParaPdf.forEach((f) => cuentaZona(f.zona));
+  hallazgos.forEach((h) => cuentaZona(zonaDe(h.zona_texto, h.ubicacion)));
+  oportunidadesOrdenadas.forEach((o) => cuentaZona(zonaDe(o.zona_texto, o.ubicacion)));
+  pasosOrdenados.forEach((p) => cuentaZona(zonaDe(p.zona_texto)));
+  notas.forEach((n) => cuentaZona(zonaDeCaptura(n)));
+  audiosDescargados.forEach((a) => cuentaZona(zonaDeCaptura(a)));
+  documentosDescargados.forEach((d) => cuentaZona(zonaDeCaptura(d)));
+  const zonasOrden = ordenarZonas(contadorZonas);
+  const hayZonas = zonasOrden.some((z) => z !== '');
+
+  // headlineLevel: ver pageBreakBefore en docDefinition (un subtítulo no se queda solo al pie de página).
+  // deno-lint-ignore no-explicit-any
+  const subtituloZona = (texto: string, n: number): any => ({
+    headlineLevel: 1,
+    margin: [0, 12, 0, 6],
+    text: [
+      { text: texto, bold: true, fontSize: 11, color: COLOR.brand600 },
+      { text: `  (${n})`, fontSize: 9.5, color: COLOR.ink400 },
+    ],
+  });
+  const cuantos = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+  // deno-lint-ignore no-explicit-any
+  function bloquesDeZona(z: string): any[] {
+    const ops = oportunidadesOrdenadas.filter((o) => zonaDe(o.zona_texto, o.ubicacion) === z);
+    const hs = hallazgos.filter((h) => zonaDe(h.zona_texto, h.ubicacion) === z);
+    const ns = notas.filter((n) => zonaDeCaptura(n) === z);
+    const ps = pasosOrdenados.filter((p) => zonaDe(p.zona_texto) === z);
+    const as = audiosDescargados.filter((a) => zonaDeCaptura(a) === z);
+    const ds = documentosDescargados.filter((d) => zonaDeCaptura(d) === z);
+    const fs = fotosParaPdf.filter((f) => f.zona === z);
+    const resumen = [
+      ops.length ? cuantos(ops.length, 'oportunidad', 'oportunidades') : '',
+      hs.length ? cuantos(hs.length, 'hallazgo', 'hallazgos') : '',
+      ns.length ? cuantos(ns.length, 'nota', 'notas') : '',
+      ps.length ? cuantos(ps.length, 'próximo paso', 'próximos pasos') : '',
+      as.length ? cuantos(as.length, 'audio', 'audios') : '',
+      ds.length ? cuantos(ds.length, 'documento', 'documentos') : '',
+      fs.length ? cuantos(fs.length, 'foto', 'fotos') : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    // deno-lint-ignore no-explicit-any
+    const out: any[] = [tituloSeccion(z || 'Sin zona', resumen)];
+    if (ops.length) out.push(subtituloZona('Oportunidades', ops.length), construirTablaOportunidades(ops));
+    if (hs.length) out.push(subtituloZona('Hallazgos', hs.length), ...construirBloquesHallazgos(hs, ''));
+    if (ns.length) out.push(subtituloZona('Notas', ns.length), ...ns.map(bloqueNota));
+    if (ps.length) out.push(subtituloZona('Próximos pasos', ps.length), construirTablaPasos(ps));
+    if (as.length) out.push(subtituloZona('Audios', as.length), ...as.map(lineaAudio));
+    if (ds.length) out.push(subtituloZona('Documentos', ds.length), ...ds.map(lineaDocumento));
+    if (fs.length) {
+      out.push(subtituloZona('Fotos', fs.length));
+      for (const par of filasDeAPares(fs)) out.push(filaColumnas(par));
+    }
+    return out;
+  }
 
   // --- Ensamblado final ---
   // deno-lint-ignore no-explicit-any
@@ -873,28 +956,36 @@ Deno.serve(async (req) => {
     ]),
     tituloSeccion('Objetivo de la visita'),
     visita.objetivo ? { text: visita.objetivo, fontSize: 10, color: COLOR.ink700 } : estadoVacio('Sin objetivo registrado para esta visita.'),
-    // PM11 Fase 4 — mismas palabras y orden que la app: Notas · Hallazgos ·
-    // Oportunidades · Próximos pasos.
-    tituloSeccion('Notas', notas.length ? `(${notas.length})` : undefined),
-    ...bloquesNotas,
-    tituloSeccion('Hallazgos', hallazgos.length ? `(${hallazgos.length})` : undefined),
-    ...bloquesHallazgos,
-    tituloSeccion('Oportunidades', oportunidadesOrdenadas.length ? `(${oportunidadesOrdenadas.length})` : undefined),
-    oportunidadesOrdenadas.length ? tablaOportunidades : estadoVacio('No se registraron oportunidades en esta visita.'),
-    tituloSeccion('Próximos pasos', pasosOrdenados.length ? `(${pasosOrdenados.length})` : undefined),
-    pasosOrdenados.length ? tablaPasos : estadoVacio('No se registraron próximos pasos en esta visita.'),
   ];
 
-  contenido.push(
-    tituloSeccion('Anexo fotográfico', fotos.length ? `(${fotos.length})` : undefined),
-    ...bloquesFotos,
-    ...bloquesFotosUbicacion
-  );
-  if (bloquesAudios) {
-    contenido.push(tituloSeccion('Anexo de audios', `(${audiosDescargados.length})`), ...bloquesAudios);
-  }
-  if (bloquesDocumentos) {
-    contenido.push(tituloSeccion('Anexo de documentos', `(${documentosDescargados.length})`), ...bloquesDocumentos);
+  if (hayZonas) {
+    // Zona a zona; después, lo que no se pudo incluir/recuperar y el listado de coordenadas de las fotos.
+    for (const z of zonasOrden) contenido.push(...bloquesDeZona(z));
+    const avisos = [...avisosFotos(), avisoAudiosFallidos, avisoDocumentosFallidos].filter(Boolean);
+    if (avisos.length) contenido.push(tituloSeccion('Avisos'), ...avisos);
+    if (bloquesFotosUbicacion.length) contenido.push(tituloSeccion('Fotos con ubicación'), ...bloquesFotosUbicacion);
+  } else {
+    contenido.push(
+      // PM11 Fase 4 — mismas palabras y orden que la app: Notas · Hallazgos ·
+      // Oportunidades · Próximos pasos.
+      tituloSeccion('Notas', notas.length ? `(${notas.length})` : undefined),
+      ...bloquesNotas,
+      tituloSeccion('Hallazgos', hallazgos.length ? `(${hallazgos.length})` : undefined),
+      ...bloquesHallazgos,
+      tituloSeccion('Oportunidades', oportunidadesOrdenadas.length ? `(${oportunidadesOrdenadas.length})` : undefined),
+      oportunidadesOrdenadas.length ? tablaOportunidades : estadoVacio('No se registraron oportunidades en esta visita.'),
+      tituloSeccion('Próximos pasos', pasosOrdenados.length ? `(${pasosOrdenados.length})` : undefined),
+      pasosOrdenados.length ? tablaPasos : estadoVacio('No se registraron próximos pasos en esta visita.'),
+      tituloSeccion('Anexo fotográfico', fotos.length ? `(${fotos.length})` : undefined),
+      ...bloquesFotos,
+      ...bloquesFotosUbicacion
+    );
+    if (bloquesAudios) {
+      contenido.push(tituloSeccion('Anexo de audios', `(${audiosDescargados.length})`), ...bloquesAudios);
+    }
+    if (bloquesDocumentos) {
+      contenido.push(tituloSeccion('Anexo de documentos', `(${documentosDescargados.length})`), ...bloquesDocumentos);
+    }
   }
 
   const docDefinition = {
@@ -904,6 +995,9 @@ Deno.serve(async (req) => {
     },
     pageSize: 'A4',
     pageMargins: [48, 40, 48, 56],
+    // Un subtítulo de zona (headlineLevel 1) no se queda solo al pie de la página.
+    pageBreakBefore: (nodo: { headlineLevel?: number }, siguientes: unknown[]) =>
+      nodo.headlineLevel === 1 && siguientes.length === 0,
     header: (paginaActual: number) =>
       paginaActual === 1
         ? null
