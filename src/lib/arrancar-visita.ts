@@ -1,5 +1,6 @@
 import { uuid } from './uuid';
 import type { VisitaPayload } from './offline-queue/types';
+import type { MedioVisita } from './medio-visita';
 
 // Arranca una visita EN CURSO: encola la operación (cola offline) y marca el
 // contexto de "visita activa" para que Hoy y el banner global apunten a ella.
@@ -9,12 +10,14 @@ import type { VisitaPayload } from './offline-queue/types';
 // "Ahora") y `empezar-visita-hoja`. Antes vivía duplicada inline.
 export async function arrancarVisitaAhora(args: {
   encolar: (id: string, entidad: 'visita', payload: VisitaPayload) => Promise<void>;
-  iniciarVisita: (v: { id: string; clienteNombre: string }) => void;
+  iniciarVisita: (v: { id: string; clienteNombre: string; medio?: MedioVisita }) => void;
   comercialId: string;
   clienteId: string;
   proyectoId: string;
   clienteNombre: string;
   objetivo: string;
+  medio?: MedioVisita;
+  enlaceReunion?: string;
 }): Promise<string> {
   const visitaId = uuid();
   await args.encolar(visitaId, 'visita', {
@@ -23,7 +26,9 @@ export async function arrancarVisitaAhora(args: {
     comercialResponsableId: args.comercialId,
     tipoVisita: null,
     objetivo: args.objetivo.trim(),
+    ...(args.medio && args.medio !== 'presencial' ? { medio: args.medio } : {}),
+    ...(args.enlaceReunion?.trim() ? { enlaceReunion: args.enlaceReunion.trim() } : {}),
   });
-  args.iniciarVisita({ id: visitaId, clienteNombre: args.clienteNombre });
+  args.iniciarVisita({ id: visitaId, clienteNombre: args.clienteNombre, medio: args.medio });
   return visitaId;
 }

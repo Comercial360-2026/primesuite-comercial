@@ -11,7 +11,8 @@ import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
 import { BannerInstalar } from '@/components/ui/banner-instalar';
 import { TourGuiado } from '@/components/ui/tour-guiado';
-import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
+import { Icono, IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { TOUR_NAVEGACION } from '@/lib/ayuda';
 
 // Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
@@ -22,6 +23,7 @@ import { TOUR_NAVEGACION } from '@/lib/ayuda';
 // Vocabulario ahora vive dentro de la pantalla Yo, no en el menú.
 export function LayoutShell() {
   const { visitaEnCurso } = useVisitaActivaContext();
+  const medioEnCurso = visitaEnCurso && esNoPresencial(medioDe(visitaEnCurso.medio)) ? medioDe(visitaEnCurso.medio) : null;
   // El banner es un atajo de vuelta a la visita: sobra cuando ya estás
   // dentro de ella (la cabecera de esa pantalla ya dice "Visita en curso")
   // y en su pantalla de cierre/resumen (1.6 del recorrido de revisión).
@@ -65,9 +67,10 @@ export function LayoutShell() {
           <Link
             to={`/visita/${visitaEnCurso.id}`}
             state={desde(location)}
-            className="visita-en-curso-banner"
+            className={`visita-en-curso-banner${medioEnCurso ? ` visita-en-curso-banner--${medioEnCurso}` : ''}`}
           >
-            Visita en curso con {visitaEnCurso.clienteNombre}
+            {medioEnCurso && <Icono nombre={MEDIO_VISITA[medioEnCurso].icono} size={18} />}
+            {medioEnCurso ? `${MEDIO_VISITA[medioEnCurso].etiqueta} en curso` : 'Visita en curso'} con {visitaEnCurso.clienteNombre}
           </Link>
         ) : !visitaEnCurso ? (
           <AvisoVisitaProxima />

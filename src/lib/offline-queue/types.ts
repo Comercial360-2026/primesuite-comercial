@@ -62,6 +62,10 @@ export interface VisitaPayload {
   // opcional en el tipo porque la RPC no lo conoce: se aplica con un UPDATE
   // posterior en sincronizarVisita, mismo patrón que `franja`.
   objetivo?: string;
+  // Cómo se hace (migración 136). Sin él, presencial. Como `objetivo`, la RPC no
+  // lo conoce: se aplica con el UPDATE posterior de sincronizarVisita.
+  medio?: 'presencial' | 'teams' | 'llamada';
+  enlaceReunion?: string;
   // Solo para visitas planificadas a fecha futura (ver migración 69). Sin
   // estos, la visita nace 'en_curso' con fecha = now(), como siempre.
   fecha?: string; // ISO

@@ -15,6 +15,8 @@ import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import type { MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
@@ -44,6 +46,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   const [proyectoId, setProyectoId] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>('presencial');
+  const [enlace, setEnlace] = useState('');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [creandoProyecto, setCreandoProyecto] = useState(false);
   const [nombreProyectoNuevo, setNombreProyectoNuevo] = useState('');
@@ -207,6 +211,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
         objetivo: objetivoTexto,
+        medio,
+        enlaceReunion: enlace,
       });
       onCerrar();
       navigate(`/visita/${visitaId}`);
@@ -425,6 +431,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
               valor={objetivo}
               onCambio={setObjetivo}
             />
+            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
             {errorAhora && <div className="field-error-text" style={{ marginTop: 8 }}>{errorAhora}</div>}
             <button
               className="btn btn-primary"

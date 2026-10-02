@@ -40,6 +40,7 @@ import { plural } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
 import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento } from '@/lib/documentos-visita';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { VisorFotos } from './visor-fotos';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
@@ -59,6 +60,7 @@ interface Foto {
 interface DetalleVisita {
   fecha: string;
   tipo_visita: string | null;
+  medio: string;
   objetivo: string | null;
   estado_captura: string;
   cerrada_en: string | null;
@@ -197,7 +199,7 @@ export function DetalleVisitaCerrada() {
         supabase
           .from('visita')
           .select(
-            'fecha, tipo_visita, objetivo, estado_captura, cerrada_en, reabierta_en, resumen_texto, resumen_origen, cierre_automatico, cliente_id, cliente:cliente_id(nombre)'
+            'fecha, tipo_visita, medio, objetivo, estado_captura, cerrada_en, reabierta_en, resumen_texto, resumen_origen, cierre_automatico, cliente_id, cliente:cliente_id(nombre)'
           )
           .eq('id', visitaId!)
           .single(),
@@ -260,6 +262,7 @@ export function DetalleVisitaCerrada() {
       return {
         fecha: visita!.fecha,
         tipo_visita: visita!.tipo_visita,
+        medio: visita!.medio,
         objetivo: visita!.objetivo,
         estado_captura: visita!.estado_captura,
         cerrada_en: (visita as { cerrada_en?: string | null }).cerrada_en ?? null,
@@ -630,7 +633,7 @@ export function DetalleVisitaCerrada() {
           data
             ? `${fechaCorta(data.fecha)}${
                 data.tipo_visita ? ` · ${etiqueta(TIPO_VISITA_LABEL, data.tipo_visita).toLowerCase()}` : ''
-              } · ${estadoLegible[data.estado_captura] ?? data.estado_captura}${
+              }${esNoPresencial(medioDe(data.medio)) ? ` · ${MEDIO_VISITA[medioDe(data.medio)].etiqueta}` : ''} · ${estadoLegible[data.estado_captura] ?? data.estado_captura}${
                 data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''
               }${data.reabierta_en ? ` · reabierta el ${fechaCorta(data.reabierta_en)}` : ''}`
             : undefined

@@ -21,6 +21,8 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import type { MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface Proyecto {
@@ -156,6 +158,8 @@ export function PlanificarVisita() {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>('presencial');
+  const [enlace, setEnlace] = useState('');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [hora, setHora] = useState('');
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');
@@ -210,6 +214,8 @@ export function PlanificarVisita() {
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
         objetivo: objetivoTexto,
+        medio,
+        enlaceReunion: enlace,
       });
       navigate(`/visita/${visitaId}`);
     } catch (e) {
@@ -252,9 +258,17 @@ export function PlanificarVisita() {
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
-        const parche: { objetivo: string; hora_definida?: boolean; franja?: string | null } = {
+        const parche: {
+          objetivo: string;
+          hora_definida?: boolean;
+          franja?: string | null;
+          medio?: MedioVisita;
+          enlace_reunion?: string;
+        } = {
           objetivo: objetivoConsolidado,
         };
+        if (medio !== 'presencial') parche.medio = medio;
+        if (medio === 'teams' && enlace.trim()) parche.enlace_reunion = enlace.trim();
         if (!hora) {
           parche.hora_definida = false;
           parche.franja = franja || null;
@@ -506,6 +520,8 @@ export function PlanificarVisita() {
               valor={objetivo}
               onCambio={setObjetivo}
             />
+
+            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
 
             {cuando === 'otro' && (
               <>

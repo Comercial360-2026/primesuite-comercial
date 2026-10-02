@@ -225,7 +225,8 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
+  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada, medio, enlaceReunion } =
+    operacion.payload;
   if (!proyectoId) {
     // Desde la migración 103/104 el proyecto viaja siempre en el payload; una
     // visita en cola sin él es una operación mal formada (no debería ocurrir).
@@ -244,12 +245,14 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
   // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front al
   // planificar desde la ficha. Si falla, se lanza para reintentar toda la
   // operación (la visita ya existe; el UPDATE es idempotente).
-  const parche: { objetivo?: string } = {};
+  const parche: { objetivo?: string; medio?: string; enlace_reunion?: string } = {};
   if (objetivo?.trim()) parche.objetivo = objetivo.trim();
+  if (medio && medio !== 'presencial') parche.medio = medio;
+  if (enlaceReunion?.trim()) parche.enlace_reunion = enlaceReunion.trim();
   if (Object.keys(parche).length) {
     await conReintentoDeSesion(
       () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', operacion.id),
-      'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+      'La visita se creó, pero no se ha podido fijar el objetivo y el medio (0 filas afectadas).'
     );
   }
 }

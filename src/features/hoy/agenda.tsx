@@ -6,6 +6,7 @@ import { fechaDiaMes, hora } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { conMedio } from '@/components/ui/etiqueta-medio';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { BarraSeleccion } from '@/components/ui/barra-seleccion';
@@ -34,6 +35,7 @@ interface VisitaAgenda {
   franja: string | null;
   objetivo: string | null;
   tipo_visita: string | null;
+  medio: string;
   cliente: { id: string; nombre: string } | null;
   proyecto: { nombre: string } | null;
 }
@@ -100,7 +102,7 @@ export function Agenda() {
       const { data, error } = await supabase
         .from('visita')
         .select(
-          'id, fecha, hora_definida, franja, objetivo, tipo_visita, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre)'
+          'id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre)'
         )
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true });
@@ -282,7 +284,7 @@ export function Agenda() {
             .filter(Boolean)
             .join(' · ') || undefined
         }
-        valor={atrasada ? undefined : horaTexto}
+        valor={atrasada ? undefined : conMedio(horaTexto, v.medio)}
         to={`/visita/${v.id}/planificada`}
         state={desde(location)}
         seleccion={

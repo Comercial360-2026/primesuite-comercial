@@ -22,6 +22,8 @@ import { comprimirImagen } from '@/lib/comprimir-imagen';
 import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
+import { FilaMedioVisita } from './fila-medio-visita';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { ParticipantesHoja } from './participantes-hoja';
 import { BriefingHoja } from './briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
@@ -708,10 +710,16 @@ export function VisitaActiva() {
       if (d == null) return 4000;
       return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
-    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string; cierre_automatico: boolean } | null> => {
+    queryFn: async (): Promise<{
+      objetivo: string | null;
+      estado_captura: string;
+      cierre_automatico: boolean;
+      medio: string;
+      enlace_reunion: string | null;
+    } | null> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo, estado_captura, cierre_automatico')
+        .select('objetivo, estado_captura, cierre_automatico, medio, enlace_reunion')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -722,6 +730,8 @@ export function VisitaActiva() {
   // por un compañero). Solo lo sabemos cuando la fila del servidor ya
   // existe: mientras `visitaServidor` es null asumimos "en curso".
   const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
+  // Cómo es la visita (Teams / llamada). Mientras no existe en el servidor, el de la cola local.
+  const medioVisita = medioDe(visitaServidor?.medio ?? visitaLocal?.medio);
   // Aviso previo al cierre automático por inactividad (migración 135).
   const inactividad = useInactividadVisita(visitaId, !!visitaServidor && !visitaCerrada);
 
@@ -731,9 +741,9 @@ export function VisitaActiva() {
   // enciende (la pantalla mostrará el aviso de "cerrada", no captura).
   useEffect(() => {
     if (visitaId && cliente && !visitaCerrada) {
-      iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+      iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre, medio: medioVisita });
     }
-  }, [visitaId, cliente, visitaCerrada, iniciarVisita]);
+  }, [visitaId, cliente, visitaCerrada, iniciarVisita, medioVisita]);
 
   // El badge de "Interlocutores" en la cabecera cuenta los que hay DADOS DE
   // ALTA para este cliente (su directorio), no solo los marcados presentes
@@ -918,6 +928,8 @@ export function VisitaActiva() {
   // coordenadas.
   function pedirUbicacionFoto() {
     coordsFotoRef.current = null;
+    // Teams / llamada: la foto es una captura de pantalla; la posición del comercial no dice nada.
+    if (esNoPresencial(medioVisita)) return;
     if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -2048,7 +2060,7 @@ export function VisitaActiva() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
-        subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
+        subtitulo={`${esNoPresencial(medioVisita) ? `${MEDIO_VISITA[medioVisita].etiqueta} en curso` : 'Visita en curso'}${proyectoTexto ? ` · ${proyectoTexto}` : ''}`}
         ayuda="visita-activa"
         onVolver={() => navigate(volver)}
         derecha={
@@ -2245,6 +2257,17 @@ export function VisitaActiva() {
               </div>
             )}
           </div>
+        )}
+
+        {visitaId && visitaLocal?.clienteId && (
+          <FilaMedioVisita
+            visitaId={visitaId}
+            clienteId={visitaLocal.clienteId}
+            medio={medioVisita}
+            enlace={visitaServidor?.enlace_reunion ?? null}
+            editable={!!visitaServidor}
+            onCambiado={() => void queryClient.invalidateQueries({ queryKey: objetivoQueryKey })}
+          />
         )}
 
         {/* Captura — es lo que se viene a hacer en esta pantalla. */}

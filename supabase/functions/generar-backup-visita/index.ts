@@ -140,6 +140,7 @@ interface VisitaRow {
   id: string;
   fecha: string;
   tipo_visita: string | null;
+  medio: string | null;
   objetivo: string | null;
   resumen_texto: string | null;
   resumen_origen: string | null;
@@ -262,7 +263,7 @@ Deno.serve(async (req) => {
   const { data: visitaData, error: errorVisita } = await admin
     .from('visita')
     .select(
-      'id, fecha, tipo_visita, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida, ' +
+      'id, fecha, tipo_visita, medio, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida, ' +
         'cliente:cliente_id(id, nombre, sector, ubicacion_general, tamano_aprox), proyecto:proyecto_id(nombre)'
     )
     .eq('id', visitaId)
@@ -371,7 +372,10 @@ Deno.serve(async (req) => {
   const visitaEnCurso = visita.estado_captura === 'en_curso';
 
   const tipoLabel = visita.tipo_visita ? etiqueta(TIPO_VISITA_LABEL, visita.tipo_visita) : 'Visita';
-  const frasesVisita = (visita.tipo_visita && TIPO_VISITA_FRASE[visita.tipo_visita]) || 'Visita';
+  const frasesBase = (visita.tipo_visita && TIPO_VISITA_FRASE[visita.tipo_visita]) || 'Visita';
+  // Teams / llamada se dicen en la portada; presencial no añade nada (migración 136).
+  const frasesVisita =
+    visita.medio === 'teams' ? `${frasesBase} (por Teams)` : visita.medio === 'llamada' ? `${frasesBase} (por llamada)` : frasesBase;
 
   // --- Descarga de binarios: fotos (embebidas + zip) y audios (solo zip) ---
   const zip = new JSZip();

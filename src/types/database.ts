@@ -2027,6 +2027,8 @@ export type Database = {
           franja: string | null
           hora_definida: boolean
           id: string
+          medio: string
+          enlace_reunion: string | null
           objetivo: string | null
           proyecto_id: string
           reabierta_en: string | null
@@ -2048,6 +2050,8 @@ export type Database = {
           franja?: string | null
           hora_definida?: boolean
           id?: string
+          medio?: string
+          enlace_reunion?: string | null
           objetivo?: string | null
           proyecto_id: string
           reabierta_en?: string | null
@@ -2069,6 +2073,8 @@ export type Database = {
           franja?: string | null
           hora_definida?: boolean
           id?: string
+          medio?: string
+          enlace_reunion?: string | null
           objetivo?: string | null
           proyecto_id?: string
           reabierta_en?: string | null

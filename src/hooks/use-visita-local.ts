@@ -15,6 +15,8 @@ interface VisitaLocalMinima {
   // cuanto está en el servidor se lee de ahí. Se usa en Visita Activa para
   // mostrar el objetivo en esos primeros segundos.
   objetivo?: string;
+  // Medio (Teams / llamada) tal como se guardó en la cola; null/ausente = presencial.
+  medio?: string | null;
 }
 
 // BUG CORREGIDO (reportado en validación funcional real): la visita puede
@@ -40,7 +42,12 @@ export function useVisitaLocal(visitaId: string | undefined) {
       if (op?.entidad === 'visita') {
         const payload = op.payload as VisitaPayload;
         if (!cancelado) {
-          setDatos({ clienteId: payload.clienteId, proyectoId: payload.proyectoId, objetivo: payload.objetivo });
+          setDatos({
+            clienteId: payload.clienteId,
+            proyectoId: payload.proyectoId,
+            objetivo: payload.objetivo,
+            medio: payload.medio,
+          });
         }
         return;
       }
