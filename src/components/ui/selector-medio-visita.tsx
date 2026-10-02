@@ -1,8 +1,12 @@
-import { Segmentado } from './segmentado';
-import { OPCIONES_MEDIO, type MedioVisita } from '@/lib/medio-visita';
+import { Icono } from './iconos';
+import { MEDIO_VISITA, type MedioVisita } from '@/lib/medio-visita';
 
-// «¿Cómo es la visita?»: Presencial / Teams / Llamada. Con Teams, además, el
-// enlace de la reunión (opcional). Lo usan empezar-visita-hoja y planificar-visita.
+// «¿Cómo es la visita?»: tres botones GRANDES — Presencial / Teams / Llamada —
+// con icono, palabra y color (el elegido se rellena del color del medio). Va
+// arriba del todo del formulario para que sea lo primero que se ve; la elección
+// no puede pasar desapercibida. Con Teams, además, el enlace (opcional). Lo usan
+// empezar-visita-hoja, planificar-visita, la ventana «¿A qué vas?» y el cambio de
+// medio dentro de la visita.
 interface Props {
   medio: MedioVisita;
   enlace: string;
@@ -10,11 +14,27 @@ interface Props {
   onEnlace: (e: string) => void;
 }
 
+const ORDEN: MedioVisita[] = ['presencial', 'teams', 'llamada'];
+
 export function SelectorMedioVisita({ medio, enlace, onMedio, onEnlace }: Props) {
   return (
-    <>
-      <div className="label">Cómo es la visita</div>
-      <Segmentado opciones={OPCIONES_MEDIO} valor={medio} onCambio={onMedio} />
+    <div className="medio-selector">
+      <div className="medio-selector__titulo">¿Cómo es la visita?</div>
+      <div className="medio-opciones" role="radiogroup" aria-label="Cómo es la visita">
+        {ORDEN.map((m) => (
+          <button
+            key={m}
+            type="button"
+            role="radio"
+            aria-checked={medio === m}
+            className={`medio-opcion medio-opcion--${m}${medio === m ? ' medio-opcion--on' : ''}`}
+            onClick={() => onMedio(m)}
+          >
+            <Icono nombre={MEDIO_VISITA[m].icono} size={28} />
+            <span>{MEDIO_VISITA[m].etiqueta}</span>
+          </button>
+        ))}
+      </div>
       {medio === 'teams' && (
         <>
           <div className="label">Enlace de la reunión (opcional)</div>
@@ -28,6 +48,6 @@ export function SelectorMedioVisita({ medio, enlace, onMedio, onEnlace }: Props)
           />
         </>
       )}
-    </>
+    </div>
   );
 }

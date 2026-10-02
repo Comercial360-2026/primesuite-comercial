@@ -127,6 +127,8 @@ export function ObjetivoVisitaModal({
 
   return (
     <Modal titulo={`¿A qué vas${clienteNombre ? ` a ${clienteNombre}` : ''}?`} onCerrar={onCerrar}>
+      <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
         el objetivo de la visita. Podrás matizarlo dentro.
       </div>
@@ -139,7 +141,6 @@ export function ObjetivoVisitaModal({
         placeholder="cerrar el pedido pendiente, presentar la nueva gama, primera toma de contacto…"
       />
 
-      <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
 
       {mostrarProyecto && (
         <>

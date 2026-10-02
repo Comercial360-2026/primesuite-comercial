@@ -11,12 +11,6 @@ export const MEDIO_VISITA: Record<MedioVisita, { etiqueta: string; frase: string
   llamada: { etiqueta: 'Llamada', frase: 'llamada', icono: 'llamada' },
 };
 
-export const OPCIONES_MEDIO = [
-  { valor: 'presencial', etiqueta: MEDIO_VISITA.presencial.etiqueta, icono: MEDIO_VISITA.presencial.icono },
-  { valor: 'teams', etiqueta: MEDIO_VISITA.teams.etiqueta, icono: MEDIO_VISITA.teams.icono },
-  { valor: 'llamada', etiqueta: MEDIO_VISITA.llamada.etiqueta, icono: MEDIO_VISITA.llamada.icono },
-] as const;
-
 /** Valor de BD → medio conocido (lo desconocido o null cuenta como presencial). */
 export function medioDe(valor: string | null | undefined): MedioVisita {
   return valor === 'teams' || valor === 'llamada' ? valor : 'presencial';

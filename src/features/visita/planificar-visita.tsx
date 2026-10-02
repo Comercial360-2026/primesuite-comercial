@@ -512,6 +512,8 @@ export function PlanificarVisita() {
               </div>
             )}
 
+            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
             <div className="label">Objetivo</div>
             <TextareaDictado
               ref={refDictadoObjetivo}
@@ -521,7 +523,6 @@ export function PlanificarVisita() {
               onCambio={setObjetivo}
             />
 
-            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
 
             {cuando === 'otro' && (
               <>

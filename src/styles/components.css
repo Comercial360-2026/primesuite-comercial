@@ -599,6 +599,35 @@ textarea.field {
 .visita-en-curso-banner > svg { vertical-align: -4px; margin-right: 6px; }
 .visita-en-curso-banner--teams > svg { color: var(--medio-teams); }
 .visita-en-curso-banner--llamada > svg { color: var(--medio-llamada); }
+/* «¿Cómo es la visita?»: tres botones grandes. El elegido se rellena del color del
+   medio, con texto blanco; los demás, blancos con borde. Icono + palabra + color. */
+.medio-selector { margin: var(--space-3) 0 var(--space-4); }
+.medio-selector__titulo { font-size: var(--text-base); font-weight: 700; color: var(--ink-900); margin-bottom: var(--space-2); }
+.medio-opciones { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.medio-opcion {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 76px; padding: var(--space-2);
+  background: var(--surface-1); color: var(--ink-700);
+  border: 2px solid var(--ink-200); border-radius: var(--radius-field);
+  font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+}
+.medio-opcion--on { color: #fff; border-color: transparent; }
+.medio-opcion--presencial.medio-opcion--on { background: var(--brand-600); }
+.medio-opcion--teams.medio-opcion--on { background: var(--medio-teams); }
+.medio-opcion--llamada.medio-opcion--on { background: var(--medio-llamada); }
+.medio-opcion--teams:not(.medio-opcion--on) > svg { color: var(--medio-teams); }
+.medio-opcion--llamada:not(.medio-opcion--on) > svg { color: var(--medio-llamada); }
+/* El medio de la visita, siempre a la vista dentro de la visita: tarjeta con el tono del medio. */
+.medio-tarjeta {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3); margin-bottom: var(--space-4);
+  border-radius: var(--radius-field); border: 2px solid var(--ink-200); background: var(--surface-1);
+}
+.medio-tarjeta--teams { background: var(--medio-teams-050); border-color: var(--medio-teams); }
+.medio-tarjeta--llamada { background: var(--medio-llamada-050); border-color: var(--medio-llamada); }
+.medio-tarjeta--teams > svg { color: var(--medio-teams); }
+.medio-tarjeta--llamada > svg { color: var(--medio-llamada); }
+.medio-tarjeta__texto { flex: 1; min-width: 0; font-weight: 700; font-size: var(--text-base); color: var(--ink-900); }
 /* Etiqueta pequeña del medio (cabecera de visita, agenda). */
 .etiqueta-medio { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--ink-500); }
 .etiqueta-medio--teams > svg { color: var(--medio-teams); }

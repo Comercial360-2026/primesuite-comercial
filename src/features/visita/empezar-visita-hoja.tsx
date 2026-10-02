@@ -422,6 +422,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
               </div>
             )}
 
+            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
             <div className="label">Objetivo</div>
             <TextareaDictado
               ref={refDictadoObjetivo}
@@ -431,7 +433,6 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
               valor={objetivo}
               onCambio={setObjetivo}
             />
-            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
             {errorAhora && <div className="field-error-text" style={{ marginTop: 8 }}>{errorAhora}</div>}
             <button
               className="btn btn-primary"

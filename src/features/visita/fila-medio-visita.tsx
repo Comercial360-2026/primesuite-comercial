@@ -13,7 +13,7 @@ import { MEDIO_VISITA, type MedioVisita } from '@/lib/medio-visita';
 // Visita en curso por Teams o por llamada: la señal («Teams» / «Llamada», con su
 // icono y tono), el acceso directo («Unirse a la reunión» / «Llamar a …») y,
 // mientras la visita siga abierta, cambiar el medio (una llamada que acaba en
-// reunión). En una visita presencial es una línea discreta con el lápiz.
+// reunión). Tarjeta grande del medio con botón «Cambiar», también en presencial.
 interface Props {
   visitaId: string;
   clienteId: string;
@@ -93,26 +93,23 @@ export function FilaMedioVisita({ visitaId, clienteId, medio, enlace, editable, 
         </div>
       ) : (
         <>
-          {editable ? (
-            // Toda la fila se pulsa para cambiar el medio (antes solo un lápiz pequeño).
-            <SeccionLista>
-              <FilaNavegable
-                icono={MEDIO_VISITA[medio].icono}
-                titulo="Cómo es la visita"
-                valor={MEDIO_VISITA[medio].etiqueta}
-                chevron={false}
+          <div className={`medio-tarjeta medio-tarjeta--${medio}`}>
+            <Icono nombre={MEDIO_VISITA[medio].icono} size={28} />
+            <div className="medio-tarjeta__texto">{MEDIO_VISITA[medio].frase.charAt(0).toUpperCase() + MEDIO_VISITA[medio].frase.slice(1)}</div>
+            {editable && (
+              <button
+                type="button"
+                className="btn btn-secondary btn--compacto"
                 onClick={() => {
                   setMedioBorrador(medio);
                   setEnlaceBorrador(enlace ?? '');
                   setEditando(true);
                 }}
-              />
-            </SeccionLista>
-          ) : (
-            <div className={`etiqueta-medio etiqueta-medio--${medio}`} style={{ marginBottom: 6 }}>
-              <Icono nombre={MEDIO_VISITA[medio].icono} size={14} /> {MEDIO_VISITA[medio].etiqueta}
-            </div>
-          )}
+              >
+                Cambiar
+              </button>
+            )}
+          </div>
           {medio === 'teams' && enlace && (
             <SeccionLista>
               <FilaNavegable
