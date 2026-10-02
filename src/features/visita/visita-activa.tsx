@@ -550,7 +550,7 @@ export function VisitaActiva() {
   const { iniciarVisita, visitaEnCurso } = useVisitaActivaContext();
   // Medio con el que se arrancó la visita (lo trae el contexto al llegar desde la ventana
   // «¿A qué vas?»), por si la cola ya se vació y no queda copia local. Se anula al cambiarlo a mano.
-  const medioEsperadoRef = useRef<MedioVisita | undefined>(visitaEnCurso?.id === visitaId ? visitaEnCurso.medio : undefined);
+  const medioEsperadoRef = useRef<MedioVisita | undefined>(visitaEnCurso?.id === visitaId ? visitaEnCurso?.medio : undefined);
   const { operaciones, encolar, recargar: recargarCola } = useSyncQueue(visitaId);
 
   // Zona (opcional) de la captura: una ETIQUETA DE TEXTO LIBRE que el
