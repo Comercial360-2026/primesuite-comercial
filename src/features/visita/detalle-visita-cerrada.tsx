@@ -12,14 +12,13 @@ import {
 } from '@/lib/etiquetas-visita';
 import type { Area } from '@/lib/vocabulario';
 import { areasDeHallazgos } from '@/lib/hallazgo-areas';
-import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
+import { useDescargarInforme } from '@/hooks/use-descargar-informe';
 import { DescargasVisita } from '@/features/visita/descargas-visita';
 import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
-import { useTamanoAdjuntosVisita } from '@/hooks/use-tamano-adjuntos-visita';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -28,7 +27,6 @@ import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
-import { FilaAccion } from '@/components/ui/fila-accion';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
@@ -120,7 +118,7 @@ export function DetalleVisitaCerrada() {
   // estampa su URL para que el ← de esas vuelva aquí, no a Hoy.
   const origen = desde(location);
 
-  const { estadoDe, descargar, progresoDe } = useDescargarInforme();
+  const { estadoDe, descargar, progresoDe, motivoDe } = useDescargarInforme();
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
 
   // Editar a mano el resumen de la visita (pasa a `resumen_origen = 'manual'`).
@@ -345,33 +343,16 @@ export function DetalleVisitaCerrada() {
       navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true }),
   });
 
-  // "Descargar y liberar espacio": descarga el zip completo (mismo botón de
-  // informe, mismo useDescargarInforme de arriba) y, solo tras confirmar que
-  // se ha guardado, borra la visita entera (mismo useBorrarVisita/RPC que
-  // "Borrar esta visita" — instancia propia para no mezclar su mensaje final
-  // con el del borrado simple).
-  const [quiereLiberar, setQuiereLiberar] = useState(false);
-  const [visitaLiberada, setVisitaLiberada] = useState(false);
-  // Esta misma ruta también la usa Mi espacio para visitas 'agendada'
-  // (planificada, aún no ha pasado) — sin nada que liberar en ese caso, así
-  // que ni se listan los buckets ni la cola local hasta saber que ya cerró.
-  const idParaLiberar = data?.estado_captura === 'consolidada' ? visitaId : undefined;
-  const tamanoAdjuntos = useTamanoAdjuntosVisita(idParaLiberar);
-  const { operaciones: colaLocalVisita } = useSyncQueue(idParaLiberar);
-  const liberar = useBorrarVisita({
-    onBorrada: () => {
-      setVisitaLiberada(true);
-      setTimeout(() => {
-        navigate(data?.cliente_id ? `/clientes/${data.cliente_id}` : '/', { replace: true });
-      }, 1200);
-    },
-  });
+  // Cola local de esta visita: hasta saber que está cerrada no se consulta (esta misma ruta la usa
+  // también Mi espacio para visitas 'agendada', planificadas y aún sin cerrar).
+  const idCerrada = data?.estado_captura === 'consolidada' ? visitaId : undefined;
+  const { operaciones: colaLocalVisita } = useSyncQueue(idCerrada);
 
   const puedeEditarResumen = puedeBorrarVisita;
 
   // Reabrir la visita (responsable/Dirección, directo) o pedirlo (el resto
-  // de participantes aceptados). Mismo patrón visual que "liberar espacio":
-  // un botón que abre un ConfirmacionBorrado antes de escribir nada.
+  // de participantes aceptados): un botón que abre un ConfirmacionBorrado
+  // antes de escribir nada.
   const { iniciarVisita } = useVisitaActivaContext();
   const [queriendoReabrir, setQueriendoReabrir] = useState(false);
   const [queriendoSolicitar, setQueriendoSolicitar] = useState(false);
@@ -504,20 +485,12 @@ export function DetalleVisitaCerrada() {
   if (vencidosN > 0)
     kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
 
-  // Liberar espacio descarga antes la copia completa (ZIP): es lo que queda
-  // cuando la visita ya no esté en PrimeNotes.
-  const estadoDescarga = visitaId ? estadoDe('visita-zip', visitaId) : 'inactivo';
-  const descargaLista = typeof estadoDescarga === 'object' ? estadoDescarga : null;
-
-  // Candados de "Descargar y liberar espacio" (diseño acordado 12/9): sin
-  // oportunidad abierta colgando (si no, `eliminar_visita_completa` se la
-  // llevaría por delante sin avisar) y sin nada de esta visita pendiente de
-  // subir en la cola local de este dispositivo (la cola no se purga tras
-  // sincronizar — queda 'completado' para siempre, ver sync-engine.ts).
-  // Esta misma ruta (/visita/:id/detalle) la usa también Mi espacio para
-  // visitas todavía 'agendada' (planificada, aún no ha pasado) — comprobado
-  // en vivo: sin este candado el botón salía activo en una visita futura sin
-  // nada que liberar. "Visita cerrada" es la condición 1 del diseño.
+  // Avisos antes de borrar la visita: oportunidad abierta colgando (si no,
+  // `eliminar_visita_completa` se la llevaría por delante; el servidor lo
+  // rechaza igualmente) y cambios de este dispositivo sin subir (la cola no se
+  // purga tras sincronizar — queda 'completado' para siempre, ver
+  // sync-engine.ts). Esta ruta la usa también Mi espacio para visitas todavía
+  // 'agendada', de ahí que solo se avise en visitas cerradas.
   const visitaCerrada = data?.estado_captura === 'consolidada';
   // Colgar un documento de una visita ya cerrada: directo a Supabase (esta
   // pantalla ya exige conexión, igual que "Editar resumen"). Pueden Dirección
@@ -577,34 +550,6 @@ export function DetalleVisitaCerrada() {
   }
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
-  const puedeLiberarEspacio = visitaCerrada && oportunidadesAbiertas.length === 0 && !haySinSubirLocal;
-  const liberarListo = quiereLiberar && !!descargaLista && !!liberar.previsualizacion;
-  const tamanoMB = tamanoAdjuntos.bytes != null ? formatearMB(tamanoAdjuntos.bytes) : null;
-
-  function iniciarLiberarEspacio() {
-    if (!visitaId) return;
-    setQuiereLiberar(true);
-    void liberar.pedir(visitaId);
-    void descargar('visita-zip', visitaId);
-  }
-
-  function cancelarLiberarEspacio() {
-    setQuiereLiberar(false);
-    liberar.cancelar();
-  }
-
-  const subtituloLiberar = quiereLiberar
-    ? estadoDescarga === 'sin-red'
-      ? 'Sin conexión. Inténtalo cuando tengas red'
-      : estadoDescarga === 'error'
-        ? 'No se pudo generar, toca de nuevo'
-        : 'Generando el ZIP…'
-    : !puedeLiberarEspacio
-      ? 'Resuelve el aviso de arriba para poder liberar espacio'
-      : tamanoMB
-        ? `Descarga todo en ZIP (${tamanoMB} MB) y elimina la visita de PrimeNotes`
-        : 'Descarga todo en ZIP y elimina la visita de PrimeNotes';
-
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
 
@@ -763,7 +708,7 @@ export function DetalleVisitaCerrada() {
               las encontraba y se acababa pidiendo el informe del proyecto,
               que no lleva fotos (Cesar, 25 sept). */}
           {visitaId && visitaCerrada && (
-            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} />
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
           )}
 
           {!!fallosArchivado?.length && (
@@ -1097,7 +1042,7 @@ export function DetalleVisitaCerrada() {
                     </Link>
                   </span>
                 ))}
-                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de liberar espacio.
+                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de borrar la visita.
               </Aviso>
             </div>
           )}
@@ -1105,68 +1050,15 @@ export function DetalleVisitaCerrada() {
             <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
               <Aviso tipo="atencion">
                 Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
-                sincronicen antes de liberar espacio.
+                sincronicen antes de borrar la visita.
               </Aviso>
             </div>
           )}
-          {visitaCerrada &&
-            (visitaLiberada ? (
-              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
-                <Aviso tipo="exito">Visita liberada.</Aviso>
-              </div>
-            ) : liberarListo ? (
-              <div style={{ marginBottom: 8 }}>
-                <ConfirmacionBorrado
-                  onCancelar={cancelarLiberarEspacio}
-                  onConfirmar={() => void liberar.confirmar()}
-                  cargando={liberar.borrando.cargando}
-                  error={liberar.borrando.error}
-                  confirmar="Sí, liberar espacio"
-                  cargandoTexto="Liberando…"
-                >
-                  El archivo ha ido a donde tu dispositivo guarda las descargas — muévelo donde lo necesites
-                  antes de seguir. Al confirmar, esta visita desaparece de PrimeNotes para siempre.
-                </ConfirmacionBorrado>
-              </div>
-            ) : (
-              <SeccionLista>
-                <FilaAccion
-                  densidad="compacta"
-                  titulo="Descargar y liberar espacio"
-                  subtitulo={subtituloLiberar}
-                  acciones={[
-                    {
-                      icono: 'almacenamiento',
-                      etiqueta: 'Descargar y liberar espacio',
-                      onClick:
-                        puedeLiberarEspacio && estadoDescarga !== 'generando'
-                          ? iniciarLiberarEspacio
-                          : undefined,
-                      disabled: !puedeLiberarEspacio || estadoDescarga === 'generando',
-                      tono: 'riesgo',
-                    },
-                  ]}
-                />
-              </SeccionLista>
-            ))}
-          {/* "Descargar y liberar espacio" es un borrado estrictamente más
-              seguro que este (obliga a descargar antes) — se retira este
-              atajo SOLO cuando esa alternativa está realmente disponible.
-              Si está bloqueada por cola sin subir o por que la visita ni
-              siquiera está cerrada, este sigue siendo el único camino para
-              borrar — quitarlo también habría dejado visitas bloqueadas
-              sin ninguna forma de borrarse (visto en vivo: CAPSA, cerrada
-              con una oportunidad abierta, se quedaba sin ningún botón).
-              OJO — esto YA NO es un atajo sin red de seguridad: desde el
-              incidente 2026-09-12 (SAPA borrada con 2 oportunidades
-              abiertas por este mismo botón), ConfirmarBorradoVisita corta
-              en seco si hay alguna oportunidad abierta (no deja ni
-              confirmar) y eliminar_visita_completa lo rechaza también en
-              el servidor pase lo que pase en el cliente. Este botón sigue
-              siendo el único camino cuando lo que bloquea es la cola sin
-              subir, pero no es un bypass del candado de oportunidades. */}
-          {!puedeLiberarEspacio &&
-            (borrar.visitaBorrarId === visitaId ? (
+          {/* ConfirmarBorradoVisita corta en seco si hay alguna oportunidad abierta (no deja ni
+              confirmar) y eliminar_visita_completa lo rechaza también en el servidor pase lo que
+              pase en el cliente: desde el incidente 2026-09-12 (SAPA borrada con 2 oportunidades
+              abiertas) este botón no es un bypass de ese candado. */}
+          {(borrar.visitaBorrarId === visitaId ? (
               <ConfirmarBorradoVisita ctrl={borrar} />
             ) : (
               <SeccionLista>

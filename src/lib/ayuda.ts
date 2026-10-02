@@ -157,15 +157,6 @@ const _PANTALLAS = {
     cuando:
       'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita (las cerradas ponen «cerrada · PDF»). Si el cliente está inactivo, el proyecto es solo consulta hasta reactivarlo.',
   },
-  'espacio-proyecto': {
-    grupo: 'cliente',
-    titulo: 'Liberar espacio (proyecto)',
-    queEs:
-      'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
-    cuando:
-      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae la copia completa en ZIP (PDF, fotos originales y audios) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
-    ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
-  },
 
   // — Una visita, paso a paso —
   'planificar-visita': {

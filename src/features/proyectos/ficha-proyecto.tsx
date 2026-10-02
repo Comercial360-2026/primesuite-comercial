@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { useVolverA, desde } from '@/lib/volver-a';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
@@ -12,7 +12,6 @@ import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyecto
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
-import { useEspacioProyecto } from '@/hooks/use-espacio-proyecto';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
@@ -37,7 +36,6 @@ import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerra
 export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   // ← vuelve a donde se vino (ficha de cliente, actividad de Dirección…) o,
@@ -80,12 +78,6 @@ export function FichaProyecto() {
   const { estadoDe: estadoInformeDe, descargar: descargarInforme } = useDescargarInforme();
   const estadoInforme = proyectoId ? estadoInformeDe('proyecto', proyectoId) : 'inactivo';
   const informeListo = typeof estadoInforme === 'object' ? estadoInforme : null;
-
-  // "Liberar espacio" solo tiene sentido si hay alguna visita cerrada que
-  // liberar — sin eso, no se ofrece un botón que solo llevaría a una
-  // pantalla vacía. Mismo hook que usa la pantalla de destino: comparten
-  // queryKey, así que no se repite la consulta al entrar en ella.
-  const { visitas: visitasLiberables } = useEspacioProyecto(proyectoId);
 
   const { data: resumenVisitas } = useQuery({
     queryKey: ['resumen-visitas-proyecto', proyectoId],
@@ -595,17 +587,6 @@ export function FichaProyecto() {
                   },
                 ]}
               />
-              {visitasLiberables.length > 0 && (
-                <FilaNavegable
-                  densidad="compacta"
-                  icono="descargar"
-                  titulo="Liberar espacio"
-                  subtitulo={`${plural(visitasLiberables.length, 'visita cerrada', 'visitas cerradas')} en este proyecto`}
-                  onClick={() =>
-                    navigate(`/clientes/${clienteId}/proyectos/${proyectoId}/espacio`, { state: desde(location) })
-                  }
-                />
-              )}
             </SeccionLista>
           )}
 

@@ -271,8 +271,7 @@ header.portada{background:#fff;border:1px solid var(--ink1);border-radius:14px;p
 .quienes{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:14px 0 0}
 .quienes dt{color:var(--ink4)} .quienes dd{margin:0;font-weight:600}
 .kpis{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.kpis a{text-decoration:none;background:var(--ink1);color:var(--b6);border-radius:99px;padding:3px 12px;font-size:13px;font-weight:600}
-.kpis a:hover{background:var(--b6);color:#fff}
+.kpis span{background:var(--ink1);color:var(--b6);border-radius:99px;padding:3px 12px;font-size:13px;font-weight:600}
 .aviso{margin-top:14px;padding:10px 14px;border:1px solid var(--warn);background:var(--warn0);color:var(--warn);border-radius:10px;font-size:13px}
 section{background:#fff;border:1px solid var(--ink1);border-radius:14px;padding:18px 22px;margin-bottom:14px}
 h2{margin:0 0 12px;font-size:19px;color:var(--b7)} h3{margin:20px 0 10px;font-size:15px;color:var(--b6)}
@@ -320,6 +319,11 @@ footer{color:var(--ink4);font-size:12px;text-align:center;margin-top:24px}
 .total{margin:10px 0 0;color:var(--ink7);font-size:14px}
 .chip.valor{background:var(--warn0);color:var(--warn)}
 .chip.vencido-chip{background:#fbe9e9;color:var(--danger)}
+.zona-bloque h2{font-size:21px}
+.zona-bloque .zona-resumen{margin:-6px 0 4px}
+.zona-bloque .zsub{margin-top:20px} .zona-bloque .zsub h3{margin:0 0 10px}
+.zona-bloque .chip.zona{display:none}
+body.buscando .zona-resumen{display:none}
 
 /* --- Móvil y tableta: el menú baja desde arriba y el mapa va sobre el contenido --- */
 @media(max-width:900px){
@@ -354,6 +358,7 @@ footer{color:var(--ink4);font-size:12px;text-align:center;margin-top:24px}
   .app,.app.sin-mapa{display:block}
   .centro{padding:0}.centro > *{max-width:none}
   .sec.fuera{display:block!important}
+  body.con-zonas #vista-tipo{display:none!important}
   section,header.portada{border:0;padding:0;break-inside:avoid-page}
   .foto{break-inside:avoid}.fotos{grid-template-columns:repeat(4,1fr)}
 }
@@ -362,19 +367,23 @@ footer{color:var(--ink4);font-size:12px;text-align:center;margin-top:24px}
 // Cliente: menú lateral (por tipo / por zona), buscador, visor de fotos y mapa ligado a lo que se ve.
 // La selección vive en la URL (#notas, #zona-2, #zonas): se puede compartir y funciona atrás/adelante.
 // Sin Leaflet (sin conexión) se deja un aviso en el mapa y el resto del informe no cambia.
-const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], zonas: string[], secciones: string[], urlTeselas: string) => `
+const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], zonas: string[], secciones: string[], urlTeselas: string, hayZonas: boolean) => `
 (function(){
   var FOTOS=${JSON.stringify(fotos).replace(/</g, '\\u003c')};
   var PINES=${JSON.stringify(pines)};
   var ZONAS=${JSON.stringify(zonas).replace(/</g, '\\u003c')};
   var SECS=${JSON.stringify(secciones)};
   var URL_TESELAS=${JSON.stringify(urlTeselas)};
+  var HAY_ZONAS=${hayZonas};
+  // [clave, título, singular, plural, etiqueta del contenedor, clase] en el orden en que se cuenta una zona.
+  var TIPOS=[['oportunidad','Oportunidades','oportunidad','oportunidades','ul','tarjetas'],['hallazgo','Hallazgos','hallazgo','hallazgos','ul','tarjetas'],['nota','Notas','nota','notas','div','lista-notas'],['paso','Próximos pasos','próximo paso','próximos pasos','ul','tarjetas'],['audio','Audios','audio','audios','ul','archivos'],['documento','Documentos','documento','documentos','ul','archivos'],['foto','Fotos','foto','fotos','div','fotos']];
   var body=document.body;
   var norm=function(t){return (t||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')};
   var $=function(id){return document.getElementById(id)};
   var todos=function(q){return [].slice.call(document.querySelectorAll(q))};
-  var modo='tipo',sel=SECS[0],zona=null,texto='';
-  var ultimoTipo=SECS[0],ultimaZona='zonas',cambiandoVista=false;
+  // Con zonas, el documento se cuenta zona a zona (lo de cada zona junto); «por tipo» es la alternativa.
+  var modo=HAY_ZONAS?'zona':'tipo',vista='resumen',zona=null,texto='';
+  var ultimoTipo=SECS[1]||SECS[0],ultimaZona='zonas',cambiandoVista=false;
   var res=$('resultados'),marcadores={},mapa=null;
 
   // --- Filtro: la zona elegida y el texto del buscador se combinan.
@@ -384,7 +393,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
       var okT=!q||norm(el.getAttribute('data-b')).indexOf(q)>=0;
       var okZ=zona===null||el.getAttribute('data-z')===zona;
       el.hidden=!(okT&&okZ);
-      if(!el.hidden)visibles++;
+      if(!el.hidden&&el.closest('#vista-tipo'))visibles++;
     });
     todos('[data-grupo]').forEach(function(g){g.hidden=!g.querySelector('.foto:not([hidden])')});
     todos('.sec').forEach(function(s){
@@ -393,45 +402,84 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
       s.hidden=!n;
       var c=s.querySelector('h2 .cuenta');if(c)c.textContent=n;
     });
+    todos('.zsub').forEach(function(z){
+      var n=z.querySelectorAll('.bus:not([hidden])').length;
+      z.hidden=!n;
+      var c=z.querySelector('h3 .cuenta');if(c)c.textContent=n;
+    });
     todos('.total').forEach(function(t){t.hidden=filtrando});
     if(res)res.textContent=q?(visibles?visibles+(visibles===1?' resultado':' resultados'):'Nada coincide con la búsqueda.'):'';
     actualizarMapa();
   }
 
-  // --- Qué se ve: una sección (por tipo), todo lo de una zona (por zona) o los resultados de una búsqueda.
+  // --- Vista por zona: un bloque por zona con todo lo suyo (copias de lo que ya hay; las fotos no pesan dos veces).
+  function construirZonas(){
+    var cont=$('vista-zona');
+    if(!cont||!HAY_ZONAS||cont.getAttribute('data-ok'))return;
+    var origen=todos('#vista-tipo .bus');
+    ZONAS.forEach(function(z,i){
+      var sec=document.createElement('section');
+      sec.className='sec zona-bloque';sec.id='zb-'+i;sec.setAttribute('data-sec','zona-'+i);sec.setAttribute('data-i',i);
+      var h=document.createElement('h2');h.textContent=z||'Sin zona';sec.appendChild(h);
+      var partes=[],cuerpo=document.createDocumentFragment();
+      TIPOS.forEach(function(t){
+        var its=origen.filter(function(e){return e.getAttribute('data-t')===t[0]&&(e.getAttribute('data-z')||'')===z});
+        if(!its.length)return;
+        partes.push(its.length+' '+(its.length===1?t[2]:t[3]));
+        var sub=document.createElement('div');sub.className='zsub';
+        var h3=document.createElement('h3'),c=document.createElement('span');
+        c.className='cuenta';c.textContent=its.length;
+        h3.appendChild(document.createTextNode(t[1]+' '));h3.appendChild(c);sub.appendChild(h3);
+        var caja=document.createElement(t[4]);caja.className=t[5];
+        its.forEach(function(e){var k=e.cloneNode(true);k.removeAttribute('id');caja.appendChild(k)});
+        sub.appendChild(caja);cuerpo.appendChild(sub);
+      });
+      if(!partes.length)return;
+      var p=document.createElement('p');p.className='sub zona-resumen';p.textContent=partes.join(' · ');
+      sec.appendChild(p);sec.appendChild(cuerpo);cont.appendChild(sec);
+    });
+    cont.setAttribute('data-ok','1');
+  }
+
+  // --- Qué se ve: el resumen, una zona (o todas, una tras otra), una sección por tipo o los resultados de la búsqueda.
   function seleccionar(){
     var buscando=!!norm(texto);
+    var zi=vista.indexOf('zona-')===0?parseInt(vista.slice(5),10):-1;
+    zona=zi>=0&&!buscando?ZONAS[zi]:null;
     body.setAttribute('data-modo',modo);
+    body.classList.toggle('buscando',buscando);
     body.classList.remove('forzar-mapa');
     todos('.sec').forEach(function(s){
-      var resumen=s.getAttribute('data-sec')==='resumen';
-      var ver=buscando||modo==='zona'?!resumen:s.getAttribute('data-sec')===sel;
+      var id=s.getAttribute('data-sec'),ver;
+      if(s.classList.contains('zona-bloque'))ver=modo==='zona'&&(buscando||vista==='zonas'||s.getAttribute('data-i')===String(zi));
+      else if(id==='resumen')ver=!buscando&&vista==='resumen';
+      else ver=modo==='tipo'&&(buscando||id===vista);
       s.classList.toggle('fuera',!ver);
     });
     var nt=$('nav-tipo'),nz=$('nav-zona');
     if(nt)nt.hidden=modo==='zona';
     if(nz)nz.hidden=modo!=='zona';
     todos('#vistas button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-modo')===modo)});
-    var activo=modo==='tipo'?sel:(zona===null?'zonas':'zona-'+ZONAS.indexOf(zona)),nombre='';
+    var nombre='';
     todos('.nav a').forEach(function(a){
-      var on=a.getAttribute('href')==='#'+activo&&!a.parentNode.hidden;
+      var on=a.getAttribute('href')==='#'+vista&&!a.parentNode.hidden;
       a.classList.toggle('activo',on);
       if(on){a.setAttribute('aria-current','page');nombre=a.querySelector('span').textContent}else a.removeAttribute('aria-current');
     });
     var tit=$('menu-actual');if(tit)tit.textContent=nombre;
-    body.classList.toggle('con-mapa',modo==='zona'||sel==='fotos');
+    body.classList.toggle('con-mapa',(modo==='zona'&&vista!=='resumen')||vista==='fotos');
     aplicar();
     ajustarMapa(true);
   }
 
   function leerHash(){
     var h=decodeURIComponent(location.hash.slice(1));
-    if(h==='zonas'&&ZONAS.length){modo='zona';zona=null;ultimaZona=h}
-    else if(h.indexOf('zona-')===0&&ZONAS[parseInt(h.slice(5),10)]!==undefined){modo='zona';zona=ZONAS[parseInt(h.slice(5),10)];ultimaZona=h}
-    else if(SECS.indexOf(h)>=0){modo='tipo';sel=h;zona=null;ultimoTipo=h}
-    else if(!h){modo='tipo';sel=SECS[0];zona=null}
+    if(!h||h==='resumen')vista='resumen';
+    else if(HAY_ZONAS&&h==='zonas'){modo='zona';vista=h;ultimaZona=h}
+    else if(HAY_ZONAS&&h.indexOf('zona-')===0&&ZONAS[parseInt(h.slice(5),10)]!==undefined){modo='zona';vista=h;ultimaZona=h}
+    else if(SECS.indexOf(h)>=0){modo='tipo';vista=h;ultimoTipo=h}
     seleccionar();
-    // Cambiar entre «Por tipo» y «Por zona» deja el menú abierto (falta elegir); elegir algo lo cierra.
+    // Cambiar entre «Por zona» y «Por tipo» deja el menú abierto (falta elegir); elegir algo lo cierra.
     if(!cambiandoVista)cerrarMenu();
     cambiandoVista=false;
     window.scrollTo(0,0);
@@ -440,7 +488,10 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
 
   [].forEach.call(document.querySelectorAll('#vistas button'),function(b){
     b.addEventListener('click',function(){
-      var destino=b.getAttribute('data-modo')==='zona'?ultimaZona:ultimoTipo;
+      var m=b.getAttribute('data-modo');
+      if(m===modo)return;
+      if(vista==='resumen'){modo=m;seleccionar();return}
+      var destino=m==='zona'?ultimaZona:ultimoTipo;
       cambiandoVista=destino!==decodeURIComponent(location.hash.slice(1));
       location.hash='#'+destino;
     });
@@ -465,7 +516,8 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   // --- Visor de fotos.
   var visor=$('visor'),vImg=$('visor-img'),vPie=$('visor-pie');
   var lista=[],pos=0;
-  function visibles2(){return [].slice.call(document.querySelectorAll('#fotos .foto:not([hidden])')).map(function(e){return +e.getAttribute('data-n')})}
+  function numeros(q){return [].slice.call(document.querySelectorAll(q)).map(function(e){return +e.getAttribute('data-n')})}
+  function visibles2(){return numeros(modo==='zona'?'#vista-zona .zona-bloque:not(.fuera) .foto:not([hidden])':'#fotos .foto:not([hidden])')}
   function esc(t){return String(t==null?'':t).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
   function attr(t){return esc(t).replace(/"/g,'&quot;')}
   function mostrar(){
@@ -479,7 +531,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     resaltar(n);
     var b=vPie.querySelector('[data-mapa]');if(b)b.addEventListener('click',function(){cerrar();irAlMapa(f.n)});
   }
-  function abrir(n){lista=visibles2();pos=Math.max(0,lista.indexOf(n));if(!lista.length)return;visor.classList.add('abierto');mostrar();document.body.style.overflow='hidden'}
+  function abrir(n){lista=visibles2();if(lista.indexOf(n)<0)lista=numeros('#fotos .foto:not([hidden])');pos=Math.max(0,lista.indexOf(n));if(!lista.length)return;visor.classList.add('abierto');mostrar();document.body.style.overflow='hidden'}
   function cerrar(){visor.classList.remove('abierto');document.body.style.overflow=''}
   function mover(d){if(!lista.length)return;pos=(pos+d+lista.length)%lista.length;mostrar()}
   document.addEventListener('click',function(e){var f=e.target.closest&&e.target.closest('.foto');if(f&&!visor.contains(f))abrir(+f.getAttribute('data-n'))});
@@ -555,6 +607,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
       mapa.setView([PINES[0].lat,PINES[0].lng],15);
     }
   }
+  construirZonas();
   leerHash();
 })();
 `;
@@ -629,14 +682,14 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
   };
   const kpis = tipos
     .filter((s) => s.n != null)
-    .map((s) => `<a href="#${s.id}">${s.n} ${esc(s.n === 1 ? SINGULAR[s.id] ?? s.label.toLowerCase() : s.label.toLowerCase())}</a>`)
+    .map((s) => `<span>${s.n} ${esc(s.n === 1 ? SINGULAR[s.id] ?? s.label.toLowerCase() : s.label.toLowerCase())}</span>`)
     .join('');
 
   const item = (href: string, label: string, n: number | null) =>
     `<a href="#${href}"><span>${esc(label)}</span>${n != null ? `<b>${n}</b>` : ''}</a>`;
   const navTipo = [item('resumen', 'Resumen', null), ...tipos.map((t) => item(t.id, t.label, t.n))].join('');
   const navZona = hayZonas
-    ? [item('zonas', 'Todas las zonas', totalElementos), ...zonasOrden.map((z, i) => item(`zona-${i}`, z || 'Sin zona', zonas.get(z) ?? 0))].join('')
+    ? [item('resumen', 'Resumen', null), item('zonas', 'Todas las zonas', totalElementos), ...zonasOrden.map((z, i) => item(`zona-${i}`, z || 'Sin zona', zonas.get(z) ?? 0))].join('')
     : '';
 
   const lateral = `<aside class="lateral" id="lateral" aria-label="Navegación del informe">
@@ -645,9 +698,9 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
       <button class="lateral__cerrar" id="menu-cerrar" type="button" aria-label="Cerrar el menú">✕</button>
     </div>
     <div class="busca">${ICONO.buscar}<input id="buscar" type="search" placeholder="Buscar en el informe" aria-label="Buscar en el informe"></div>
-    ${hayZonas ? `<div class="vistas" id="vistas" role="group" aria-label="Ver por"><button type="button" class="on" data-modo="tipo">Por tipo</button><button type="button" data-modo="zona">Por zona</button></div>` : ''}
-    <nav class="nav" id="nav-tipo" aria-label="Por tipo">${navTipo}</nav>
-    ${hayZonas ? `<nav class="nav" id="nav-zona" aria-label="Por zona" hidden>${navZona}</nav>` : ''}
+    ${hayZonas ? `<div class="vistas" id="vistas" role="group" aria-label="Ver por"><button type="button" class="on" data-modo="zona">Por zona</button><button type="button" data-modo="tipo">Por tipo</button></div>` : ''}
+    <nav class="nav" id="nav-tipo" aria-label="Por tipo"${hayZonas ? ' hidden' : ''}>${navTipo}</nav>
+    ${hayZonas ? `<nav class="nav" id="nav-zona" aria-label="Por zona">${navZona}</nav>` : ''}
     <div class="lateral__pie">
       ${d.enlaceApp ? `<a class="accion" href="${esc(d.enlaceApp)}" target="_blank" rel="noreferrer">${ICONO.abrir}Abrir la visita</a>` : ''}
       <button class="accion" id="imprimir" type="button">${ICONO.imprimir}Imprimir</button>
@@ -695,7 +748,7 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
 <title>Informe de visita · ${esc(d.clienteNombre)}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>${CSS}</style></head>
-<body>
+<body${hayZonas ? ' class="con-zonas"' : ''}>
 <div class="app${pines.length ? '' : ' sin-mapa'}">
 ${topbar}
 ${lateral}
@@ -703,13 +756,14 @@ ${lateral}
 <p id="resultados" aria-live="polite"></p>
 ${portada}
 ${resumen}
-${tipos.map((s) => s.html).join('\n')}
+<div id="vista-tipo">${tipos.map((s) => s.html).join('\n')}</div>
+<div id="vista-zona"></div>
 <footer>Generado el ${esc(d.generadoEn)} por PrimeNotes · documento interno. Refleja el estado de la visita en el momento de generarlo.</footer>
 </main>
 ${mapa}
 </div>
 ${visor}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>${JS(fotosJs, pines, zonasOrden, secciones, d.urlTeselas)}</script>
+<script>${JS(fotosJs, pines, zonasOrden, secciones, d.urlTeselas, hayZonas)}</script>
 </body></html>`;
 }

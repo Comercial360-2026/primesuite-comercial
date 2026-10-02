@@ -61,7 +61,7 @@ export function CierreVisita() {
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
-  const { estadoDe, descargar, progresoDe } = useDescargarInforme();
+  const { estadoDe, descargar, progresoDe, motivoDe } = useDescargarInforme();
   // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). Se
   // congelan los items al abrir: así el modal tiene una lista estable y las
   // URLs de blob de fotos/audios no se recrean/revocan con cada re-render.
@@ -508,7 +508,7 @@ export function CierreVisita() {
           {/* El informe solo se puede generar si la visita ya está en el
               servidor; sin conexión, se descarga luego desde el historial. */}
           {sincronizada && visitaId && (
-            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} />
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
           )}
         </div>
 

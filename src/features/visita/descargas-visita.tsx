@@ -15,14 +15,14 @@ const FILAS: Array<{ tipo: TipoInforme; titulo: string; queLleva: string; etique
   { tipo: 'visita-zip', titulo: 'Todo en ZIP', queLleva: 'PDF, informe web, fotos originales, audios y documentos', etiqueta: 'Descargar ZIP' },
 ];
 
-function subtitulo(estado: EstadoDescarga, queLleva: string, progreso: number | null) {
+function subtitulo(estado: EstadoDescarga, queLleva: string, progreso: number | null, motivo: string | null) {
   if (typeof estado === 'object') return `Descargado (${formatearMB(estado.tamanoBytes)} MB)`;
   if (estado === 'generando') {
     if (progreso === null || progreso === 0) return 'Generando… puede tardar un minuto con muchas fotos';
     return progreso < 100 ? `Preparando las fotos… ${progreso} %` : 'Montando el archivo…';
   }
   if (estado === 'sin-red') return 'Sin conexión. Inténtalo cuando tengas red';
-  if (estado === 'error') return 'No se pudo generar, toca de nuevo';
+  if (estado === 'error') return motivo ?? 'No se pudo generar, toca de nuevo';
   return queLleva;
 }
 
@@ -31,11 +31,13 @@ export function DescargasVisita({
   estadoDe,
   descargar,
   progresoDe,
+  motivoDe,
 }: {
   visitaId: string;
   estadoDe: (tipo: TipoInforme, id: string) => EstadoDescarga;
   descargar: (tipo: TipoInforme, id: string) => Promise<EstadoDescarga>;
   progresoDe: (tipo: TipoInforme, id: string) => number | null;
+  motivoDe: (tipo: TipoInforme, id: string) => string | null;
 }) {
   return (
     <SeccionLista>
@@ -47,7 +49,7 @@ export function DescargasVisita({
             key={tipo}
             densidad="compacta"
             titulo={titulo}
-            subtitulo={subtitulo(estado, queLleva, progresoDe(tipo, visitaId))}
+            subtitulo={subtitulo(estado, queLleva, progresoDe(tipo, visitaId), motivoDe(tipo, visitaId))}
             acciones={[
               {
                 icono: 'descargar',

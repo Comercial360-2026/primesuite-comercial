@@ -82,6 +82,7 @@ import {
   type InterlocutorRow,
 } from '../_shared/informe-pdf.ts';
 
+const LIMITE_OBJETO_BYTES = 50 * 1024 * 1024; // máximo por objeto en Storage (plan gratuito de Supabase)
 const URL_FIRMADA_SEGUNDOS = 60 * 60; // 1h de descarga — el zip vive ~2h en Storage antes de autoborrarse.
 
 // ---------------------------------------------------------------------
@@ -524,11 +525,12 @@ Deno.serve(async (req) => {
       .join(' - ');
     // Solo la copia completa (zip) guarda los originales: en html/pdf se soltarían en memoria sin usarse.
     if (formatoSalida === 'zip') carpetaFotos.file(`${nombreArchivo}.${extension}`, bytes);
-    // Informe web: miniatura reducida (~50 KB) y enlace al original (dentro del zip, o en SharePoint si
-    // ya está copiada). El PDF no usa esto.
+    // Miniatura reducida (~50 KB): la usan el informe web y, en el zip, también el PDF (con los originales
+    // en base64 el zip se quedaba sin memoria a partir de unas 30 fotos). Los originales van a fotos/.
+    let mini: Uint8Array | null = null;
+    // Informe web: miniatura y enlace al original (dentro del zip, o en SharePoint si ya está copiada).
     if (formatoSalida !== 'pdf') {
       const embebible = formato === 'jpeg' || formato === 'png';
-      let mini: Uint8Array | null = null;
       if (embebible) {
         mini = await miniaturaEnCache(f);
         if (!mini && !sinPresupuesto()) mini = await generarMiniatura(f, bytes);
@@ -553,11 +555,15 @@ Deno.serve(async (req) => {
     if (formatoSalida === 'html') {
       // El informe web no usa el anexo del PDF.
     } else if (formato === 'jpeg' || formato === 'png') {
+      const formatoMini = mini ? detectarFormatoImagen(mini) : 'desconocido';
+      const usaMini = mini && (formatoMini === 'jpeg' || formatoMini === 'png');
       fotosParaPdf.push({
         titulo: f.titulo,
         ubicacionNombre,
         creadoEn: f.creado_en,
-        dataUri: `data:image/${formato};base64,${base64Encode(bytes)}`,
+        dataUri: usaMini
+          ? `data:image/${formatoMini};base64,${base64Encode(mini as Uint8Array)}`
+          : `data:image/${formato};base64,${base64Encode(bytes)}`,
       });
     } else {
       fotosNoIncluidas.push({
@@ -1021,6 +1027,17 @@ Deno.serve(async (req) => {
         : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
 
   // --- Subida al bucket de backups ---
+  // Supabase rechaza objetos de más de 50 MB (plan gratuito). Mejor avisar con claridad que dejar un
+  // «no se pudo generar» sin explicación; quien descarga para liberar espacio no borra nada si falla.
+  if (archivo.bytes.byteLength > LIMITE_OBJETO_BYTES) {
+    const mb = Math.ceil(archivo.bytes.byteLength / (1024 * 1024));
+    return jsonResponse(
+      {
+        error: `Esta visita pesa ${mb} MB y no cabe en un solo archivo (máximo 50 MB). Usa «PDF de la visita» o «Informe web»; las fotos originales siguen en la app y en SharePoint.`,
+      },
+      413
+    );
+  }
   const timestamp = Date.now();
   const ruta = `${visitaId}/${timestamp}.${archivo.extension}`;
   const { error: errorSubida } = await admin.storage

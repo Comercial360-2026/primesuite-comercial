@@ -64,6 +64,8 @@ export function useDescargarInforme() {
   const [estados, setEstados] = useState<Record<string, EstadoDescarga>>({});
   // % de fotos ya reducidas mientras se prepara un PDF/informe web (100 = montando el archivo).
   const [progresos, setProgresos] = useState<Record<string, number>>({});
+  // Por qué falló, cuando el servidor lo explica (p. ej. «pesa 62 MB y no cabe en un solo archivo»).
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
 
   // Devuelve el resultado además de guardarlo en `estados`: quien encadena
   // varias descargas en secuencia (liberar espacio de un proyecto entero)
@@ -75,6 +77,10 @@ export function useDescargarInforme() {
     const clave = `${tipo}:${id}`;
     setEstados((prev) => ({ ...prev, [clave]: 'generando' }));
     setProgresos((prev) => ({ ...prev, [clave]: 0 }));
+    setMotivos((prev) => {
+      const { [clave]: _, ...resto } = prev;
+      return resto;
+    });
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
       const { funcion, body } = PETICION_POR_TIPO[tipo](id);
@@ -90,10 +96,11 @@ export function useDescargarInforme() {
         });
         return Promise.race([p, limite]).finally(() => clearTimeout(temporizador));
       };
-      // PDF e informe web llevan las fotos reducidas (caché en el servidor). Reducir cuesta CPU y cada
-      // llamada tiene presupuesto: se piden tandas hasta que no quede ninguna pendiente (visitas con
-      // muchas fotos no cabían en una sola petición). Si falla, se sigue: el informe sale con lo que haya.
-      if (tipo === 'visita' || tipo === 'visita-web') {
+      // PDF, informe web y el PDF/web de dentro del zip llevan las fotos reducidas (caché en el servidor).
+      // Reducir cuesta CPU y cada llamada tiene presupuesto: se piden tandas hasta que no quede ninguna
+      // pendiente (visitas con muchas fotos no cabían en una sola petición). Si falla, se sigue: el informe
+      // sale con lo que haya.
+      if (tipo === 'visita' || tipo === 'visita-web' || tipo === 'visita-zip') {
         for (let i = 0; i < 15; i++) {
           const { data: tanda, error: errorTanda } = await conLimite(
             supabase.functions.invoke(funcion, { body: { visitaId: id, formato: 'miniaturas' } })
@@ -121,6 +128,12 @@ export function useDescargarInforme() {
     } catch (e) {
       const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
       const resultado: EstadoDescarga = sinRed ? 'sin-red' : 'error';
+      if (!sinRed) {
+        // FunctionsHttpError lleva la respuesta: si trae un texto del servidor, es el motivo real.
+        const respuesta = (e as { context?: Response }).context;
+        const cuerpo = typeof respuesta?.clone === 'function' ? await respuesta.clone().json().catch(() => null) : null;
+        if (typeof cuerpo?.error === 'string') setMotivos((prev) => ({ ...prev, [clave]: cuerpo.error }));
+      }
       setEstados((prev) => ({ ...prev, [clave]: resultado }));
       return resultado;
     } finally {
@@ -137,5 +150,9 @@ export function useDescargarInforme() {
     return estadoDe(tipo, id) === 'generando' ? progresos[`${tipo}:${id}`] ?? null : null;
   }
 
-  return { estadoDe, descargar, progresoDe };
+  function motivoDe(tipo: TipoInforme, id: string): string | null {
+    return estadoDe(tipo, id) === 'error' ? motivos[`${tipo}:${id}`] ?? null : null;
+  }
+
+  return { estadoDe, descargar, progresoDe, motivoDe };
 }
