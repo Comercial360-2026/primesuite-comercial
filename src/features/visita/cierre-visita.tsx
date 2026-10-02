@@ -1,3 +1,4 @@
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useVolverA } from '@/lib/volver-a';
@@ -96,7 +97,7 @@ export function CierreVisita() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('visita')
-        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
+        .select('medio, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -106,6 +107,7 @@ export function CierreVisita() {
   const contextoTexto = [
     contextoVisita?.cliente?.nombre,
     contextoVisita?.proyecto?.nombre ?? null,
+    esNoPresencial(medioDe(contextoVisita?.medio)) ? MEDIO_VISITA[medioDe(contextoVisita?.medio)].etiqueta : null,
   ]
     .filter(Boolean)
     .join(' · ');

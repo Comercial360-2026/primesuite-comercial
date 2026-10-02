@@ -13,6 +13,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { Icono } from '@/components/ui/iconos';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { fechaCorta } from '@/lib/fechas';
@@ -105,10 +106,10 @@ export function RepasoCliente() {
   const { data: visitaAgendada } = useQuery({
     queryKey: ['visita-agendada-objetivo', visitaIdAgendada],
     enabled: !!visitaIdAgendada,
-    queryFn: async (): Promise<{ objetivo: string | null }> => {
+    queryFn: async (): Promise<{ objetivo: string | null; medio?: string }> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo')
+        .select('objetivo, medio')
         .eq('id', visitaIdAgendada!)
         .maybeSingle();
       if (error) throw error;
@@ -337,7 +338,7 @@ export function RepasoCliente() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
-        subtitulo="Preparar la visita"
+        subtitulo={esNoPresencial(medioDe(visitaAgendada?.medio)) ? `Preparar la visita · ${MEDIO_VISITA[medioDe(visitaAgendada?.medio)].etiqueta}` : 'Preparar la visita'}
         ayuda="repaso-cliente"
         volverA={volver}
         derecha={
