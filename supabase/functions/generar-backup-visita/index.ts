@@ -967,6 +967,7 @@ Deno.serve(async (req) => {
     audios: audiosHtml,
     documentos: documentosHtml,
     enZip: formato === 'zip',
+    urlTeselas: `${supabaseUrl}/functions/v1/tile-mapa`,
     enlaceApp: `${(Deno.env.get('APP_URL') ?? 'https://rococo-gumption-efb70a.netlify.app').replace(/\/+$/, '')}/visita/${visitaId}${visitaEnCurso ? '' : '/detalle'}`,
     avisos: avisosHtml,
     generadoEn: `${fechaLarga(ahora)}, ${horaDe(ahora)}`,

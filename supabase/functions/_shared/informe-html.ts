@@ -7,9 +7,10 @@
 // el zip). En móvil el menú baja desde arriba. La selección va en la URL (#notas, #zona-2). Las fotos
 // van como MINIATURAS embebidas (~50 KB cada una); el original queda en su carpeta (botón «Original»).
 //
-// El mapa usa Leaflet + teselas de CARTO (necesitan conexión; OpenStreetMap no se usa porque bloquea
-// las páginas sin Referer: blob: y archivos descargados). Sin conexión el informe sigue entero: el mapa
-// se sustituye por un aviso y cada foto conserva sus coordenadas y su enlace a Google Maps.
+// El mapa usa Leaflet + teselas de OpenStreetMap servidas por la función tile-mapa (necesitan conexión).
+// Pedirlas directamente no sirve: OSM bloquea las páginas sin Referer (blob: y archivos descargados) y
+// CARTO exige clave. Sin conexión el informe sigue entero: el mapa se sustituye por un aviso y cada foto
+// conserva sus coordenadas y su enlace a Google Maps.
 
 import {
   COLOR,
@@ -72,6 +73,7 @@ export interface DatosInformeHtml {
   generadoEn: string; // "2 de octubre de 2026, 10:41"
   logo: string | null; // data URI
   enlaceApp: string | null; // «Abrir la visita» (la visita en la app)
+  urlTeselas: string; // proxy de teselas (función tile-mapa): sin él el mapa no carga en blob: ni en archivos
 }
 
 const esc = (t: unknown) =>
@@ -360,12 +362,13 @@ footer{color:var(--ink4);font-size:12px;text-align:center;margin-top:24px}
 // Cliente: menú lateral (por tipo / por zona), buscador, visor de fotos y mapa ligado a lo que se ve.
 // La selección vive en la URL (#notas, #zona-2, #zonas): se puede compartir y funciona atrás/adelante.
 // Sin Leaflet (sin conexión) se deja un aviso en el mapa y el resto del informe no cambia.
-const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], zonas: string[], secciones: string[]) => `
+const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], zonas: string[], secciones: string[], urlTeselas: string) => `
 (function(){
   var FOTOS=${JSON.stringify(fotos).replace(/</g, '\\u003c')};
   var PINES=${JSON.stringify(pines)};
   var ZONAS=${JSON.stringify(zonas).replace(/</g, '\\u003c')};
   var SECS=${JSON.stringify(secciones)};
+  var URL_TESELAS=${JSON.stringify(urlTeselas)};
   var body=document.body;
   var norm=function(t){return (t||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'')};
   var $=function(id){return document.getElementById(id)};
@@ -497,8 +500,8 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   visor.addEventListener('touchstart',function(e){x0=e.touches[0].clientX},{passive:true});
   visor.addEventListener('touchend',function(e){if(x0==null)return;var dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)mover(dx<0?1:-1)});
 
-  // --- Mapa (Leaflet + datos de OpenStreetMap, teselas de CARTO: no exigen Referer, así que
-  // también cargan al abrir el informe desde un archivo descargado o desde SharePoint).
+  // --- Mapa (Leaflet + OpenStreetMap a través de la función tile-mapa: el servidor pide la tesela con
+  // el User-Agent y el Referer que OSM exige, así cargan también las páginas blob: y los archivos descargados).
   function resaltar(n){
     Object.keys(marcadores).forEach(function(k){
       var m=marcadores[k],e=m.getElement&&m.getElement();
@@ -543,7 +546,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     if(!window.L){elMapa.textContent='El mapa necesita conexión a internet. Las coordenadas de cada foto están en su visor (Google Maps).'}
     else{
       mapa=L.map(elMapa,{scrollWheelZoom:true});
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(mapa);
+      L.tileLayer(URL_TESELAS+'?z={z}&x={x}&y={y}',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(mapa);
       PINES.forEach(function(p){
         var m=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'<div class="pin">'+p.n+'</div>',iconSize:[28,28],iconAnchor:[14,14]})});
         m.on('click',function(){abrir(p.n)});
@@ -707,6 +710,6 @@ ${mapa}
 </div>
 ${visor}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>${JS(fotosJs, pines, zonasOrden, secciones)}</script>
+<script>${JS(fotosJs, pines, zonasOrden, secciones, d.urlTeselas)}</script>
 </body></html>`;
 }
