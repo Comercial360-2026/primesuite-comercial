@@ -6,6 +6,8 @@ import { Modal } from '@/components/ui/modal';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import type { ExtraMedio, MedioVisita } from '@/lib/medio-visita';
 
 interface ProyectoOpcion {
   id: string;
@@ -28,7 +30,7 @@ interface ObjetivoVisitaModalProps {
   // Arranca la visita con el objetivo escrito y el proyecto elegido. El
   // cierre de la ventana y la navegación los controla quien la abre, igual
   // que el resto de modales.
-  onConfirmar: (objetivo: string, proyectoId: string) => Promise<void> | void;
+  onConfirmar: (objetivo: string, proyectoId: string, extra: ExtraMedio) => Promise<void> | void;
   onCerrar: () => void;
 }
 
@@ -46,6 +48,8 @@ export function ObjetivoVisitaModal({
   onCerrar,
 }: ObjetivoVisitaModalProps) {
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>('presencial');
+  const [enlace, setEnlace] = useState('');
   const refDictado = useRef<RefCampoDictado>(null);
   // Proyectos creados desde esta misma ventana, para que aparezcan en el
   // selector sin esperar a que la lista de origen se recargue.
@@ -110,7 +114,7 @@ export function ObjetivoVisitaModal({
     setArrancando(true);
     setError(null);
     try {
-      await onConfirmar(objetivoConsolidado, proyectoId);
+      await onConfirmar(objetivoConsolidado, proyectoId, { medio, enlaceReunion: enlace });
     } catch (err) {
       setError(
         esSinRed(err)
@@ -134,6 +138,8 @@ export function ObjetivoVisitaModal({
         onCambio={setObjetivo}
         placeholder="cerrar el pedido pendiente, presentar la nueva gama, primera toma de contacto…"
       />
+
+      <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
 
       {mostrarProyecto && (
         <>

@@ -11,6 +11,7 @@ import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { Icono } from '@/components/ui/iconos';
+import { payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
 import type { ProyectoDelCliente } from '@/hooks/use-proyectos-cliente';
 
 // La barra fija de abajo de un proyecto: dos botones en la misma línea —
@@ -66,7 +67,7 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
   // `objetivo`, ya validado como no vacío. Lanza en caso de fallo para que la
   // propia ventana muestre el error; si va bien, navega y la ventana se
   // desmonta con la pantalla.
-  async function iniciarVisitaAdHoc(objetivo: string, proyectoElegido: string) {
+  async function iniciarVisitaAdHoc(objetivo: string, proyectoElegido: string, extra: ExtraMedio) {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión. Recarga la página.');
     }
@@ -77,8 +78,9 @@ export function AccionesProyecto({ clienteId, proyectoId, clienteNombre, proyect
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
+      ...payloadMedio(extra),
     });
-    iniciarVisita({ id: visitaId, clienteNombre: clienteNombre ?? '' });
+    iniciarVisita({ id: visitaId, clienteNombre: clienteNombre ?? '', medio: extra.medio });
     navigate(`/visita/${visitaId}`, { state: desde(location) });
   }
 

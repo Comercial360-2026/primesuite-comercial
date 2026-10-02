@@ -13,7 +13,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
-import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
+import { MEDIO_VISITA, medioDe, esNoPresencial, payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
 import { Icono } from '@/components/ui/iconos';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { fechaCorta } from '@/lib/fechas';
@@ -318,7 +318,7 @@ export function RepasoCliente() {
   // Visita SIN planificar: la lanza la ventana "¿A qué vas?" con el objetivo
   // ya escrito. Se encola (funciona con o sin red, ver lib/offline-queue).
   // Lanza en caso de fallo para que la ventana muestre el error.
-  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string) {
+  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string, extra: ExtraMedio) {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
@@ -329,8 +329,9 @@ export function RepasoCliente() {
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
+      ...payloadMedio(extra),
     });
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre, medio: extra.medio });
     navigate(`/visita/${visitaId}`);
   }
 

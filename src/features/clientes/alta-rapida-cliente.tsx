@@ -1,3 +1,4 @@
+import { payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -217,7 +218,8 @@ export function AltaRapidaCliente() {
     clienteNombre: string,
     objetivo: string,
     proyectoId?: string,
-    dependeDe?: string
+    dependeDe?: string,
+    extra?: ExtraMedio
   ) {
     if (!comercial) {
       throw new Error('No se ha podido identificar tu sesión de comercial. Vuelve a iniciar sesión.');
@@ -226,7 +228,7 @@ export function AltaRapidaCliente() {
     await encolar(
       visitaId,
       'visita',
-      { clienteId, proyectoId, comercialResponsableId: comercial.id, tipoVisita: null, objetivo },
+      { clienteId, proyectoId, comercialResponsableId: comercial.id, tipoVisita: null, objetivo, ...payloadMedio(extra) },
       dependeDe ? { dependeDe } : undefined
     );
     return { visitaId, clienteNombre };
@@ -235,7 +237,7 @@ export function AltaRapidaCliente() {
   // "Estoy delante del cliente": la ventana "¿A qué vas?" recoge el objetivo
   // (obligatorio) y, al confirmar, se crea la ficha y se entra directo en
   // captura. Si el cliente se encoló (sin red), la visita depende de él.
-  async function arrancarConObjetivo(objetivo: string, proyectoId: string) {
+  async function arrancarConObjetivo(objetivo: string, proyectoId: string, extra: ExtraMedio) {
     if (!objetivoModal || !comercial) return;
     let visitaId: string;
     let clienteNombre: string;
@@ -249,7 +251,8 @@ export function AltaRapidaCliente() {
         cliente.nombre,
         objetivo,
         cliente.proyectoId,
-        cliente.enCola ? cliente.proyectoId : undefined
+        cliente.enCola ? cliente.proyectoId : undefined,
+        extra
       );
       visitaId = r.visitaId;
       clienteNombre = r.clienteNombre;
@@ -258,12 +261,14 @@ export function AltaRapidaCliente() {
         objetivoModal.clienteId,
         objetivoModal.clienteNombre,
         objetivo,
-        proyectoId || undefined
+        proyectoId || undefined,
+        undefined,
+        extra
       );
       visitaId = r.visitaId;
       clienteNombre = r.clienteNombre;
     }
-    iniciarVisita({ id: visitaId, clienteNombre });
+    iniciarVisita({ id: visitaId, clienteNombre, medio: extra.medio });
     navigate(`/visita/${visitaId}`);
   }
 
