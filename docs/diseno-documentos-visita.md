@@ -23,4 +23,4 @@ Un botón «Adjuntar un documento» en la visita en curso y en la visita cerrada
 Archivado a SharePoint (PR #16): `BUCKET_POR_TIPO`, `fn_visitas_para_archivar` y `fn_capturas_para_archivar` solo contemplan foto/audio. Hay que añadir `documento` (con su nombre original) cuando #16 esté en `main`.
 
 - Borrar visita/cliente no borra ni avisa de lo archivado en SharePoint: ver `docs/pendiente-borrado-sharepoint.md`.
-- Lectura de documentos por IA para el briefing: requiere decidir con el agente de Copilot Studio (extracción de texto); no implementado.
+- Lectura de documentos por IA: HECHO para «Pregunta a la IA» (`procesar-consultas` añade el texto de los 3 últimos documentos del cliente, máx. 12.000 caracteres; PDF con texto, DOCX, XLSX, PPTX, TXT y CSV; los ya liberados a SharePoint no se leen). El briefing no usa la visita: no aplica.
