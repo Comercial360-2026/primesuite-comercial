@@ -298,7 +298,7 @@ a{color:var(--b6)}
 .visor__nav:hover{background:rgba(255,255,255,.3)} .visor__nav.ant{left:8px} .visor__nav.sig{right:8px}
 .visor__cerrar{position:absolute;top:10px;right:12px;z-index:2;width:40px;height:40px;border-radius:99px;border:0;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer}
 .visor__pie{padding:12px 16px 16px;color:#fff;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;font-size:14px}
-.visor__pie a,.visor__pie button{color:#fff;border:1px solid rgba(255,255,255,.4);background:transparent;border-radius:99px;padding:4px 12px;font:inherit;font-size:13px;text-decoration:none;cursor:pointer}
+.visor__pie a,.visor__pie button{color:#fff;border:1px solid rgba(255,255,255,.4);background:transparent;border-radius:99px;padding:9px 16px;font:inherit;font-size:14px;text-decoration:none;cursor:pointer}
 .visor__pie a:hover,.visor__pie button:hover{background:rgba(255,255,255,.18)}
 .visor__pie .tit{font-weight:700} .visor__pie .meta{opacity:.75}
 footer{color:var(--ink4);font-size:12px;text-align:center;margin-top:24px}
@@ -316,7 +316,10 @@ body.modo-zona .menu[data-vista=zona]{display:flex}
 #vista-zona .lista{display:grid;gap:10px}
 #vista-zona .archivos{margin:0}
 [hidden]{display:none!important}
-@media(max-width:640px){main{padding:10px 10px 48px} section,header.portada{padding:14px 14px} .barra__titulo{max-width:100%} .portada h1{font-size:23px} .visor__img{padding:8px 8px}}
+.acciones{display:none}
+@media(max-width:640px){main{padding:10px 10px 48px} section,header.portada{padding:14px 14px} .barra__titulo{display:none} .portada h1{font-size:23px} .visor__img{padding:8px 8px}
+.barra__in{padding:6px 10px} .menu{flex:1 1 100%}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px} .acciones input[type=search]{flex:1 1 100%;min-width:0}}
 @media print{body{background:#fff}.barra,.filtros,#resultados,.mapa-bloque,.visor,.btn{display:none!important}section,header.portada{border:0;padding:0;break-inside:avoid-page}.foto{break-inside:avoid}.fotos{grid-template-columns:repeat(4,1fr)}}
 `;
 
@@ -362,6 +365,11 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     });
   });
   var imp=document.getElementById('imprimir');if(imp)imp.addEventListener('click',function(){window.print()});
+  // En móvil la barra fija solo lleva el menú: el buscador y los botones pasan a un bloque normal.
+  if(window.matchMedia&&window.matchMedia('(max-width:640px)').matches){
+    var acc=document.getElementById('acciones');
+    if(acc)[].forEach.call(document.querySelectorAll('.barra input[type=search], .barra .btn'),function(n){acc.appendChild(n)});
+  }
 
   // Vista por zona: se construye una vez con copias de lo que ya hay (las fotos no pesan dos veces).
   function construirZonas(){
@@ -585,6 +593,7 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
 <body>
 ${barra}
 <main>
+<div class="acciones" id="acciones"></div>
 ${portada}
 ${herramientas}
 <p id="resultados" aria-live="polite"></p>
