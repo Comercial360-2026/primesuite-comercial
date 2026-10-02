@@ -738,7 +738,14 @@ export function VisitaActiva() {
   // existe: mientras `visitaServidor` es null asumimos "en curso".
   const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
   // Cómo es la visita (Teams / llamada). Mientras no existe en el servidor, el de la cola local.
-  const medioVisita = medioDe(visitaServidor?.medio ?? visitaLocal?.medio);
+  // Si el servidor aún dice «presencial» (la RPC crea así y el medio llega con un UPDATE
+  // posterior) pero se arrancó con otro, se enseña el elegido y no un «Presencial» falso.
+  const esperadoMedio = medioEsperadoRef.current ?? visitaLocal?.medio;
+  const medioVisita = medioDe(
+    visitaServidor?.medio === 'presencial' && esperadoMedio && esperadoMedio !== 'presencial'
+      ? esperadoMedio
+      : (visitaServidor?.medio ?? visitaLocal?.medio)
+  );
   // Aviso previo al cierre automático por inactividad (migración 135).
   const inactividad = useInactividadVisita(visitaId, !!visitaServidor && !visitaCerrada);
 
