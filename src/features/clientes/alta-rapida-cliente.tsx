@@ -490,6 +490,7 @@ export function AltaRapidaCliente() {
           }
           proyectos={objetivoModal.modo === 'existente' ? proyectosExistente : undefined}
           proyectoInicial={proyectosExistente?.[0]?.id}
+          proyectoImplicito={objetivoModal.modo === 'nuevo'}
           onCrearProyecto={
             objetivoModal.modo === 'existente'
               ? (nombreProy) => crearProyectoRapido(objetivoModal.clienteId, nombreProy, encolar)

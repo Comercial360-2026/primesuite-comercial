@@ -24,6 +24,9 @@ interface ObjetivoVisitaModalProps {
   // Proyecto preseleccionado. Sirve también de valor devuelto cuando no hay
   // selector (p. ej. desde la ficha de un proyecto concreto).
   proyectoInicial?: string;
+  // Quien abre la ventana ya sabe el proyecto (alta rápida: el que se acaba de teclear
+  // y aún no existe): no se exige elegir uno.
+  proyectoImplicito?: boolean;
   // Crea una línea de negocio nueva para este cliente y devuelve su id. Si se
   // pasa, la ventana ofrece «+ Nuevo proyecto» aunque el cliente tenga uno solo.
   onCrearProyecto?: (nombre: string) => Promise<string>;
@@ -43,6 +46,7 @@ export function ObjetivoVisitaModal({
   clienteNombre,
   proyectos,
   proyectoInicial,
+  proyectoImplicito,
   onCrearProyecto,
   onConfirmar,
   onCerrar,
@@ -107,7 +111,7 @@ export function ObjetivoVisitaModal({
     if (!objetivoConsolidado || arrancando) return;
     // Validación explícita: sin proyecto elegido no se arranca, en vez de
     // dejar que la visita se cree con proyecto_id vacío camino de la cola.
-    if (!proyectoId) {
+    if (!proyectoId && !proyectoImplicito) {
       setError('Elige un proyecto antes de empezar.');
       return;
     }
