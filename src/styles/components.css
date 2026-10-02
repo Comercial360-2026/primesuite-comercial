@@ -590,6 +590,8 @@ textarea.field {
   display: block; height: 40px; line-height: 40px; text-align: center;
   background: var(--brand-050); color: var(--brand-600); font-size: var(--text-sm); font-weight: 500;
   text-decoration: none;
+  /* Un nombre de cliente largo no debe partir el texto fuera de los 40 px de la barra. */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-4);
 }
 /* Visita por Teams / llamada: icono + palabra + fondo suave en el tono del medio. */
 .visita-en-curso-banner--teams { background: var(--medio-teams-050); }

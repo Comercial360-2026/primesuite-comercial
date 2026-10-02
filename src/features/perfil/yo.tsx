@@ -713,7 +713,7 @@ export function Yo() {
                   titulo="Copia a SharePoint"
                   subtitulo={[
                     Number(estadoArchivado.agotadas) > 0 &&
-                      `${estadoArchivado.agotadas} sin copiar tras 5 intentos — revisar el flujo de Power Automate`,
+                      `${estadoArchivado.agotadas} sin copiar tras 5 intentos — revisar el flujo de Power Automate y tocar aquí para reintentar`,
                     Number(estadoArchivado.sin_copiar) > 0 && `${estadoArchivado.sin_copiar} esperando copia desde hace horas`,
                     Number(estadoArchivado.posibles_duplicados) > 0 &&
                       `${estadoArchivado.posibles_duplicados} con posible duplicado «(reintento …)» en SharePoint`,
@@ -725,6 +725,7 @@ export function Yo() {
                   }
                   tono="aviso"
                   chevron={false}
+                  // Tocar la fila reintenta las copias agotadas (vuelven a la cola): se dice en el subtítulo.
                   onClick={() => void reintentarArchivado()}
                 />
               )}

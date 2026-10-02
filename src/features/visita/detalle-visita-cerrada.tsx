@@ -770,7 +770,7 @@ export function DetalleVisitaCerrada() {
             <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
               <Aviso tipo="atencion">
                 No se pudo archivar {fallosArchivado.length === 1 ? '1 archivo' : `${fallosArchivado.length} archivos`} a
-                SharePoint. Siguen en PrimeNotes y se reintenta cada día. Motivo: {[...new Set(fallosArchivado)].join(' · ')}
+                SharePoint. Siguen en PrimeNotes y se reintenta solo hasta 5 veces; si sigue fallando, se reintenta a mano desde Yo → «Copia a SharePoint». Motivo: {[...new Set(fallosArchivado)].join(' · ')}
               </Aviso>
             </div>
           )}
