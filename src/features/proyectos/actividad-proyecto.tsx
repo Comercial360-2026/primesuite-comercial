@@ -84,7 +84,7 @@ export function ActividadProyecto({
     queryFn: async (): Promise<VisitaHistorial[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, objetivo, estado_captura')
+        .select('id, fecha, objetivo, estado_captura, medio')
         .eq('proyecto_id', proyectoId)
         .order('fecha', { ascending: false })
         .limit(10);

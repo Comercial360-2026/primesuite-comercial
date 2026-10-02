@@ -16,7 +16,7 @@ export function HistorialVisitasCliente({ clienteId }: { clienteId: string }) {
     queryFn: async (): Promise<VisitaHistorial[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, objetivo, estado_captura')
+        .select('id, fecha, objetivo, estado_captura, medio')
         .eq('cliente_id', clienteId)
         .order('fecha', { ascending: false })
         .limit(10);

@@ -6,6 +6,7 @@ import { desgloseVisita } from '@/lib/texto';
 import { desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { conMedio } from '@/components/ui/etiqueta-medio';
 
 // Historial de visitas de un proyecto o de un cliente (prompt maestro 13):
 // una fila por visita que dice a qué fue (objetivo junto a la fecha) y qué
@@ -18,6 +19,7 @@ export interface VisitaHistorial {
   fecha: string;
   objetivo: string | null;
   estado_captura: string;
+  medio?: string;
 }
 
 type Totales = Parameters<typeof desgloseVisita>[0];
@@ -80,7 +82,7 @@ export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] 
             key={v.id}
             titulo={objetivo ? `${fechaCorta(v.fecha)} · ${objetivo}` : fechaCorta(v.fecha)}
             subtitulo={dentro || (recuento && estadoLegible.startsWith('cerrada') ? 'sin nada anotado' : undefined)}
-            valor={estadoLegible}
+            valor={conMedio(estadoLegible, v.medio)}
             valorTenue
             to={to}
             state={origen}
