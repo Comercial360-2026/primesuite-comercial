@@ -84,8 +84,12 @@ Deno.serve(async (req) => {
   if (!webhookUrl || !secreto) return json({ error: 'Falta configuración del webhook de archivado.' }, 500);
 
   let soloVisita: string | null = null;
+  let forzarInforme = false;
   try {
-    soloVisita = (await req.json())?.visita_id ?? null;
+    const cuerpo = await req.json();
+    soloVisita = cuerpo?.visita_id ?? null;
+    // Solo con visita_id: prueba o reintento manual del informe aunque el interruptor esté apagado.
+    forzarInforme = cuerpo?.informe === true;
   } catch {
     /* sin cuerpo: se procesa todo */
   }
@@ -93,7 +97,7 @@ Deno.serve(async (req) => {
   const { data: visitas, error: errorVisitas } = await admin.rpc('fn_visitas_para_copiar');
   if (errorVisitas) return json({ error: errorVisitas.message }, 500);
 
-  const resumen = { visitas: 0, archivos_enviados: 0, errores: 0, originales_liberados: 0 };
+  const resumen = { visitas: 0, archivos_enviados: 0, errores: 0, originales_liberados: 0, informes_enviados: 0 };
 
   for (const v of (visitas ?? []).filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)) {
     const { data: capturas, error: errorCapturas } = await admin.rpc('fn_capturas_para_copiar', {
@@ -173,6 +177,83 @@ Deno.serve(async (req) => {
       // la siguiente pasada (pasados los 15 min) la reintenta sola.
       console.error(`No se pudo archivar la visita ${v.visita_id}`, e);
       resumen.errores++;
+    }
+  }
+
+  // FASE 1b — informe.html de la visita cerrada a su carpeta (interruptor `archivado_informe_activo`).
+  // Viaja por el MISMO webhook como un archivo más con captura_id = 'informe:<visita_id>'; el flujo
+  // de Power Automate no lo distingue y confirmar-archivado-sharepoint lo reconoce por el prefijo.
+  const { data: ajusteInforme } = await admin
+    .from('ajustes_app')
+    .select('valor')
+    .eq('clave', 'archivado_informe_activo')
+    .maybeSingle();
+  if (ajusteInforme?.valor === true || (!!soloVisita && forzarInforme)) {
+    const { data: sinInforme, error: errorInformes } = await admin.rpc('fn_visitas_para_informe');
+    if (errorInformes) console.error('No se pudo listar los informes pendientes', errorInformes);
+    // Un informe con fotos pesa decenas de MB: pocos por pasada para no pasarse del tiempo de la función.
+    const informesDeEstaPasada = (sinInforme ?? [])
+      .filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)
+      .slice(0, 3);
+    for (const v of informesDeEstaPasada) {
+      try {
+        const rInforme = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generar-backup-visita`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // El gateway exige un JWT válido; la función se identifica con la clave del worker.
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'x-clave-worker': req.headers.get('x-clave-worker') ?? '',
+          },
+          body: JSON.stringify({ visitaId: v.visita_id, formato: 'html' }),
+        });
+        if (!rInforme.ok) throw new Error(`generar-backup-visita respondió ${rInforme.status}`);
+        const informe = (await rInforme.json()) as { url: string; ruta: string };
+
+        const { data: carpetas } = await admin.rpc('fn_carpetas_archivado', { p_visita_id: v.visita_id });
+        if (!carpetas?.[0]) throw new Error('No se pudieron fijar las carpetas');
+
+        // El nombre lleva la hora de cierre: si la visita se reabre y se cierra otra vez, no choca
+        // con el anterior ("Create file" de SharePoint no sobrescribe).
+        const cierre = new Date(v.cerrada_en);
+        const dia = cierre.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+        const hora = cierre
+          .toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false })
+          .replace(':', '-');
+
+        await admin.rpc('fn_marcar_intento_informe', { p_visita_id: v.visita_id, p_storage_path: informe.ruta });
+        const r = await fetch(webhookUrl as string, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            secreto,
+            visita_id: v.visita_id,
+            cliente_id: v.cliente_id,
+            cliente_nombre: nombreCarpeta(v.cliente_nombre),
+            proyecto_id: v.proyecto_id,
+            proyecto_nombre: nombreCarpeta(v.proyecto_nombre),
+            fecha_visita: String(v.fecha_visita).slice(0, 10),
+            carpeta_cliente: carpetas[0].carpeta_cliente,
+            carpeta_proyecto: carpetas[0].carpeta_proyecto,
+            carpeta_visita: carpetas[0].carpeta_visita,
+            archivos: [
+              {
+                captura_id: `informe:${v.visita_id}`,
+                tipo: 'informe',
+                nombre_archivo: `Informe de la visita (cerrada ${dia} ${hora}).html`,
+                url_origen: informe.url,
+              },
+            ],
+          }),
+        });
+        if (!r.ok) throw new Error(`Power Automate respondió ${r.status}`);
+        await r.body?.cancel();
+        resumen.informes_enviados++;
+      } catch (e) {
+        // informe_intento_en ya está puesto (si llegó a marcarse): se reintenta pasados 15 min, hasta 5 veces.
+        console.error(`No se pudo archivar el informe de la visita ${v.visita_id}`, e);
+        resumen.errores++;
+      }
     }
   }
 

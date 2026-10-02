@@ -62,6 +62,31 @@ Deno.serve(async (req) => {
     return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
   }
 
+  // El informe de la visita viaja por el mismo flujo como un archivo más, con
+  // captura_id = 'informe:<visita_id>' (no es una captura). Misma regla de integridad: el tamaño
+  // en SharePoint tiene que ser el del informe guardado en el bucket de backups.
+  if (body.captura_id.startsWith('informe:')) {
+    const visitaId = body.captura_id.slice('informe:'.length);
+    if (!/^[0-9a-f-]{36}$/i.test(visitaId)) return json({ error: 'Informe no válido' }, 400);
+    const { data: visita } = await admin
+      .from('visita')
+      .select('informe_storage_path, informe_sharepoint_en')
+      .eq('id', visitaId)
+      .maybeSingle();
+    if (!visita) return json({ error: 'Visita no encontrada' }, 404);
+    const subido = Number(body.tamano);
+    const original = await tamanoEnStorage(admin, 'backups-visita', visita.informe_storage_path);
+    if (!subido || original === null || subido !== original) {
+      return json({ error: `Tamaño del informe no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}` }, 409);
+    }
+    const { error: errorInforme } = await admin.rpc('fn_confirmar_informe_visita', {
+      p_visita_id: visitaId,
+      p_ruta_sharepoint: body.ruta_sharepoint,
+    });
+    if (errorInforme) return json({ error: errorInforme.message }, 500);
+    return json({ ok: true });
+  }
+
   // Integridad: la copia solo se da por buena si SharePoint guardó exactamente
   // los mismos bytes (mismo tamaño). Sin tamaño o distinto, NO se confirma: el
   // original sigue en Supabase y el cron reintenta.

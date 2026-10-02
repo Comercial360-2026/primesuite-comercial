@@ -219,44 +219,53 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Falta visitaId' }, 400);
   }
 
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    return jsonResponse({ error: 'No autenticado' }, 401);
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-  // Cliente "como el usuario que llama" — solo para validar quién es.
-  const clienteUsuario = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: userError } = await clienteUsuario.auth.getUser();
-  if (userError || !userData.user) {
-    return jsonResponse({ error: 'Sesión no válida' }, 401);
-  }
-  const comercialId = userData.user.id;
 
   // Cliente con service_role — el resto de la función necesita saltarse
   // RLS para leer todas las capturas/hallazgos/oportunidades de la visita
   // y escribir el zip en el bucket de backups.
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
-  // Autorización manual (misma regla que las políticas RLS de borrado):
-  // participante de la visita, o direccion_comercial.
-  const [{ data: participante }, { data: comercial }] = await Promise.all([
-    admin
-      .from('visita_participante')
-      .select('id')
-      .eq('visita_id', visitaId)
-      .eq('comercial_id', comercialId)
-      .maybeSingle(),
-    admin.from('comercial').select('rol').eq('id', comercialId).single(),
-  ]);
-  const autorizado = !!participante || comercial?.rol === 'direccion_comercial';
-  if (!autorizado) {
-    return jsonResponse({ error: 'No tienes permiso para generar el backup de esta visita.' }, 403);
+  // Llamada del worker de archivado (informe.html a SharePoint): se identifica con la clave del
+  // worker (Vault), igual que procesar-briefings; no es un usuario, así que no hay comprobación de
+  // participante.
+  const claveWorker = req.headers.get('x-clave-worker');
+  if (claveWorker) {
+    const { data: claveOk } = await admin.rpc('fn_clave_worker_valida', { p_clave: claveWorker });
+    if (claveOk !== true) return jsonResponse({ error: 'No autorizado' }, 401);
+  } else {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return jsonResponse({ error: 'No autenticado' }, 401);
+    }
+
+    // Cliente "como el usuario que llama" — solo para validar quién es.
+    const clienteUsuario = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await clienteUsuario.auth.getUser();
+    if (userError || !userData.user) {
+      return jsonResponse({ error: 'Sesión no válida' }, 401);
+    }
+    const comercialId = userData.user.id;
+
+    // Autorización manual (misma regla que las políticas RLS de borrado):
+    // participante de la visita, o direccion_comercial.
+    const [{ data: participante }, { data: comercial }] = await Promise.all([
+      admin
+        .from('visita_participante')
+        .select('id')
+        .eq('visita_id', visitaId)
+        .eq('comercial_id', comercialId)
+        .maybeSingle(),
+      admin.from('comercial').select('rol').eq('id', comercialId).single(),
+    ]);
+    const autorizado = !!participante || comercial?.rol === 'direccion_comercial';
+    if (!autorizado) {
+      return jsonResponse({ error: 'No tienes permiso para generar el backup de esta visita.' }, 403);
+    }
   }
 
   // --- Recolección de datos de la visita ---
@@ -922,5 +931,6 @@ Deno.serve(async (req) => {
     url: firmada.signedUrl,
     expiraEnSegundos: URL_FIRMADA_SEGUNDOS,
     tamanoBytes: archivo.bytes.byteLength,
+    ruta,
   });
 });
