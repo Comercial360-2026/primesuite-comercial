@@ -706,8 +706,11 @@ export function VisitaActiva() {
     // responsable, o una solicitud aceptada de otro participante) y esta
     // pantalla necesita enterarse sola si sigue abierta esperando.
     refetchInterval: (query) => {
-      const d = query.state.data as { estado_captura?: string } | null | undefined;
+      const d = query.state.data as { estado_captura?: string; medio?: string } | null | undefined;
       if (d == null) return 4000;
+      // Visita recién sincronizada: la RPC la crea presencial y el UPDATE del medio
+      // (Teams / llamada) llega un instante después — releer rápido hasta que cuadre.
+      if (d.medio === 'presencial' && visitaLocal?.medio && visitaLocal.medio !== 'presencial') return 2000;
       return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
     queryFn: async (): Promise<{
