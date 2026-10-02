@@ -12,8 +12,9 @@ actividad durante 18 h** (`ajustes_app.visita_autocierre_horas`; `valor` = activ
 - `cerrada_en` = su última actividad (no la hora del cron); `cierre_automatico = true`.
 - Las visitas vacías no se cierran (se descartan desde el panel de visitas abiertas).
 - Al reabrir, `cierre_automatico` se limpia y `ultima_actividad_en = now()` (no se recierra al instante).
-- El resumen automático no se genera en el servidor: la visita cerrada lo genera al abrirse la primera vez
-  (`regenerarResumenSiAuto`; uno escrito a mano nunca se toca).
+- El resumen automático se genera en el servidor al cerrar (`fn_resumen_visita_reglas`, migraciones 137-138; misma lógica que
+  `src/lib/resumen-visita.ts`: si se cambia una frase, cambiarla en los dos). Al editar contenido después sigue regenerándose
+  en el cliente (`regenerarResumenSiAuto`; uno escrito a mano nunca se toca).
 
 ## Avisos
 - Desde las 8 h sin actividad: aviso en la visita en curso y en la fila del panel «visitas abiertas»
