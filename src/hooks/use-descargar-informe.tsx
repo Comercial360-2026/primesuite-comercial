@@ -110,13 +110,22 @@ export function useDescargarInforme() {
           const hechas = Math.round(((tanda.fotos - tanda.pendientes) / tanda.fotos) * 100);
           setProgresos((prev) => ({ ...prev, [clave]: hechas }));
         }
+        setProgresos((prev) => ({ ...prev, [clave]: 100 }));
       }
-      setProgresos((prev) => ({ ...prev, [clave]: 100 }));
-      const { data, error } = await conLimite(supabase.functions.invoke(funcion, { body }));
-      if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
+      // Los originales (zip) se reparten en archivos de ~40 MB y una petición no da tiempo a todos si
+      // hay muchos: el servidor responde con los que ha hecho y `continuar`; se vuelve a pedir desde
+      // ahí hasta que no queda nada, y al final se bajan todos.
+      let { data, error } = await conLimite(supabase.functions.invoke(funcion, { body }));
+      const partes: { url: string; tamanoBytes: number }[] = [...(data?.partes ?? [])];
+      for (let vuelta = 0; !error && data?.continuar && vuelta < 50; vuelta++) {
+        ({ data, error } = await conLimite(supabase.functions.invoke(funcion, { body: { ...body, ...data.continuar } })));
+        if (data?.partes) partes.push(...data.partes);
+      }
+      if (error || (!data?.url && !partes.length)) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
-      const urls: string[] = Array.isArray(data.partes) && data.partes.length ? data.partes.map((p: { url: string }) => p.url) : [data.url];
-      const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0, ...(urls.length > 1 ? { partes: urls.length } : {}) };
+      const urls: string[] = partes.length ? partes.map((p) => p.url) : [data.url];
+      const total = partes.length ? partes.reduce((t, x) => t + x.tamanoBytes, 0) : (data.tamanoBytes ?? 0);
+      const listo = { url: urls[0], tamanoBytes: total, ...(urls.length > 1 ? { partes: urls.length } : {}) };
       setEstados((prev) => ({ ...prev, [clave]: listo }));
       // Un solo toque: en cuanto está listo, el archivo se guarda solo. Si esto
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace

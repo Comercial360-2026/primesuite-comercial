@@ -81,6 +81,15 @@ import {
 } from '../_shared/informe-pdf.ts';
 
 const LIMITE_OBJETO_BYTES = 50 * 1024 * 1024; // máximo por objeto en Storage (plan gratuito de Supabase)
+// Lo que se va sumando entre las peticiones de un mismo ZIP (para el LEEME de la última parte).
+interface ZipAcumulado {
+  fotos: number;
+  audios: number;
+  documentos: number;
+  perdidasFotos: number;
+  perdidasAudios: number;
+  perdidasDocumentos: number;
+}
 const URL_FIRMADA_SEGUNDOS = 60 * 60; // 1h de descarga — el zip vive ~2h en Storage antes de autoborrarse.
 
 // ---------------------------------------------------------------------
@@ -215,9 +224,14 @@ Deno.serve(async (req) => {
   // Solo lo pide el worker de archivado: el PDF va a la carpeta de la visita en SharePoint, donde los
   // audios y documentos están al lado (no hay «Todo en ZIP»).
   let pedidoEnSharepoint = false;
+  // Solo 'zip': la respuesta puede ser parcial (`continuar`) y la app vuelve a pedir con esos datos.
+  let zipContinuar: { desde: number; marca: number; parteSiguiente: number; acum: ZipAcumulado } | null = null;
   try {
     const body = await req.json();
     visitaId = body.visitaId;
+    if (body.formato === 'zip' && typeof body.desde === 'number' && body.acum) {
+      zipContinuar = { desde: body.desde, marca: body.marca, parteSiguiente: body.parteSiguiente, acum: body.acum };
+    }
     if (body.formato === 'pdf') formato = 'pdf';
     if (body.formato === 'html') formato = 'html';
     // Solo prepara miniaturas de las fotos (caché de 2 h en backups-visita) para que el informe web pese poco.
@@ -382,23 +396,32 @@ Deno.serve(async (req) => {
 
   // --- ZIP de originales ---
   // Fotos, audios y documentos tal cual se capturaron, sin informe: el PDF y el informe web se
-  // descargan aparte. Supabase no admite objetos de más de 50 MB y una visita con muchas fotos o
-  // audios los pasa, así que el ZIP se parte en trozos de ~40 MB: cada parte se sube en cuanto se
-  // llena y en memoria solo hay una. Ningún archivo suelto pasa de 30 MB (límite de sus buckets).
+  // descargan aparte. Se reparte en tantos archivos como hagan falta, de ~40 MB como máximo cada uno
+  // (Supabase no admite objetos de más de 50 MB), y cada parte se sube en cuanto se llena, así que
+  // en memoria solo hay una. Una petición no puede con todo si hay muchas: a los ~20 s se cierra la
+  // parte en curso y se responde `continuar`; la app vuelve a pedir desde ahí hasta terminar.
+  // Ningún archivo suelto pasa de 30 MB (límite de sus buckets): siempre cabe en una parte.
   if (formato === 'zip') {
     const LIMITE_PARTE = 40 * 1024 * 1024;
-    const marca = Date.now();
-    const subidas: { ruta: string; bytes: number }[] = [];
+    const PRESUPUESTO_MS = 20_000;
+    const inicio = performance.now();
+    const marca = zipContinuar?.marca ?? Date.now();
+    const acum: ZipAcumulado = zipContinuar?.acum ?? {
+      fotos: 0, audios: 0, documentos: 0, perdidasFotos: 0, perdidasAudios: 0, perdidasDocumentos: 0,
+    };
+    let nParte = zipContinuar?.parteSiguiente ?? 1;
+    const subidas: { ruta: string; bytes: number; n: number }[] = [];
     let zipActual = new JSZip();
     let bytesActual = 0;
     const cerrarParte = async (): Promise<string | null> => {
       const data = await zipActual.generateAsync({ type: 'uint8array' });
-      const ruta = `${visitaId}/${marca}-parte-${subidas.length + 1}.zip`;
+      const ruta = `${visitaId}/${marca}-parte-${nParte}.zip`;
       const { error } = await admin.storage
         .from('backups-visita')
         .upload(ruta, data, { contentType: 'application/zip', upsert: true });
       if (error) return error.message;
-      subidas.push({ ruta, bytes: data.byteLength });
+      subidas.push({ ruta, bytes: data.byteLength, n: nParte });
+      nParte += 1;
       zipActual = new JSZip();
       bytesActual = 0;
       return null;
@@ -412,108 +435,103 @@ Deno.serve(async (req) => {
     };
     const errorZip = (m: string) => jsonResponse({ error: `No se pudo guardar el ZIP: ${m}` }, 500);
 
-    let nFotos = 0;
-    let nAudios = 0;
-    let nDocumentos = 0;
-    let fotosPerdidas = 0;
-    let audiosPerdidos = 0;
-    let documentosPerdidos = 0;
-    let indice = 0;
-    for (const f of fotos) {
-      indice += 1;
-      const bytes = await descargarBinario(admin, 'fotos-visita', f);
-      if (!bytes) {
-        fotosPerdidas += 1;
-        continue;
+    // Todo lo que va al zip, en un orden fijo (así «desde» significa lo mismo en cada petición).
+    const elementos = [
+      ...fotos.map((fila, i) => ({ tipo: 'foto' as const, fila, n: i + 1 })),
+      ...audios.map((fila, i) => ({ tipo: 'audio' as const, fila, n: i + 1 })),
+      ...documentos.map((fila, i) => ({ tipo: 'documento' as const, fila, n: i + 1 })),
+    ];
+    let i = zipContinuar?.desde ?? 0;
+    for (; i < elementos.length; i++) {
+      if (bytesActual > 0 && performance.now() - inicio > PRESUPUESTO_MS) break;
+      const { tipo, fila, n } = elementos[i];
+      const numero = String(n).padStart(2, '0');
+      let fallo: string | null = null;
+      if (tipo === 'foto') {
+        const bytes = await descargarBinario(admin, 'fotos-visita', fila);
+        if (!bytes) {
+          acum.perdidasFotos += 1;
+          continue;
+        }
+        const zona = fila.zona_texto || (fila.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
+        const nombre = [numero, nombreArchivoLegible(zona, ''), nombreArchivoLegible(fila.titulo, 'foto')].filter(Boolean).join(' - ');
+        fallo = await agregar(`fotos/${nombre}.${EXTENSION_POR_FORMATO[detectarFormatoImagen(bytes)]}`, bytes);
+        acum.fotos += 1;
+      } else if (tipo === 'audio') {
+        const bytes = await descargarBinario(admin, 'audios-visita', fila);
+        if (!bytes) {
+          acum.perdidasAudios += 1;
+          continue;
+        }
+        const extension = fila.storage_path?.split('.').pop() || 'm4a';
+        fallo = await agregar(`audios/${numero} - ${nombreArchivoLegible(fila.titulo, 'audio')}.${extension}`, bytes);
+        acum.audios += 1;
+      } else {
+        const descarga = fila.storage_path ? await admin.storage.from('documentos-visita').download(fila.storage_path) : null;
+        if (!descarga?.data) {
+          acum.perdidasDocumentos += 1;
+          continue;
+        }
+        const nombre = (fila.nombre_original || `documento.${fila.storage_path!.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
+        fallo = await agregar(`documentos/${numero} - ${nombre}`, new Uint8Array(await descarga.data.arrayBuffer()));
+        acum.documentos += 1;
       }
-      const ubicacionNombre =
-        f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
-      const nombre = [String(indice).padStart(2, '0'), nombreArchivoLegible(ubicacionNombre, ''), nombreArchivoLegible(f.titulo, 'foto')]
-        .filter(Boolean)
-        .join(' - ');
-      const fallo = await agregar(`fotos/${nombre}.${EXTENSION_POR_FORMATO[detectarFormatoImagen(bytes)]}`, bytes);
       if (fallo) return errorZip(fallo);
-      nFotos += 1;
     }
-    indice = 0;
-    for (const a of audios) {
-      indice += 1;
-      const bytes = await descargarBinario(admin, 'audios-visita', a);
-      if (!bytes) {
-        audiosPerdidos += 1;
-        continue;
-      }
-      const extension = a.storage_path?.split('.').pop() || 'm4a';
-      const nombre = [String(indice).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
-      const fallo = await agregar(`audios/${nombre}.${extension}`, bytes);
-      if (fallo) return errorZip(fallo);
-      nAudios += 1;
-    }
-    indice = 0;
-    for (const d of documentos) {
-      indice += 1;
-      if (!d.storage_path) {
-        documentosPerdidos += 1;
-        continue;
-      }
-      const { data, error } = await admin.storage.from('documentos-visita').download(d.storage_path);
-      if (error || !data) {
-        documentosPerdidos += 1;
-        continue;
-      }
-      const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
-      const fallo = await agregar(`documentos/${String(indice).padStart(2, '0')} - ${nombre}`, new Uint8Array(await data.arrayBuffer()));
-      if (fallo) return errorZip(fallo);
-      nDocumentos += 1;
-    }
+    const terminado = i >= elementos.length;
 
-    // LEEME en la última parte (cuando ya se sabe cuántas hay y qué no se pudo recuperar).
-    const ahoraZip = new Date().toISOString();
-    const totalPartes = subidas.length + 1;
-    zipActual.file(
-      'LEEME.txt',
-      `PrimeNotes — originales de la visita\n` +
-        `==========================================\n\n` +
-        `Cliente:   ${clienteInfo?.nombre ?? 'cliente'}\n` +
-        `Visita:    ${fechaLarga(visita.fecha)}\n` +
-        `Generado:  ${fechaLarga(ahoraZip)}, ${horaDe(ahoraZip)}\n\n` +
-        `Contenido (${nFotos} foto${nFotos === 1 ? '' : 's'}, ${nAudios} audio${nAudios === 1 ? '' : 's'}, ${nDocumentos} documento${nDocumentos === 1 ? '' : 's'}):\n\n` +
-        `  fotos/        Todas las fotos en su resolución original, numeradas por orden de\n` +
-        `                captura; el nombre lleva la zona donde se hicieron.\n` +
-        `  audios/       Grabaciones de voz de la visita.\n` +
-        `  documentos/   Documentos adjuntos, con su nombre original.\n\n` +
-        (totalPartes > 1
-          ? `Esta copia viene en ${totalPartes} partes (parte-1 … parte-${totalPartes}): son carpetas distintas con\n` +
-            `archivos distintos; descomprímelas todas en el mismo sitio. Esta es la última.\n\n`
-          : '') +
-        `El informe de la visita (PDF y web) no va aquí: se descarga aparte desde la visita.\n\n` +
-        `Notas:\n` +
-        `  - Este material es de uso interno.\n` +
-        (fotosPerdidas > 0 ? `  - ${fotosPerdidas} foto(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
-        (audiosPerdidos > 0 ? `  - ${audiosPerdidos} audio(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
-        (documentosPerdidos > 0 ? `  - ${documentosPerdidos} documento(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
-        `\nGenerado automáticamente por PrimeNotes. No respondas a este\narchivo; para dudas, contacta con tu responsable comercial.\n`
-    );
-    const falloFinal = await cerrarParte();
-    if (falloFinal) return errorZip(falloFinal);
+    if (terminado) {
+      // LEEME en la última parte (cuando ya se sabe cuántas hay y qué no se pudo recuperar).
+      const ahoraZip = new Date().toISOString();
+      zipActual.file(
+        'LEEME.txt',
+        `PrimeNotes — originales de la visita\n` +
+          `==========================================\n\n` +
+          `Cliente:   ${clienteInfo?.nombre ?? 'cliente'}\n` +
+          `Visita:    ${fechaLarga(visita.fecha)}\n` +
+          `Generado:  ${fechaLarga(ahoraZip)}, ${horaDe(ahoraZip)}\n\n` +
+          `Contenido (${acum.fotos} foto${acum.fotos === 1 ? '' : 's'}, ${acum.audios} audio${acum.audios === 1 ? '' : 's'}, ${acum.documentos} documento${acum.documentos === 1 ? '' : 's'}):\n\n` +
+          `  fotos/        Todas las fotos en su resolución original, numeradas por orden de\n` +
+          `                captura; el nombre lleva la zona donde se hicieron.\n` +
+          `  audios/       Grabaciones de voz de la visita.\n` +
+          `  documentos/   Documentos adjuntos, con su nombre original.\n\n` +
+          (nParte > 1
+            ? `Esta copia viene en ${nParte} archivos (parte-1 … parte-${nParte}) porque pesa mucho: cada uno lleva\n` +
+              `ficheros distintos; descomprímelos todos en el mismo sitio. Este es el último.\n\n`
+            : '') +
+          `El informe de la visita (PDF y web) no va aquí: se descarga aparte desde la visita.\n\n` +
+          `Notas:\n` +
+          `  - Este material es de uso interno.\n` +
+          (acum.perdidasFotos > 0 ? `  - ${acum.perdidasFotos} foto(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+          (acum.perdidasAudios > 0 ? `  - ${acum.perdidasAudios} audio(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+          (acum.perdidasDocumentos > 0 ? `  - ${acum.perdidasDocumentos} documento(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+          `\nGenerado automáticamente por PrimeNotes. No respondas a este\narchivo; para dudas, contacta con tu responsable comercial.\n`
+      );
+    }
+    if (bytesActual > 0 || terminado) {
+      const fallo = await cerrarParte();
+      if (fallo) return errorZip(fallo);
+    }
 
     const nombreBase = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}`;
+    // Sin sufijo solo si todo cupo en un único archivo.
+    const unico = terminado && subidas.length === 1 && subidas[0].n === 1;
     const partes: { url: string; tamanoBytes: number }[] = [];
-    for (const [i, parte] of subidas.entries()) {
-      const nombreDescarga = `${nombreBase}${subidas.length > 1 ? `-parte-${i + 1}-de-${subidas.length}` : ''}.zip`;
+    for (const parte of subidas) {
       const { data: firmada, error: errorFirma } = await admin.storage
         .from('backups-visita')
-        .createSignedUrl(parte.ruta, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
+        .createSignedUrl(parte.ruta, URL_FIRMADA_SEGUNDOS, { download: `${nombreBase}${unico ? '' : `-parte-${parte.n}`}.zip` });
       if (errorFirma || !firmada) return jsonResponse({ error: 'ZIP generado pero no se pudo crear el enlace de descarga.' }, 500);
       partes.push({ url: firmada.signedUrl, tamanoBytes: parte.bytes });
     }
     await limpiarBackupsCaducados(admin);
     return jsonResponse({
-      url: partes[0].url,
+      url: partes[0]?.url ?? null,
       partes,
       expiraEnSegundos: URL_FIRMADA_SEGUNDOS,
       tamanoBytes: subidas.reduce((t, x) => t + x.bytes, 0),
-      ruta: subidas[0].ruta,
+      ruta: subidas[0]?.ruta ?? null,
+      continuar: terminado ? null : { desde: i, marca, parteSiguiente: nParte, acum },
     });
   }
 
