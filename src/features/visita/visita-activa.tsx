@@ -23,7 +23,7 @@ import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
 import { FilaMedioVisita } from './fila-medio-visita';
-import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
+import { MEDIO_VISITA, medioDe, esNoPresencial, type MedioVisita } from '@/lib/medio-visita';
 import { ParticipantesHoja } from './participantes-hoja';
 import { BriefingHoja } from './briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
@@ -547,7 +547,10 @@ export function VisitaActiva() {
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
-  const { iniciarVisita } = useVisitaActivaContext();
+  const { iniciarVisita, visitaEnCurso } = useVisitaActivaContext();
+  // Medio con el que se arrancó la visita (lo trae el contexto al llegar desde la ventana
+  // «¿A qué vas?»), por si la cola ya se vació y no queda copia local. Se anula al cambiarlo a mano.
+  const medioEsperadoRef = useRef<MedioVisita | undefined>(visitaEnCurso?.id === visitaId ? visitaEnCurso.medio : undefined);
   const { operaciones, encolar, recargar: recargarCola } = useSyncQueue(visitaId);
 
   // Zona (opcional) de la captura: una ETIQUETA DE TEXTO LIBRE que el
@@ -710,7 +713,8 @@ export function VisitaActiva() {
       if (d == null) return 4000;
       // Visita recién sincronizada: la RPC la crea presencial y el UPDATE del medio
       // (Teams / llamada) llega un instante después — releer rápido hasta que cuadre.
-      if (d.medio === 'presencial' && visitaLocal?.medio && visitaLocal.medio !== 'presencial') return 2000;
+      const esperado = medioEsperadoRef.current ?? visitaLocal?.medio;
+      if (d.medio === 'presencial' && esperado && esperado !== 'presencial') return 2000;
       return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
     queryFn: async (): Promise<{
@@ -2269,7 +2273,10 @@ export function VisitaActiva() {
             medio={medioVisita}
             enlace={visitaServidor?.enlace_reunion ?? null}
             editable={!!visitaServidor}
-            onCambiado={() => void queryClient.invalidateQueries({ queryKey: objetivoQueryKey })}
+            onCambiado={() => {
+              medioEsperadoRef.current = 'presencial';
+              void queryClient.invalidateQueries({ queryKey: objetivoQueryKey });
+            }}
           />
         )}
 
