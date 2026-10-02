@@ -80,17 +80,30 @@ export function useDescargarInforme() {
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
       const { funcion, body } = PETICION_POR_TIPO[tipo](id);
-      const invocacion = supabase.functions.invoke(funcion, { body });
-      const limite = new Promise<never>((_, reject) => {
-        temporizador = setTimeout(() => {
-          // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
-          // en la práctica, a los 45 s sin respuesta la causa es la red.
-          const e = new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.');
-          e.name = 'TimeoutDescarga';
-          reject(e);
-        }, TIMEOUT_MS);
-      });
-      const { data, error } = await Promise.race([invocacion, limite]);
+      const conLimite = <T,>(p: PromiseLike<T>) => {
+        const limite = new Promise<never>((_, reject) => {
+          temporizador = setTimeout(() => {
+            // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
+            // en la práctica, a los 45 s sin respuesta la causa es la red.
+            const e = new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.');
+            e.name = 'TimeoutDescarga';
+            reject(e);
+          }, TIMEOUT_MS);
+        });
+        return Promise.race([p, limite]).finally(() => clearTimeout(temporizador));
+      };
+      // PDF e informe web llevan las fotos reducidas (caché en el servidor). Reducir cuesta CPU y cada
+      // llamada tiene presupuesto: se piden tandas hasta que no quede ninguna pendiente (visitas con
+      // muchas fotos no cabían en una sola petición). Si falla, se sigue: el informe sale con lo que haya.
+      if (tipo === 'visita' || tipo === 'visita-web') {
+        for (let i = 0; i < 15; i++) {
+          const { data: tanda, error: errorTanda } = await conLimite(
+            supabase.functions.invoke(funcion, { body: { visitaId: id, formato: 'miniaturas' } })
+          );
+          if (errorTanda || !tanda?.pendientes) break;
+        }
+      }
+      const { data, error } = await conLimite(supabase.functions.invoke(funcion, { body }));
       if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
       const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 };

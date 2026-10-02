@@ -480,10 +480,20 @@ Deno.serve(async (req) => {
     indiceFoto += 1;
     const ubicacionNombre =
       f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
-    // Informe web con la miniatura ya en caché: no hace falta bajar el original (ahorra casi todo el tiempo).
-    if (formatoSalida === 'html') {
+    // Informe web y PDF con la miniatura ya en caché: no hace falta bajar el original (ahorra tiempo y,
+    // sobre todo, memoria: con ~35+ originales el PDF se quedaba sin recursos).
+    if (formatoSalida === 'html' || formatoSalida === 'pdf') {
       const enCache = await miniaturaEnCache(f);
       const formatoCache = enCache ? detectarFormatoImagen(enCache) : 'desconocido';
+      if (enCache && (formatoCache === 'jpeg' || formatoCache === 'png') && formatoSalida === 'pdf') {
+        fotosParaPdf.push({
+          titulo: f.titulo,
+          ubicacionNombre,
+          creadoEn: f.creado_en,
+          dataUri: `data:image/${formatoCache};base64,${base64Encode(enCache)}`,
+        });
+        continue;
+      }
       if (enCache && (formatoCache === 'jpeg' || formatoCache === 'png')) {
         fotosHtml.push({
           n: indiceFoto,

@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
           return (await r.json()) as { url: string; ruta: string };
         };
         // Miniaturas primero (cada llamada tiene presupuesto de CPU): hasta que no quede ninguna pendiente.
-        if (v.falta_html) {
+        if (v.falta_html || v.falta_pdf) {
           for (let i = 0; i < 8; i++) {
             const rm = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generar-backup-visita`, {
               method: 'POST',
