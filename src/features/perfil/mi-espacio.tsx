@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { desde, useVolverA } from '@/lib/volver-a';
@@ -75,7 +76,15 @@ function tonoBarraEspacio(nivel: NivelEspacio | undefined): 'riesgo' | 'aviso' |
 // visitas, sin segmentado.
 type Vista = 'mias' | 'equipo';
 
+// La pantalla solo existe con la liberación manual encendida (migración 143); apagada, quien llegue
+// por un enlace antiguo o un marcador vuelve a «Yo».
 export function MiEspacio() {
+  const activo = useEspacioManualActivo();
+  if (activo === undefined) return null;
+  return activo ? <MiEspacioPantalla /> : <Navigate to="/yo" replace />;
+}
+
+function MiEspacioPantalla() {
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
   // "/yo" solo acierta como origen si esta pantalla se alcanza SIEMPRE desde

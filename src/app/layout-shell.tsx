@@ -9,6 +9,7 @@ import { useTourGuiado } from '@/hooks/use-tour-guiado';
 import { TourNavegacionContext } from '@/hooks/use-tour-navegacion-context';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { BannerInstalar } from '@/components/ui/banner-instalar';
 import { TourGuiado } from '@/components/ui/tour-guiado';
 import { Icono, IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
@@ -41,6 +42,7 @@ export function LayoutShell() {
   // clientes duplicados). Antes esto último solo se veía entrando en Yo
   // (Cesar, 14 sept: "entras y no te das cuenta").
   const { aviso: avisoLiberar } = useAvisoLiberar();
+  const espacioManual = useEspacioManualActivo() === true;
   const { hayAvisos: hayAvisosParticipacion } = useAvisosParticipacion();
   const { hayAvisos: hayAvisosGestion } = useAvisosGestion();
 
@@ -108,7 +110,7 @@ export function LayoutShell() {
               <>
                 <IconoYo activo={isActive} />
                 Yo
-                {(avisoLiberar || hayAvisosParticipacion || hayAvisosGestion) && (
+                {((espacioManual && avisoLiberar) || hayAvisosParticipacion || hayAvisosGestion) && (
                   <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
                 )}
               </>

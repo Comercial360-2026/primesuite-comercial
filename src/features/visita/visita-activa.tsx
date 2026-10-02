@@ -12,6 +12,7 @@ import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -657,8 +658,10 @@ export function VisitaActiva() {
   // audios); las notas de texto siguen. Ver src/lib/espacio.ts.
   const { estado: espacioEquipo } = useEspacioEquipo();
   const espacioBloqueado = espacioEquipo?.nivel === 'bloqueo';
-  const MSG_ESPACIO_LLENO =
-    'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).';
+  const espacioManual = useEspacioManualActivo() === true;
+  const MSG_ESPACIO_LLENO = espacioManual
+    ? 'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).'
+    : 'Espacio del equipo lleno. No se pueden añadir fotos ni audios por ahora. Avisa a Dirección.';
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
   // Coordenadas GPS de la última foto elegida. Best-effort: se pide en
@@ -2622,8 +2625,8 @@ export function VisitaActiva() {
         {espacioBloqueado && (
           <Aviso tipo="atencion" titulo="Sin espacio para fotos ni audios">
             El espacio del equipo está lleno. Anotar y Próximo paso siguen
-            funcionando; para volver a subir fotos y audios, alguien tiene que
-            liberar espacio en Yo → Mi espacio.
+            funcionando; para volver a subir fotos y audios,{' '}
+            {espacioManual ? 'alguien tiene que liberar espacio en Yo → Mi espacio.' : 'avisa a Dirección.'}
           </Aviso>
         )}
 

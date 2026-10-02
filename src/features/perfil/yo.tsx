@@ -7,6 +7,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
@@ -17,6 +18,7 @@ import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Avatar } from '@/components/ui/avatar';
@@ -331,6 +333,7 @@ export function Yo() {
   // lo pedía por su cuenta con fn_espacio_storage_usado y lo pintaba como
   // una tarjeta aparte con el mismo número.
   const { estado: espacioEquipo } = useEspacioEquipo();
+  const espacioManual = useEspacioManualActivo() === true;
   const tonoEquipo: 'neutral' | 'aviso' | 'riesgo' =
     espacioEquipo == null
       ? 'neutral'
@@ -600,7 +603,7 @@ export function Yo() {
           </div>
         )}
 
-        {!esDireccionComercial && (
+        {!esDireccionComercial && espacioManual && (
           <SeccionLista titulo="Tu espacio">
             <FilaNavegable
               icono="almacenamiento"
@@ -628,14 +631,24 @@ export function Yo() {
                   espacio", la FilaDato "Espacio del equipo" y "Consumo por
                   comercial"— repartidas en dos secciones y dos de ellas
                   abrían la misma pantalla. */}
-              <FilaNavegable
-                icono="almacenamiento"
-                titulo="Almacenamiento"
-                subtitulo="Tus visitas y el consumo del equipo"
-                tono={tonoEquipo}
-                valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
-                to="/mi-espacio"
-              />
+              {espacioManual ? (
+                <FilaNavegable
+                  icono="almacenamiento"
+                  titulo="Almacenamiento"
+                  subtitulo="Tus visitas y el consumo del equipo"
+                  tono={tonoEquipo}
+                  valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+                  to="/mi-espacio"
+                />
+              ) : (
+                // Sin liberación manual solo queda el dato: cuánto lleva el pozo del equipo.
+                <FilaDato
+                  icono="almacenamiento"
+                  etiqueta="Espacio del equipo"
+                  tono={tonoEquipo}
+                  valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+                />
+              )}
               <FilaNavegable
                 icono="equipo"
                 titulo="Actividad por comercial"
