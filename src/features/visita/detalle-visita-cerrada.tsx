@@ -120,7 +120,7 @@ export function DetalleVisitaCerrada() {
   // estampa su URL para que el ← de esas vuelva aquí, no a Hoy.
   const origen = desde(location);
 
-  const { estadoDe, descargar } = useDescargarInforme();
+  const { estadoDe, descargar, progresoDe } = useDescargarInforme();
   const [visorIndice, setVisorIndice] = useState<number | null>(null);
 
   // Editar a mano el resumen de la visita (pasa a `resumen_origen = 'manual'`).
@@ -763,7 +763,7 @@ export function DetalleVisitaCerrada() {
               las encontraba y se acababa pidiendo el informe del proyecto,
               que no lleva fotos (Cesar, 25 sept). */}
           {visitaId && visitaCerrada && (
-            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} />
           )}
 
           {!!fallosArchivado?.length && (

@@ -15,9 +15,12 @@ const FILAS: Array<{ tipo: TipoInforme; titulo: string; queLleva: string; etique
   { tipo: 'visita-zip', titulo: 'Todo en ZIP', queLleva: 'PDF, informe web, fotos originales, audios y documentos', etiqueta: 'Descargar ZIP' },
 ];
 
-function subtitulo(estado: EstadoDescarga, queLleva: string) {
+function subtitulo(estado: EstadoDescarga, queLleva: string, progreso: number | null) {
   if (typeof estado === 'object') return `Descargado (${formatearMB(estado.tamanoBytes)} MB)`;
-  if (estado === 'generando') return 'Generando…';
+  if (estado === 'generando') {
+    if (progreso === null || progreso === 0) return 'Generando… puede tardar un minuto con muchas fotos';
+    return progreso < 100 ? `Preparando las fotos… ${progreso} %` : 'Montando el archivo…';
+  }
   if (estado === 'sin-red') return 'Sin conexión. Inténtalo cuando tengas red';
   if (estado === 'error') return 'No se pudo generar, toca de nuevo';
   return queLleva;
@@ -27,10 +30,12 @@ export function DescargasVisita({
   visitaId,
   estadoDe,
   descargar,
+  progresoDe,
 }: {
   visitaId: string;
   estadoDe: (tipo: TipoInforme, id: string) => EstadoDescarga;
-  descargar: (tipo: TipoInforme, id: string, modo?: 'descargar' | 'abrir') => Promise<EstadoDescarga>;
+  descargar: (tipo: TipoInforme, id: string) => Promise<EstadoDescarga>;
+  progresoDe: (tipo: TipoInforme, id: string) => number | null;
 }) {
   return (
     <SeccionLista>
@@ -42,20 +47,8 @@ export function DescargasVisita({
             key={tipo}
             densidad="compacta"
             titulo={titulo}
-            subtitulo={subtitulo(estado, queLleva)}
+            subtitulo={subtitulo(estado, queLleva, progresoDe(tipo, visitaId))}
             acciones={[
-              // El informe web es una página: además de bajarlo se puede abrir directamente.
-              ...(tipo === 'visita-web'
-                ? [
-                    {
-                      icono: 'abrir' as const,
-                      etiqueta: 'Abrir informe web',
-                      onClick: () => void descargar(tipo, visitaId, 'abrir'),
-                      disabled: estado === 'generando',
-                      tono: 'neutral' as const,
-                    },
-                  ]
-                : []),
               {
                 icono: 'descargar',
                 etiqueta: listo ? `${etiqueta} otra vez` : etiqueta,

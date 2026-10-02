@@ -967,7 +967,7 @@ Deno.serve(async (req) => {
     audios: audiosHtml,
     documentos: documentosHtml,
     enZip: formato === 'zip',
-    enlaceApp: `${(Deno.env.get('APP_URL') ?? 'https://rococo-gumption-efb70a.netlify.app').replace(/\/+$/, '')}/visita/${visitaId}`,
+    enlaceApp: `${(Deno.env.get('APP_URL') ?? 'https://rococo-gumption-efb70a.netlify.app').replace(/\/+$/, '')}/visita/${visitaId}${visitaEnCurso ? '' : '/detalle'}`,
     avisos: avisosHtml,
     generadoEn: `${fechaLarga(ahora)}, ${horaDe(ahora)}`,
     logo: typeof PRIMION_LOGO === 'string' ? PRIMION_LOGO : null,

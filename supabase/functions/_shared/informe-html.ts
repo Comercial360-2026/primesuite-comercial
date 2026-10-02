@@ -70,7 +70,7 @@ export interface DatosInformeHtml {
   avisos: string[]; // "2 fotos no se pudieron recuperar…"
   generadoEn: string; // "2 de octubre de 2026, 10:41"
   logo: string | null; // data URI
-  enlaceApp: string | null; // «Abrir en PrimeNotes» (la visita viva)
+  enlaceApp: string | null; // «Abrir la visita» (la visita en la app)
 }
 
 const esc = (t: unknown) =>
@@ -232,8 +232,8 @@ body{margin:0;background:#f6f7f9;color:var(--ink9);font:15px/1.5 -apple-system,B
 main{max-width:980px;margin:0 auto;padding:16px 16px 64px}
 .barra{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--ink2)}
 .barra__in{max-width:980px;margin:0 auto;padding:8px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
-.barra__titulo{font-weight:700;color:var(--b7);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis}
-.menu{display:flex;gap:6px;overflow-x:auto;flex:1 1 320px;min-width:0;scrollbar-width:thin}
+.barra__titulo{font-weight:700;color:var(--b7);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;margin-right:auto}
+.menu{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 100%;order:3;min-width:0}
 .menu a{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none;color:var(--ink7);padding:5px 11px;border-radius:99px;font-size:13px;font-weight:600;background:var(--ink1)}
 .menu a:hover,.menu a.activo{background:var(--b6);color:#fff}
 .menu a b{font-weight:700;opacity:.7}
@@ -281,8 +281,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--ink2);border-bottom:0} .venc
 .foto:hover,.foto:focus-visible{border-color:var(--b6);box-shadow:0 0 0 2px rgba(26,54,84,.2)}
 .foto img{display:block;width:100%;height:120px;object-fit:cover;background:var(--ink1)}
 .sin-imagen{height:120px;display:flex;align-items:center;justify-content:center;background:var(--ink1);color:var(--ink4);font-size:12px;padding:8px;text-align:center}
-.foto figcaption{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:12px}
-.foto__titulo{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.foto figcaption{display:flex;align-items:flex-start;gap:6px;padding:6px 8px;font-size:12px}
+.foto__titulo{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600}
 .num{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:99px;background:var(--b6);color:#fff;font-size:11px;font-weight:700}
 .hora{margin-left:auto;color:var(--ink4);font-weight:400;font-size:12px}
 a{color:var(--b6)}
@@ -318,7 +318,7 @@ body.modo-zona .menu[data-vista=zona]{display:flex}
 [hidden]{display:none!important}
 .acciones{display:none}
 @media(max-width:640px){main{padding:10px 10px 48px} section,header.portada{padding:14px 14px} .barra__titulo{display:none} .portada h1{font-size:23px} .visor__img{padding:8px 8px}
-.barra__in{padding:6px 10px} .menu{flex:1 1 100%}
+.barra__in{padding:6px 10px} .menu{flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
 .acciones{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px} .acciones input[type=search]{flex:1 1 100%;min-width:0}}
 @media print{body{background:#fff}.barra,.filtros,#resultados,.mapa-bloque,.visor,.btn{display:none!important}section,header.portada{border:0;padding:0;break-inside:avoid-page}.foto{break-inside:avoid}.fotos{grid-template-columns:repeat(4,1fr)}}
 `;
@@ -447,7 +447,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   visor.addEventListener('touchstart',function(e){x0=e.touches[0].clientX},{passive:true});
   visor.addEventListener('touchend',function(e){if(x0==null)return;var dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)mover(dx<0?1:-1)});
 
-  // Mapa (Leaflet + OpenStreetMap).
+  // Mapa (Leaflet + datos de OpenStreetMap, teselas de CARTO: no exigen Referer).
   function irAlMapa(n){
     var el=document.getElementById('mapa-fotos');if(!el)return;
     el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -458,7 +458,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     if(!window.L){el.textContent='El mapa necesita conexión a internet. Las coordenadas de cada foto están en su visor (Google Maps).'}
     else{
       mapa=L.map(el,{scrollWheelZoom:false});
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(mapa);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(mapa);
       var pts=[];
       PINES.forEach(function(p){
         var m=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'<div class="pin">'+p.n+'</div>',iconSize:[28,28],iconAnchor:[14,14]})}).addTo(mapa);
@@ -551,7 +551,7 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
     <nav class="menu" data-vista="tipo" aria-label="Secciones">${menu}</nav>
     <nav class="menu" data-vista="zona" aria-label="Zonas"></nav>
     <input id="buscar" type="search" placeholder="Buscar en el informe…" aria-label="Buscar en el informe">
-    ${d.enlaceApp ? `<a class="btn primario" href="${esc(d.enlaceApp)}" target="_blank" rel="noreferrer">Abrir en PrimeNotes</a>` : ''}
+    ${d.enlaceApp ? `<a class="btn primario" href="${esc(d.enlaceApp)}" target="_blank" rel="noreferrer">Abrir la visita</a>` : ''}
     <button class="btn" id="imprimir" type="button">Imprimir</button>
   </div></div>`;
 
@@ -595,9 +595,10 @@ ${barra}
 <main>
 <div class="acciones" id="acciones"></div>
 ${portada}
+<div class="vista">${fijas.filter((s) => s.id === 'resumen').map((s) => s.html).join('\n')}</div>
 ${herramientas}
 <p id="resultados" aria-live="polite"></p>
-<div class="vista">${fijas.map((s) => s.html).join('\n')}</div>
+<div class="vista">${fijas.filter((s) => s.id !== 'resumen').map((s) => s.html).join('\n')}</div>
 <div class="vista" id="vista-tipo">${tipos.map((s) => s.html).join('\n')}</div>
 <div class="vista" id="vista-zona" hidden></div>
 <footer>Generado el ${esc(d.generadoEn)} por PrimeNotes · documento interno. Refleja el estado de la visita en el momento de generarlo.</footer>
