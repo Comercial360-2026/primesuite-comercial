@@ -599,36 +599,26 @@ textarea.field {
 .visita-en-curso-banner > svg { vertical-align: -4px; margin-right: 6px; }
 .visita-en-curso-banner--teams > svg { color: var(--medio-teams); }
 .visita-en-curso-banner--llamada > svg { color: var(--medio-llamada); }
-/* «¿Cómo es la visita?»: tres botones en una fila, compactos (44 px = mínimo táctil)
-   pero inconfundibles: el elegido se rellena del color del medio con texto blanco; los
-   demás, blancos con borde. Icono + palabra + color. */
+/* «¿Cómo es la visita?»: una línea — título + nombre del elegido a la izquierda, tres
+   iconos de 44 px a la derecha. Solo el elegido va relleno de su color (icono blanco);
+   los otros, grises sobre blanco. */
 .medio-selector { margin: var(--space-2) 0 var(--space-3); }
-.medio-selector__titulo { font-size: var(--text-sm); font-weight: 600; color: var(--ink-700); margin-bottom: 6px; }
-.medio-opciones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.medio-selector__fila { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.medio-selector__titulo { font-size: var(--text-sm); font-weight: 600; color: var(--ink-700); }
+.medio-selector__elegido { font-size: var(--text-sm); font-weight: 700; color: var(--brand-600); }
+.medio-selector__elegido--teams { color: var(--medio-teams); }
+.medio-selector__elegido--llamada { color: var(--medio-llamada); }
+.medio-opciones { display: flex; gap: 6px; flex-shrink: 0; }
 .medio-opcion {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 44px; padding: 6px 4px;
-  background: var(--surface-1); color: var(--ink-700);
-  border: 1.5px solid var(--ink-200); border-radius: var(--radius-field);
-  font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; padding: 0;
+  background: var(--surface-1); color: var(--ink-400);
+  border: 1.5px solid var(--ink-200); border-radius: var(--radius-field); cursor: pointer;
 }
 .medio-opcion--on { color: #fff; border-color: transparent; }
 .medio-opcion--presencial.medio-opcion--on { background: var(--brand-600); }
 .medio-opcion--teams.medio-opcion--on { background: var(--medio-teams); }
 .medio-opcion--llamada.medio-opcion--on { background: var(--medio-llamada); }
-.medio-opcion--teams:not(.medio-opcion--on) > svg { color: var(--medio-teams); }
-.medio-opcion--llamada:not(.medio-opcion--on) > svg { color: var(--medio-llamada); }
-/* El medio de la visita, siempre a la vista dentro de la visita: una línea con el tono del medio. */
-.medio-tarjeta {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: 6px 6px 6px var(--space-3); margin-bottom: var(--space-3);
-  border-radius: var(--radius-field); border: 1.5px solid var(--ink-200); background: var(--surface-1);
-}
-.medio-tarjeta--teams { background: var(--medio-teams-050); border-color: var(--medio-teams); }
-.medio-tarjeta--llamada { background: var(--medio-llamada-050); border-color: var(--medio-llamada); }
-.medio-tarjeta--teams > svg { color: var(--medio-teams); }
-.medio-tarjeta--llamada > svg { color: var(--medio-llamada); }
-.medio-tarjeta__texto { flex: 1; min-width: 0; font-weight: 600; font-size: var(--text-sm); color: var(--ink-900); }
 /* Etiqueta pequeña del medio (cabecera de visita, agenda). */
 .etiqueta-medio { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--ink-500); }
 .etiqueta-medio--teams > svg { color: var(--medio-teams); }
