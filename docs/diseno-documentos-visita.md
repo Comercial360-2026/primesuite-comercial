@@ -17,6 +17,8 @@ Un botón «Adjuntar un documento» en la visita en curso y en la visita cerrada
 `BUCKETS_VISITA` / `quitarAdjuntosDeStorage` (`src/lib/buckets-visita.ts`) sustituyen a las listas `fotos-visita`+`audios-visita` sueltas: borrar visita, borrar cliente, Mi espacio, liberar espacio de proyecto, tamaño de adjuntos. En BD: `fn_espacio_*`, `fn_mis_visitas_espacio`, `fn_visitas_liberables_proyecto` cuentan el bucket nuevo; `previsualizar_borrado_visita/cliente` devuelven `num_documentos` (la confirmación de borrado los nombra). ZIP de la visita (`generar-backup-visita`): carpeta `documentos/` + anexo + LEEME. Informe de proyecto: cuenta documentos.
 
 ## Informe web (misma rama)
+**ZIP (`formato: 'zip'`, «Originales en ZIP»):** solo los originales (fotos, audios, documentos) con LEEME, sin PDF ni informe web (se bajan aparte). Se parte en trozos de ~40 MB porque Supabase no admite objetos de más de 50 MB; la respuesta trae `partes: [{url, tamanoBytes}]` y la app baja todos. Probado: 34 fotos → 1 parte de 16 MB; 102 fotos → 2 partes (39,8 + 6,4 MB), íntegras.
+
 `generar-backup-visita` admite `formato: 'html'`: un único `informe.html` con las fotos embebidas, un mapa Leaflet (teselas de OpenStreetMap vía la función proxy `tile-mapa`: directo, OSM bloquea las páginas sin Referer —`blob:`, archivo descargado— y CARTO pide clave) con pines numerados y una ficha por foto (zona, hora, coordenadas, enlace a Google Maps, «ver en el mapa»). El ZIP lo incluye. Botón «Informe web» en `DescargasVisita`. Generador: `supabase/functions/_shared/informe-html.ts`. Sin conexión el informe sigue entero (el mapa muestra un aviso).
 
 ## Pendiente fuera de esta rama

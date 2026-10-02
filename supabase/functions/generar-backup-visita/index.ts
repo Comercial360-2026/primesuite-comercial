@@ -1,16 +1,14 @@
 // supabase/functions/generar-backup-visita/index.ts
 //
-// Fase B del sistema de espacio/backup (Dirección Comercial, agosto 2026).
-// Genera bajo demanda un zip con: informe.pdf (maquetado con pdfmake,
-// jerarquía real, tablas, anexo fotográfico) + fotos originales + audios
-// sueltos + LEEME.txt, y lo sube al bucket privado "backups-visita".
-// Devuelve una URL firmada de corta duración — el propio zip se borra solo
-// a las ~2h (lo borra la siguiente generación: _shared/limpiar-backups.ts),
-// así que un backup nunca ocupa cuota para siempre.
-//
-// Nunca se genera automáticamente al cerrar una visita — solo cuando el
-// comercial lo pide explícitamente desde "mi espacio", antes de decidir si
-// borra la visita o no.
+// Genera bajo demanda, y lo sube al bucket privado "backups-visita" (URL firmada de corta duración;
+// se borra solo a las ~2h: lo hace la siguiente generación, _shared/limpiar-backups.ts):
+//   · formato 'pdf'   → el informe de la visita en PDF (pdfmake), con las fotos reducidas.
+//   · formato 'html'  → el informe web navegable (un único .html).
+//   · formato 'zip'   → los ORIGINALES (fotos, audios, documentos) sin informe, partidos en trozos
+//                       de ~40 MB (Supabase no admite objetos de más de 50 MB).
+//   · formato 'miniaturas' → prepara la caché de miniaturas que usan el PDF y el informe web.
+// Nunca se genera automáticamente al cerrar una visita: solo cuando se pide, salvo el worker de
+// archivado de SharePoint (PDF y web de cada visita cerrada).
 //
 // --- Motor del PDF ---
 // Se probó primero @react-pdf/renderer (mejor control de diseño, mismo
@@ -382,6 +380,143 @@ Deno.serve(async (req) => {
   const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
   const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
 
+  // --- ZIP de originales ---
+  // Fotos, audios y documentos tal cual se capturaron, sin informe: el PDF y el informe web se
+  // descargan aparte. Supabase no admite objetos de más de 50 MB y una visita con muchas fotos o
+  // audios los pasa, así que el ZIP se parte en trozos de ~40 MB: cada parte se sube en cuanto se
+  // llena y en memoria solo hay una. Ningún archivo suelto pasa de 30 MB (límite de sus buckets).
+  if (formato === 'zip') {
+    const LIMITE_PARTE = 40 * 1024 * 1024;
+    const marca = Date.now();
+    const subidas: { ruta: string; bytes: number }[] = [];
+    let zipActual = new JSZip();
+    let bytesActual = 0;
+    const cerrarParte = async (): Promise<string | null> => {
+      const data = await zipActual.generateAsync({ type: 'uint8array' });
+      const ruta = `${visitaId}/${marca}-parte-${subidas.length + 1}.zip`;
+      const { error } = await admin.storage
+        .from('backups-visita')
+        .upload(ruta, data, { contentType: 'application/zip', upsert: true });
+      if (error) return error.message;
+      subidas.push({ ruta, bytes: data.byteLength });
+      zipActual = new JSZip();
+      bytesActual = 0;
+      return null;
+    };
+    const agregar = async (ruta: string, bytes: Uint8Array): Promise<string | null> => {
+      let fallo: string | null = null;
+      if (bytesActual > 0 && bytesActual + bytes.byteLength > LIMITE_PARTE) fallo = await cerrarParte();
+      zipActual.file(ruta, bytes);
+      bytesActual += bytes.byteLength;
+      return fallo;
+    };
+    const errorZip = (m: string) => jsonResponse({ error: `No se pudo guardar el ZIP: ${m}` }, 500);
+
+    let nFotos = 0;
+    let nAudios = 0;
+    let nDocumentos = 0;
+    let fotosPerdidas = 0;
+    let audiosPerdidos = 0;
+    let documentosPerdidos = 0;
+    let indice = 0;
+    for (const f of fotos) {
+      indice += 1;
+      const bytes = await descargarBinario(admin, 'fotos-visita', f);
+      if (!bytes) {
+        fotosPerdidas += 1;
+        continue;
+      }
+      const ubicacionNombre =
+        f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
+      const nombre = [String(indice).padStart(2, '0'), nombreArchivoLegible(ubicacionNombre, ''), nombreArchivoLegible(f.titulo, 'foto')]
+        .filter(Boolean)
+        .join(' - ');
+      const fallo = await agregar(`fotos/${nombre}.${EXTENSION_POR_FORMATO[detectarFormatoImagen(bytes)]}`, bytes);
+      if (fallo) return errorZip(fallo);
+      nFotos += 1;
+    }
+    indice = 0;
+    for (const a of audios) {
+      indice += 1;
+      const bytes = await descargarBinario(admin, 'audios-visita', a);
+      if (!bytes) {
+        audiosPerdidos += 1;
+        continue;
+      }
+      const extension = a.storage_path?.split('.').pop() || 'm4a';
+      const nombre = [String(indice).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
+      const fallo = await agregar(`audios/${nombre}.${extension}`, bytes);
+      if (fallo) return errorZip(fallo);
+      nAudios += 1;
+    }
+    indice = 0;
+    for (const d of documentos) {
+      indice += 1;
+      if (!d.storage_path) {
+        documentosPerdidos += 1;
+        continue;
+      }
+      const { data, error } = await admin.storage.from('documentos-visita').download(d.storage_path);
+      if (error || !data) {
+        documentosPerdidos += 1;
+        continue;
+      }
+      const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
+      const fallo = await agregar(`documentos/${String(indice).padStart(2, '0')} - ${nombre}`, new Uint8Array(await data.arrayBuffer()));
+      if (fallo) return errorZip(fallo);
+      nDocumentos += 1;
+    }
+
+    // LEEME en la última parte (cuando ya se sabe cuántas hay y qué no se pudo recuperar).
+    const ahoraZip = new Date().toISOString();
+    const totalPartes = subidas.length + 1;
+    zipActual.file(
+      'LEEME.txt',
+      `PrimeNotes — originales de la visita\n` +
+        `==========================================\n\n` +
+        `Cliente:   ${clienteInfo?.nombre ?? 'cliente'}\n` +
+        `Visita:    ${fechaLarga(visita.fecha)}\n` +
+        `Generado:  ${fechaLarga(ahoraZip)}, ${horaDe(ahoraZip)}\n\n` +
+        `Contenido (${nFotos} foto${nFotos === 1 ? '' : 's'}, ${nAudios} audio${nAudios === 1 ? '' : 's'}, ${nDocumentos} documento${nDocumentos === 1 ? '' : 's'}):\n\n` +
+        `  fotos/        Todas las fotos en su resolución original, numeradas por orden de\n` +
+        `                captura; el nombre lleva la zona donde se hicieron.\n` +
+        `  audios/       Grabaciones de voz de la visita.\n` +
+        `  documentos/   Documentos adjuntos, con su nombre original.\n\n` +
+        (totalPartes > 1
+          ? `Esta copia viene en ${totalPartes} partes (parte-1 … parte-${totalPartes}): son carpetas distintas con\n` +
+            `archivos distintos; descomprímelas todas en el mismo sitio. Esta es la última.\n\n`
+          : '') +
+        `El informe de la visita (PDF y web) no va aquí: se descarga aparte desde la visita.\n\n` +
+        `Notas:\n` +
+        `  - Este material es de uso interno.\n` +
+        (fotosPerdidas > 0 ? `  - ${fotosPerdidas} foto(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+        (audiosPerdidos > 0 ? `  - ${audiosPerdidos} audio(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+        (documentosPerdidos > 0 ? `  - ${documentosPerdidos} documento(s) no se pudieron recuperar (archivo perdido o borrado).\n` : '') +
+        `\nGenerado automáticamente por PrimeNotes. No respondas a este\narchivo; para dudas, contacta con tu responsable comercial.\n`
+    );
+    const falloFinal = await cerrarParte();
+    if (falloFinal) return errorZip(falloFinal);
+
+    const nombreBase = `visita-${nombreArchivoLegible(clienteInfo?.nombre, visitaId)}-${fechaCorta(visita.fecha).replace(/\//g, '-')}`;
+    const partes: { url: string; tamanoBytes: number }[] = [];
+    for (const [i, parte] of subidas.entries()) {
+      const nombreDescarga = `${nombreBase}${subidas.length > 1 ? `-parte-${i + 1}-de-${subidas.length}` : ''}.zip`;
+      const { data: firmada, error: errorFirma } = await admin.storage
+        .from('backups-visita')
+        .createSignedUrl(parte.ruta, URL_FIRMADA_SEGUNDOS, { download: nombreDescarga });
+      if (errorFirma || !firmada) return jsonResponse({ error: 'ZIP generado pero no se pudo crear el enlace de descarga.' }, 500);
+      partes.push({ url: firmada.signedUrl, tamanoBytes: parte.bytes });
+    }
+    await limpiarBackupsCaducados(admin);
+    return jsonResponse({
+      url: partes[0].url,
+      partes,
+      expiraEnSegundos: URL_FIRMADA_SEGUNDOS,
+      tamanoBytes: subidas.reduce((t, x) => t + x.bytes, 0),
+      ruta: subidas[0].ruta,
+    });
+  }
+
   // --- Miniaturas del informe web ---
   // Reducir fotos cuesta CPU (~0,15 s cada una) y una petición tiene ~2 s: se hace con presupuesto de
   // tiempo y se guarda en caché (bucket de backups, que se vacía solo a las 2 h). Lo que no dé tiempo
@@ -449,11 +584,7 @@ Deno.serve(async (req) => {
   const frasesVisita =
     visita.medio === 'teams' ? `${frasesBase} (por Teams)` : visita.medio === 'llamada' ? `${frasesBase} (por llamada)` : frasesBase;
 
-  // --- Descarga de binarios: fotos (embebidas + zip) y audios (solo zip) ---
-  const zip = new JSZip();
-  const carpetaFotos = zip.folder('fotos')!;
-  const carpetaAudios = zip.folder('audios')!;
-  const carpetaDocumentos = zip.folder('documentos')!;
+  // --- Descarga de binarios para el informe: fotos (miniaturas o, sin caché, originales) ---
 
   type FotoLista = {
     titulo: string | null;
@@ -517,20 +648,10 @@ Deno.serve(async (req) => {
       continue; // fichero huérfano/borrado, o SharePoint no respondió — se omite, no se aborta el backup entero.
     }
     const formato = detectarFormatoImagen(bytes);
-    const extension = EXTENSION_POR_FORMATO[formato];
-    const nombreArchivo = [
-      String(indiceFoto).padStart(2, '0'),
-      nombreArchivoLegible(ubicacionNombre, ''),
-      nombreArchivoLegible(f.titulo, 'foto'),
-    ]
-      .filter(Boolean)
-      .join(' - ');
-    // Solo la copia completa (zip) guarda los originales: en html/pdf se soltarían en memoria sin usarse.
-    if (formatoSalida === 'zip') carpetaFotos.file(`${nombreArchivo}.${extension}`, bytes);
-    // Miniatura reducida (~50 KB): la usan el informe web y, en el zip, también el PDF (con los originales
-    // en base64 el zip se quedaba sin memoria a partir de unas 30 fotos). Los originales van a fotos/.
+    // Miniatura reducida (~50 KB): la usan el informe web y el PDF (con los originales en base64 el PDF
+    // se quedaba sin memoria a partir de unas 30 fotos). Los originales van en el ZIP de originales.
     let mini: Uint8Array | null = null;
-    // Informe web: miniatura y enlace al original (dentro del zip, o en SharePoint si ya está copiada).
+    // Informe web: miniatura y enlace al original (en SharePoint, si ya está copiada).
     if (formatoSalida !== 'pdf') {
       const embebible = formato === 'jpeg' || formato === 'png';
       if (embebible) {
@@ -548,7 +669,7 @@ Deno.serve(async (req) => {
           : embebible
             ? `data:image/${formato};base64,${base64Encode(bytes)}`
             : null,
-        urlOriginal: formatoSalida === 'zip' ? encodeURI(`fotos/${nombreArchivo}.${extension}`) : urlSharePoint(f.ruta_sharepoint),
+        urlOriginal: urlSharePoint(f.ruta_sharepoint),
         latitud: f.latitud,
         longitud: f.longitud,
       });
@@ -588,10 +709,7 @@ Deno.serve(async (req) => {
       audiosFallidos += 1;
       continue;
     }
-    const extension = a.storage_path?.split('.').pop() || 'm4a';
-    const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
-    if (formatoSalida === 'zip') carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
-    audiosHtml.push({ titulo: a.titulo || 'Audio sin título', creadoEn: a.creado_en, ruta: `audios/${nombreArchivo}.${extension}`, zona: zonaDeCaptura(a), url: urlSharePoint(a.ruta_sharepoint, true) });
+    audiosHtml.push({ titulo: a.titulo || 'Audio sin título', creadoEn: a.creado_en, zona: zonaDeCaptura(a), url: urlSharePoint(a.ruta_sharepoint, true) });
     audiosDescargados.push(a);
   }
 
@@ -611,10 +729,7 @@ Deno.serve(async (req) => {
       documentosFallidos += 1;
       continue;
     }
-    const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
-    const nombreEnZip = `${String(indiceDocumento).padStart(2, '0')} - ${nombre}`;
-    if (formatoSalida === 'zip') carpetaDocumentos.file(nombreEnZip, new Uint8Array(await data.arrayBuffer()));
-    documentosHtml.push({ titulo: d.titulo || d.nombre_original || 'Documento', creadoEn: d.creado_en, ruta: `documentos/${nombreEnZip}`, zona: zonaDeCaptura(d), url: urlSharePoint(d.ruta_sharepoint, true) });
+    documentosHtml.push({ titulo: d.titulo || d.nombre_original || 'Documento', creadoEn: d.creado_en, zona: zonaDeCaptura(d), url: urlSharePoint(d.ruta_sharepoint, true) });
     documentosDescargados.push(d);
   }
 
@@ -783,7 +898,7 @@ Deno.serve(async (req) => {
         margin: [0, 6, 0, 4],
         text: [
           { text: 'No incluidas en el PDF ', bold: true, fontSize: 9, color: COLOR.ink700 },
-          { text: '(formato no compatible con la vista previa; están en la carpeta fotos/ del zip):', fontSize: 9, color: COLOR.ink400 },
+          { text: '(formato no compatible con la vista previa; están en «Originales en ZIP»):', fontSize: 9, color: COLOR.ink400 },
         ],
       });
       for (const nf of fotosNoIncluidas) {
@@ -828,14 +943,14 @@ Deno.serve(async (req) => {
   // Una línea de la lista de audios / documentos (en el anexo, o dentro de su zona).
   // deno-lint-ignore no-explicit-any
   const lineaAudio = (a: CapturaRow): any => ({
-    text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta audios/ del zip'}`,
+    text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Originales en ZIP»'}`,
     fontSize: 9.5,
     color: COLOR.ink700,
     margin: [0, 0, 0, 4],
   });
   // deno-lint-ignore no-explicit-any
   const lineaDocumento = (d: CapturaRow): any => ({
-    text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta documentos/ del zip'}`,
+    text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Originales en ZIP»'}`,
     fontSize: 9.5,
     color: COLOR.ink700,
     margin: [0, 0, 0, 4],
@@ -1038,7 +1153,6 @@ Deno.serve(async (req) => {
       console.error('Fallo generando el PDF del informe', e);
       return jsonResponse({ error: 'No se pudo maquetar el informe de la visita.' }, 500);
     }
-    zip.file('informe.pdf', pdfBytes);
   }
 
   // --- Informe web: mapa + fichas de foto con su ubicación, todo junto ---
@@ -1066,59 +1180,17 @@ Deno.serve(async (req) => {
     fotos: fotosHtml,
     audios: audiosHtml,
     documentos: documentosHtml,
-    enZip: formato === 'zip',
     urlTeselas: `${supabaseUrl}/functions/v1/tile-mapa`,
     enlaceApp: `${(Deno.env.get('APP_URL') ?? 'https://rococo-gumption-efb70a.netlify.app').replace(/\/+$/, '')}/visita/${visitaId}${visitaEnCurso ? '' : '/detalle'}`,
     avisos: avisosHtml,
     generadoEn: `${fechaLarga(ahora)}, ${horaDe(ahora)}`,
     logo: typeof PRIMION_LOGO === 'string' ? PRIMION_LOGO : null,
   });
-  if (formato !== 'html') zip.file('informe.html', informeHtml);
-
-  // --- LEEME.txt ---
-  const leeme =
-    `PrimeNotes — copia de la visita\n` +
-    `==========================================\n\n` +
-    `Cliente:   ${clienteInfo?.nombre ?? 'cliente'}\n` +
-    `Visita:    ${fechaLarga(visita.fecha)}${visita.tipo_visita ? ` · ${frasesVisita}` : ''}\n` +
-    `Generado:  ${fechaLarga(ahora)}, ${horaDe(ahora)}\n\n` +
-    `Contenido de este archivo comprimido:\n\n` +
-    `  informe.pdf   Informe completo de la visita: resumen, notas, hallazgos,\n` +
-    `                oportunidades, próximos pasos y anexo fotográfico.\n\n` +
-    `  informe.html  El mismo informe en formato web: ábrelo en el navegador. Las\n` +
-    `                fotos salen con su ubicación y un mapa con todas ellas.\n\n` +
-    `  fotos/        Todas las fotos en su resolución original, numeradas por\n` +
-    `                orden de captura. Las del PDF son copias reducidas.\n\n` +
-    `  audios/       Grabaciones de voz de la visita.\n\n` +
-    (documentos.length ? `  documentos/   Documentos adjuntos a la visita, con su nombre original.\n\n` : '') +
-    `Notas:\n` +
-    `  - Este material es de uso interno.\n` +
-    `  - El informe refleja el estado de la visita el día indicado; los\n` +
-    `    cambios registrados después no aparecen aquí.\n` +
-    (visitaEnCurso ? `  - Esta visita seguía en curso cuando se generó esta copia.\n` : '') +
-    (visita.resumen_origen === 'manual' ? `  - El resumen fue editado a mano por el comercial.\n` : '') +
-    (fotosNoIncluidas.length
-      ? `  - ${fotosNoIncluidas.length} foto(s) no se pudieron previsualizar en el PDF (formato no compatible); están igualmente en fotos/.\n`
-      : '') +
-    (fotosFallidas > 0
-      ? `  - ${fotosFallidas} foto(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
-      : '') +
-    (audiosFallidos > 0
-      ? `  - ${audiosFallidos} audio(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
-      : '') +
-    (documentosFallidos > 0
-      ? `  - ${documentosFallidos} documento(s) no se pudieron recuperar (archivo perdido o borrado) y no están en este backup.\n`
-      : '') +
-    `\nGenerado automáticamente por PrimeNotes. No respondas a este\n` +
-    `archivo; para dudas, contacta con tu responsable comercial.\n`;
-  zip.file('LEEME.txt', leeme);
 
   const archivo =
     formato === 'pdf'
       ? { bytes: pdfBytes, extension: 'pdf', contentType: 'application/pdf' }
-      : formato === 'html'
-        ? { bytes: new TextEncoder().encode(informeHtml), extension: 'html', contentType: 'text/html; charset=utf-8' }
-        : { bytes: await zip.generateAsync({ type: 'uint8array' }), extension: 'zip', contentType: 'application/zip' };
+      : { bytes: new TextEncoder().encode(informeHtml), extension: 'html', contentType: 'text/html; charset=utf-8' };
 
   // --- Subida al bucket de backups ---
   // Supabase rechaza objetos de más de 50 MB (plan gratuito). Mejor avisar con claridad que dejar un

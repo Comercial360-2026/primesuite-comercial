@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { esSinRed } from '@/lib/red';
 
-export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number };
+// `partes`: el ZIP de originales se parte en varios archivos cuando pasa de ~40 MB (límite de 50 MB por objeto).
+export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number; partes?: number };
 
 /** Qué informe se pide. 'visita' → PDF de UNA visita, con las fotos dentro
- *  (la descarga normal). 'visita-zip' → copia completa: ese PDF + fotos
- *  originales + audios + documentos + informe web en un zip (la que exige
- *  liberar espacio antes de borrar). 'visita-web' → el informe en formato web
+ *  (la descarga normal). 'visita-zip' → los ORIGINALES (fotos, audios y
+ *  documentos) en un zip, sin informe (en varios archivos si pasa de ~40 MB).
+ *  'visita-web' → el informe en formato web
  *  (.html, con mapa de las fotos). 'proyecto' → PDF de UN proyecto, sin fotos. */
 export type TipoInforme = 'visita' | 'visita-web' | 'visita-zip' | 'proyecto';
 
@@ -96,11 +97,11 @@ export function useDescargarInforme() {
         });
         return Promise.race([p, limite]).finally(() => clearTimeout(temporizador));
       };
-      // PDF, informe web y el PDF/web de dentro del zip llevan las fotos reducidas (caché en el servidor).
+      // PDF e informe web llevan las fotos reducidas (caché en el servidor).
       // Reducir cuesta CPU y cada llamada tiene presupuesto: se piden tandas hasta que no quede ninguna
       // pendiente (visitas con muchas fotos no cabían en una sola petición). Si falla, se sigue: el informe
       // sale con lo que haya.
-      if (tipo === 'visita' || tipo === 'visita-web' || tipo === 'visita-zip') {
+      if (tipo === 'visita' || tipo === 'visita-web') {
         for (let i = 0; i < 15; i++) {
           const { data: tanda, error: errorTanda } = await conLimite(
             supabase.functions.invoke(funcion, { body: { visitaId: id, formato: 'miniaturas' } })
@@ -114,13 +115,14 @@ export function useDescargarInforme() {
       const { data, error } = await conLimite(supabase.functions.invoke(funcion, { body }));
       if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
-      const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 };
+      const urls: string[] = Array.isArray(data.partes) && data.partes.length ? data.partes.map((p: { url: string }) => p.url) : [data.url];
+      const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0, ...(urls.length > 1 ? { partes: urls.length } : {}) };
       setEstados((prev) => ({ ...prev, [clave]: listo }));
       // Un solo toque: en cuanto está listo, el archivo se guarda solo. Si esto
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace
       // <a href> de reserva para bajarlo a mano.
       try {
-        await guardarArchivoEnDisco(data.url);
+        for (const u of urls) await guardarArchivoEnDisco(u);
       } catch {
         /* enlace de reserva visible en la propia fila/botón */
       }

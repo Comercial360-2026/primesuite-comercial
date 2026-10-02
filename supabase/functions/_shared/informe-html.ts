@@ -45,7 +45,6 @@ export interface ArchivoHtml {
   titulo: string;
   creadoEn: string;
   zona: string; // '' = sin zona
-  ruta: string | null; // ruta relativa dentro del zip (audios/…, documentos/…)
   url: string | null; // enlace al archivo en SharePoint (solo si ya está copiado)
 }
 
@@ -68,7 +67,6 @@ export interface DatosInformeHtml {
   fotos: FotoHtml[];
   audios: ArchivoHtml[];
   documentos: ArchivoHtml[];
-  enZip: boolean; // true = los archivos de audios/ y documentos/ están junto a este .html
   avisos: string[]; // "2 fotos no se pudieron recuperar…"
   generadoEn: string; // "2 de octubre de 2026, 10:41"
   logo: string | null; // data URI
@@ -204,7 +202,7 @@ function listaNotas(notas: { titulo: string | null; texto: string | null; zona: 
     .join('');
 }
 
-function listaArchivos(id: string, tipo: string, titulo: string, archivos: ArchivoHtml[], enZip: boolean, verbo: string) {
+function listaArchivos(id: string, tipo: string, titulo: string, archivos: ArchivoHtml[], verbo: string) {
   if (!archivos.length) return '';
   return seccion(
     id,
@@ -212,7 +210,7 @@ function listaArchivos(id: string, tipo: string, titulo: string, archivos: Archi
     archivos.length,
     `<ul class="archivos">${archivos
       .map((a) => {
-        const enlace = enZip && a.ruta ? encodeURI(a.ruta) : a.url;
+        const enlace = a.url;
         const boton = enlace
           ? `<a class="btn" href="${esc(enlace)}" target="_blank" rel="noreferrer">${esc(verbo)}</a>`
           : `<span class="sub">en la carpeta de la visita</span>`;
@@ -676,9 +674,9 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
     tipos.push({ id: 'hallazgos', label: 'Hallazgos', n: d.hallazgos.length, html: seccion('hallazgos', 'Hallazgos', d.hallazgos.length, listaHallazgos(d.hallazgos)) });
   if (d.notas.length) tipos.push({ id: 'notas', label: 'Notas', n: d.notas.length, html: seccion('notas', 'Notas', d.notas.length, listaNotas(d.notas)) });
   if (d.fotos.length) tipos.push({ id: 'fotos', label: 'Fotos', n: d.fotos.length, html: seccionFotos(d.fotos) });
-  const audios = listaArchivos('audios', 'audio', 'Audios', d.audios, d.enZip, 'Escuchar');
+  const audios = listaArchivos('audios', 'audio', 'Audios', d.audios, 'Escuchar');
   if (audios) tipos.push({ id: 'audios', label: 'Audios', n: d.audios.length, html: audios });
-  const documentos = listaArchivos('documentos', 'documento', 'Documentos', d.documentos, d.enZip, 'Abrir');
+  const documentos = listaArchivos('documentos', 'documento', 'Documentos', d.documentos, 'Abrir');
   if (documentos) tipos.push({ id: 'documentos', label: 'Documentos', n: d.documentos.length, html: documentos });
 
   const secciones = ['resumen', ...tipos.map((t) => t.id)];
