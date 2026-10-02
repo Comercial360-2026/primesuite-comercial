@@ -129,6 +129,24 @@ function DetalleCapturaPorId() {
   const borrado = useAccionAsync();
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  // ¿Hay ya una copia en SharePoint? Borrar la captura NO la borra allí (SharePoint
+  // es el archivo histórico, ver docs/pendiente-borrado-sharepoint.md): se avisa.
+  const [copiaEnSharepoint, setCopiaEnSharepoint] = useState(false);
+  useEffect(() => {
+    if (!confirmandoBorrado || !captura || captura.tipo === 'nota') return;
+    let cancelado = false;
+    void supabase
+      .from('captura_libre')
+      .select('ruta_sharepoint')
+      .eq('id', captura.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelado) setCopiaEnSharepoint(!!data?.ruta_sharepoint);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [confirmandoBorrado, captura]);
   // BUG real (13 sept, reportado por Cesar — confirmado con los logs de
   // Supabase: 14 PATCH seguidos a la misma foto, todos con éxito en el
   // servidor). El candado de "guardando" de la pastilla de zona
@@ -700,6 +718,7 @@ function DetalleCapturaPorId() {
           error={borrado.error}
         >
           {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+          {copiaEnSharepoint ? ' La copia que ya está en SharePoint se conserva allí; no se borra.' : ''}
         </ConfirmacionBorrado>
       )}
     </div>

@@ -229,7 +229,7 @@ const _PANTALLAS = {
       'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos, audios y documentos, el título (un documento se abre en el navegador al tocarlo y tiene su fila «Descargar», con su nombre original; no lleva zona). La zona en la que estaba se puede añadir o cambiar aquí en cualquier momento. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
     cuando:
       'Para revisar o retocar algo que capturaste, marcar una nota como hallazgo u oportunidad, o borrarlo si te has equivocado. Editar y borrar sigue disponible con la visita cerrada; el informe se rehace con lo último al descargarlo.',
-    ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial.',
+    ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial. Si la visita ya se cerró y el archivo se copió a SharePoint, borrar la captura la quita de la app pero NO borra esa copia: SharePoint se conserva como archivo histórico (la pantalla de borrar lo avisa).',
   },
   'detalle-hallazgo': {
     grupo: 'registro',
