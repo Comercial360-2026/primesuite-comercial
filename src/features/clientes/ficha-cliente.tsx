@@ -168,13 +168,13 @@ export function FichaCliente() {
     );
   }
 
-  // Archivar = «ya no trabajamos con él» (prompt maestro 13): sale de
+  // Cliente inactivo = «ya no trabajamos con él» (prompt maestro 13): sale de
   // Clientes y de los buscadores de Nueva visita, conserva todo. Reversible,
   // así que sin confirmación. Mismo permiso y misma vía que Editar datos.
   async function cambiarArchivado(archivar: boolean) {
     if (!clienteId) return;
     if (!navigator.onLine) {
-      cambioArchivado.establecerError('Necesitas conexión para archivar o reactivar el cliente.');
+      cambioArchivado.establecerError('Necesitas conexión para cambiar el estado del cliente.');
       return;
     }
     await cambioArchivado.ejecutar(
@@ -530,7 +530,7 @@ export function FichaCliente() {
          </div>
        )}
        {archivado && (
-         <Aviso titulo="Archivado">
+         <Aviso titulo="Cliente inactivo">
            No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo al final
            de esta ficha.
          </Aviso>
@@ -877,13 +877,13 @@ export function FichaCliente() {
           <SeccionLista>
             <FilaNavegable
               icono={archivado ? 'restaurar' : 'oculto'}
-              titulo={archivado ? 'Reactivar cliente' : 'Archivar cliente'}
+              titulo={archivado ? 'Reactivar cliente' : 'Cliente inactivo'}
               subtitulo={
                 cambioArchivado.cargando
                   ? 'Guardando…'
                   : archivado
                     ? 'Vuelve a Clientes y se puede visitar otra vez'
-                    : 'Ya no trabajáis con él: sale de las listas y se conserva todo'
+                    : 'Ya no trabajáis con él: sale de las listas; no borra nada, ni archivos ni SharePoint'
               }
               chevron={false}
               disabled={cambioArchivado.cargando}
@@ -895,7 +895,7 @@ export function FichaCliente() {
 
         {/* Borrar cliente — solo Dirección (prompt maestro 13): con los
             clientes del CRM, borrar es para errores (duplicado, prueba); lo
-            normal es Archivar. Al fondo y en tono riesgo, como en el resto
+            normal es Cliente inactivo. Al fondo y en tono riesgo, como en el resto
             de la app. El backend (eliminar_cliente_completo) sigue
             admitiendo también al creador; la UI ya no se lo ofrece. */}
         {esDireccionComercial && (
