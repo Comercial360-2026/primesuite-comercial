@@ -58,6 +58,8 @@ interface CapturaVista {
   latitud?: number | null;
   longitud?: number | null;
   storagePath?: string | null;
+  // 'sharepoint' = el original ya se liberó de Storage y solo vive en SharePoint.
+  ubicacionArchivo?: string | null;
 }
 
 // BUG real (13 sept, reportado por Cesar: "casi 2 minutos" para ver una
@@ -197,7 +199,7 @@ function DetalleCapturaPorId() {
       const { data, error } = await supabase
         .from('captura_libre')
         .select(
-          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes'
+          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, ubicacion_archivo, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes'
         )
         .eq('id', capturaId)
         .maybeSingle();
@@ -215,6 +217,7 @@ function DetalleCapturaPorId() {
           fuente: 'servidor',
           estadoSync: 'completado',
           storagePath: data.storage_path,
+          ubicacionArchivo: data.ubicacion_archivo,
           nombreOriginal: data.nombre_original,
           bytes: data.bytes,
           latitud: data.latitud,
@@ -263,6 +266,22 @@ function DetalleCapturaPorId() {
             if (vivo) setUrlAbrir(data?.signedUrl ?? null);
           });
       }
+      return () => {
+        vivo = false;
+      };
+    }
+    // Ya liberado de Storage: el contenido se pide a SharePoint (data: URL) con el permiso de la propia captura.
+    if (
+      captura.ubicacionArchivo === 'sharepoint' &&
+      (captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento')
+    ) {
+      let vivo = true;
+      void supabase.functions.invoke('obtener-url-archivo-sharepoint', { body: { capturaId: captura.id } }).then(({ data }) => {
+        if (!vivo) return;
+        const url = (data?.url as string | undefined) ?? null;
+        setUrlMedia(url);
+        setUrlAbrir(url);
+      });
       return () => {
         vivo = false;
       };
