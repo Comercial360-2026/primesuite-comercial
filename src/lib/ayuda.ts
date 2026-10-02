@@ -174,7 +174,7 @@ const _PANTALLAS = {
     queEs:
       'El único sitio para crear una visita: eliges el cliente, el proyecto (solo si tiene más de uno) y cuándo. «Ahora» pide solo el objetivo y arranca la visita en curso. «Otro día» pide además fecha, hora u orientación (mañana/tarde) y —si diriges el equipo— para quién; queda agendada y aparece en la Agenda y en «Hoy» ese día.',
     cuando:
-      'Se abre desde el «+» de «Hoy» y de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». «Otro día» necesita conexión; «Ahora» funciona sin cobertura (se sincroniza luego). «¿Cómo es la visita?» (tres botones grandes: Presencial, Teams o Llamada) va arriba del todo, y también en la ventana «¿A qué vas?» de «Iniciar visita» (desde el cliente, el proyecto o el «+» de Hoy): con Teams puedes pegar el enlace de la reunión. Las visitas por Teams o por llamada se ven con su icono (cámara o teléfono) y color en la barra de «visita en curso» y en la agenda.',
+      'Se abre desde el «+» de «Hoy» y de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». «Otro día» necesita conexión; «Ahora» funciona sin cobertura (se sincroniza luego). «¿Cómo es la visita?» (tres botones: Presencial, Teams o Llamada) va arriba del todo, y también en la ventana «¿A qué vas?» de «Iniciar visita» (desde el cliente, el proyecto o el «+» de Hoy): con Teams puedes pegar el enlace de la reunión. Las visitas por Teams o por llamada se ven con su icono (cámara o teléfono) y color en la barra de «visita en curso» y en la agenda.',
   },
   'visita-planificada': {
     grupo: 'visita',

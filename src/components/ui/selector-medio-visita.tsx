@@ -1,10 +1,9 @@
 import { Icono } from './iconos';
 import { MEDIO_VISITA, type MedioVisita } from '@/lib/medio-visita';
 
-// «¿Cómo es la visita?»: tres botones GRANDES — Presencial / Teams / Llamada —
-// con icono, palabra y color (el elegido se rellena del color del medio). Va
-// arriba del todo del formulario para que sea lo primero que se ve; la elección
-// no puede pasar desapercibida. Con Teams, además, el enlace (opcional). Lo usan
+// «¿Cómo es la visita?»: tres botones en una fila — Presencial / Teams / Llamada —
+// con icono, palabra y color (el elegido se rellena del color del medio). Compactos
+// (44 px) pero inconfundibles, y arriba del formulario para que no pasen desapercibidos. Con Teams, además, el enlace (opcional). Lo usan
 // empezar-visita-hoja, planificar-visita, la ventana «¿A qué vas?» y el cambio de
 // medio dentro de la visita.
 interface Props {
@@ -30,7 +29,7 @@ export function SelectorMedioVisita({ medio, enlace, onMedio, onEnlace }: Props)
             className={`medio-opcion medio-opcion--${m}${medio === m ? ' medio-opcion--on' : ''}`}
             onClick={() => onMedio(m)}
           >
-            <Icono nombre={MEDIO_VISITA[m].icono} size={28} />
+            <Icono nombre={MEDIO_VISITA[m].icono} size={20} />
             <span>{MEDIO_VISITA[m].etiqueta}</span>
           </button>
         ))}

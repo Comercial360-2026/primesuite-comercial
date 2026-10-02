@@ -94,7 +94,7 @@ export function FilaMedioVisita({ visitaId, clienteId, medio, enlace, editable, 
       ) : (
         <>
           <div className={`medio-tarjeta medio-tarjeta--${medio}`}>
-            <Icono nombre={MEDIO_VISITA[medio].icono} size={28} />
+            <Icono nombre={MEDIO_VISITA[medio].icono} size={22} />
             <div className="medio-tarjeta__texto">{MEDIO_VISITA[medio].frase.charAt(0).toUpperCase() + MEDIO_VISITA[medio].frase.slice(1)}</div>
             {editable && (
               <button
