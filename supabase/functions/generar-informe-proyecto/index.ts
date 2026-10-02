@@ -68,6 +68,7 @@ interface VisitaRow {
   id: string;
   fecha: string;
   tipo_visita: string | null;
+  medio: string | null;
   objetivo: string | null;
   resumen_texto: string | null;
   resumen_origen: string | null;
@@ -181,7 +182,7 @@ Deno.serve(async (req) => {
       .eq('estado_captura', 'en_curso'),
     admin
       .from('visita')
-      .select('id, fecha, tipo_visita, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida')
+      .select('id, fecha, tipo_visita, medio, objetivo, resumen_texto, resumen_origen, estado_captura, franja, hora_definida')
       .eq('proyecto_id', proyectoId)
       .in('estado_captura', ['consolidada', 'cerrada'])
       .order('fecha', { ascending: false })
@@ -427,7 +428,9 @@ Deno.serve(async (req) => {
       let lineaHora = '';
       if (v.hora_definida) lineaHora = ` · ${horaDe(v.fecha)}`;
       else if (v.franja) lineaHora = ` · ${FRANJA_LABEL[v.franja] ?? v.franja}`;
-      const frase = (v.tipo_visita && TIPO_VISITA_FRASE[v.tipo_visita]) || 'Visita';
+      const fraseBase = (v.tipo_visita && TIPO_VISITA_FRASE[v.tipo_visita]) || 'Visita';
+      // Igual que el informe de la visita: Teams / llamada se dicen; presencial no añade nada.
+      const frase = v.medio === 'teams' ? `${fraseBase} (por Teams)` : v.medio === 'llamada' ? `${fraseBase} (por llamada)` : fraseBase;
       // Responsable / Acompañantes / Interlocutores — mismo bloque compartido
       // que el informe de esta misma visita generada individualmente (ver
       // huecos [PARCIAL]/[FALTA] de la auditoría del informe: antes esta
