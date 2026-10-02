@@ -93,24 +93,26 @@ export function FilaMedioVisita({ visitaId, clienteId, medio, enlace, editable, 
         </div>
       ) : (
         <>
-          <div className={`etiqueta-medio etiqueta-medio--${medio}`} style={{ marginBottom: 6 }}>
-            <Icono nombre={MEDIO_VISITA[medio].icono} size={14} /> {MEDIO_VISITA[medio].etiqueta}
-            {editable && (
-              <button
-                type="button"
-                className="boton-icono"
-                aria-label="Cambiar cómo es la visita"
-                title="Cambiar cómo es la visita"
+          {editable ? (
+            // Toda la fila se pulsa para cambiar el medio (antes solo un lápiz pequeño).
+            <SeccionLista>
+              <FilaNavegable
+                icono={MEDIO_VISITA[medio].icono}
+                titulo="Cómo es la visita"
+                valor={MEDIO_VISITA[medio].etiqueta}
+                chevron={false}
                 onClick={() => {
                   setMedioBorrador(medio);
                   setEnlaceBorrador(enlace ?? '');
                   setEditando(true);
                 }}
-              >
-                <Icono nombre="editar" size={13} />
-              </button>
-            )}
-          </div>
+              />
+            </SeccionLista>
+          ) : (
+            <div className={`etiqueta-medio etiqueta-medio--${medio}`} style={{ marginBottom: 6 }}>
+              <Icono nombre={MEDIO_VISITA[medio].icono} size={14} /> {MEDIO_VISITA[medio].etiqueta}
+            </div>
+          )}
           {medio === 'teams' && enlace && (
             <SeccionLista>
               <FilaNavegable
