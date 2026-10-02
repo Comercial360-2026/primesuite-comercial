@@ -52,6 +52,7 @@ import {
   Compass,
   Ticket,
   ChatsCircle,
+  ArrowSquareOut,
   type IconProps,
 } from '@phosphor-icons/react';
 
@@ -73,6 +74,7 @@ const registro = {
   tareas: ListChecks, // "Pasos"
   yo: User, // pantalla "Yo" (bottom nav)
   descargar: DownloadSimple,
+  abrir: ArrowSquareOut, // abrir en una pestaña nueva sin descargar (informe web)
   borrar: Trash,
 
   chevron: CaretRight, // ">" de las filas navegables

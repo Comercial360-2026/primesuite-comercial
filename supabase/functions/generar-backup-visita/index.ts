@@ -36,7 +36,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
-import { obtenerArchivoSharePoint } from '../_shared/sharepoint-enlace.ts';
+import { obtenerArchivoSharePoint, urlSharePoint } from '../_shared/sharepoint-enlace.ts';
+import { reducirParaInforme } from '../_shared/imagen-reducida.ts';
 import { generarInformeHtml, type FotoHtml, type ArchivoHtml } from '../_shared/informe-html.ts';
 // El .d.ts que sirve esm.sh para jszip declara "no default export" aunque el
 // módulo JS real sí lo tiene (verificado en Deno).
@@ -171,6 +172,11 @@ interface CapturaRow {
   ruta_sharepoint: string | null;
 }
 
+// Zona de una captura para el informe web: la etiqueta del Recorrido, o la ubicación antigua. '' = sin zona.
+function zonaDeCaptura(c: CapturaRow): string {
+  return (c.zona_texto || (c.ubicacion as unknown as { nombre: string } | null)?.nombre || '').trim();
+}
+
 // Bytes de una foto/audio: de Supabase Storage si sigue ahí, o del enlace
 // temporal de SharePoint si ya se archivó (nunca a la vez).
 async function descargarBinario(
@@ -206,7 +212,7 @@ Deno.serve(async (req) => {
   // del comercial. 'zip' (por defecto, lo que pedían las versiones previas de
   // la app) = PDF + fotos originales + audios: la copia completa.
   // 'html' = solo informe.html (informe web con mapa de fotos, un único archivo).
-  let formato: 'pdf' | 'zip' | 'html' = 'zip';
+  let formato: 'pdf' | 'zip' | 'html' | 'miniaturas' = 'zip';
   // Solo lo pide el worker de archivado: el PDF va a la carpeta de la visita en SharePoint, donde los
   // audios y documentos están al lado (no hay «Todo en ZIP»).
   let pedidoEnSharepoint = false;
@@ -215,6 +221,8 @@ Deno.serve(async (req) => {
     visitaId = body.visitaId;
     if (body.formato === 'pdf') formato = 'pdf';
     if (body.formato === 'html') formato = 'html';
+    // Solo prepara miniaturas de las fotos (caché de 2 h en backups-visita) para que el informe web pese poco.
+    if (body.formato === 'miniaturas') formato = 'miniaturas';
     pedidoEnSharepoint = body.enSharepoint === true;
   } catch {
     return jsonResponse({ error: 'Cuerpo de la petición inválido, se esperaba { visitaId }' }, 400);
@@ -315,11 +323,11 @@ Deno.serve(async (req) => {
       .order('creado_en', { ascending: true }),
     admin
       .from('oportunidad')
-      .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision')
+      .select('id, titulo, descripcion, etapa, prioridad, valor_estimado, horizonte_decision, zona_texto, ubicacion:ubicacion_id(nombre)')
       .eq('visita_origen_id', visitaId),
     admin
       .from('proximo_paso')
-      .select('id, descripcion, fecha_objetivo, estado, comercial_responsable:comercial_responsable_id(nombre)')
+      .select('id, descripcion, fecha_objetivo, estado, zona_texto, comercial_responsable:comercial_responsable_id(nombre)')
       .eq('visita_id', visitaId)
       .order('fecha_objetivo', { ascending: true }),
     admin.from('visita_participante').select('rol, estado, comercial:comercial_id(nombre)').eq('visita_id', visitaId),
@@ -373,6 +381,55 @@ Deno.serve(async (req) => {
   const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
   const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
 
+  // --- Miniaturas del informe web ---
+  // Reducir fotos cuesta CPU (~0,15 s cada una) y una petición tiene ~2 s: se hace con presupuesto de
+  // tiempo y se guarda en caché (bucket de backups, que se vacía solo a las 2 h). Lo que no dé tiempo
+  // va con el original; el worker llama a formato 'miniaturas' hasta que no quede nada pendiente.
+  const PRESUPUESTO_MINIATURAS_MS = 1200;
+  const MAX_MINIATURAS_POR_LLAMADA = 10;
+  // Se mide solo el tiempo que se pasa reduciendo (CPU), no las esperas de red.
+  let cpuMiniaturasMs = 0;
+  let miniaturasGeneradas = 0;
+  let miniaturasPendientes = 0;
+  const rutaMiniatura = (f: CapturaRow) => `miniaturas/${f.id}.jpg`;
+  // Qué miniaturas hay ya guardadas (una sola consulta, no una por foto).
+  const { data: listaMiniaturas } = await admin.storage.from('backups-visita').list('miniaturas', { limit: 1000 });
+  const nombresEnCache = new Set((listaMiniaturas ?? []).map((o) => o.name));
+  async function miniaturaEnCache(f: CapturaRow): Promise<Uint8Array | null> {
+    if (!nombresEnCache.has(`${f.id}.jpg`)) return null;
+    const { data } = await admin.storage.from('backups-visita').download(rutaMiniatura(f));
+    return data ? new Uint8Array(await data.arrayBuffer()) : null;
+  }
+  const sinPresupuesto = () =>
+    cpuMiniaturasMs > PRESUPUESTO_MINIATURAS_MS || miniaturasGeneradas >= MAX_MINIATURAS_POR_LLAMADA;
+  // Genera y guarda la miniatura (o, si la foto ya es pequeña, guarda la propia foto como «miniatura»
+  // para no volver a procesarla). Devuelve los bytes a embeber.
+  async function generarMiniatura(f: CapturaRow, bytes: Uint8Array): Promise<Uint8Array> {
+    const inicio = performance.now();
+    const mini = (await reducirParaInforme(bytes)) ?? bytes;
+    cpuMiniaturasMs += performance.now() - inicio;
+    miniaturasGeneradas += 1;
+    await admin.storage
+      .from('backups-visita')
+      .upload(rutaMiniatura(f), mini, { contentType: 'image/jpeg', upsert: true });
+    return mini;
+  }
+  if (formato === 'miniaturas') {
+    for (const f of fotos) {
+      if (await miniaturaEnCache(f)) continue;
+      if (sinPresupuesto()) {
+        miniaturasPendientes += 1;
+        continue;
+      }
+      const bytes = await descargarBinario(admin, 'fotos-visita', f);
+      if (!bytes) continue;
+      const tipoImagen = detectarFormatoImagen(bytes);
+      if (tipoImagen !== 'jpeg' && tipoImagen !== 'png') continue;
+      await generarMiniatura(f, bytes);
+    }
+    return jsonResponse({ pendientes: miniaturasPendientes, generadas: miniaturasGeneradas, fotos: fotos.length });
+  }
+
   const pasosOrdenados = proximosPasos ?? [];
   const pasosVencidos = pasosOrdenados.filter((p) => esVencido(p.fecha_objetivo, p.estado)).length;
 
@@ -416,11 +473,31 @@ Deno.serve(async (req) => {
   let audiosFallidos = 0;
   let documentosFallidos = 0;
 
+  // `formato` se vuelve a usar dentro del bucle para el de la imagen: aquí se guarda el de la salida.
+  const formatoSalida = formato;
   let indiceFoto = 0;
   for (const f of fotos) {
     indiceFoto += 1;
     const ubicacionNombre =
       f.zona_texto || (f.ubicacion as unknown as { nombre: string } | null)?.nombre || 'Sin ubicación asignada';
+    // Informe web con la miniatura ya en caché: no hace falta bajar el original (ahorra casi todo el tiempo).
+    if (formatoSalida === 'html') {
+      const enCache = await miniaturaEnCache(f);
+      const formatoCache = enCache ? detectarFormatoImagen(enCache) : 'desconocido';
+      if (enCache && (formatoCache === 'jpeg' || formatoCache === 'png')) {
+        fotosHtml.push({
+          n: indiceFoto,
+          titulo: f.titulo,
+          zona: zonaDeCaptura(f),
+          creadoEn: f.creado_en,
+          dataUri: `data:image/${formatoCache};base64,${base64Encode(enCache)}`,
+          urlOriginal: urlSharePoint(f.ruta_sharepoint),
+          latitud: f.latitud,
+          longitud: f.longitud,
+        });
+        continue;
+      }
+    }
     const bytes = await descargarBinario(admin, 'fotos-visita', f);
     if (!bytes) {
       fotosFallidas += 1;
@@ -435,18 +512,37 @@ Deno.serve(async (req) => {
     ]
       .filter(Boolean)
       .join(' - ');
-    carpetaFotos.file(`${nombreArchivo}.${extension}`, bytes);
-    fotosHtml.push({
-      n: indiceFoto,
-      titulo: f.titulo,
-      zona: ubicacionNombre,
-      creadoEn: f.creado_en,
-      dataUri: formato === 'jpeg' || formato === 'png' ? `data:image/${formato};base64,${base64Encode(bytes)}` : null,
-      latitud: f.latitud,
-      longitud: f.longitud,
-    });
+    // Solo la copia completa (zip) guarda los originales: en html/pdf se soltarían en memoria sin usarse.
+    if (formatoSalida === 'zip') carpetaFotos.file(`${nombreArchivo}.${extension}`, bytes);
+    // Informe web: miniatura reducida (~50 KB) y enlace al original (dentro del zip, o en SharePoint si
+    // ya está copiada). El PDF no usa esto.
+    if (formatoSalida !== 'pdf') {
+      const embebible = formato === 'jpeg' || formato === 'png';
+      let mini: Uint8Array | null = null;
+      if (embebible) {
+        mini = await miniaturaEnCache(f);
+        if (!mini && !sinPresupuesto()) mini = await generarMiniatura(f, bytes);
+      }
+      const formatoMini = mini ? detectarFormatoImagen(mini) : 'desconocido';
+      fotosHtml.push({
+        n: indiceFoto,
+        titulo: f.titulo,
+        zona: zonaDeCaptura(f),
+        creadoEn: f.creado_en,
+        dataUri: mini && (formatoMini === 'jpeg' || formatoMini === 'png')
+          ? `data:image/${formatoMini};base64,${base64Encode(mini)}`
+          : embebible
+            ? `data:image/${formato};base64,${base64Encode(bytes)}`
+            : null,
+        urlOriginal: formatoSalida === 'zip' ? encodeURI(`fotos/${nombreArchivo}.${extension}`) : urlSharePoint(f.ruta_sharepoint),
+        latitud: f.latitud,
+        longitud: f.longitud,
+      });
+    }
 
-    if (formato === 'jpeg' || formato === 'png') {
+    if (formatoSalida === 'html') {
+      // El informe web no usa el anexo del PDF.
+    } else if (formato === 'jpeg' || formato === 'png') {
       fotosParaPdf.push({
         titulo: f.titulo,
         ubicacionNombre,
@@ -475,8 +571,8 @@ Deno.serve(async (req) => {
     }
     const extension = a.storage_path?.split('.').pop() || 'm4a';
     const nombreArchivo = [String(indiceAudio).padStart(2, '0'), nombreArchivoLegible(a.titulo, 'audio')].join(' - ');
-    carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
-    audiosHtml.push({ titulo: a.titulo || 'Audio sin título', creadoEn: a.creado_en, ruta: `audios/${nombreArchivo}.${extension}` });
+    if (formatoSalida === 'zip') carpetaAudios.file(`${nombreArchivo}.${extension}`, bytes);
+    audiosHtml.push({ titulo: a.titulo || 'Audio sin título', creadoEn: a.creado_en, ruta: `audios/${nombreArchivo}.${extension}`, zona: zonaDeCaptura(a), url: urlSharePoint(a.ruta_sharepoint, true) });
     audiosDescargados.push(a);
   }
 
@@ -498,8 +594,8 @@ Deno.serve(async (req) => {
     }
     const nombre = (d.nombre_original || `documento.${d.storage_path.split('.').pop() || 'bin'}`).replace(/[\\/:*?"<>|]/g, '-');
     const nombreEnZip = `${String(indiceDocumento).padStart(2, '0')} - ${nombre}`;
-    carpetaDocumentos.file(nombreEnZip, new Uint8Array(await data.arrayBuffer()));
-    documentosHtml.push({ titulo: d.titulo || d.nombre_original || 'Documento', creadoEn: d.creado_en, ruta: `documentos/${nombreEnZip}` });
+    if (formatoSalida === 'zip') carpetaDocumentos.file(nombreEnZip, new Uint8Array(await data.arrayBuffer()));
+    documentosHtml.push({ titulo: d.titulo || d.nombre_original || 'Documento', creadoEn: d.creado_en, ruta: `documentos/${nombreEnZip}`, zona: zonaDeCaptura(d), url: urlSharePoint(d.ruta_sharepoint, true) });
     documentosDescargados.push(d);
   }
 
@@ -856,11 +952,12 @@ Deno.serve(async (req) => {
     oportunidades: oportunidadesOrdenadas,
     hallazgos,
     pasos: pasosOrdenados,
-    notas: notas.map((n) => ({ titulo: n.titulo, texto: n.contenido_texto })),
+    notas: notas.map((n) => ({ titulo: n.titulo, texto: n.contenido_texto, zona: zonaDeCaptura(n) })),
     fotos: fotosHtml,
     audios: audiosHtml,
     documentos: documentosHtml,
     enZip: formato === 'zip',
+    enlaceApp: `${(Deno.env.get('APP_URL') ?? 'https://rococo-gumption-efb70a.netlify.app').replace(/\/+$/, '')}/visita/${visitaId}`,
     avisos: avisosHtml,
     generadoEn: `${fechaLarga(ahora)}, ${horaDe(ahora)}`,
     logo: typeof PRIMION_LOGO === 'string' ? PRIMION_LOGO : null,

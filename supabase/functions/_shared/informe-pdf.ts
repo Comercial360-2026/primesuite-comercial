@@ -195,6 +195,9 @@ export interface OportunidadRow {
   prioridad: string;
   valor_estimado: number | null;
   horizonte_decision: string | null;
+  // Zona donde se detectó (informe web; el PDF no la usa).
+  zona_texto?: string | null;
+  ubicacion?: Nombrado | null;
 }
 export interface PasoRow {
   id: string;
@@ -202,6 +205,7 @@ export interface PasoRow {
   fecha_objetivo: string | null;
   estado: string;
   comercial_responsable: Nombrado | null;
+  zona_texto?: string | null;
 }
 // Un "área" del hallazgo (PM11 Fase 2): o una categoría del catálogo
 // ("Hardware") o un término concreto ("MIFARE › DESFire EV2"). Un hallazgo

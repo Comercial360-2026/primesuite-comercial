@@ -29,3 +29,16 @@ export async function obtenerArchivoSharePoint(admin: SupabaseClient, rutaSharep
   if (base64.length > MAX_BASE64) throw new Error('El archivo es demasiado grande para mostrarlo; ábrelo desde SharePoint.');
   return `data:${contentType};base64,${base64}`;
 }
+
+// Enlace directo (con el inicio de sesión de quien lo abre) a un archivo ya copiado a SharePoint,
+// para los botones «Original» / «Escuchar» / «Abrir» del informe web. El sitio no admite enlaces
+// anónimos: solo funcionan para quien tenga acceso a la carpeta. `ruta` es la que guarda
+// captura_libre.ruta_sharepoint ("/Shared Documents/General/…").
+const SITIO_SHAREPOINT = 'https://primion.sharepoint.com/sites/DeptDIGDepartamentocomercial-Spain';
+
+// `enNavegador` (audios y documentos): `?web=1` abre el reproductor / visor de SharePoint en vez de descargar el archivo.
+export function urlSharePoint(ruta: string | null | undefined, enNavegador = false): string | null {
+  if (!ruta) return null;
+  const base = (Deno.env.get('SHAREPOINT_SITE_URL') ?? SITIO_SHAREPOINT).replace(/\/+$/, '');
+  return `${base}${encodeURI(ruta.startsWith('/') ? ruta : `/${ruta}`)}${enNavegador ? '?web=1' : ''}`;
+}

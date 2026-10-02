@@ -69,8 +69,13 @@ export function useDescargarInforme() {
   // depender de releer `estadoDe` — ese closure no se actualiza a mitad de
   // una función async ya en marcha, solo en el siguiente render.
   // Clave tipo+id: el PDF y el ZIP de una misma visita son descargas distintas.
-  async function descargar(tipo: TipoInforme, id: string): Promise<EstadoDescarga> {
+  // modo 'abrir' (solo informe web): en vez de bajarlo, se muestra en una pestaña nueva. La URL de
+  // Storage fuerza la descarga y sirve el HTML como texto, así que se trae como blob con tipo
+  // text/html. La pestaña se abre YA (dentro del toque), antes del await, para que el navegador no la
+  // bloquee como emergente.
+  async function descargar(tipo: TipoInforme, id: string, modo: 'descargar' | 'abrir' = 'descargar'): Promise<EstadoDescarga> {
     const clave = `${tipo}:${id}`;
+    const pestana = modo === 'abrir' ? window.open('about:blank', '_blank') : null;
     setEstados((prev) => ({ ...prev, [clave]: 'generando' }));
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -94,14 +99,25 @@ export function useDescargarInforme() {
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace
       // <a href> de reserva para bajarlo a mano.
       try {
-        await guardarArchivoEnDisco(data.url);
+        if (modo === 'abrir' && pestana) {
+          const resp = await fetch(data.url);
+          if (!resp.ok) throw new Error(`Descarga fallida (${resp.status})`);
+          const blob = new Blob([await resp.blob()], { type: 'text/html;charset=utf-8' });
+          const objectUrl = URL.createObjectURL(blob);
+          pestana.location.href = objectUrl;
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 10 * 60_000);
+        } else {
+          await guardarArchivoEnDisco(data.url);
+        }
       } catch {
+        pestana?.close();
         /* enlace de reserva visible en la propia fila/botón */
       }
       return listo;
     } catch (e) {
       const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
       const resultado: EstadoDescarga = sinRed ? 'sin-red' : 'error';
+      pestana?.close();
       setEstados((prev) => ({ ...prev, [clave]: resultado }));
       return resultado;
     } finally {

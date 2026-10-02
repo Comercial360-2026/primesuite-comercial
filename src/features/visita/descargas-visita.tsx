@@ -11,7 +11,7 @@ import { formatearMB, type EstadoDescarga, type TipoInforme } from '@/hooks/use-
 
 const FILAS: Array<{ tipo: TipoInforme; titulo: string; queLleva: string; etiqueta: string }> = [
   { tipo: 'visita', titulo: 'PDF de la visita', queLleva: 'Informe con las fotos', etiqueta: 'Descargar PDF' },
-  { tipo: 'visita-web', titulo: 'Informe web', queLleva: 'Fotos con su mapa y coordenadas, en el navegador', etiqueta: 'Descargar informe web' },
+  { tipo: 'visita-web', titulo: 'Informe web', queLleva: 'Página navegable: fotos, mapa por zonas, buscador', etiqueta: 'Descargar informe web' },
   { tipo: 'visita-zip', titulo: 'Todo en ZIP', queLleva: 'PDF, informe web, fotos originales, audios y documentos', etiqueta: 'Descargar ZIP' },
 ];
 
@@ -30,7 +30,7 @@ export function DescargasVisita({
 }: {
   visitaId: string;
   estadoDe: (tipo: TipoInforme, id: string) => EstadoDescarga;
-  descargar: (tipo: TipoInforme, id: string) => Promise<EstadoDescarga>;
+  descargar: (tipo: TipoInforme, id: string, modo?: 'descargar' | 'abrir') => Promise<EstadoDescarga>;
 }) {
   return (
     <SeccionLista>
@@ -44,6 +44,18 @@ export function DescargasVisita({
             titulo={titulo}
             subtitulo={subtitulo(estado, queLleva)}
             acciones={[
+              // El informe web es una página: además de bajarlo se puede abrir directamente.
+              ...(tipo === 'visita-web'
+                ? [
+                    {
+                      icono: 'abrir' as const,
+                      etiqueta: 'Abrir informe web',
+                      onClick: () => void descargar(tipo, visitaId, 'abrir'),
+                      disabled: estado === 'generando',
+                      tono: 'neutral' as const,
+                    },
+                  ]
+                : []),
               {
                 icono: 'descargar',
                 etiqueta: listo ? `${etiqueta} otra vez` : etiqueta,

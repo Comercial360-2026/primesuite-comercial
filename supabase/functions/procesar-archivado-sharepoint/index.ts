@@ -213,6 +213,23 @@ Deno.serve(async (req) => {
           if (!r.ok) throw new Error(`generar-backup-visita (${formato}) respondió ${r.status}`);
           return (await r.json()) as { url: string; ruta: string };
         };
+        // Miniaturas primero (cada llamada tiene presupuesto de CPU): hasta que no quede ninguna pendiente.
+        if (v.falta_html) {
+          for (let i = 0; i < 8; i++) {
+            const rm = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generar-backup-visita`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'x-clave-worker': req.headers.get('x-clave-worker') ?? '',
+              },
+              body: JSON.stringify({ visitaId: v.visita_id, formato: 'miniaturas' }),
+            });
+            if (!rm.ok) break; // sin miniaturas el informe va con los originales: más pesado, pero va
+            const { pendientes } = (await rm.json()) as { pendientes: number };
+            if (!pendientes) break;
+          }
+        }
         const html = v.falta_html ? await pedirInforme('html') : null;
         const pdf = v.falta_pdf ? await pedirInforme('pdf') : null;
 
@@ -226,7 +243,11 @@ Deno.serve(async (req) => {
         const hora = cierre
           .toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false })
           .replace(':', '-');
-        const nombreBase = `Informe de la visita (cerrada ${dia} ${hora})`;
+        // Regeneración de un informe ya copiado: marca de la hora actual para no chocar con el anterior.
+        const ahora = new Date()
+          .toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+          .replace(/:/g, '');
+        const nombreBase = `Informe de la visita (cerrada ${dia} ${hora})${v.copiado_antes ? ` (rev ${ahora})` : ''}`;
 
         const archivos = [
           ...(pdf
