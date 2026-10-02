@@ -2573,7 +2573,7 @@ export function VisitaActiva() {
             onClick={() => inputDocumentoRef.current?.click()}
           >
             <Icono nombre="documento" size={22} weight="duotone" />
-            {capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar documento'}
+            {capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar un documento'}
           </button>
         </div>
 
