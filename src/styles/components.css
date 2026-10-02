@@ -874,6 +874,9 @@ textarea.field {
 /* Fotos del detalle de visita cerrada — rejilla uniforme, todas recortadas
    igual (object-fit: cover), agrupadas por ubicación. */
 .dvc-fotos-ubi { font-size: var(--text-xs); font-weight: 500; padding: 2px var(--fila-pad-x) 4px; }
+/* Visita cerrada «por zona»: cada zona es un bloque con su título y todo lo suyo debajo. */
+.dvc-zona { display: flex; flex-direction: column; gap: 12px; }
+.dvc-zona__titulo { font-size: var(--text-md); font-weight: 700; color: var(--brand-700); padding: 14px var(--fila-pad-x) 4px; border-bottom: 1px solid var(--ink-100); }
 .dvc-fotos-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .dvc-fotos-grid button {
   aspect-ratio: 1; padding: 0; border: none; border-radius: var(--radius-field);

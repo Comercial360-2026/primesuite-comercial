@@ -31,6 +31,8 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
 import { Icono } from '@/components/ui/iconos';
+import { Segmentado } from '@/components/ui/segmentado';
+import { ordenarZonasPorUso } from '@/lib/zonas-visita';
 import { MapaFotos } from '@/components/ui/mapa-fotos';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { BriefingHoja } from '@/features/visita/briefing-hoja';
@@ -70,7 +72,7 @@ interface DetalleVisita {
   cliente_id: string | null;
   cliente_nombre: string;
   fotos: Foto[];
-  audios: Array<{ id: string; titulo: string | null; url: string | null; archivadaSharepoint: boolean }>;
+  audios: Array<{ id: string; titulo: string | null; url: string | null; archivadaSharepoint: boolean; zona_texto: string | null }>;
   hayArchivadoSharepoint: boolean;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
   documentos: Array<{ id: string; titulo: string | null; nombre_original: string | null; bytes: number | null }>;
@@ -250,7 +252,13 @@ export function DetalleVisitaCerrada() {
       const audios = await Promise.all(
         audiosBrutos.map(async (a) => {
           const url = await urlDeCaptura(a, 'audios-visita');
-          return { id: a.id, titulo: a.titulo, url, archivadaSharepoint: a.ubicacion_archivo === 'sharepoint' };
+          return {
+            id: a.id,
+            titulo: a.titulo,
+            url,
+            archivadaSharepoint: a.ubicacion_archivo === 'sharepoint',
+            zona_texto: (a as { zona_texto?: string | null }).zona_texto ?? null,
+          };
         })
       );
 
@@ -464,9 +472,6 @@ export function DetalleVisitaCerrada() {
   };
 
   // --- Derivados (solo con datos) ---
-  const opsOrdenadas = data
-    ? [...data.oportunidades].sort((a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9))
-    : [];
   const totalEuros = data ? data.oportunidades.reduce((s, o) => s + (o.valor_estimado ?? 0), 0) : 0;
   const hallazgosN = data ? data.hallazgos.length : 0;
   const vencidosN = data ? data.proximosPasos.filter(esVencido).length : 0;
@@ -484,6 +489,225 @@ export function DetalleVisitaCerrada() {
   if (hallazgosN > 0) kpis.push({ texto: `${hallazgosN} hallazgo${hallazgosN === 1 ? '' : 's'}`, alerta: false });
   if (vencidosN > 0)
     kpis.push({ texto: `${vencidosN} paso${vencidosN === 1 ? '' : 's'} vencido${vencidosN === 1 ? '' : 's'}`, alerta: true });
+
+  // --- Zonas: si la visita tiene zonas, se cuenta zona a zona (todo lo de una zona junto) y lo que no
+  // tiene zona va al final como «Sin zona»; «Tipo» es la alternativa. Mismo criterio que los informes. ---
+  const zonaDeTexto = (z: string | null | undefined) => (z ?? '').trim();
+  const contadorZonas = new Map<string, number>();
+  const cuentaZona = (z: string | null | undefined) => contadorZonas.set(zonaDeTexto(z), (contadorZonas.get(zonaDeTexto(z)) ?? 0) + 1);
+  data?.fotos.forEach((f) => cuentaZona(f.ubicacion_nombre));
+  data?.audios.forEach((a) => cuentaZona(a.zona_texto));
+  data?.notas.forEach((n) => cuentaZona(n.zona_texto));
+  data?.hallazgos.forEach((h) => cuentaZona(h.zona_texto));
+  data?.oportunidades.forEach((o) => cuentaZona(o.zona_texto));
+  data?.proximosPasos.forEach((p) => cuentaZona(p.zona_texto));
+  const zonasOrden = ordenarZonasPorUso(contadorZonas);
+  const hayZonas = zonasOrden.some((z) => z !== '');
+  const [verPorZona, setVerPorZona] = useState<boolean | null>(null);
+  const porZona = hayZonas && (verPorZona ?? true);
+
+  type Datos = NonNullable<typeof data>;
+  const bloqueOportunidades = (lista: Datos['oportunidades'], enZona = false) =>
+    lista.length > 0 && (
+      <SeccionLista titulo={`Oportunidades (${lista.length})`}>
+        {[...lista]
+          .sort((a, b) => (PRIORIDAD_ORDEN[a.prioridad] ?? 9) - (PRIORIDAD_ORDEN[b.prioridad] ?? 9))
+          .map((o) => (
+            <FilaNavegable
+              key={o.id}
+              titulo={o.titulo}
+              subtitulo={[
+                `${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`,
+                enZona ? null : o.zona_texto?.trim() || null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
+              to={`/oportunidades/${o.id}`}
+              state={origen}
+            />
+          ))}
+        {lista.reduce((t, o) => t + (o.valor_estimado ?? 0), 0) > 0 && (
+          <FilaDato
+            etiqueta="Total estimado"
+            valor={`${lista.reduce((t, o) => t + (o.valor_estimado ?? 0), 0).toLocaleString('es-ES')} €`}
+          />
+        )}
+      </SeccionLista>
+    );
+
+  const bloqueHallazgos = (lista: Datos['hallazgos'], enZona = false) =>
+    lista.length > 0 && (
+      <SeccionLista titulo={`Hallazgos (${lista.length})`}>
+        {lista.map((h) => (
+          <FilaNavegable
+            key={h.id}
+            titulo={h.nota?.trim() || 'Hallazgo'}
+            subtitulo={enZona ? undefined : h.zona_texto?.trim() || undefined}
+            valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
+            valorTenue
+            to={`/hallazgos/${h.id}`}
+            state={origen}
+          />
+        ))}
+      </SeccionLista>
+    );
+
+  const bloquePasos = (lista: Datos['proximosPasos'], enZona = false) =>
+    lista.length > 0 && (
+      <SeccionLista titulo={`Próximos pasos (${lista.length})`}>
+        {lista.map((p) => {
+          const vencido = esVencido(p);
+          return (
+            <FilaNavegable
+              key={p.id}
+              titulo={p.descripcion}
+              subtitulo={enZona ? undefined : p.zona_texto?.trim() || undefined}
+              tono={vencido ? 'riesgo' : 'neutral'}
+              valor={
+                vencido ? (
+                  <span style={{ color: 'var(--danger-600)', fontWeight: 600 }}>
+                    Vencido{p.fecha_objetivo ? ` · ${fechaCorta(p.fecha_objetivo)}` : ''}
+                  </span>
+                ) : p.fecha_objetivo ? (
+                  fechaCorta(p.fecha_objetivo)
+                ) : undefined
+              }
+              to={`/proximos-pasos/${p.id}`}
+              state={origen}
+            />
+          );
+        })}
+      </SeccionLista>
+    );
+
+  const bloqueNotas = (lista: Datos['notas'], enZona = false) =>
+    lista.length > 0 && (
+      <div>
+        <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+          {enZona ? '' : 'Anexo · '}Notas ({lista.length})
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {lista.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className="dvc-bloque dvc-bloque--accion"
+              onClick={() => navigate(`/capturas/${n.id}`, { state: origen })}
+            >
+              {n.titulo && <div style={{ fontWeight: 500, marginBottom: 2 }}>{n.titulo}</div>}
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>{n.contenido_texto}</div>
+              {!enZona && n.zona_texto?.trim() && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>{n.zona_texto}</div>
+              )}
+              <span aria-hidden className="dvc-bloque__editar">
+                <Icono nombre="editar" size={14} />
+              </span>
+            </button>
+          ))}
+        </div>
+        <div
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--ink-400)',
+            marginTop: 4,
+            paddingInline: 'var(--fila-pad-x)',
+          }}
+        >
+          Toca una nota para revisarla, editarla o marcarla como hallazgo u oportunidad.
+        </div>
+      </div>
+    );
+
+  const bloqueMapa =
+    fotosMapa.length > 0 && (
+      <div>
+        <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
+          Mapa de fotos ({fotosMapa.length})
+        </div>
+        <MapaFotos fotos={fotosMapa} />
+      </div>
+    );
+
+  // `grupos`: fotos agrupadas (por zona en «Tipo»; una sola en «Zona», donde el título ya es la zona).
+  const bloqueFotos = (grupos: [string, { foto: Foto; idx: number }[]][], enZona = false) => {
+    const total = grupos.reduce((t, [, l]) => t + l.length, 0);
+    return (
+      total > 0 && (
+        <div>
+          <div className="seccion-lista__cabecera" style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ display: 'inline-flex', color: 'var(--tipo-foto)' }}>
+              <Icono nombre="foto" size={14} />
+            </span>
+            {enZona ? '' : 'Anexo · '}Fotos ({total})
+          </div>
+          {grupos.map(([ubi, lista]) => (
+            <div key={ubi} style={{ marginBottom: 8 }}>
+              {!enZona && <div className="dvc-fotos-ubi">{ubi}</div>}
+              <div className="dvc-fotos-grid">
+                {lista.map(({ foto, idx }) =>
+                  foto.url ? (
+                    <button key={foto.id} type="button" onClick={() => setVisorIndice(idx)} aria-label={foto.titulo ?? 'ver foto'}>
+                      <img src={foto.url} alt={foto.titulo ?? 'foto'} />
+                    </button>
+                  ) : (
+                    <div key={foto.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', alignSelf: 'center' }}>
+                      {foto.titulo ?? 'no disponible'}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    );
+  };
+
+  const bloqueAudios = (lista: Datos['audios'], enZona = false) =>
+    lista.length > 0 && (
+      <div>
+        <div className="seccion-lista__cabecera" style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--tipo-audio)' }}>
+            <Icono nombre="audio" size={14} />
+          </span>
+          {enZona ? '' : 'Anexo · '}Audios ({lista.length})
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {lista.map((a) => (
+            <div key={a.id} className="dvc-bloque">
+              {a.titulo && <div style={{ fontSize: 'var(--text-sm)', marginBottom: 6 }}>{a.titulo}</div>}
+              {!enZona && a.zona_texto?.trim() && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 6 }}>{a.zona_texto}</div>
+              )}
+              {a.url ? (
+                <audio controls src={a.url} style={{ width: '100%' }} />
+              ) : (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audio no disponible</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+  // Una zona entera: todo lo suyo junto, en el orden de los informes.
+  const bloquesDeZona = (z: string) => {
+    if (!data) return null;
+    const delaZona = <T,>(lista: T[], zona: (x: T) => string | null | undefined) => lista.filter((x) => zonaDeTexto(zona(x)) === z);
+    const fotosZ = data.fotos.map((foto, idx) => ({ foto, idx })).filter(({ foto }) => zonaDeTexto(foto.ubicacion_nombre) === z);
+    return (
+      <div key={z || 'sin-zona'} className="dvc-zona">
+        <div className="dvc-zona__titulo">{z || 'Sin zona'}</div>
+        {bloqueOportunidades(delaZona(data.oportunidades, (o) => o.zona_texto), true)}
+        {bloqueHallazgos(delaZona(data.hallazgos, (h) => h.zona_texto), true)}
+        {bloquePasos(delaZona(data.proximosPasos, (p) => p.zona_texto), true)}
+        {bloqueNotas(delaZona(data.notas, (n) => n.zona_texto), true)}
+        {bloqueAudios(delaZona(data.audios, (a) => a.zona_texto), true)}
+        {bloqueFotos([[z, fotosZ]], true)}
+      </div>
+    );
+  };
 
   // Avisos antes de borrar la visita: oportunidad abierta colgando (si no,
   // `eliminar_visita_completa` se la llevaría por delante; el servidor lo
@@ -742,176 +966,34 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {opsOrdenadas.length > 0 && (
-            <SeccionLista titulo={`Oportunidades (${opsOrdenadas.length})`}>
-              {opsOrdenadas.map((o) => (
-                <FilaNavegable
-                  key={o.id}
-                  titulo={o.titulo}
-                  subtitulo={[
-                    `${etiqueta(ETAPA_LABEL, o.etapa)} · ${etiqueta(PRIORIDAD_LABEL, o.prioridad).toLowerCase()}`,
-                    o.zona_texto?.trim() || null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
-                  to={`/oportunidades/${o.id}`}
-                  state={origen}
-                />
-              ))}
-              {totalEuros > 0 && <FilaDato etiqueta="Total estimado" valor={`${totalEuros.toLocaleString('es-ES')} €`} />}
-            </SeccionLista>
-          )}
-
-          {data.hallazgos.length > 0 && (
-            <SeccionLista titulo={`Hallazgos (${data.hallazgos.length})`}>
-              {data.hallazgos.map((h) => (
-                <FilaNavegable
-                  key={h.id}
-                  titulo={h.nota?.trim() || 'Hallazgo'}
-                  subtitulo={h.zona_texto?.trim() || undefined}
-                  valor={h.areas.map((a) => a.nombre).join(' · ') || undefined}
-                  valorTenue
-                  to={`/hallazgos/${h.id}`}
-                  state={origen}
-                />
-              ))}
-            </SeccionLista>
-          )}
-
-          {data.proximosPasos.length > 0 && (
-            <SeccionLista titulo={`Próximos pasos (${data.proximosPasos.length})`}>
-              {data.proximosPasos.map((p) => {
-                const vencido = esVencido(p);
-                return (
-                  <FilaNavegable
-                    key={p.id}
-                    titulo={p.descripcion}
-                    subtitulo={p.zona_texto?.trim() || undefined}
-                    tono={vencido ? 'riesgo' : 'neutral'}
-                    valor={
-                      vencido ? (
-                        <span style={{ color: 'var(--danger-600)', fontWeight: 600 }}>
-                          Vencido{p.fecha_objetivo ? ` · ${fechaCorta(p.fecha_objetivo)}` : ''}
-                        </span>
-                      ) : p.fecha_objetivo ? (
-                        fechaCorta(p.fecha_objetivo)
-                      ) : undefined
-                    }
-                    to={`/proximos-pasos/${p.id}`}
-                    state={origen}
-                  />
-                );
-              })}
-            </SeccionLista>
-          )}
-
-          {data.notas.length > 0 && (
-            <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
-                Anexo · Notas ({data.notas.length})
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {data.notas.map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    className="dvc-bloque dvc-bloque--accion"
-                    onClick={() => navigate(`/capturas/${n.id}`, { state: origen })}
-                  >
-                    {n.titulo && <div style={{ fontWeight: 500, marginBottom: 2 }}>{n.titulo}</div>}
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', lineHeight: 1.4 }}>
-                      {n.contenido_texto}
-                    </div>
-                    {n.zona_texto?.trim() && (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 4 }}>
-                        {n.zona_texto}
-                      </div>
-                    )}
-                    <span aria-hidden className="dvc-bloque__editar">
-                      <Icono nombre="editar" size={14} />
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--ink-400)',
-                  marginTop: 4,
-                  paddingInline: 'var(--fila-pad-x)',
-                }}
-              >
-                Toca una nota para revisarla, editarla o marcarla como hallazgo u oportunidad.
-              </div>
+          {hayZonas && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Segmentado
+                opciones={[
+                  { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
+                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
+                ]}
+                valor={porZona ? 'zona' : 'tipo'}
+                onCambio={(v) => setVerPorZona(v === 'zona')}
+              />
             </div>
           )}
 
-          {fotosMapa.length > 0 && (
-            <div>
-              <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
-                Mapa de fotos ({fotosMapa.length})
-              </div>
-              <MapaFotos fotos={fotosMapa} />
-            </div>
-          )}
-
-          {data.fotos.length > 0 && (
-            <div>
-              <div
-                className="seccion-lista__cabecera"
-                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <span style={{ display: 'inline-flex', color: 'var(--tipo-foto)' }}>
-                  <Icono nombre="foto" size={14} />
-                </span>
-                Anexo · Fotos ({data.fotos.length})
-              </div>
-              {[...fotosPorUbi.entries()].map(([ubi, lista]) => (
-                <div key={ubi} style={{ marginBottom: 8 }}>
-                  <div className="dvc-fotos-ubi">{ubi}</div>
-                  <div className="dvc-fotos-grid">
-                    {lista.map(({ foto, idx }) =>
-                      foto.url ? (
-                        <button key={foto.id} type="button" onClick={() => setVisorIndice(idx)} aria-label={foto.titulo ?? 'ver foto'}>
-                          <img src={foto.url} alt={foto.titulo ?? 'foto'} />
-                        </button>
-                      ) : (
-                        <div key={foto.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', alignSelf: 'center' }}>
-                          {foto.titulo ?? 'no disponible'}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {data.audios.length > 0 && (
-            <div>
-              <div
-                className="seccion-lista__cabecera"
-                style={{ paddingBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}
-              >
-                <span style={{ display: 'inline-flex', color: 'var(--tipo-audio)' }}>
-                  <Icono nombre="audio" size={14} />
-                </span>
-                Anexo · Audios ({data.audios.length})
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {data.audios.map((a) => (
-                  <div key={a.id} className="dvc-bloque">
-                    {a.titulo && <div style={{ fontSize: 'var(--text-sm)', marginBottom: 6 }}>{a.titulo}</div>}
-                    {a.url ? (
-                      <audio controls src={a.url} style={{ width: '100%' }} />
-                    ) : (
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Audio no disponible</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {porZona ? (
+            <>
+              {bloqueMapa}
+              {zonasOrden.map(bloquesDeZona)}
+            </>
+          ) : (
+            <>
+              {bloqueOportunidades(data.oportunidades)}
+              {bloqueHallazgos(data.hallazgos)}
+              {bloquePasos(data.proximosPasos)}
+              {bloqueNotas(data.notas)}
+              {bloqueMapa}
+              {bloqueFotos([...fotosPorUbi.entries()])}
+              {bloqueAudios(data.audios)}
+            </>
           )}
 
         </div>

@@ -585,10 +585,10 @@ export function VisitaActiva() {
   const zonaParaCaptura = zonaActual.trim() || undefined;
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
-  // D1 (rediseño Zona 3): "En esta visita" agrupa por tipo por defecto; el
-  // conmutador a "por zona" solo tiene sentido si la visita ha usado el
-  // Recorrido (si no, no hay zonas que agrupar).
-  const [ordenPorZona, setOrdenPorZona] = useState(false);
+  // "En esta visita": si la visita ya usa zonas (Recorrido), se cuenta por zona —todo lo de una zona
+  // junto, como en los informes—; «Tipo» es la alternativa y lo que se elija se respeta. Sin zonas no
+  // hay conmutador (nada que agrupar).
+  const [ordenElegido, setOrdenElegido] = useState<boolean | null>(null);
   // "Anotar" (prompt maestro 10): una sola hoja que fusiona lo que antes
   // eran los botones "Hallazgo", "Oportunidad" y "Nota".
   const [anotarAbierto, setAnotarAbierto] = useState(false);
@@ -2023,6 +2023,7 @@ export function VisitaActiva() {
   // no solo la cola local: si no, el conmutador se escondía cuando la zona
   // se había puesto desde la ficha de un hallazgo en vez de al capturar.
   const zonaUsada = zonasUsadas.length > 0;
+  const ordenPorZona = ordenElegido ?? zonaUsada;
   const hayZonaActiva = !!zonaActual.trim();
 
   // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.
@@ -2661,11 +2662,11 @@ export function VisitaActiva() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
               <Segmentado
                 opciones={[
-                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
                   { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
+                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
                 ]}
                 valor={ordenPorZona ? 'zona' : 'tipo'}
-                onCambio={(v) => setOrdenPorZona(v === 'zona')}
+                onCambio={(v) => setOrdenElegido(v === 'zona')}
               />
             </div>
           )}
