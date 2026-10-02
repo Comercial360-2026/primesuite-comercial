@@ -191,24 +191,30 @@ Deno.serve(async (req) => {
   if (ajusteInforme?.valor === true || (!!soloVisita && forzarInforme)) {
     const { data: sinInforme, error: errorInformes } = await admin.rpc('fn_visitas_para_informe');
     if (errorInformes) console.error('No se pudo listar los informes pendientes', errorInformes);
-    // Un informe con fotos pesa decenas de MB: pocos por pasada para no pasarse del tiempo de la función.
+    // Un informe con fotos pesa decenas de MB: pocos por pasada (2 visitas, cada una con PDF y HTML) para no pasarse del tiempo de la función.
     const informesDeEstaPasada = (sinInforme ?? [])
       .filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)
-      .slice(0, 3);
+      .slice(0, 2);
     for (const v of informesDeEstaPasada) {
       try {
-        const rInforme = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generar-backup-visita`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // El gateway exige un JWT válido; la función se identifica con la clave del worker.
-            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'x-clave-worker': req.headers.get('x-clave-worker') ?? '',
-          },
-          body: JSON.stringify({ visitaId: v.visita_id, formato: 'html' }),
-        });
-        if (!rInforme.ok) throw new Error(`generar-backup-visita respondió ${rInforme.status}`);
-        const informe = (await rInforme.json()) as { url: string; ruta: string };
+        // Qué formatos faltan: HTML (mapa de fotos, solo se ve descargándolo) y PDF (se previsualiza
+        // en SharePoint/Teams). Cada uno se confirma por separado.
+        const pedirInforme = async (formato: 'html' | 'pdf') => {
+          const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generar-backup-visita`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              // El gateway exige un JWT válido; la función se identifica con la clave del worker.
+              Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'x-clave-worker': req.headers.get('x-clave-worker') ?? '',
+            },
+            body: JSON.stringify({ visitaId: v.visita_id, formato, enSharepoint: true }),
+          });
+          if (!r.ok) throw new Error(`generar-backup-visita (${formato}) respondió ${r.status}`);
+          return (await r.json()) as { url: string; ruta: string };
+        };
+        const html = v.falta_html ? await pedirInforme('html') : null;
+        const pdf = v.falta_pdf ? await pedirInforme('pdf') : null;
 
         const { data: carpetas } = await admin.rpc('fn_carpetas_archivado', { p_visita_id: v.visita_id });
         if (!carpetas?.[0]) throw new Error('No se pudieron fijar las carpetas');
@@ -220,8 +226,22 @@ Deno.serve(async (req) => {
         const hora = cierre
           .toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false })
           .replace(':', '-');
+        const nombreBase = `Informe de la visita (cerrada ${dia} ${hora})`;
 
-        await admin.rpc('fn_marcar_intento_informe', { p_visita_id: v.visita_id, p_storage_path: informe.ruta });
+        const archivos = [
+          ...(pdf
+            ? [{ captura_id: `informe-pdf:${v.visita_id}`, tipo: 'informe', nombre_archivo: `${nombreBase}.pdf`, url_origen: pdf.url }]
+            : []),
+          ...(html
+            ? [{ captura_id: `informe:${v.visita_id}`, tipo: 'informe', nombre_archivo: `${nombreBase}.html`, url_origen: html.url }]
+            : []),
+        ];
+
+        await admin.rpc('fn_marcar_intento_informe', {
+          p_visita_id: v.visita_id,
+          p_html_path: html?.ruta ?? null,
+          p_pdf_path: pdf?.ruta ?? null,
+        });
         const r = await fetch(webhookUrl as string, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -236,19 +256,12 @@ Deno.serve(async (req) => {
             carpeta_cliente: carpetas[0].carpeta_cliente,
             carpeta_proyecto: carpetas[0].carpeta_proyecto,
             carpeta_visita: carpetas[0].carpeta_visita,
-            archivos: [
-              {
-                captura_id: `informe:${v.visita_id}`,
-                tipo: 'informe',
-                nombre_archivo: `Informe de la visita (cerrada ${dia} ${hora}).html`,
-                url_origen: informe.url,
-              },
-            ],
+            archivos,
           }),
         });
         if (!r.ok) throw new Error(`Power Automate respondió ${r.status}`);
         await r.body?.cancel();
-        resumen.informes_enviados++;
+        resumen.informes_enviados += archivos.length;
       } catch (e) {
         // informe_intento_en ya está puesto (si llegó a marcarse): se reintenta pasados 15 min, hasta 5 veces.
         console.error(`No se pudo archivar el informe de la visita ${v.visita_id}`, e);

@@ -207,11 +207,15 @@ Deno.serve(async (req) => {
   // la app) = PDF + fotos originales + audios: la copia completa.
   // 'html' = solo informe.html (informe web con mapa de fotos, un único archivo).
   let formato: 'pdf' | 'zip' | 'html' = 'zip';
+  // Solo lo pide el worker de archivado: el PDF va a la carpeta de la visita en SharePoint, donde los
+  // audios y documentos están al lado (no hay «Todo en ZIP»).
+  let pedidoEnSharepoint = false;
   try {
     const body = await req.json();
     visitaId = body.visitaId;
     if (body.formato === 'pdf') formato = 'pdf';
     if (body.formato === 'html') formato = 'html';
+    pedidoEnSharepoint = body.enSharepoint === true;
   } catch {
     return jsonResponse({ error: 'Cuerpo de la petición inválido, se esperaba { visitaId }' }, 400);
   }
@@ -232,6 +236,7 @@ Deno.serve(async (req) => {
   // worker (Vault), igual que procesar-briefings; no es un usuario, así que no hay comprobación de
   // participante.
   const claveWorker = req.headers.get('x-clave-worker');
+  const enSharepoint = pedidoEnSharepoint && !!claveWorker;
   if (claveWorker) {
     const { data: claveOk } = await admin.rpc('fn_clave_worker_valida', { p_clave: claveWorker });
     if (claveOk !== true) return jsonResponse({ error: 'No autorizado' }, 401);
@@ -699,7 +704,7 @@ Deno.serve(async (req) => {
   const bloquesAudios: any[] | null = audiosDescargados.length || audiosFallidos > 0
     ? [
         ...audiosDescargados.map((a) => ({
-          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta audios/ del zip'}`,
+          text: `•  ${a.titulo || 'Audio sin título'}  ·  ${horaDe(a.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta audios/ del zip'}`,
           fontSize: 9.5,
           color: COLOR.ink700,
           margin: [0, 0, 0, 4],
@@ -720,7 +725,7 @@ Deno.serve(async (req) => {
   const bloquesDocumentos: any[] | null = documentosDescargados.length || documentosFallidos > 0
     ? [
         ...documentosDescargados.map((d) => ({
-          text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? 'se descarga aparte en «Todo en ZIP»' : 'archivo en la carpeta documentos/ del zip'}`,
+          text: `•  ${d.titulo || d.nombre_original || 'Documento'}  ·  ${horaDe(d.creado_en)}  —  ${formato === 'pdf' ? (enSharepoint ? 'archivo en esta misma carpeta de SharePoint' : 'se descarga aparte en «Todo en ZIP»') : 'archivo en la carpeta documentos/ del zip'}`,
           fontSize: 9.5,
           color: COLOR.ink700,
           margin: [0, 0, 0, 4],

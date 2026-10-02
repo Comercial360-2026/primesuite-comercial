@@ -63,25 +63,33 @@ Deno.serve(async (req) => {
   }
 
   // El informe de la visita viaja por el mismo flujo como un archivo más, con
-  // captura_id = 'informe:<visita_id>' (no es una captura). Misma regla de integridad: el tamaño
-  // en SharePoint tiene que ser el del informe guardado en el bucket de backups.
-  if (body.captura_id.startsWith('informe:')) {
-    const visitaId = body.captura_id.slice('informe:'.length);
+  // captura_id = 'informe:<visita_id>' (HTML) o 'informe-pdf:<visita_id>' (PDF); no es una captura.
+  // Misma regla de integridad: el tamaño en SharePoint tiene que ser el del informe guardado en el
+  // bucket de backups.
+  const informe = /^informe(-pdf)?:/.exec(body.captura_id);
+  if (informe) {
+    const formato = informe[1] ? 'pdf' : 'html';
+    const visitaId = body.captura_id.slice(informe[0].length);
     if (!/^[0-9a-f-]{36}$/i.test(visitaId)) return json({ error: 'Informe no válido' }, 400);
-    const { data: visita } = await admin
-      .from('visita')
-      .select('informe_storage_path, informe_sharepoint_en')
-      .eq('id', visitaId)
-      .maybeSingle();
+    const columnaRuta = formato === 'pdf' ? 'informe_pdf_storage_path' : 'informe_storage_path';
+    const { data: visita } = await admin.from('visita').select(columnaRuta).eq('id', visitaId).maybeSingle();
     if (!visita) return json({ error: 'Visita no encontrada' }, 404);
     const subido = Number(body.tamano);
-    const original = await tamanoEnStorage(admin, 'backups-visita', visita.informe_storage_path);
+    const original = await tamanoEnStorage(
+      admin,
+      'backups-visita',
+      (visita as Record<string, string | null>)[columnaRuta]
+    );
     if (!subido || original === null || subido !== original) {
-      return json({ error: `Tamaño del informe no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}` }, 409);
+      return json(
+        { error: `Tamaño del informe ${formato} no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}` },
+        409
+      );
     }
     const { error: errorInforme } = await admin.rpc('fn_confirmar_informe_visita', {
       p_visita_id: visitaId,
       p_ruta_sharepoint: body.ruta_sharepoint,
+      p_formato: formato,
     });
     if (errorInforme) return json({ error: errorInforme.message }, 500);
     return json({ ok: true });
