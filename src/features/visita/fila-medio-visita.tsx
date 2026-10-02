@@ -4,8 +4,7 @@ import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { Aviso } from '@/components/ui/aviso';
-import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { Icono } from '@/components/ui/iconos';
 import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
 import type { MedioVisita } from '@/lib/medio-visita';
 
@@ -75,31 +74,22 @@ export function FilaMedioVisita({ visitaId, clienteId, medio, enlace, editable, 
         deshabilitado={!editable || cambio.cargando}
       />
       {cambio.error && <Aviso tipo="error">{cambio.error}</Aviso>}
-      {medio === 'teams' && enlace && (
-        <SeccionLista>
-          <FilaNavegable
-            icono="teams"
-            titulo="Unirse a la reunión"
-            chevron={false}
-            onClick={() => window.open(enlace, '_blank', 'noopener,noreferrer')}
-          />
-        </SeccionLista>
-      )}
-      {medio === 'llamada' && !!contactos?.length && (
-        <SeccionLista>
-          {contactos.map((c) => (
-            <FilaNavegable
-              key={c.id}
-              icono="llamada"
-              titulo={`Llamar a ${c.nombre}`}
-              subtitulo={c.telefono ?? undefined}
-              chevron={false}
-              onClick={() => {
-                window.location.href = `tel:${(c.telefono ?? '').replace(/[^\d+]/g, '')}`;
-              }}
-            />
-          ))}
-        </SeccionLista>
+      {((medio === 'teams' && enlace) || (medio === 'llamada' && !!contactos?.length)) && (
+        <div className="medio-acciones">
+          {medio === 'teams' && enlace && (
+            <a className="chip-accion" href={enlace} target="_blank" rel="noopener noreferrer">
+              <Icono nombre="teams" size={18} />
+              Unirse a la reunión
+            </a>
+          )}
+          {medio === 'llamada' &&
+            contactos?.map((c) => (
+              <a key={c.id} className="chip-accion" href={`tel:${(c.telefono ?? '').replace(/[^\d+]/g, '')}`}>
+                <Icono nombre="llamada" size={18} />
+                {c.nombre} · {c.telefono}
+              </a>
+            ))}
+        </div>
       )}
     </div>
   );

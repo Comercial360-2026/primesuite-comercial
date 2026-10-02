@@ -603,6 +603,9 @@ textarea.field {
    iconos de 44 px a la derecha. Solo el elegido va relleno de su color (icono blanco);
    los otros, grises sobre blanco. */
 .medio-selector { margin: var(--space-2) 0 var(--space-3); }
+/* Botones de acción del medio (Unirse / Llamar): pastillas compactas en fila que
+   rompe línea, con aire debajo para no pegarse a «Marcar zonas». */
+.medio-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-4); }
 .medio-selector__fila { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .medio-selector__titulo { font-size: var(--text-sm); font-weight: 600; color: var(--ink-700); }
 .medio-selector__elegido { font-size: var(--text-sm); font-weight: 700; color: var(--brand-600); }
