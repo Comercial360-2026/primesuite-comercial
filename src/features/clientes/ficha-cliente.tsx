@@ -100,10 +100,10 @@ export function FichaCliente() {
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
   const [formUbicacion, setFormUbicacion] = useState('');
-  // Cuenta del CRM (migración 121): se busca en el propio formulario. Elegir
-  // una vacía el buscador y la deja como fila con "quitar".
-  const [formCrm, setFormCrm] = useState<CuentaCrm | null>(null);
+  // Cuenta del CRM (migración 121): se vincula en su propia hoja, no en «Editar datos».
+  const [crmAbierto, setCrmAbierto] = useState(false);
   const [buscaCrm, setBuscaCrm] = useState('');
+  const guardadoCrm = useAccionAsync();
   const guardadoDatos = useAccionAsync();
   const cambioArchivado = useAccionAsync();
 
@@ -125,11 +125,46 @@ export function FichaCliente() {
     setFormSector(cliente?.sector ?? '');
     setFormTamano(cliente?.tamano_aprox ?? '');
     setFormUbicacion(cliente?.ubicacion_general ?? '');
-    setFormCrm(cuentaCrm ?? null);
-    // Sin cuenta vinculada se busca ya por el nombre del cliente (como hace el alta): lo normal es que salga.
-    setBuscaCrm(cuentaCrm ? '' : (cliente?.nombre ?? ''));
     guardadoDatos.limpiarError();
     setEditandoDatos(true);
+  }
+
+  // Sin cuenta vinculada se busca ya por el nombre del cliente (como hace el alta): lo normal es que salga.
+  function abrirCrm() {
+    setBuscaCrm(cliente?.crm_accountid ? '' : (cliente?.nombre ?? ''));
+    guardadoCrm.limpiarError();
+    setCrmAbierto(true);
+  }
+
+  // Elegir una cuenta (o quitarla con `null`) guarda al instante y cierra la hoja; si falla, la hoja
+  // se queda abierta con el error para reintentar.
+  async function vincularCrm(cuenta: CuentaCrm | null) {
+    if (!clienteId) return;
+    if (!navigator.onLine) {
+      guardadoCrm.establecerError('Necesitas conexión para vincular la cuenta del CRM.');
+      return;
+    }
+    await guardadoCrm.ejecutar(
+      async () => {
+        await conReintentoDeSesion(
+          () =>
+            supabase
+              .from('cliente')
+              .update({ crm_accountid: cuenta?.accountid ?? null }, { count: 'exact' })
+              .eq('id', clienteId),
+          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        );
+      },
+      {
+        onExito: () => {
+          setCrmAbierto(false);
+          setBuscaCrm('');
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+        },
+      }
+    );
   }
 
   async function guardarDatos() {
@@ -150,7 +185,6 @@ export function FichaCliente() {
                   sector: formSector || null,
                   tamano_aprox: formTamano || null,
                   ubicacion_general: formUbicacion.trim() || null,
-                  crm_accountid: formCrm?.accountid ?? null,
                 },
                 { count: 'exact' }
               )
@@ -459,7 +493,8 @@ export function FichaCliente() {
         ayuda="ficha-cliente"
         subtitulo={cliente?.sector || undefined}
         avatar={cliente?.nombre}
-        volverA={volver}
+        // Con «Editar datos» abierto, ← cierra el panel (paso anterior) y no saca de la ficha.
+        onVolver={() => (editandoDatos ? setEditandoDatos(false) : navigate(volver))}
         derecha={
           <>
             {clienteId && (
@@ -650,35 +685,6 @@ export function FichaCliente() {
              onChange={(e) => setFormUbicacion(e.target.value)}
              placeholder="p. ej. Polígono Norte, Sevilla"
            />
-           <div className="label">Cuenta en el CRM</div>
-           {formCrm ? (
-             <FilaNavegable
-               titulo={textoCuentaCrm(formCrm)}
-               valor="quitar"
-               valorTenue
-               chevron={false}
-               onClick={() => setFormCrm(null)}
-             />
-           ) : (
-             <>
-               <input
-                 className="field"
-                 autoComplete="off"
-                 value={buscaCrm}
-                 onChange={(e) => setBuscaCrm(e.target.value)}
-                 placeholder="busca por nombre (mín. 3 letras)"
-               />
-               <ResultadosCuentaCrm
-                 texto={buscaCrm}
-                 excluirClienteId={clienteId}
-                 titulo="Resultados"
-                 onElegir={(c) => {
-                   setFormCrm(c);
-                   setBuscaCrm('');
-                 }}
-               />
-             </>
-           )}
            {guardadoDatos.error && (
              <div style={{ marginTop: 8 }}>
                <Aviso tipo="error">{guardadoDatos.error}</Aviso>
@@ -718,14 +724,14 @@ export function FichaCliente() {
               <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
             {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
-                cliente buscar. Quien puede editar la vincula tocando la fila (abre «Editar datos»). */}
-            {puedeEditar && !cliente.crm_accountid ? (
+                cliente buscar. Quien puede editar la vincula tocando la fila (abre su propia hoja). */}
+            {puedeEditar ? (
               <FilaNavegable
                 titulo="Cuenta CRM"
-                subtitulo="Sin ella, el briefing no encuentra a este cliente. Toca para vincularla."
-                valor="sin vincular"
-                tono="aviso"
-                onClick={abrirEditarDatos}
+                subtitulo={cliente.crm_accountid ? undefined : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'}
+                valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+                tono={cliente.crm_accountid ? 'neutral' : 'aviso'}
+                onClick={abrirCrm}
               />
             ) : (
               <FilaDato
@@ -868,6 +874,43 @@ export function FichaCliente() {
             >
               {creacionProyecto.cargando ? 'Creando…' : 'Crear proyecto'}
             </button>
+          </HojaSuperior>
+        )}
+
+        {crmAbierto && (
+          <HojaSuperior titulo="Cuenta del CRM" onCerrar={() => setCrmAbierto(false)}>
+            {cliente?.crm_accountid && (
+              <SeccionLista titulo="Vinculada ahora">
+                <FilaNavegable
+                  titulo={cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…'}
+                  valor="quitar"
+                  valorTenue
+                  chevron={false}
+                  disabled={guardadoCrm.cargando}
+                  onClick={() => void vincularCrm(null)}
+                />
+              </SeccionLista>
+            )}
+            <input
+              className="field"
+              autoFocus
+              autoComplete="off"
+              value={buscaCrm}
+              onChange={(e) => setBuscaCrm(e.target.value)}
+              placeholder="busca otra cuenta por nombre (mín. 3 letras)"
+            />
+            <ResultadosCuentaCrm
+              texto={buscaCrm}
+              excluirClienteId={clienteId}
+              titulo={cliente?.crm_accountid ? 'Cambiar por' : `Cuentas parecidas a «${cliente?.nombre ?? ''}»`}
+              disabled={guardadoCrm.cargando}
+              onElegir={(c) => void vincularCrm(c)}
+            />
+            {guardadoCrm.error && (
+              <div style={{ marginTop: 8 }}>
+                <Aviso tipo="error">{guardadoCrm.error}</Aviso>
+              </div>
+            )}
           </HojaSuperior>
         )}
 

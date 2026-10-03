@@ -405,7 +405,8 @@ export function FichaProyecto() {
         avatarForma="proyecto"
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
-        volverA={volver}
+        // Con el nombre en edición, ← cierra la edición (paso anterior) y no saca de la ficha.
+        onVolver={() => (editandoNombre ? setEditandoNombre(false) : navigate(volver))}
         derecha={
           <>
             {puedePreguntarIA && (

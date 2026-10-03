@@ -797,7 +797,8 @@ export function DetalleVisitaCerrada() {
       <CabeceraDetalle
         titulo={data?.cliente_nombre ?? 'visita'}
         ayuda="visita-cerrada"
-        volverA={volver}
+        // Con el resumen en edición, ← cierra la edición (paso anterior) y no saca de la visita.
+        onVolver={() => (editandoResumen ? setEditandoResumen(false) : navigate(volver))}
         subtitulo={
           data
             ? `${fechaCorta(data.fecha)}${

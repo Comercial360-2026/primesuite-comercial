@@ -153,6 +153,17 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   navega a una, comprobar que estampa origen y que el destino usa
   `useVolverA`. Detalle en `src/lib/volver-a.ts`.
 
+- **← con un panel de edición abierto cierra el panel, no la pantalla.** Si una
+  pantalla de detalle tiene un modo/panel de edición en línea (`editandoDatos`,
+  `editandoNombre`, `editandoResumen`, `editando`…), su `CabeceraDetalle` usa
+  `onVolver={() => (editando ? cerrarEdicion() : navigate(volver))}` y no un
+  `volverA` fijo: ← es el paso anterior (cancelar la edición), no el origen.
+  Ya aplicado en ficha-cliente, ficha-proyecto, detalle-visita-cerrada y
+  cola-vocabulario (3 oct). Las hojas (`HojaSuperior`) ya retroceden con su ×.
+- **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
+  del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
+  (no depende del «Guardar» de Editar datos).
+
 - **Buscador de selección: elegir un resultado vacía la búsqueda.** En un
   campo que busca sobre un catálogo o una lista y del que se *elige* algo
   (categoría, término, comercial, cliente…) quedándote en la misma

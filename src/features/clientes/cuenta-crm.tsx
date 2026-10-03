@@ -113,7 +113,7 @@ export function ResultadosCuentaCrm({
   if (resultados.length === 0) {
     return (
       <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
-        No aparece en el CRM. Puedes seguir sin vincularla.
+        No aparece en el CRM. Prueba con otro nombre o déjalo sin vincular.
       </p>
     );
   }

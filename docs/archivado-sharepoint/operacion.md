@@ -50,5 +50,5 @@ La app NO borra en SharePoint (decisión: SharePoint es el archivo histórico). 
 Apagado: «Yo» muestra «Espacio del equipo 2%» y `/mi-espacio` redirige a `/yo`. Encendido: «Yo» muestra «Almacenamiento» y `/mi-espacio` carga (2 visitas, 15,7 MB, 2%). Vuelto a apagar y comprobado. Valor final: false.
 
 ## Prueba del interruptor `archivado_informe_activo` (3 oct 2026)
-Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la única visita cerrada sin informe; Verescence ya lo tenía del 2 oct): `informe_sharepoint_en` = 10:11:06 UTC, 0 intentos, ruta `…/SAPA/Accesos/2026-09-17 Visita/Informe de la visita (cerrada 2026-09-23 16-29).html`. Sin errores. No borra nada. Estado tras la prueba: ENCENDIDO (decisión de Cesar pendiente de confirmar).
+Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la única visita cerrada sin informe; Verescence ya lo tenía del 2 oct): `informe_sharepoint_en` = 10:11:06 UTC, 0 intentos, ruta `…/SAPA/Accesos/2026-09-17 Visita/Informe de la visita (cerrada 2026-09-23 16-29).html`. Sin errores. No borra nada. Estado tras la prueba: ENCENDIDO (decidido por Cesar el 3 oct: se queda encendido).
 `archivado_liberar_activo`: NO probado a propósito (borra originales; requiere PR #16 en producción). Hoy no liberaría nada: ninguna captura pasa de 30 días (Verescence cumple el 14 oct, SAPA el 23 oct).

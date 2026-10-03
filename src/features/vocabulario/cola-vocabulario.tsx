@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -68,6 +68,7 @@ interface CategoriaConTerminos {
 // puedan apuntar a ese término. Un DELETE real solo se usa para categorías
 // vacías, donde no hay ese riesgo.
 export function ColaVocabulario() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Filtro en la URL (?vista=pendientes), no solo en memoria — mismo bug ya
@@ -1078,7 +1079,8 @@ export function ColaVocabulario() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo="Categorías"
-        volverA="/yo"
+        // En modo «Editar», ← lo cancela (paso anterior) y no saca de Categorías.
+        onVolver={() => (editando ? salirEditar() : navigate('/yo'))}
         ayuda="cola-vocabulario"
         derecha={
           vista === 'catalogo' && !creandoCategoria ? (
