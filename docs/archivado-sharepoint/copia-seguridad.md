@@ -67,3 +67,13 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 - Capas 1-5 HECHAS y verificadas: flujo propio creado y guardado; copia de prueba de las 10:16 subida a `General/PrimeNotes/Copias de seguridad/Base de datos/Últimas copias` (110 596 bytes) y registro en `confirmada`; secreto en Vault; `generar-copia-seguridad` desplegada con el webhook nuevo; flujo de rotación apuntado a la carpeta nueva (guardado 10:18).
 - Pendiente de Cesar: borrar la carpeta antigua `PrimeNotes - Comerciales/Copias de seguridad` (si ya no hay nada útil), revisar permisos de la nueva, segundo propietario de los 3 flujos, y la prueba de la rotación sobre la carpeta nueva (con 1 copia no debe borrar nada).
 - Por qué un flujo propio: ver arriba. El flujo de visitas no se modificó.
+
+---
+
+# Cifrado de la copia (3 oct) — código hecho, clave real PENDIENTE de generar por Cesar
+
+- Híbrido: AES-256-GCM para el JSON + RSA-OAEP 4096 (SHA-256) para la clave AES. `supabase/functions/_shared/cifrar-copia.ts`; formato `PSC1 | u16 largo | clave envuelta | iv 12 | cifrado+etiqueta`. Archivo en SharePoint: `primenotes-copia-AAAA-MM-DD-HHMM.json.enc`.
+- El servidor solo tiene la clave PÚBLICA (secreto de función `COPIA_CLAVE_PUBLICA`, PEM). Sin ella la función falla (500) y no sube nada: nunca en claro. La privada la genera Cesar con `scripts/copia-seguridad/descifrar.mjs generar-claves <carpeta>` (Claude no la ve) y la guarda en 1Password + papel.
+- Descifrar: `node scripts/copia-seguridad/descifrar.mjs descifrar archivo.json.enc copia-privada.pem salida.json`.
+- Probado: ida y vuelta (Deno cifra → Node descifra, archivo idéntico) con una clave desechable. Documentación leída: MDN (AES-GCM, RSA-OAEP), límites Edge Functions (256 MB memoria, 2 s CPU).
+- Rotación: ordena por nombre, no se ve afectada por la extensión. Las copias antiguas `.json` (sin cifrar) siguen en la carpeta hasta que la rotación las borre.

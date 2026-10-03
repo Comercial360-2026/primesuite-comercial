@@ -9,10 +9,12 @@
 // Automate PROPIO de copias («PrimeSuite - Subir copia de seguridad», webhook en Vault como
 // POWER_AUTOMATE_WEBHOOK_COPIA_URL): carpeta fija `PrimeNotes/Copias de seguridad/Base de datos/Últimas copias/`. El flujo
 // confirma en confirmar-archivado-sharepoint (captura_id = 'copia:<registro_id>', compara tamaños).
+// El JSON se cifra (híbrido AES-GCM + RSA-OAEP, _shared/cifrar-copia.ts) antes de salir del servidor.
 // Desplegar con --no-verify-jwt (el cron no manda JWT); la autenticación es la de abajo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { limpiarBackupsCaducados } from '../_shared/limpiar-backups.ts';
+import { cifrarCopia } from '../_shared/cifrar-copia.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -99,6 +101,9 @@ Deno.serve(async (req) => {
     admin.rpc('fn_secreto_power_automate'),
   ]);
   if (!webhookUrl || !secreto) return json({ error: 'Falta configuración del webhook de archivado.' }, 500);
+  // Sin clave pública no se sube nada: nunca una copia en claro.
+  const clavePublica = Deno.env.get('COPIA_CLAVE_PUBLICA');
+  if (!clavePublica) return json({ error: 'Falta COPIA_CLAVE_PUBLICA (cifrado de la copia).' }, 500);
 
   const { data: reg, error: errReg } = await admin
     .from('registro_backup_completo')
@@ -136,7 +141,10 @@ Deno.serve(async (req) => {
     const hora = ahoraDate
       .toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false })
       .replace(':', '');
-    const bytes = new TextEncoder().encode(JSON.stringify({ generado_en: ahoraDate.toISOString(), filas, tablas }));
+    const bytes = await cifrarCopia(
+      new TextEncoder().encode(JSON.stringify({ generado_en: ahoraDate.toISOString(), filas, tablas })),
+      clavePublica,
+    );
     const storagePath = `copias/${reg.id}.json`;
     const { error: errSubida } = await admin.storage
       .from('backups-visita')
@@ -167,7 +175,7 @@ Deno.serve(async (req) => {
           {
             captura_id: `copia:${reg.id}`,
             tipo: 'copia',
-            nombre_archivo: `primenotes-copia-${fecha}-${hora}.json`,
+            nombre_archivo: `primenotes-copia-${fecha}-${hora}.json.enc`,
             url_origen: firmada.signedUrl,
           },
         ],
