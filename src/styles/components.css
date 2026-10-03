@@ -1751,3 +1751,10 @@ button.fila__cuerpo-accion:disabled { opacity: 0.45; cursor: default; }
 .md-tabla table { border-collapse: collapse; font-size: var(--text-xs); min-width: 100%; }
 .md-tabla th, .md-tabla td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--ink-100); vertical-align: top; }
 .md-tabla th { color: var(--ink-400); font-weight: 600; }
+
+/* «Guardar» de las pantallas de edición (oportunidad, hallazgo, paso, captura): fijo al pie de la zona con scroll para
+   no tener que bajar hasta el final del formulario a guardar un cambio hecho arriba (p. ej. la etapa). */
+.btn-guardar-fijo {
+  position: sticky; bottom: var(--space-3); z-index: 5;
+  box-shadow: var(--shadow-elevated);
+}

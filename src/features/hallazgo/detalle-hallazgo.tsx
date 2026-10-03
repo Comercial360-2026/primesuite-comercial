@@ -464,7 +464,7 @@ export function DetalleHallazgo() {
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={guardando || guardadoConExito || faltaTipoFecha}
         onClick={guardar}

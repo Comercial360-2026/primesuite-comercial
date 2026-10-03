@@ -705,7 +705,7 @@ function DetalleCapturaPorId() {
           hacía juego con el resto de la app). Mientras la confirmación de
           borrado está abierta, baja a secundario para no competir. */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
         disabled={guardado.cargando || zonaGuardando || guardadoConExito || (captura.tipo === 'nota' && !textoEdit.trim())}
         onClick={guardarEdicion}
