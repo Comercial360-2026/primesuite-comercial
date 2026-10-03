@@ -1,3 +1,7 @@
+# 📵📵📵 CAPTURAS DE PANTALLA: PROHIBIDO HACERLAS, NO SOLO ENSEÑARLAS 📵📵📵
+**NUNCA llamar a `screenshot` / `zoom` (ni `computer{action:"screenshot"}`) en este usuario: cada captura aparece en su pantalla aunque yo no la mencione.** Sin excepción, ni «solo para ubicar un clic».
+Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenadas con `getBoundingClientRect`), `form_input`, SQL. Si de verdad no hay otra forma, PARAR y preguntar a Cesar antes de hacer una.
+
 # 🛑🛑🛑 AGENTES, FLUJOS Y PROCESOS AUTOMÁTICOS: PRIMERO LA DOCUMENTACIÓN, DESPUÉS LAS PRUEBAS, DESPUÉS EL CLIC 🛑🛑🛑
 **Siempre que se cree o toque un agente, un flujo (Power Automate, Copilot Studio…), un cron, un webhook o cualquier proceso automático — y más si BORRA o ESCRIBE datos:**
 1. **ANTES de abrir el editor o escribir código: leer la documentación oficial** de cada pieza (acciones, parámetros reales, límites, qué devuelve). Nada de memoria ni «probar a ver si cuela». Decir qué documentación he leído.
@@ -177,9 +181,8 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
 
 - **Sin explicaciones ni narración.** No anunciar qué voy a hacer ni explicar causas
   salvo que se pidan. Un resultado en una línea; si le toca algo a él, los pasos exactos.
-- **Sin pantallazos.** Verificar en navegador con JS / `get_page_text` / `find`, nunca
-  con `screenshot` en la respuesta. Si hace falta uno para ubicar un clic, no se
-  menciona ni se describe.
+- **Sin pantallazos.** Verificar en navegador con JS / `get_page_text` / `find`. NUNCA
+  llamar a `screenshot`: se ve en su pantalla aunque no se mencione (ver bloque grande arriba).
 - **Hacerlo yo antes de pasarle trabajo.** Si el clasificador de Claude Code lo
   bloquea, decirlo en una línea y dar los pasos.
 - **Documentarse antes de programar integraciones externas** (Power Automate, SharePoint,
