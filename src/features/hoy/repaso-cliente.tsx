@@ -13,6 +13,7 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { EcoTag } from '@/components/ui/eco-tag';
+import { MEDIO_VISITA, medioDe, esNoPresencial, payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
 import { Icono } from '@/components/ui/iconos';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
 import { fechaCorta } from '@/lib/fechas';
@@ -23,6 +24,7 @@ import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 import { useAvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 interface NotaReciente {
@@ -66,6 +68,8 @@ export function RepasoCliente() {
   const [objetivoModalAbierto, setObjetivoModalAbierto] = useState(false);
   const [enCursoModalAbierto, setEnCursoModalAbierto] = useState(false);
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId, comercial?.id);
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
@@ -102,10 +106,10 @@ export function RepasoCliente() {
   const { data: visitaAgendada } = useQuery({
     queryKey: ['visita-agendada-objetivo', visitaIdAgendada],
     enabled: !!visitaIdAgendada,
-    queryFn: async (): Promise<{ objetivo: string | null }> => {
+    queryFn: async (): Promise<{ objetivo: string | null; medio?: string }> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo')
+        .select('objetivo, medio')
         .eq('id', visitaIdAgendada!)
         .maybeSingle();
       if (error) throw error;
@@ -314,7 +318,7 @@ export function RepasoCliente() {
   // Visita SIN planificar: la lanza la ventana "¿A qué vas?" con el objetivo
   // ya escrito. Se encola (funciona con o sin red, ver lib/offline-queue).
   // Lanza en caso de fallo para que la ventana muestre el error.
-  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string) {
+  async function iniciarVisitaConObjetivo(objetivo: string, proyectoElegido: string, extra: ExtraMedio) {
     if (!cliente || !comercial) {
       throw new Error('No se ha podido identificar el cliente o tu sesión. Recarga la página.');
     }
@@ -325,8 +329,9 @@ export function RepasoCliente() {
       comercialResponsableId: comercial.id,
       tipoVisita: null,
       objetivo,
+      ...payloadMedio(extra),
     });
-    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+    iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre, medio: extra.medio });
     navigate(`/visita/${visitaId}`);
   }
 
@@ -334,21 +339,34 @@ export function RepasoCliente() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
-        subtitulo="Preparar la visita"
+        subtitulo={esNoPresencial(medioDe(visitaAgendada?.medio)) ? `Preparar la visita · ${MEDIO_VISITA[medioDe(visitaAgendada?.medio)].etiqueta}` : 'Preparar la visita'}
         ayuda="repaso-cliente"
         volverA={volver}
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              onClick={() => setPreguntaIAAbierta(true)}
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setPreguntaIAAbierta(true)}
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+          </>
         }
       />
       <div className="screen__scroll">
@@ -509,6 +527,15 @@ export function RepasoCliente() {
           }
           onConfirmar={iniciarVisitaConObjetivo}
           onCerrar={() => setObjetivoModalAbierto(false)}
+        />
+      )}
+
+      {briefingAbierto && clienteId && cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={clienteId}
+          clienteNombre={cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 

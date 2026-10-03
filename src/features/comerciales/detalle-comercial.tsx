@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { plural } from '@/lib/texto';
-import { desde } from '@/lib/volver-a';
+import { desde, useVolverA } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import {
   editarComercial,
@@ -29,14 +29,10 @@ const ROLES: { valor: RolComercial; etiqueta: string }[] = [
 ];
 
 export function DetalleComercial() {
-  // volverA="/comerciales" fijo (no useVolverA/Regla #14): hoy esta ficha
-  // solo se alcanza desde listado-comerciales.tsx, un único punto de
-  // entrada — la excepción válida que la propia Regla #14 contempla. Si en
-  // el futuro se enlaza desde otro sitio, el ← se rompería en silencio;
-  // revisar entonces.
   const { comercialId } = useParams<{ comercialId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const volver = useVolverA('/comerciales');
   const queryClient = useQueryClient();
   const { comercial: yo } = useSesionActual();
 
@@ -185,7 +181,7 @@ export function DetalleComercial() {
   if (isLoading || (!data && !isError)) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA={volver} />
         <EstadoLista estado="cargando" />
       </div>
     );
@@ -193,7 +189,7 @@ export function DetalleComercial() {
   if (isError || !data) {
     return (
       <div className="screen">
-        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA="/comerciales" />
+        <CabeceraDetalle titulo="Comercial" ayuda="detalle-comercial" volverA={volver} />
         <EstadoLista estado="error" mensaje="No se pudo cargar este comercial." onReintentar={() => refetch()} />
       </div>
     );
@@ -213,7 +209,7 @@ export function DetalleComercial() {
       queryClient.invalidateQueries({ queryKey: ['comercial', comercialId] });
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
       queryClient.invalidateQueries({ queryKey: ['nombres-comerciales'] });
-      navigate('/comerciales');
+      navigate(volver);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar.');
     } finally {
@@ -234,7 +230,7 @@ export function DetalleComercial() {
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
       queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
       setModo(null);
-      navigate('/comerciales');
+      navigate(volver);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.');
     } finally {
@@ -277,15 +273,27 @@ export function DetalleComercial() {
             .join(' · ') || undefined
         }
         avatar={data.nombre}
-        onVolver={() => navigate('/comerciales')}
+        onVolver={() => navigate(volver)}
       />
 
       <div className="screen__scroll">
        <div className="lista-agrupada">
         {!data.activo && (
           <Aviso tipo="atencion" titulo="Comercial de baja">
-            No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
+            No puede iniciar sesión. Sus visitas y lo que registró se conservan.
           </Aviso>
+        )}
+        {!data.activo && (
+          <SeccionLista>
+            <FilaNavegable
+              icono="restaurar"
+              titulo="Reactivar comercial"
+              subtitulo={cambiandoEstado ? 'Reactivando…' : 'Vuelve a poder entrar en la app'}
+              chevron={false}
+              disabled={cambiandoEstado}
+              onClick={() => cambiarEstado(true)}
+            />
+          </SeccionLista>
         )}
 
         {data.activo && peticionAcceso && !enlaceReenviado && (
@@ -439,8 +447,7 @@ export function DetalleComercial() {
         </SeccionLista>
 
         {/* De baja: guardar cambios en los datos sigue siendo posible, pero
-            deja de ser la acción principal de la pantalla (eso es
-            Reactivar, fijo abajo) — se ofrece aquí como acción secundaria. */}
+            deja de ser la acción principal (eso es Reactivar, arriba). */}
         {!activo && (
           <button
             className="btn btn-secondary"
@@ -500,20 +507,15 @@ export function DetalleComercial() {
        </div>
       </div>
 
-      {/* CTA fijo abajo: Guardar cambios si está activo (secundario cuando
-          hay un panel de baja/traspaso abierto, para no competir con él),
-          Reactivar si está de baja — un solo primario visible a la vez. */}
-      {activo ? (
+      {/* CTA fijo abajo: solo Guardar si está activo. Reactivar (de baja) va
+          junto al aviso de baja, arriba. */}
+      {activo && (
         <button
           className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
           disabled={!nombre.trim() || !hayCambios || guardando}
           onClick={guardar}
         >
           {guardando ? 'Guardando…' : 'Guardar'}
-        </button>
-      ) : (
-        <button className="btn btn-primary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
-          {cambiandoEstado ? 'Reactivando…' : 'Reactivar comercial'}
         </button>
       )}
     </div>

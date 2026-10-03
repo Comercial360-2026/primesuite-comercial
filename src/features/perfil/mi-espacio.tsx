@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { desde, useVolverA } from '@/lib/volver-a';
@@ -22,6 +23,7 @@ import { Segmentado } from '@/components/ui/segmentado';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { Avatar } from '@/components/ui/avatar';
 import { GraficoBarras } from '@/components/ui/grafico-barras';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 type VisitaEspacio = {
   visita_id: string;
@@ -74,7 +76,15 @@ function tonoBarraEspacio(nivel: NivelEspacio | undefined): 'riesgo' | 'aviso' |
 // visitas, sin segmentado.
 type Vista = 'mias' | 'equipo';
 
+// La pantalla solo existe con la liberación manual encendida (migración 143); apagada, quien llegue
+// por un enlace antiguo o un marcador vuelve a «Yo».
 export function MiEspacio() {
+  const activo = useEspacioManualActivo();
+  if (activo === undefined) return null;
+  return activo ? <MiEspacioPantalla /> : <Navigate to="/yo" replace />;
+}
+
+function MiEspacioPantalla() {
   const { comercial } = useSesionActual();
   const esDireccion = comercial?.rol === 'direccion_comercial';
   // "/yo" solo acierta como origen si esta pantalla se alcanza SIEMPRE desde
@@ -241,10 +251,7 @@ function MisVisitas() {
         const { error: errDel } = await supabase.rpc('eliminar_visita_completa', { p_visita_id: id });
         if (errDel) throw new Error(errDel.message);
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
       } catch {
         fallos.push(id);

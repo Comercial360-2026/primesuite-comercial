@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fechaLarga } from '@/lib/fechas';
 
 // Vista de mes para la Agenda. Solo pinta: recibe las visitas ya filtradas
@@ -34,8 +35,30 @@ export function CalendarioMes<T extends { id: string; fecha: string }>({
   renderVisita,
 }: Props<T>) {
   const hoy = new Date();
-  const [mesVisible, setMesVisible] = useState(() => new Date(hoy.getFullYear(), hoy.getMonth(), 1));
-  const [diaSel, setDiaSel] = useState<string | null>(null);
+  // Mes visible (?mes=2026-11) y día seleccionado (?dia=2026-11-05) van en la URL: al abrir una visita del
+  // calendario y volver, se ve el mismo mes y el mismo día, no el mes actual sin selección.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mesParam = /^(\d{4})-(\d{2})$/.exec(searchParams.get('mes') ?? '');
+  const mesVisible = mesParam
+    ? new Date(Number(mesParam[1]), Number(mesParam[2]) - 1, 1)
+    : new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const diaParam = searchParams.get('dia');
+  const diaSel = diaParam && /^\d{4}-\d{1,2}-\d{1,2}$/.test(diaParam) ? diaParam : null;
+  function ponerEnUrl(mesNuevo: Date | null, dia: string | null) {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (mesNuevo) n.set('mes', `${mesNuevo.getFullYear()}-${String(mesNuevo.getMonth() + 1).padStart(2, '0')}`);
+        else n.delete('mes');
+        if (dia) n.set('dia', dia);
+        else n.delete('dia');
+        return n;
+      },
+      { replace: true }
+    );
+  }
+  const setMesVisible = (d: Date) => ponerEnUrl(d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth() ? null : d, null);
+  const setDiaSel = (dia: string | null) => ponerEnUrl(mesParam ? mesVisible : null, dia);
 
   const porDia = useMemo(() => {
     const m = new Map<string, T[]>();
@@ -71,7 +94,6 @@ export function CalendarioMes<T extends { id: string; fecha: string }>({
 
   function irAMes(delta: number) {
     setMesVisible(new Date(anio, mes + delta, 1));
-    setDiaSel(null);
   }
 
   const navBtn: React.CSSProperties = {
@@ -103,7 +125,6 @@ export function CalendarioMes<T extends { id: string; fecha: string }>({
           type="button"
           onClick={() => {
             setMesVisible(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
-            setDiaSel(null);
           }}
           style={{
             border: 'none',

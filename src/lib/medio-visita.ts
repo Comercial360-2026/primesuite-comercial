@@ -1,0 +1,31 @@
+import type { NombreIcono } from '@/components/ui/iconos';
+
+// Cómo se hace una visita. Un solo sitio: etiquetas, iconos y clases de color
+// de Presencial / Teams / Llamada (columna `visita.medio`, migración 136).
+// Presencial es lo de siempre y no lleva tono ni etiqueta en la agenda.
+export type MedioVisita = 'presencial' | 'teams' | 'llamada';
+
+export const MEDIO_VISITA: Record<MedioVisita, { etiqueta: string; frase: string; icono: NombreIcono }> = {
+  presencial: { etiqueta: 'Presencial', frase: 'visita presencial', icono: 'ubicacion' },
+  teams: { etiqueta: 'Teams', frase: 'reunión por Teams', icono: 'teams' },
+  llamada: { etiqueta: 'Llamada', frase: 'llamada', icono: 'llamada' },
+};
+
+/** Valor de BD → medio conocido (lo desconocido o null cuenta como presencial). */
+export function medioDe(valor: string | null | undefined): MedioVisita {
+  return valor === 'teams' || valor === 'llamada' ? valor : 'presencial';
+}
+
+/** Medio elegido al arrancar una visita (ventana «¿A qué vas?»). */
+export interface ExtraMedio {
+  medio: MedioVisita;
+  enlaceReunion?: string;
+}
+
+/** Campos del payload de cola para el medio: nada si es presencial (lo normal). */
+export function payloadMedio(extra?: ExtraMedio) {
+  if (!extra || extra.medio === 'presencial') return {};
+  return { medio: extra.medio, ...(extra.enlaceReunion?.trim() ? { enlaceReunion: extra.enlaceReunion.trim() } : {}) };
+}
+
+export const esNoPresencial = (m: MedioVisita) => m !== 'presencial';

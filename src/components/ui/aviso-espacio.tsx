@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { useAvisoLiberar } from '@/hooks/use-aviso-liberar';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { desde } from '@/lib/volver-a';
 
 // Banner en la cáscara de la app. Aparece cuando:
@@ -15,8 +16,10 @@ export function AvisoEspacio() {
   const location = useLocation();
   const { estado } = useEspacioEquipo();
   const { aviso: peticion } = useAvisoLiberar();
+  // Sin liberación manual no hay a dónde mandar a nadie: el banner solo informa y no hay petición de Dirección.
+  const manual = useEspacioManualActivo() === true;
 
-  if (peticion) {
+  if (manual && peticion) {
     return (
       <div
         onClick={() => navigate('/mi-espacio', { state: desde(location) })}
@@ -49,7 +52,7 @@ export function AvisoEspacio() {
 
   return (
     <div
-      onClick={() => navigate('/mi-espacio', { state: desde(location) })}
+      onClick={manual ? () => navigate('/mi-espacio', { state: desde(location) }) : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -60,15 +63,15 @@ export function AvisoEspacio() {
         color: 'var(--risk-600)',
         fontSize: 'var(--text-sm)',
         fontWeight: 500,
-        cursor: 'pointer',
+        cursor: manual ? 'pointer' : 'default',
       }}
     >
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {bloqueo
-          ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%) — no se pueden añadir fotos. Libera visitas antiguas.`
-          : `Espacio del equipo al ${estado.pctEquipo.toFixed(0)}% — conviene liberar visitas antiguas.`}
+          ? `Espacio del equipo lleno (${estado.pctEquipo.toFixed(0)}%) — no se pueden añadir fotos ni audios.${manual ? ' Libera visitas antiguas.' : ' Avisa a Dirección.'}`
+          : `Espacio del equipo al ${estado.pctEquipo.toFixed(0)}%${manual ? ' — conviene liberar visitas antiguas.' : '.'}`}
       </span>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>›</span>
+      {manual && <span style={{ fontSize: 18, flexShrink: 0 }}>›</span>}
     </div>
   );
 }

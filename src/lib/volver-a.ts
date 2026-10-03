@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 
@@ -25,12 +26,39 @@ interface EstadoConOrigen {
   from?: string;
 }
 
+// Origen recordado por pantalla (sessionStorage, por ruta sin query). Hace falta porque el ← hace
+// `navigate(origen)` SIN estado: si vienes de Lista → Ficha → Proyecto, al volver a la ficha esta llega
+// sin `state.from` y su ← caía en el fallback (Clientes «Solo míos») en vez de la lista de la que venías.
+// Se guarda cada vez que una pantalla llega CON origen y se usa cuando llega SIN él.
+const CLAVE_ORIGENES = 'primesuite-origenes';
+
+function leerOrigenes(): Record<string, string> {
+  try {
+    return JSON.parse(sessionStorage.getItem(CLAVE_ORIGENES) ?? '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function recordarOrigen(ruta: string, from: string) {
+  try {
+    sessionStorage.setItem(CLAVE_ORIGENES, JSON.stringify({ ...leerOrigenes(), [ruta]: from }));
+  } catch {
+    // sessionStorage no disponible: se usa el fallback, no es crítico.
+  }
+}
+
 /** Ruta a la que debe volver el ← de esta pantalla: el origen real que
- *  pasó quien navegó aquí, o el `fallback` fijo de la pantalla. */
+ *  pasó quien navegó aquí, el último origen recordado de esta ruta (al volver
+ *  «hacia atrás» a ella sin estado) o el `fallback` fijo de la pantalla. */
 export function useVolverA(fallback: string): string {
-  const { state } = useLocation();
+  const { state, pathname } = useLocation();
   const from = (state as EstadoConOrigen | null)?.from;
-  return typeof from === 'string' && from ? from : fallback;
+  const conOrigen = typeof from === 'string' && from ? from : null;
+  useEffect(() => {
+    if (conOrigen && conOrigen !== pathname) recordarOrigen(pathname, conOrigen);
+  }, [pathname, conOrigen]);
+  return conOrigen ?? leerOrigenes()[pathname] ?? fallback;
 }
 
 /** El origen a estampar al navegar a una pantalla de detalle:

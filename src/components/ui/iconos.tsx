@@ -36,6 +36,7 @@ import {
   Camera,
   Microphone,
   Note,
+  FileText,
   MagnifyingGlass,
   Eye,
   Sparkle,
@@ -44,11 +45,14 @@ import {
   Path,
   ChatCircleText,
   MapPin,
+  VideoCamera,
+  Phone,
   ListBullets,
   DotsThreeVertical,
   Compass,
   Ticket,
   ChatsCircle,
+  ArrowSquareOut,
   type IconProps,
 } from '@phosphor-icons/react';
 
@@ -70,6 +74,7 @@ const registro = {
   tareas: ListChecks, // "Pasos"
   yo: User, // pantalla "Yo" (bottom nav)
   descargar: DownloadSimple,
+  abrir: ArrowSquareOut, // abrir en una pestaña nueva sin descargar (informe web)
   borrar: Trash,
 
   chevron: CaretRight, // ">" de las filas navegables
@@ -106,6 +111,7 @@ const registro = {
   foto: Camera,
   audio: Microphone,
   nota: Note,
+  documento: FileText, // documento adjunto a la visita (PDF, Office…)
   buscar: MagnifyingGlass, // lupa de búsqueda (cabeceras, listados)
   hallazgo: Eye, // algo observado sobre el terreno (NO la lupa: esa es `buscar`)
   oportunidad: Sparkle, // destello — mismo sentido que el acento --signal-600
@@ -115,6 +121,8 @@ const registro = {
   recorrido: Path, // ruta / recorrido por zonas
   interlocutor: ChatCircleText, // persona con la que hablas en la visita
   ubicacion: MapPin, // chincheta de mapa
+  teams: VideoCamera, // visita por videoconferencia (Teams)
+  llamada: Phone, // visita por llamada
   lista: ListBullets, // vista de lista (frente a agrupada)
   equipo: UsersThree, // tú y tus compañeros (grupo)
   opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)

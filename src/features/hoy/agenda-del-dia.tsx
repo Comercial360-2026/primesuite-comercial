@@ -9,6 +9,7 @@ import { useBorrarVisita } from '@/hooks/use-borrar-visita';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { conMedio } from '@/components/ui/etiqueta-medio';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaVisitaAbierta } from '@/features/visita/fila-visita-abierta';
 import { EmpezarVisitaHoja } from '@/features/visita/empezar-visita-hoja';
@@ -30,6 +31,7 @@ interface VisitaAgenda {
   franja: string | null;
   objetivo: string | null;
   tipo_visita: string | null;
+  medio: string;
   estado_captura: 'agendada' | 'en_curso' | 'consolidada';
   cliente: { id: string; nombre: string } | null;
   /** Solo lo trae la consulta de visitas EN CURSO (para el tono y "abierta hace…"). */
@@ -147,7 +149,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, cliente:cliente_id(id, nombre)')
         .gte('fecha', inicio)
         .lte('fecha', fin)
         .order('fecha', { ascending: true });
@@ -166,7 +168,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, cliente:cliente_id(id, nombre)')
         .gt('fecha', fin)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: true })
@@ -186,7 +188,7 @@ export function AgendaDelDia() {
     queryFn: async (): Promise<VisitaAgenda[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, cliente:cliente_id(id, nombre)')
         .lt('fecha', inicio)
         .eq('estado_captura', 'agendada')
         .order('fecha', { ascending: false })
@@ -210,7 +212,7 @@ export function AgendaDelDia() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select(
-          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, en_curso_desde, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre))'
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, en_curso_desde, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre))'
         )
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
@@ -247,7 +249,7 @@ export function AgendaDelDia() {
       const { data, error } = await supabase
         .from('visita_participante')
         .select(
-          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre))'
+          'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, cliente:cliente_id(id, nombre))'
         )
         .eq('comercial_id', comercial!.id)
         .in('estado', ['pendiente', 'aceptado'])
@@ -474,7 +476,7 @@ export function AgendaDelDia() {
         icono={icono}
         titulo={visita.cliente?.nombre ?? 'Cliente'}
         subtitulo={subtitulo}
-        valor={cuando || undefined}
+        valor={conMedio(cuando || undefined, visita.medio)}
         valorTenue={!conDia}
         onClick={() => abrirVisita(visita)}
         chevron
@@ -543,7 +545,7 @@ export function AgendaDelDia() {
                   icono="hoy"
                   titulo={v.cliente?.nombre ?? 'Cliente'}
                   subtitulo={v.objetivo || undefined}
-                  valor={cuandoTexto(v, false) || undefined}
+                  valor={conMedio(cuandoTexto(v, false) || undefined, v.medio)}
                   valorTenue
                   to={`/visita/${v.id}/planificada`}
                   state={desde(location)}
@@ -720,7 +722,7 @@ export function AgendaDelDia() {
                         tono={tarde ? 'aviso' : 'neutral'}
                         titulo={v.cliente?.nombre ?? 'Cliente'}
                         subtitulo={subtitulo}
-                        valor={tarde ? `sin empezar · ${hora(v.fecha)}` : cuandoTexto(v, false) || undefined}
+                        valor={conMedio(tarde ? `sin empezar · ${hora(v.fecha)}` : cuandoTexto(v, false) || undefined, v.medio)}
                         onClick={() => abrirVisita(v)}
                         chevron
                       />

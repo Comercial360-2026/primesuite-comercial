@@ -1,5 +1,7 @@
 import { Icono } from '@/components/ui/iconos';
 import { hora, fechaDiaMes } from '@/lib/fechas';
+import { conMedio } from '@/components/ui/etiqueta-medio';
+import { MEDIO_VISITA, esNoPresencial, medioDe } from '@/lib/medio-visita';
 
 // El bloque de arriba de "Hoy": lo único que importa nada más entrar —
 // qué haces ahora. Tres formas:
@@ -13,6 +15,13 @@ interface VisitaMin {
   hora_definida: boolean;
   objetivo: string | null;
   cliente: { id: string; nombre: string } | null;
+  medio?: string;
+}
+
+// Teams / llamada: icono + palabra en el tono del medio (presencial no pinta nada).
+function medioDeVisita(v: VisitaMin) {
+  const m = medioDe(v.medio);
+  return esNoPresencial(m) ? <div className="bloque-ahora__meta">{conMedio(MEDIO_VISITA[m].etiqueta, m)}</div> : null;
 }
 
 interface Props {
@@ -33,6 +42,7 @@ export function BloqueAhora({ enCurso, proxima, proximaEsHoy, onAbrir }: Props) 
           <Icono nombre="reproducir" size={12} /> En curso
         </span>
         <div className="bloque-ahora__cli">{v.cliente?.nombre ?? 'Cliente'}</div>
+        {medioDeVisita(v)}
         {v.objetivo && <div className="bloque-ahora__obj">{v.objetivo}</div>}
         {/* Si hay más de una en curso, el resto se listan (y se abren/descartan)
             en la sección "También en curso" de Hoy, justo debajo. */}
@@ -59,6 +69,7 @@ export function BloqueAhora({ enCurso, proxima, proximaEsHoy, onAbrir }: Props) 
       <div className="bloque-ahora bloque-ahora--prox">
         <span className="bloque-ahora__tag">Tu próxima visita</span>
         <div className="bloque-ahora__cli">{proxima.cliente?.nombre ?? 'Cliente'}</div>
+        {medioDeVisita(proxima)}
         {proxima.objetivo && <div className="bloque-ahora__obj">{proxima.objetivo}</div>}
         <div className="bloque-ahora__meta">{cuando}</div>
         <button

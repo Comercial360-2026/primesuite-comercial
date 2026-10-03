@@ -7,9 +7,10 @@ export interface ProyectoDelCliente {
   estado: string;
   /** Fecha de la visita más reciente de ESTE proyecto (null si no tiene
    *  ninguna). Para el remate de una línea de su fila en la ficha de
-   *  cliente — ver `historial-visitas-cliente.tsx` para el porqué de no
-   *  repetir aquí el historial completo. */
+   *  cliente; el historial completo vive dentro del proyecto. */
   ultimaVisitaFecha: string | null;
+  /** Visitas de este proyecto (todas: cerradas, en curso y planificadas). */
+  numVisitas: number;
   /** true si tiene una visita con `estado_captura = 'en_curso'`. */
   visitaEnCurso: boolean;
 }
@@ -54,15 +55,19 @@ export function useProyectosCliente(clienteId: string | undefined) {
       // primera vez que se ve un proyecto_id es su visita más reciente.
       const ultimaPorProyecto = new Map<string, string>();
       const enCursoPorProyecto = new Set<string>();
+      const numPorProyecto = new Map<string, number>();
       for (const v of visitas ?? []) {
         if (!v.proyecto_id) continue;
-        if (!ultimaPorProyecto.has(v.proyecto_id)) ultimaPorProyecto.set(v.proyecto_id, v.fecha);
+        numPorProyecto.set(v.proyecto_id, (numPorProyecto.get(v.proyecto_id) ?? 0) + 1);
+        // «Última» = la última que ya ocurrió: una planificada para el mes que viene no es la última visita.
+        if (v.estado_captura !== 'agendada' && !ultimaPorProyecto.has(v.proyecto_id)) ultimaPorProyecto.set(v.proyecto_id, v.fecha);
         if (v.estado_captura === 'en_curso') enCursoPorProyecto.add(v.proyecto_id);
       }
 
       return (proyectos ?? []).map((p) => ({
         ...p,
         ultimaVisitaFecha: ultimaPorProyecto.get(p.id) ?? null,
+        numVisitas: numPorProyecto.get(p.id) ?? 0,
         visitaEnCurso: enCursoPorProyecto.has(p.id),
       }));
     },

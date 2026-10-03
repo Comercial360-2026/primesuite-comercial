@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { normalizarNombre } from '@/lib/nombres-cliente';
+import { claveDuplicado, normalizarNombre } from '@/lib/nombres-cliente';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 
@@ -64,6 +64,23 @@ function useClientesPorCuenta(activo: boolean) {
   });
 }
 
+/** Clave de empresa (nombre sin coletilla jurídica) → cliente que ya tiene vinculada una cuenta con ese nombre.
+ *  El CRM suele tener la misma empresa varias veces («Verescence La Granja», «…, S.l», «…, S.L.»): quien tiene
+ *  una vinculada ya tiene a las hermanas. */
+export function useClientesPorClaveDeCuenta(activo: boolean) {
+  const { data: cuentas } = useCuentasCrm(activo);
+  const { data: vinculadas } = useClientesPorCuenta(activo);
+  return useMemo(() => {
+    const m = new Map<string, { id: string; nombre: string }>();
+    if (!cuentas || !vinculadas) return m;
+    for (const c of cuentas) {
+      const cli = vinculadas[c.accountid];
+      if (cli) m.set(claveDuplicado(c.nombre), cli);
+    }
+    return m;
+  }, [cuentas, vinculadas]);
+}
+
 const MAX_RESULTADOS = 6;
 
 /** Resultados del buscador de cuentas CRM para `texto`. No pinta nada con
@@ -87,6 +104,7 @@ export function ResultadosCuentaCrm({
   const activo = q.length >= 3;
   const { data: cuentas, isLoading, isError, isPaused } = useCuentasCrm(activo);
   const { data: vinculadas } = useClientesPorCuenta(activo);
+  const porClave = useClientesPorClaveDeCuenta(activo);
 
   const resultados = useMemo(() => {
     if (!activo || !cuentas) return [];
@@ -113,7 +131,7 @@ export function ResultadosCuentaCrm({
   if (resultados.length === 0) {
     return (
       <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
-        No aparece en el CRM. Puedes seguir sin vincularla.
+        No aparece en el CRM. Prueba con otro nombre o déjalo sin vincular.
       </p>
     );
   }
@@ -123,16 +141,22 @@ export function ResultadosCuentaCrm({
       {resultados.map((c) => {
           const cliente = vinculadas?.[c.accountid];
           const yaVinculada = cliente && cliente.id !== excluirClienteId;
+          // Otra cuenta de la misma empresa que ya tiene cliente (duplicada en el CRM).
+          const hermana = !yaVinculada ? porClave.get(claveDuplicado(c.nombre)) : undefined;
+          const delOtro = yaVinculada ? cliente : hermana && hermana.id !== excluirClienteId ? hermana : undefined;
           return (
             <FilaNavegable
               key={c.accountid}
               titulo={c.nombre}
-              subtitulo={[c.ciudad, yaVinculada ? `ya es el cliente «${cliente.nombre}»` : null]
+              subtitulo={[
+                c.ciudad,
+                yaVinculada ? `ya es el cliente «${cliente.nombre}»` : delOtro ? `parece la misma empresa que «${delOtro.nombre}»` : null,
+              ]
                 .filter(Boolean)
                 .join(' · ')}
-              tono={yaVinculada ? 'aviso' : 'neutral'}
+              tono={delOtro ? 'aviso' : 'neutral'}
               disabled={disabled}
-              onClick={() => onElegir(c, yaVinculada ? cliente : undefined)}
+              onClick={() => onElegir(c, delOtro)}
             />
           );
         })}

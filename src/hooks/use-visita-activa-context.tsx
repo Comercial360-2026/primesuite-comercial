@@ -1,3 +1,4 @@
+import type { MedioVisita } from '@/lib/medio-visita';
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 // Cuál es "la visita en curso" a efectos de UI: la ÚLTIMA que abriste. La
@@ -11,6 +12,8 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 export interface VisitaEnCurso {
   id: string;
   clienteNombre: string;
+  /** Cómo es la visita (Teams / llamada tiñen el banner global). Sin él, presencial. */
+  medio?: MedioVisita;
 }
 
 const CLAVE = 'primesuite-visita-en-curso';

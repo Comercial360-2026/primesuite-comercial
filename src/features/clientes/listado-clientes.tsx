@@ -30,7 +30,8 @@ export function ListadoClientes() {
   const navigate = useNavigate();
   const location = useLocation();
   const { comercial } = useSesionActual();
-  const [busqueda, setBusqueda] = useState('');
+  // La búsqueda también vive en la URL (?q=), igual que la vista: al volver desde una ficha se ve lo mismo que dejaste.
+  const [busqueda, setBusquedaEstado] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [verArchivados, setVerArchivados] = useState(false);
   const buscador = useBuscador(!!busqueda);
   // Decisión de producto (29/8/2026, ajustada 2026-09-05, abierta a todos
@@ -50,9 +51,24 @@ export function ListadoClientes() {
     searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
   );
 
+  function ponerParam(clave: string, valor: string | null) {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (valor) n.set(clave, valor);
+        else n.delete(clave);
+        return n;
+      },
+      { replace: true }
+    );
+  }
   function cambiarVista(v: 'mios' | 'todos') {
     setVista(v);
-    setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
+    ponerParam('vista', v === 'todos' ? 'todos' : null);
+  }
+  function setBusqueda(v: string) {
+    setBusquedaEstado(v);
+    ponerParam('q', v.trim() ? v : null);
   }
 
   const soloMios = vista === 'mios';
@@ -185,7 +201,7 @@ export function ListadoClientes() {
               className="boton-icono"
               aria-label="Nuevo cliente"
               title="Nuevo cliente"
-              onClick={() => navigate('/clientes/nuevo')}
+              onClick={() => navigate('/clientes/nuevo', { state: desde(location) })}
             >
               <Icono nombre="mas" size={18} />
             </button>
@@ -241,7 +257,7 @@ export function ListadoClientes() {
           {archivados.length > 0 && (
             <SeccionLista>
               <FilaNavegable
-                titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${archivados.length})`}
+                titulo={verArchivados ? 'Ocultar inactivos' : `Ver inactivos (${archivados.length})`}
                 chevron={false}
                 valorTenue
                 onClick={() => setVerArchivados((v) => !v)}
@@ -304,7 +320,7 @@ export function ListadoClientes() {
         // Cliente frío ("Sin visitar") o sin responsable → barra de
         // atención; lo sano (verde/amarillo) no distrae.
         tono={archivado ? 'neutral' : sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
-        valor={archivado ? 'archivado' : <EtiquetaSemaforo valor={c.semaforo} />}
+        valor={archivado ? 'inactivo' : <EtiquetaSemaforo valor={c.semaforo} />}
         valorTenue={archivado}
         to={`/clientes/${c.cliente_id}`}
         state={desde(location)}

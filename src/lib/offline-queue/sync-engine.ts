@@ -1,6 +1,8 @@
+import { bucketDeTipo } from '@/lib/buckets-visita';
 import { supabase } from '@/lib/supabase-client';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { motivoRechazoSubida } from '@/lib/documentos-visita';
 import {
   obtenerPendientes,
   actualizarOperacion,
@@ -204,11 +206,13 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
   } catch (err) {
     const intentos = actual.intentos + 1;
     const mensaje = err instanceof Error ? err.message : String(err);
-    const agotado = intentos >= MAX_INTENTOS;
+    // Un rechazo del servidor por tamaño o formato no se arregla reintentando: va directo a «error».
+    const agotado = intentos >= MAX_INTENTOS || err instanceof ErrorSubidaPermanente;
     await actualizarOperacion(actual.id, {
       estado: agotado ? 'error' : 'pendiente',
       intentos,
       ultimoError: mensaje,
+      permanente: err instanceof ErrorSubidaPermanente,
     });
     if (!agotado) {
       // Un fallo suelto (foto grande + cobertura floja: el timeout de la
@@ -223,8 +227,23 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
   }
 }
 
+class ErrorSubidaPermanente extends Error {}
+
+// Storage devuelve mensajes en inglés; el comercial los ve en Yo → «sin sincronizar». Tamaño y formato son
+// definitivos (los topes de cada bucket están en operacion.md); el resto se reintenta como siempre.
+function errorDeSubida(mensaje: string, tipo: string): Error {
+  const que = tipo === 'foto' ? 'La foto' : tipo === 'audio' ? 'El audio' : 'El documento';
+  const motivo = motivoRechazoSubida(mensaje);
+  if (motivo === 'tamano') {
+    return new ErrorSubidaPermanente(`${que} pesa más de lo que admite el servidor. No se puede subir: hay que hacerlo de nuevo más ligero.`);
+  }
+  if (motivo === 'formato') return new ErrorSubidaPermanente(`${que} tiene un formato que el servidor no admite. No se puede subir.`);
+  return new Error(mensaje);
+}
+
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
-  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada } = operacion.payload;
+  const { clienteId, proyectoId, comercialResponsableId, tipoVisita, objetivo, fecha, agendada, medio, enlaceReunion } =
+    operacion.payload;
   if (!proyectoId) {
     // Desde la migración 103/104 el proyecto viaja siempre en el payload; una
     // visita en cola sin él es una operación mal formada (no debería ocurrir).
@@ -243,12 +262,14 @@ async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promi
   // La RPC no conoce `objetivo` — UPDATE posterior, igual que hace el front al
   // planificar desde la ficha. Si falla, se lanza para reintentar toda la
   // operación (la visita ya existe; el UPDATE es idempotente).
-  const parche: { objetivo?: string } = {};
+  const parche: { objetivo?: string; medio?: string; enlace_reunion?: string } = {};
   if (objetivo?.trim()) parche.objetivo = objetivo.trim();
+  if (medio && medio !== 'presencial') parche.medio = medio;
+  if (enlaceReunion?.trim()) parche.enlace_reunion = enlaceReunion.trim();
   if (Object.keys(parche).length) {
     await conReintentoDeSesion(
       () => supabase.from('visita').update(parche, { count: 'exact' }).eq('id', operacion.id),
-      'La visita se creó, pero no se ha podido fijar el objetivo (0 filas afectadas).'
+      'La visita se creó, pero no se ha podido fijar el objetivo y el medio (0 filas afectadas).'
     );
   }
 }
@@ -349,26 +370,44 @@ function extensionAudio(mime: string): string {
   return 'm4a';
 }
 
+// Extensión (solo letras/números, en minúsculas) del nombre original de un documento.
+function extensionDocumento(nombre?: string): string {
+  const ext = nombre?.split('.').pop()?.toLowerCase() ?? '';
+  return /^[a-z0-9]{1,5}$/.test(ext) ? ext : 'bin';
+}
+
 async function sincronizarCapturaLibre(
   operacion: OperacionPendiente<'captura_libre'>
 ): Promise<void> {
   const payload = operacion.payload;
   let storagePath: string | null = null;
 
-  if (operacion.archivoLocal && (payload.tipo === 'foto' || payload.tipo === 'audio')) {
-    const bucket = payload.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+  if (operacion.archivoLocal && (payload.tipo === 'foto' || payload.tipo === 'audio' || payload.tipo === 'documento')) {
+    const bucket = bucketDeTipo(payload.tipo);
     // La extensión del audio se deriva del tipo real del blob (iOS graba
     // mp4/m4a, Android/desktop webm). Antes se forzaba .m4a siempre, aunque
-    // el contenido fuera webm — playback y descargas rotas.
+    // el contenido fuera webm — playback y descargas rotas. El documento
+    // conserva la extensión de su nombre original.
     const extension =
-      payload.tipo === 'foto' ? 'jpg' : extensionAudio(operacion.archivoLocal.type);
+      payload.tipo === 'foto'
+        ? 'jpg'
+        : payload.tipo === 'documento'
+          ? extensionDocumento(payload.nombreOriginal)
+          : extensionAudio(operacion.archivoLocal.type);
     const ruta = `${payload.visitaId}/${operacion.id}.${extension}`;
 
-    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, operacion.archivoLocal, {
+    // El MIME que cuenta es el del propio Blob (supabase-js lo manda en el
+    // multipart): un .csv/.docx sin tipo del navegador subía como
+    // application/octet-stream y el bucket lo rechazaba. Se reetiqueta.
+    const cuerpo =
+      payload.mime && operacion.archivoLocal.type !== payload.mime
+        ? new Blob([operacion.archivoLocal], { type: payload.mime })
+        : operacion.archivoLocal;
+    const { error: errorSubida } = await supabase.storage.from(bucket).upload(ruta, cuerpo, {
       upsert: true,
-      contentType: operacion.archivoLocal.type || undefined,
+      contentType: payload.mime || operacion.archivoLocal.type || undefined,
     });
-    if (errorSubida) throw new Error(errorSubida.message);
+    if (errorSubida) throw errorDeSubida(errorSubida.message, payload.tipo);
     storagePath = ruta;
   }
 
@@ -380,7 +419,7 @@ async function sincronizarCapturaLibre(
     () =>
       supabase
         .from('captura_libre')
-        .upsert({ id: operacion.id, ...fila, storage_path: storagePath } as never, {
+        .upsert({ id: operacion.id, ...fila, storage_path: storagePath, estado_subida: 'completado' } as never, {
           onConflict: 'id',
           ignoreDuplicates: true,
         }),

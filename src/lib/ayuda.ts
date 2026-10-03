@@ -7,7 +7,7 @@
 //   3. La pantalla /ayuda ("Cómo funciona PrimeNotes") → recorre estos dos
 //      mapas, los agrupa y deja buscar.
 //   4. El tour guiado del primer uso (<TourGuiado>, ver
-//      src/hooks/use-tour-guiado.ts) → PasoTour, más abajo.
+//      src/hooks/use-tour-guiado.ts; DESACTIVADO 3 oct: ya no hay forma de lanzarlo) → PasoTour, más abajo.
 //
 // Añadir ayuda a algo nuevo = una entrada aquí, EN EL MISMO COMMIT que el
 // cambio de comportamiento. Un texto de ayuda que ya no es cierto es un bug
@@ -99,7 +99,7 @@ const _PANTALLAS = {
     grupo: 'dia',
     titulo: 'Clientes',
     queEs:
-      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar». Los clientes archivados no salen en la lista: están al final, tras «Ver archivados».',
+      'La lista de tus cuentas (tu cartera). Cada fila lleva a la ficha del cliente y muestra su estado con una etiqueta: «Con oportunidad», «En seguimiento» o «Sin visitar». Los clientes inactivos no salen en la lista: están al final, tras «Ver inactivos».',
     cuando:
       'Para entrar en la ficha de un cliente. La lista muestra por defecto tu cartera, pero el buscador encuentra CUALQUIER cliente de la empresa — útil para cubrir a un compañero o para comprobar si ya existe antes de darlo de alta. Si diriges el equipo, «Solo míos / Todos» cambia la vista y ahí ves quién lleva cada cuenta.',
   },
@@ -136,7 +136,7 @@ const _PANTALLAS = {
     grupo: 'cliente',
     titulo: 'Nuevo cliente',
     queEs:
-      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques (si está archivado, te lleva a su ficha para reactivarlo), y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo: el nombre pasa a ser el del CRM (puedes retocarlo) y solo falta el proyecto (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
+      'Da de alta un cliente con dos datos: su nombre y el de su primer proyecto (la línea de negocio: mantenimiento, obra nueva, postventa…). Todo cliente nace con un proyecto, y cada visita cuelga de uno. Mientras escribes el nombre, te avisa si ya hay un cliente igual o parecido para que no lo dupliques (si está inactivo, te lleva a su ficha para reactivarlo), y te enseña las cuentas del CRM que coinciden: elige la suya para vincularlo: el nombre pasa a ser el del CRM (puedes retocarlo) y solo falta el proyecto (si esa cuenta ya es de otro cliente, te lleva a él). Si no aparece en el CRM, sigue sin elegir ninguna. El cliente queda a tu nombre como responsable; Dirección puede reasignarlo luego.',
     cuando:
       'Cuando vas a visitar a alguien que no está en la lista. Puedes guardarlo e iniciar la visita al momento, guardarlo y planificarla, o solo guardarlo. El resto de la ficha (sector, tamaño, ubicación) se rellena después.',
   },
@@ -146,8 +146,8 @@ const _PANTALLAS = {
     queEs:
       'Los datos del cliente (nombre, sector, tamaño, ubicación general), sus proyectos (líneas de negocio: mantenimiento, obra nueva, postventa…), sus interlocutores (las personas de contacto, con cargo y teléfono; si el cliente está vinculado al CRM, sus contactos salen solos marcados «del CRM» y se cambian allí, y con «+» añades los que conozcas en una visita) y qué tiene instalado (sale solo de los hallazgos de sus visitas). Todo cliente tiene al menos un proyecto, con nombre, desde que se da de alta.',
     cuando:
-      'Aquí ves los proyectos del cliente, cada uno con su marca (iniciales y color, igual en toda la app). Si tiene un solo proyecto, sus visitas salen aquí mismo; con varios, entra en cada proyecto para ver las suyas, con sus oportunidades y próximos pasos. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. «Editar datos» rellena sector, tamaño, ubicación (salen en la cabecera de cada informe) y la cuenta del CRM a la que corresponde el cliente (la usa el briefing para no confundirlo con otro de nombre parecido); lo puede hacer el comercial responsable o Dirección, y necesita conexión. El icono de dos bocadillos (arriba) es «Pregunta a la IA»: escribes una pregunta sobre este cliente (ofertas, pedidos, qué dice un contrato, incidencias…) y el agente de Copilot la contesta en 20 s-3 min buscando en el CRM, en Licitaciones y pedidos, en Jira y en Confluence, con la fuente al final. Solo lo ve el responsable del cliente, quien participa en sus visitas y Dirección; cada uno ve solo sus preguntas y hay un tope de preguntas al día por persona. Necesita la cuenta del CRM vinculada.',
-    ojo: 'Si ya no trabajáis con el cliente, «Archivar cliente» (al final de la ficha, responsable o Dirección): deja de salir en Clientes y al elegir cliente para una visita, y se conserva todo; «Reactivar cliente» lo devuelve. «Borrar cliente» solo lo ve Dirección: elimina la ficha, sus proyectos y su historial sin vuelta atrás, y es para fichas creadas por error. Si son dos fichas del mismo cliente, no se borra: Dirección las junta.',
+      'Aquí ves los proyectos del cliente, cada uno con su marca (iniciales y color, igual en toda la app). Si tiene un solo proyecto, sus visitas salen aquí mismo; con varios, entra en cada proyecto para ver las suyas, con sus oportunidades y próximos pasos. Desde la barra de abajo arrancas o planificas una visita: si el cliente tiene varios proyectos, te pregunta a cuál. «Nuevo proyecto» abre otra línea de negocio del mismo cliente. Sector, ubicación y tamaño salen siempre en la ficha (como «sin indicar» si faltan): tócalos, junto con «Nombre», para editar solo ese dato (salen en la cabecera de cada informe; «Guardar» se activa cuando cambias algo). La fila «Cuenta CRM» vincula al cliente con su cuenta del CRM: tócala y te enseña las cuentas parecidas a su nombre; al elegir una queda guardada (y, si el cliente no tenía ubicación, se rellena con la ciudad de esa cuenta), y desde ahí mismo puedes cambiarla o quitarla (la usa el briefing para no confundirlo con otro de nombre parecido). Ambas las puede hacer el comercial responsable o Dirección, y necesitan conexión. El icono de dos bocadillos (arriba) es «Pregunta a la IA»: escribes una pregunta sobre este cliente (ofertas, pedidos, qué dice un contrato, incidencias…) y el agente de Copilot la contesta en 20 s-3 min buscando en el CRM, en Licitaciones y pedidos, en Jira y en Confluence, con la fuente al final. Solo lo ve el responsable del cliente, quien participa en sus visitas y Dirección; cada uno ve solo sus preguntas y hay un tope de preguntas al día por persona. Necesita la cuenta del CRM vinculada.',
+    ojo: 'Si ya no trabajáis con el cliente, «Marcar como inactivo» (al final de la ficha, responsable o Dirección): deja de salir en Clientes y al elegir cliente para una visita; no borra nada (ni archivos, ni informes, ni SharePoint, ni cuota); «Reactivar cliente» (arriba, bajo el aviso de cliente inactivo) lo devuelve. «Borrar cliente» solo lo ve Dirección: elimina la ficha, sus proyectos y su historial sin vuelta atrás, y es para fichas creadas por error. Si son dos fichas del mismo cliente, no se borra: Dirección las junta.',
   },
   'ficha-proyecto': {
     grupo: 'cliente',
@@ -155,16 +155,7 @@ const _PANTALLAS = {
     queEs:
       'Una línea de negocio dentro de un cliente. Arriba, lo que sigue abierto: oportunidades activas y próximos pasos. Debajo, sus visitas: cada una dice a qué fue y qué tiene dentro («2 notas · 1 hallazgo · 12 fotos»); las notas, hallazgos y fotos se ven entrando en la visita.',
     cuando:
-      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita (las cerradas ponen «cerrada · PDF»). Si el cliente está archivado, el proyecto es solo consulta hasta reactivarlo.',
-  },
-  'espacio-proyecto': {
-    grupo: 'cliente',
-    titulo: 'Liberar espacio (proyecto)',
-    queEs:
-      'Las visitas cerradas de este proyecto y cuánto ocupan. Igual que "Mi espacio" pero para todas las visitas del proyecto de golpe, sea quien sea el comercial responsable de cada una.',
-    cuando:
-      'Cuando un proyecto lleva muchas visitas y ocupa demasiado. Marca las que quieras y elige: «Descargar» solo se trae la copia completa en ZIP (PDF, fotos originales y audios) de cada una sin tocar nada; «Liberar» descarga y, solo si sale bien, borra la visita del todo.',
-    ojo: 'No se puede deshacer. Una visita con una oportunidad abierta, con cambios de este dispositivo sin subir, o de la que no eres responsable (si no diriges el equipo) no se puede marcar. Si una descarga falla a mitad de camino, se para ahí: lo ya respaldado se libera y el resto queda intacto para intentarlo más tarde.',
+      'Antes o después de visitar por este proyecto. Desde abajo arrancas una visita ahora o la planificas para otro día. Con el lápiz lo renombras; también puedes pausarlo, terminarlo o borrarlo (al borrar, su actividad se mueve al proyecto que elijas; el único proyecto de un cliente no se puede borrar). Terminar pide antes resolver sus visitas pendientes: moverlas a otro proyecto o cancelarlas; una visita en curso de otro comercial hay que esperar a que se cierre, y una con una oportunidad abierta no se puede cancelar hasta cerrarla. Las oportunidades abiertas del proyecto en general solo avisan, no frenan. Si el proyecto tiene visitas cerradas, «Liberar espacio» lleva a la pantalla para liberarlas de golpe. «Resumen del proyecto» es un PDF con una página por visita cerrada, SIN fotos: las fotos van en el «PDF de la visita», que se descarga entrando en cada visita (las cerradas ponen «cerrada · PDF»). Si el cliente está inactivo, el proyecto es solo consulta hasta reactivarlo.',
   },
 
   // — Una visita, paso a paso —
@@ -174,13 +165,13 @@ const _PANTALLAS = {
     queEs:
       'El único sitio para crear una visita: eliges el cliente, el proyecto (solo si tiene más de uno) y cuándo. «Ahora» pide solo el objetivo y arranca la visita en curso. «Otro día» pide además fecha, hora u orientación (mañana/tarde) y —si diriges el equipo— para quién; queda agendada y aparece en la Agenda y en «Hoy» ese día.',
     cuando:
-      'Se abre desde el «+» de «Hoy» y de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». «Otro día» necesita conexión; «Ahora» funciona sin cobertura (se sincroniza luego).',
+      'Se abre desde el «+» de «Hoy» y de la Agenda, o al dar de alta un cliente con «Guardar y planificar visita». «Otro día» necesita conexión; «Ahora» funciona sin cobertura (se sincroniza luego). «¿Cómo es la visita?» (tres iconos: Presencial, Teams o Llamada; el elegido va de color y los otros en gris) va arriba del todo, y también en la ventana «¿A qué vas?» de «Iniciar visita» (desde el cliente, el proyecto o el «+» de Hoy): con Teams puedes pegar el enlace de la reunión. Las visitas por Teams o por llamada se ven con su icono (cámara o teléfono) y color en la barra de «visita en curso» y en la agenda.',
   },
   'visita-planificada': {
     grupo: 'visita',
     titulo: 'Visita planificada',
     queEs:
-      'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo.',
+      'Una visita que has dejado agendada para otro día: a qué cliente, cuándo y con qué objetivo. Si es por Teams o por llamada lo dice, con el enlace para unirte (Teams) y el teléfono de los interlocutores (llamada); tocar otro icono cambia el medio.',
     cuando:
       'Para reprogramarla, cancelarla o empezarla. Si es hoy, «Iniciar visita» te lleva a la preparación; si es para más adelante, puedes empezarla igualmente pero te lo pregunta antes. El icono de briefing (arriba) abre el resumen del cliente que prepara el agente de Copilot: se genera solo al planificar una visita de los próximos 7 días y otra vez la noche anterior; tarda 7-9 minutos y necesita que el cliente tenga vinculada su cuenta del CRM. Se borra al cerrar la visita. El icono de dos bocadillos (arriba) es «Pregunta a la IA»: escribes una pregunta sobre este cliente (ofertas, pedidos, qué dice un contrato, incidencias…) y el agente de Copilot la contesta en 20 s-3 min buscando en el CRM, en Licitaciones y pedidos, en Jira y en Confluence, con la fuente al final. Solo lo ve el responsable del cliente, quien participa en sus visitas y Dirección; cada uno ve solo sus preguntas y hay un tope de preguntas al día por persona. Necesita la cuenta del CRM vinculada.',
     ojo: 'Cancelar una visita planificada la borra y no se puede deshacer.',
@@ -197,10 +188,10 @@ const _PANTALLAS = {
     grupo: 'visita',
     titulo: 'Visita en curso',
     queEs:
-      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso—. «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas y se guarda como nota; si además es un hallazgo («algo que tienen») o una oportunidad («algo para venderles»), lo marcas ahí mismo. Un hallazgo puede llevar una o varias categorías del catálogo (Hardware, Software…), opcional. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y los botones de interlocutores, equipo, el briefing (icono de ticket) —el resumen del cliente que prepara el agente de Copilot a partir del CRM, pedidos y licitaciones, Jira y Confluence; tarda 7-9 minutos y necesita la cuenta del CRM vinculada— y, si eres responsable del cliente o participas en sus visitas, «Pregunta a la IA» (icono de dos bocadillos) para preguntar algo concreto del cliente y tener la respuesta con su fuente en 20 s-3 min. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona.',
+      'La pantalla desde la que capturas todo mientras estás con el cliente. Lo primero y en grande, «Captura lo que veas»: cuatro botones iguales —foto, audio, anotar, próximo paso— y, junto al título, el icono de documento para adjuntar un PDF, Word, Excel… «Anotar» es para todo lo que ves y quieres dejar dicho: escribes o dictas y se guarda como nota; si además es un hallazgo («algo que tienen») o una oportunidad («algo para venderles»), lo marcas ahí mismo. Un hallazgo puede llevar una o varias categorías del catálogo (Hardware, Software…), opcional. Debajo, el contexto: el objetivo con el que ibas (tócalo para matizarlo) y los botones de interlocutores, equipo, el briefing (icono de ticket) —el resumen del cliente que prepara el agente de Copilot a partir del CRM, pedidos y licitaciones, Jira y Confluence; tarda 7-9 minutos y necesita la cuenta del CRM vinculada— y, si eres responsable del cliente o participas en sus visitas, «Pregunta a la IA» (icono de dos bocadillos) para preguntar algo concreto del cliente y tener la respuesta con su fuente en 20 s-3 min. Más abajo, «En esta visita», con todo lo capturado (lo tuyo y lo de tus compañeros) en una sola lista —agrupada por zona en cuanto la visita usa zonas, con «Tipo» para verla por tipo—, y al final «Cerrar visita». Si estás recorriendo instalaciones, «Marcar zonas» saca una casilla para atar cada captura al sitio; si no, la captura no se ata a ninguna zona. Justo bajo los botones, «Adjuntar un documento» cuelga de la visita uno o varios PDF, Word, Excel, PowerPoint, TXT o CSV (hasta 25 MB cada uno); aparece en «En esta visita», en una sección «Documentos» (los documentos no llevan zona).',
     cuando:
-      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» y en el resto de campos de texto largo puedes dictar en vez de escribir (icono de micro dentro del propio campo). Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una.',
-    ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada no se le añade nada. Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar.',
+      'Durante la visita. Cada botón de «Captura lo que veas» abre una captura rápida, y lo que vas metiendo aparece en «En esta visita» según lo capturas. En «Anotar» y en el resto de campos de texto largo puedes dictar en vez de escribir (icono de micro dentro del propio campo). Al terminar, «Cerrar visita», al final del todo. Si tienes otras visitas abiertas sin cerrar, un aviso arriba las lista en un panel sin sacarte de esta: desde ahí vas, cierras o descartas cada una. Si la visita es por Teams o por llamada, arriba salen los tres iconos del medio y, según el elegido, su botón («Unirse a la reunión» o «Llamar a…») y tocar otro de los tres iconos lo cambia al instante (una llamada que acaba en reunión, o te equivocaste al elegir); en esas visitas las fotos no piden ubicación.',
+    ojo: 'Todo se guarda sobre la marcha, también sin cobertura. No cierres la visita hasta haberlo capturado todo: una vez cerrada ya no se le añaden fotos, audios ni notas (solo documentos, desde su detalle). Si un compañero la cierra mientras tú sigues, la pantalla te avisa y deja de dejarte capturar. Si te olvidas de cerrarla, se cierra sola cuando lleva muchas horas (18) sin actividad y tiene algo capturado; desde las 8 h sin actividad la pantalla te avisa de cuánto falta. Una visita cerrada así se puede reabrir desde su detalle.',
   },
   'cierre-visita': {
     grupo: 'visita',
@@ -208,28 +199,28 @@ const _PANTALLAS = {
     queEs:
       'El repaso de todo lo que has capturado en la visita —fotos, audios, notas, hallazgos, oportunidades y próximos pasos— antes de darla por terminada.',
     cuando:
-      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el «PDF de la visita» (el informe, con las fotos dentro) o «Todo en ZIP» (ese PDF más las fotos originales y los audios). Los dos están también luego en el detalle de la visita.',
-    ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir. Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red.',
+      'Nada más salir del cliente. Compruebas el recuento —tocas cualquier casilla (Fotos, Notas, Próximos pasos…) para ver qué hay dentro—, lo repasas zona por zona si has anotado zonas al capturar, pulsas «Cerrar visita» y confirmas. En el resumen que sale después puedes descargar el «PDF de la visita» (el informe, con las fotos dentro), el «Informe web» (el mismo informe para abrir en el navegador, con las fotos, su mapa y sus coordenadas juntas) o «Originales en ZIP» (las fotos, los audios y los documentos tal como se capturaron; si pesan mucho, salen en varios archivos). Los dos están también luego en el detalle de la visita.',
+    ojo: 'Al cerrar, la visita queda fija y pasa a solo lectura: lo que no hayas capturado ya no se le puede añadir (salvo documentos, que se cuelgan luego desde su detalle). Revisa bien el recuento antes de confirmar. Las oportunidades y los próximos pasos siguen vivos después: se trabajan desde el cliente, no desde la visita. Si cierras sin cobertura no pasa nada: se guarda en el móvil y se confirma sola en cuanto vuelvas a tener red. Si no la cierras tú, se cierra sola tras 18 h sin actividad.',
   },
   'visita-cerrada': {
     grupo: 'visita',
     titulo: 'Visita cerrada',
     queEs:
-      'El resumen de solo lectura de una visita ya terminada: objetivo, oportunidades, hallazgos, próximos pasos, el anexo con notas, fotos y audios, y un mapa con las fotos que se hicieron con ubicación. Es lo mismo que sale en el informe en PDF.',
+      'El resumen de solo lectura de una visita ya terminada: objetivo y, si la visita tuvo zonas, todo zona a zona (las oportunidades, hallazgos, próximos pasos, notas, audios y fotos de cada zona juntos, y «Sin zona» al final); con «Tipo» lo ves agrupado por tipo. Arriba, un mapa con las fotos que se hicieron con ubicación. Sin zonas, se cuenta directamente por tipo. Es lo mismo que sale en el informe en PDF. Bajo las descargas, los documentos adjuntos (PDF, Word, Excel…): los abres para descargarlos, y con el «+» de «Documentos» (justo bajo las descargas) puedes colgar más aunque la visita esté cerrada (Dirección y quienes participaron en ella).',
     cuando:
-      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas. Justo debajo del resumen: «PDF de la visita» (el informe con las fotos, se abre directamente) y «Todo en ZIP» (el PDF más las fotos originales y los audios, para guardar una copia completa).',
-    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero.',
+      'Para consultar qué pasó en una visita, abrir una oportunidad o un hallazgo concretos, o descargar el informe y pasarlo a otras áreas. Justo debajo del resumen: «PDF de la visita» (el informe con las fotos, se abre directamente), «Informe web» (el informe como página navegable: menú con las secciones, buscador, filtro por zona, fotos que se amplían con flechas, mapa con pines y enlaces a los originales, audios y documentos; se baja con el icono de descargar y se abre con doble clic en el navegador, mientras se prepara muestra su progreso; el mapa necesita conexión, lo demás no) y «Originales en ZIP» (las fotos, los audios y los documentos tal como se capturaron, sin informe; si pesan mucho, salen en varios archivos).',
+    ojo: '«Borrar esta visita» la elimina entera —con sus fotos, audios, documentos y notas— y no se puede deshacer. Si tiene alguna oportunidad sin cerrar no deja borrar: hay que cerrarla primero. Al cerrar la visita, sus fotos y audios se copian solos a SharePoint (carpeta Cliente / Proyecto / fecha de la visita); a los 30 días, si la copia está comprobada, se liberan de la app y se abren desde SharePoint (necesitas tener acceso a esa carpeta). Si la visita se cerró sola por inactividad, arriba lo dice y puedes reabrirla; su resumen se genera al abrirla por primera vez.',
   },
 
   // — Lo que registras en una visita —
   'detalle-captura': {
     grupo: 'registro',
-    titulo: 'Foto, audio o nota',
+    titulo: 'Foto, audio, documento o nota',
     queEs:
-      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos y audios, el título. La zona en la que estaba se puede añadir o cambiar aquí en cualquier momento. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
+      'Una captura suelta de la visita. En las notas puedes editar el texto; en fotos, audios y documentos, el título (un documento se abre en el navegador al tocarlo y tiene su fila «Descargar», con su nombre original; no lleva zona). La zona en la que estaba se puede añadir o cambiar aquí en cualquier momento. Una nota puede marcarse además como hallazgo («algo que tienen») o como oportunidad («algo para venderles») con «Esto es»: no se pierde nada, y se puede desmarcar.',
     cuando:
       'Para revisar o retocar algo que capturaste, marcar una nota como hallazgo u oportunidad, o borrarlo si te has equivocado. Editar y borrar sigue disponible con la visita cerrada; el informe se rehace con lo último al descargarlo.',
-    ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial.',
+    ojo: 'Editar, borrar y cambiar de tipo solo los puede hacer el autor de la nota o Dirección Comercial. Si la visita ya se cerró y el archivo se copió a SharePoint, borrar la captura la quita de la app pero NO borra esa copia: SharePoint se conserva como archivo histórico (la pantalla de borrar lo avisa).',
   },
   'detalle-hallazgo': {
     grupo: 'registro',
@@ -472,9 +463,8 @@ export interface PasoTour {
   texto: string;
 }
 
-// Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Se
-// dispara una sola vez tras el primer login (useTourGuiado en
-// layout-shell.tsx) y se puede repetir desde Yo → "Ver guía rápida".
+// Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Ya
+// no sale solo ni se puede lanzar (filas de Yo quitadas el 3 oct).
 // Mismo contenido para cualquier rol: el menú de abajo es igual para
 // comercial y Dirección Comercial.
 export const TOUR_NAVEGACION: PasoTour[] = [
@@ -500,10 +490,9 @@ export const TOUR_NAVEGACION: PasoTour[] = [
   },
 ];
 
-// Paso extra solo para Dirección Comercial — se dispara la primera vez que
-// entra en "Yo" y señala el bloque de gestión que un comercial no tiene.
-// Localstorage propio (independiente de TOUR_NAVEGACION): un comercial que
-// asciende a Dirección lo ve la primera vez que entra con el rol nuevo.
+// Paso extra solo para Dirección Comercial — (desactivado 3 oct, antes se lanzaba desde Yo → "Ver guía
+// de Dirección") y señala el bloque de gestión que un
+// comercial no tiene.
 export const TOUR_DIRECCION: PasoTour[] = [
   {
     id: 'direccion-equipo',

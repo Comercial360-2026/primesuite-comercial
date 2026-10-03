@@ -1,3 +1,4 @@
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useVolverA } from '@/lib/volver-a';
@@ -60,7 +61,7 @@ export function CierreVisita() {
 
   const [vista, setVista] = useState<'cierre' | 'confirmar' | 'resumen'>('cierre');
   const [sincronizada, setSincronizada] = useState(true);
-  const { estadoDe, descargar } = useDescargarInforme();
+  const { estadoDe, descargar, progresoDe, motivoDe } = useDescargarInforme();
   // Casilla cuyo detalle se está mirando (Fotos, Próximos pasos…). Se
   // congelan los items al abrir: así el modal tiene una lista estable y las
   // URLs de blob de fotos/audios no se recrean/revocan con cada re-render.
@@ -96,7 +97,7 @@ export function CierreVisita() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('visita')
-        .select('cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
+        .select('medio, cliente:cliente_id(nombre), proyecto:proyecto_id(nombre)')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -106,6 +107,7 @@ export function CierreVisita() {
   const contextoTexto = [
     contextoVisita?.cliente?.nombre,
     contextoVisita?.proyecto?.nombre ?? null,
+    esNoPresencial(medioDe(contextoVisita?.medio)) ? MEDIO_VISITA[medioDe(contextoVisita?.medio)].etiqueta : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -276,6 +278,7 @@ export function CierreVisita() {
   const fotos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'foto');
   const audios = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'audio');
   const notas = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'nota');
+  const documentos = capturas.filter((c) => (c.payload as { tipo: string }).tipo === 'documento');
 
   // Las seis casillas del resumen: cada una abre su detalle al pulsarla.
   // La etiqueta concuerda en número con el recuento ("1 nota", no "1 Notas").
@@ -291,6 +294,8 @@ export function CierreVisita() {
     { grupo: 'oportunidades', sing: 'Oportunidad', plur: 'Oportunidades', items: oportunidades },
     { grupo: 'hallazgos', sing: 'Hallazgo', plur: 'Hallazgos', items: hallazgos },
     { grupo: 'pasos', sing: 'Próximo paso', plur: 'Próximos pasos', items: pasos },
+    // Solo si hay: no es una de las seis de siempre y la rejilla es de 2 columnas.
+    ...(documentos.length ? [{ grupo: 'documentos' as const, sing: 'Documento', plur: 'Documentos', items: documentos }] : []),
   ];
 
   // Tira de chips con el recuento — misma en "¿Confirmas el cierre?" y en
@@ -302,6 +307,7 @@ export function CierreVisita() {
     plural(hallazgos.length, 'hallazgo', 'hallazgos'),
     plural(oportunidades.length, 'oportunidad', 'oportunidades'),
     plural(pasos.length, 'próximo paso', 'próximos pasos'),
+    ...(documentos.length ? [plural(documentos.length, 'documento', 'documentos')] : []),
   ];
 
   // Resumen "por reglas" que se guarda al cerrar (visita.resumen_texto). Es
@@ -502,7 +508,7 @@ export function CierreVisita() {
           {/* El informe solo se puede generar si la visita ya está en el
               servidor; sin conexión, se descarga luego desde el historial. */}
           {sincronizada && visitaId && (
-            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} />
+            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
           )}
         </div>
 
