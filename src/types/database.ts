@@ -1497,19 +1497,43 @@ export type Database = {
       }
       registro_backup_completo: {
         Row: {
+          confirmada_en: string | null
           creado_en: string
-          creado_por: string
+          creado_por: string | null
+          error: string | null
+          estado: string
+          filas: Json | null
           id: string
+          origen: string
+          ruta_sharepoint: string | null
+          storage_path: string | null
+          tamano: number | null
         }
         Insert: {
+          confirmada_en?: string | null
           creado_en?: string
-          creado_por: string
+          creado_por?: string | null
+          error?: string | null
+          estado?: string
+          filas?: Json | null
           id?: string
+          origen?: string
+          ruta_sharepoint?: string | null
+          storage_path?: string | null
+          tamano?: number | null
         }
         Update: {
+          confirmada_en?: string | null
           creado_en?: string
-          creado_por?: string
+          creado_por?: string | null
+          error?: string | null
+          estado?: string
+          filas?: Json | null
           id?: string
+          origen?: string
+          ruta_sharepoint?: string | null
+          storage_path?: string | null
+          tamano?: number | null
         }
         Relationships: []
       }

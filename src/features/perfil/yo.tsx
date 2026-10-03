@@ -29,42 +29,8 @@ import { Icono } from '@/components/ui/iconos';
 import { TourGuiado } from '@/components/ui/tour-guiado';
 import { TOUR_DIRECCION } from '@/lib/ayuda';
 
-const DIAS_AVISO_BACKUP = 7;
-
-// Tablas incluidas en la copia completa. Solo datos (filas), no los
-// binarios de fotos/audios — esos ya tienen su propio backup por visita
-// (ver mi-espacio.tsx / Fase B). Bajar todas las fotos de todos los
-// clientes cada semana sería enorme y lento; esto es la red de seguridad
-// para los DATOS, no para los archivos.
-const TABLAS_BACKUP = [
-  'cliente',
-  'comercial',
-  'visita',
-  'visita_participante',
-  'visita_interlocutor',
-  'interlocutor',
-  'hallazgo',
-  'captura_libre',
-  'oportunidad',
-  'oportunidad_visita_seguimiento',
-  'oportunidad_area',
-  'proximo_paso',
-  'termino',
-  'ubicacion',
-  // Sin estas, restaurar perdería a qué proyecto pertenece cada visita, las categorías de los
-  // hallazgos y de las oportunidades, las zonas, los briefings, las peticiones de reapertura y los
-  // ajustes. No se incluyen crm_* (se recargan a diario desde el CRM) ni consulta_ia (cada uno solo
-  // ve las suyas, no sería una copia completa).
-  'proyecto',
-  'hallazgo_area',
-  'oportunidad_termino',
-  'zona_visita',
-  'categoria_vocabulario',
-  'sector',
-  'briefing_visita',
-  'visita_solicitud_reapertura',
-  'ajustes_app',
-] as const;
+// La copia automática salta a los 7 días; a los 8 sin una confirmada es que algo falla.
+const DIAS_AVISO_BACKUP = 8;
 
 const ETIQUETA_ROL: Record<string, string> = {
   comercial: 'Comercial',
@@ -260,81 +226,51 @@ export function Yo() {
     ubicacion: 'ubicación',
   };
 
-  const { data: ultimoBackup } = useQuery({
+  // Últimos intentos de copia (automática o manual): la última confirmada decide el aviso; mientras
+  // hay una enviada esperando a SharePoint se consulta cada 5 s.
+  const { data: intentosBackup } = useQuery({
     queryKey: ['ultimo-backup-completo'],
     enabled: esDireccionComercial,
     refetchOnMount: 'always',
+    refetchInterval: (q) => (q.state.data?.[0]?.estado === 'enviada' ? 5000 : false),
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('registro_backup_completo')
-        .select('creado_en')
+        .select('estado, creado_en, error')
         .order('creado_en', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
       if (err) throw err;
-      return data?.creado_en ?? null;
+      return data;
     },
   });
+  const ultimoBackup = intentosBackup?.find((i) => i.estado === 'confirmada')?.creado_en ?? null;
+  const ultimoIntento = intentosBackup?.[0];
+  const copiaEnCurso = ultimoIntento?.estado === 'enviada';
+  const copiaFallida = ultimoIntento?.estado === 'fallida';
 
   const diasDesdeBackup = ultimoBackup
     ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
+  const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP || copiaFallida;
 
+  // La copia la hace el servidor (generar-copia-seguridad) y la sube a SharePoint; aquí solo se pide.
   async function hacerCopiaCompleta() {
-    // Sin red, cada select de abajo devolvería error y se bajaría un JSON
-    // lleno de "Failed to fetch" que no vale para nada. Mejor no empezar.
     if (!navigator.onLine) {
-      setErrorExportacion('Sin conexión. La copia necesita internet para leer todos tus datos.');
+      setErrorExportacion('Sin conexión. Vuelve a intentarlo cuando tengas red.');
       return;
     }
     setExportando(true);
     setErrorExportacion(null);
     try {
-      const resultado: Record<string, unknown> = {};
-      for (const tabla of TABLAS_BACKUP) {
-        const { data, error: err } = await supabase.from(tabla).select('*');
-        // Si una tabla concreta falla (permiso, lo que sea), se anota el
-        // fallo dentro del propio backup en vez de abortar todo el
-        // proceso — mejor una copia con un hueco señalado que ninguna.
-        resultado[tabla] = err ? { error: err.message } : data;
-      }
-
-      // Pero si NINGUNA tabla se pudo leer (típico: la conexión se cayó a
-      // mitad), no se descarga una copia vacía — se avisa y punto.
-      const todasFallaron = Object.values(resultado).every(
-        (v) => v != null && typeof v === 'object' && 'error' in v
-      );
-      if (todasFallaron) {
-        throw new Error(navigator.onLine ? 'No se pudo leer ninguna tabla.' : 'Failed to fetch');
-      }
-
-      const fecha = new Date().toISOString().slice(0, 10);
-      const blob = new Blob([JSON.stringify({ generado_en: new Date().toISOString(), tablas: resultado }, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `primenotes-backup-${fecha}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      const { error: errLog } = await supabase
-        .from('registro_backup_completo')
-        .insert({ creado_por: comercial!.id });
-      if (errLog) throw new Error(errLog.message);
-
+      const { data, error: err } = await supabase.functions.invoke('generar-copia-seguridad', { body: { forzar: true } });
+      if (err) throw err;
+      if (data?.error) throw new Error(data.error);
       queryClient.invalidateQueries({ queryKey: ['ultimo-backup-completo'] });
     } catch (err) {
       setErrorExportacion(
         esSinRed(err)
           ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
-          : err instanceof Error
-            ? `No se pudo completar la copia: ${err.message}`
-            : 'No se pudo completar la copia.'
+          : 'No se pudo iniciar la copia. Inténtalo de nuevo.'
       );
     } finally {
       setExportando(false);
@@ -676,22 +612,24 @@ export function Yo() {
               barra={diasDesdeBackup === null ? 100 : Math.min((diasDesdeBackup / DIAS_AVISO_BACKUP) * 100, 100)}
               error={errorExportacion ?? undefined}
               accion={{
-                icono: 'descargar',
+                icono: 'subir',
                 etiqueta: 'Hacer copia ahora',
                 onClick: hacerCopiaCompleta,
-                disabled: exportando,
-                cargando: exportando,
-                etiquetaCargando: 'Preparando la copia…',
+                disabled: exportando || copiaEnCurso,
+                cargando: exportando || copiaEnCurso,
+                etiquetaCargando: 'Copiando a SharePoint…',
                 enfasis: backupPendiente ? 'primario' : 'secundario',
               }}
             >
-              {diasDesdeBackup === null
-                ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
-                : diasDesdeBackup === 0
-                  ? 'Última: hoy'
-                  : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
-                      backupPendiente ? ' · conviene hacer una' : ''
-                    }`}
+              {copiaFallida
+                ? 'La última copia falló · revisa el flujo de Power Automate'
+                : diasDesdeBackup === null
+                  ? 'Aún sin copia en SharePoint · se hace sola cada semana'
+                  : diasDesdeBackup === 0
+                    ? 'Última: hoy · en SharePoint, cada semana'
+                    : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'} · en SharePoint, cada semana${
+                        backupPendiente ? ' · algo falla' : ''
+                      }`}
             </TarjetaAccion>
           </div>
         )}

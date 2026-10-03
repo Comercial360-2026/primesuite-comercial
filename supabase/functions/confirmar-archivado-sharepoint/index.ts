@@ -62,6 +62,33 @@ Deno.serve(async (req) => {
     return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
   }
 
+  // La copia de seguridad de las tablas (generar-copia-seguridad) también viaja por este flujo:
+  // captura_id = 'copia:<registro_id>'. Misma regla de integridad: tamaño en SharePoint = tamaño del
+  // JSON guardado en el bucket de backups.
+  const copia = /^copia:([0-9a-f-]{36})$/i.exec(body.captura_id);
+  if (copia) {
+    const { data: reg } = await admin
+      .from('registro_backup_completo')
+      .select('storage_path, estado')
+      .eq('id', copia[1])
+      .maybeSingle();
+    if (!reg) return json({ error: 'Copia no encontrada' }, 404);
+    if (reg.estado === 'confirmada') return json({ ok: true, ya_copiada: true });
+    const subido = Number(body.tamano);
+    const original = await tamanoEnStorage(admin, 'backups-visita', reg.storage_path);
+    if (!subido || original === null || subido !== original) {
+      const motivo = `Tamaño no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}`;
+      await admin.from('registro_backup_completo').update({ error: motivo }).eq('id', copia[1]);
+      return json({ error: motivo }, 409);
+    }
+    const { error: errorCopia } = await admin
+      .from('registro_backup_completo')
+      .update({ estado: 'confirmada', ruta_sharepoint: body.ruta_sharepoint, confirmada_en: new Date().toISOString(), error: null })
+      .eq('id', copia[1]);
+    if (errorCopia) return json({ error: errorCopia.message }, 500);
+    return json({ ok: true });
+  }
+
   // El informe de la visita viaja por el mismo flujo como un archivo más, con
   // captura_id = 'informe:<visita_id>' (HTML) o 'informe-pdf:<visita_id>' (PDF); no es una captura.
   // Misma regla de integridad: el tamaño en SharePoint tiene que ser el del informe guardado en el

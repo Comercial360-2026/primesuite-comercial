@@ -31,6 +31,14 @@ Cada visita cerrada puede dejar en su carpeta de SharePoint DOS archivos: «Info
 - Fallos: `visita.informe_intentos` (máx. 5, 15 min entre intentos). No hay aviso en Yo para informes agotados (pendiente si hace falta).
 - Probado el 2 oct con la visita de Verescence: HTML y PDF creados en su carpeta, confirmaciones con tamaño coincidente, ejecuciones «Succeeded» en Power Automate, segunda pasada sin reenviar, reabrir/recerrar los deja pendientes.
 
+## Copia de seguridad de las tablas (migración 144)
+Cron `copia-seguridad-diaria` (03:30 UTC) → Edge Function `generar-copia-seguridad` (desplegada `--no-verify-jwt`; auth propia: clave del worker o sesión de Dirección). Solo actúa si no hay una copia confirmada de hace < 7 días ni una enviada hace < 30 min; si el flujo falló, reintenta al día siguiente. Lee las 23 tablas con service_role (paginando de 1000 en 1000), sube el JSON a `backups-visita` (como `application/octet-stream`: con `application/json` Power Automate añade 3 bytes de BOM y la confirmación por tamaño falla) y lo manda por el MISMO webhook: `Copias de seguridad/AAAA-MM/Base de datos/primenotes-copia-AAAA-MM-DD-HHMM.json` dentro de `PrimeNotes - Comerciales`, sin tocar el flujo (usa `carpeta_cliente/proyecto/visita` como carpetas). El flujo confirma en `confirmar-archivado-sharepoint` con `captura_id = 'copia:<registro_id>'` (compara tamaño). Estado en `registro_backup_completo` (`enviada` → `confirmada` | `fallida`, ruta, tamaño, filas por tabla, error). Yo → «Copia de seguridad» (Dirección): «Hacer copia ahora» = misma función con `forzar`; aviso si pasan 8 días sin confirmada o la última falló.
+- **No entran:** `crm_*` (se recargan del CRM), `consulta_ia`, los archivos de visitas no cerradas.
+- **Permisos (a mano en SharePoint):** la carpeta `Copias de seguridad` cuelga de `PrimeNotes - Comerciales`; romper la herencia y dejarla solo a Dirección/IT (el JSON trae todos los clientes).
+- **Retención:** la app no borra en SharePoint; limpiar copias viejas a mano o con política de retención.
+- **Techo:** el JSON entero en memoria (límite del bucket 50 MB); si se acerca, partir por tabla.
+- Restaurar: sin procedimiento probado todavía.
+
 ## Duplicados
 Si el flujo sube un archivo y falla justo la confirmación, el reintento crea «Foto 14-32-05 (reintento …).jpg». No se borra solo: el aviso de Gestión lo cuenta y se limpia a mano en SharePoint.
 
