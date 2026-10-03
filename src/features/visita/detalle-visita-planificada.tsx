@@ -199,7 +199,7 @@ export function DetalleVisitaPlanificada() {
         titulo={data?.cliente_nombre ?? 'Visita planificada'}
         ayuda="visita-planificada"
         volverA={volver}
-        subtitulo={data && fechaVisita ? fechaCorta(fechaVisita) : undefined}
+        subtitulo={data && fechaVisita ? `Planificada · ${fechaCorta(fechaVisita)}` : undefined}
         derecha={
           data && (
             <>
