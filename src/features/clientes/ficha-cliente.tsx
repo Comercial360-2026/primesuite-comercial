@@ -96,8 +96,8 @@ export function FichaCliente() {
   // directo, requiere conexión.
   const TAMANOS = ['Pequeña', 'Mediana', 'Grande'] as const;
   const [editandoDatos, setEditandoDatos] = useState(false);
-  // Qué se edita: tocar una fila abre solo ese dato; el lápiz abre todos.
-  const [campoEditar, setCampoEditar] = useState<'todos' | 'sector' | 'ubicacion' | 'tamano'>('todos');
+  // Qué se edita: tocar una fila abre solo ese dato (Nombre, Sector, Ubicación o Tamaño).
+  const [campoEditar, setCampoEditar] = useState<'nombre' | 'sector' | 'ubicacion' | 'tamano'>('nombre');
   const [formNombre, setFormNombre] = useState('');
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
@@ -122,7 +122,7 @@ export function FichaCliente() {
     },
   });
 
-  function abrirEditarDatos(campo: 'todos' | 'sector' | 'ubicacion' | 'tamano' = 'todos') {
+  function abrirEditarDatos(campo: 'nombre' | 'sector' | 'ubicacion' | 'tamano') {
     setCampoEditar(campo);
     setFormNombre(cliente?.nombre ?? '');
     setFormSector(cliente?.sector ?? '');
@@ -557,17 +557,6 @@ export function FichaCliente() {
                 <Icono nombre="briefing" size={18} />
               </button>
             )}
-            {puedeEditar && (
-              <button
-                type="button"
-                className="boton-icono"
-                aria-label="Editar datos del cliente"
-                title="Editar datos del cliente"
-                onClick={() => abrirEditarDatos()}
-              >
-                <Icono nombre="editar" size={16} />
-              </button>
-            )}
           </>
         }
       />
@@ -670,14 +659,16 @@ export function FichaCliente() {
 
        {editandoDatos && (
          <HojaSuperior
-           titulo={{ todos: 'Datos del cliente', sector: 'Sector', ubicacion: 'Ubicación', tamano: 'Tamaño' }[campoEditar]}
+           titulo={{ nombre: 'Nombre', sector: 'Sector', ubicacion: 'Ubicación', tamano: 'Tamaño' }[campoEditar]}
            onCerrar={cerrarEditarDatos}
          >
-           {campoEditar === 'todos' && (
-             <>
+           {campoEditar !== 'nombre' && (
              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 0 var(--space-2)' }}>
-               Sector, tamaño y ubicación salen en la cabecera de los informes.
+               Sale en la cabecera de los informes.
              </p>
+           )}
+           {campoEditar === 'nombre' && (
+             <>
              <div className="label" style={{ marginTop: 0 }}>Nombre</div>
              <input
                className="field"
@@ -694,7 +685,7 @@ export function FichaCliente() {
              </p>
              </>
            )}
-           {(campoEditar === 'todos' || campoEditar === 'sector') && (
+           {campoEditar === 'sector' && (
              <>
              <div className="label">Sector</div>
              <select className="field" autoFocus={campoEditar === 'sector'} value={formSector} onChange={(e) => setFormSector(e.target.value)}>
@@ -710,7 +701,7 @@ export function FichaCliente() {
              </select>
              </>
            )}
-           {(campoEditar === 'todos' || campoEditar === 'tamano') && (
+           {campoEditar === 'tamano' && (
              <>
              <div className="label">Tamaño</div>
              <select className="field" autoFocus={campoEditar === 'tamano'} value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
@@ -721,7 +712,7 @@ export function FichaCliente() {
              </select>
              </>
            )}
-           {(campoEditar === 'todos' || campoEditar === 'ubicacion') && (
+           {campoEditar === 'ubicacion' && (
              <>
              <div className="label">Ubicación general</div>
              <input
@@ -763,6 +754,13 @@ export function FichaCliente() {
           <SeccionLista titulo="Datos" prominencia="tenue">
             {/* Quien puede editar ve siempre Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
                 al tocar uno abre «Datos del cliente»; el resto solo ve los rellenos. */}
+            {puedeEditar && (
+              <FilaNavegable
+                titulo="Nombre"
+                valor={cliente.nombre}
+                onClick={() => abrirEditarDatos('nombre')}
+              />
+            )}
             {([
               ['Sector', cliente.sector, 'sector'],
               ['Ubicación', cliente.ubicacion_general, 'ubicacion'],

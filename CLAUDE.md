@@ -188,7 +188,8 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   146). En la ficha, vincular una cuenta que ya es de otro cliente da error y remite a
   Deduplicación. Probado el 3 oct (alta de un cliente nuevo de punta a punta, borrado después).
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
-  entero.
+  entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
+  Cuenta CRM son filas tocables (3 oct).
 
 - **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
   del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
