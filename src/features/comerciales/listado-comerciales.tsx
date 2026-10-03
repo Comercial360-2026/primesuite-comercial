@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { correosComerciales } from '@/lib/gestionar-comercial';
@@ -28,7 +28,11 @@ export const ETIQUETA_ROL: Record<string, string> = {
 export function ListadoComerciales() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [vista, setVista] = useState<'activos' | 'todos'>('activos');
+  const location = useLocation();
+  // La vista vive en la URL (?vista=todos): al volver desde una ficha se ve lo mismo que dejaste.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista: 'activos' | 'todos' = searchParams.get('vista') === 'todos' ? 'todos' : 'activos';
+  const setVista = (v: 'activos' | 'todos') => setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
   const verTodos = vista === 'todos';
 
   const queryKey = ['comerciales-equipo'];
@@ -128,7 +132,7 @@ export function ListadoComerciales() {
                     titulo={p.nombre}
                     subtitulo={`lo pidió el ${fechaCorta(p.creado_en)} · reenviar enlace`}
                     tono="aviso"
-                    onClick={() => navigate(`/comerciales/${p.comercial_id}`)}
+                    onClick={() => navigate(`/comerciales/${p.comercial_id}`, { state: desde(location) })}
                   />
                 ))}
               </SeccionLista>
@@ -168,7 +172,7 @@ export function ListadoComerciales() {
                         </span>
                       )
                     }
-                    onClick={() => navigate(`/comerciales/${c.id}`)}
+                    onClick={() => navigate(`/comerciales/${c.id}`, { state: desde(location) })}
                   />
                 ))}
               </SeccionLista>

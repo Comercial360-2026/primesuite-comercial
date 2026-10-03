@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, hora } from '@/lib/fechas';
@@ -85,12 +85,28 @@ export function Agenda() {
   // Igual que Hoy y Clientes: se entra viendo lo tuyo; "Todas" es abrir el
   // foco al equipo, un toque. (Antes esta pantalla entraba en "Todas" y
   // rompía la coherencia con el resto.)
-  const [vistaDireccion, setVistaDireccion] = useState<'mias' | 'todas'>('mias');
+  // Los dos filtros viven en la URL (?ver=todas, ?modo=mes) junto al ?vista=agenda de Hoy: volver desde una
+  // ficha o una visita deja la Agenda como estaba, no en «Solo mías» / lista.
+  const [searchParams, setSearchParams] = useSearchParams();
+  function ponerParam(clave: string, valor: string | null) {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (valor) n.set(clave, valor);
+        else n.delete(clave);
+        return n;
+      },
+      { replace: true }
+    );
+  }
+  const vistaDireccion: 'mias' | 'todas' = searchParams.get('ver') === 'todas' ? 'todas' : 'mias';
+  const setVistaDireccion = (v: 'mias' | 'todas') => ponerParam('ver', v === 'todas' ? 'todas' : null);
   const soloMias = esDireccionComercial ? vistaDireccion === 'mias' : true;
 
   // Lista (por defecto) o rejilla de mes. La lista es mejor para "qué toca
   // ahora"; el mes, para ver de un vistazo cómo viene la planificación.
-  const [vista, setVista] = useState<'lista' | 'mes'>('lista');
+  const vista: 'lista' | 'mes' = searchParams.get('modo') === 'mes' ? 'mes' : 'lista';
+  const setVista = (v: 'lista' | 'mes') => ponerParam('modo', v === 'mes' ? 'mes' : null);
   const navigate = useNavigate();
   const location = useLocation();
 

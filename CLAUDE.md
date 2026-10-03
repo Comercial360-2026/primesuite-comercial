@@ -160,6 +160,19 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   `volverA` fijo: ← es el paso anterior (cancelar la edición), no el origen.
   Ya aplicado en ficha-proyecto, detalle-visita-cerrada y cola-vocabulario
   (3 oct); la ficha de cliente usa hojas (Datos del cliente, Cuenta CRM). Las hojas (`HojaSuperior`) ya retroceden con su ×.
+- **Filtros y búsqueda de una lista viven en la URL, y quien navega desde ella estampa el origen.**
+  Un filtro (Solo míos/Todos, Lista/Mes, búsqueda…) en `useState` se pierde al volver
+  de una ficha. Va en `?vista=…` / `?q=…` (con `setSearchParams(prev => …)` para no
+  pisar otros parámetros) y TODO sitio que navega desde esa lista —filas, «+», flujos
+  de alta que acaban en una ficha— pasa `state={desde(location)}` (o `{ from: volver }`
+  si la pantalla intermedia ya tiene `useVolverA`). Aplicado el 3 oct en
+  listado-clientes (+ búsqueda), alta-rapida-cliente, listado-comerciales /
+  detalle-comercial y agenda (Solo mías/Todas, Lista/Mes). Sin comprobar con datos:
+  Agenda (no hay visitas planificadas). Pendiente de barrer: lo que ya usa URL
+  (mi-espacio, mis-proximos-pasos, cola-vocabulario, agenda-del-dia).
+- **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo); el lápiz de la
+  cabecera es para renombrar. No abrir el formulario entero desde una fila.
+
 - **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
   del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
   (no depende del «Guardar» de Editar datos).

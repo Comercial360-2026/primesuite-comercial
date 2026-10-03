@@ -96,6 +96,8 @@ export function FichaCliente() {
   // directo, requiere conexión.
   const TAMANOS = ['Pequeña', 'Mediana', 'Grande'] as const;
   const [editandoDatos, setEditandoDatos] = useState(false);
+  // Qué se edita: tocar una fila abre solo ese dato; el lápiz abre todos.
+  const [campoEditar, setCampoEditar] = useState<'todos' | 'sector' | 'ubicacion' | 'tamano'>('todos');
   const [formNombre, setFormNombre] = useState('');
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
@@ -120,7 +122,8 @@ export function FichaCliente() {
     },
   });
 
-  function abrirEditarDatos() {
+  function abrirEditarDatos(campo: 'todos' | 'sector' | 'ubicacion' | 'tamano' = 'todos') {
+    setCampoEditar(campo);
     setFormNombre(cliente?.nombre ?? '');
     setFormSector(cliente?.sector ?? '');
     setFormTamano(cliente?.tamano_aprox ?? '');
@@ -560,7 +563,7 @@ export function FichaCliente() {
                 className="boton-icono"
                 aria-label="Editar datos del cliente"
                 title="Editar datos del cliente"
-                onClick={abrirEditarDatos}
+                onClick={() => abrirEditarDatos()}
               >
                 <Icono nombre="editar" size={16} />
               </button>
@@ -666,51 +669,71 @@ export function FichaCliente() {
        )}
 
        {editandoDatos && (
-         <HojaSuperior titulo="Datos del cliente" onCerrar={cerrarEditarDatos}>
-           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 0 var(--space-2)' }}>
-             Sector, tamaño y ubicación salen en la cabecera de los informes.
-           </p>
-           <div className="label" style={{ marginTop: 0 }}>Nombre</div>
-           <input
-             className="field"
-             autoFocus
-             // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
-             // contacto" en un campo de nombre de EMPRESA, "nope" sí.
-             autoComplete="nope"
-             value={formNombre}
-             onChange={(e) => setFormNombre(e.target.value)}
-             placeholder="razón social"
-           />
-           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 0 0' }}>
-             Cambiarlo aquí no cambia la cuenta del CRM.
-           </p>
-           <div className="label">Sector</div>
-           <select className="field" value={formSector} onChange={(e) => setFormSector(e.target.value)}>
-             <option value="">— sin especificar —</option>
-             {sectores?.map((s) => (
-               <option key={s.id} value={s.nombre}>{s.nombre}</option>
-             ))}
-             {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
-                 no se pierde al abrir el formulario. */}
-             {formSector && !sectores?.some((s) => s.nombre === formSector) && (
-               <option value={formSector}>{formSector}</option>
-             )}
-           </select>
-           <div className="label">Tamaño</div>
-           <select className="field" value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
-             <option value="">— sin especificar —</option>
-             {TAMANOS.map((t) => (
-               <option key={t} value={t}>{t}</option>
-             ))}
-           </select>
-           <div className="label">Ubicación general</div>
-           <input
-             className="field"
-             autoComplete="off"
-             value={formUbicacion}
-             onChange={(e) => setFormUbicacion(e.target.value)}
-             placeholder="p. ej. Polígono Norte, Sevilla"
-           />
+         <HojaSuperior
+           titulo={{ todos: 'Datos del cliente', sector: 'Sector', ubicacion: 'Ubicación', tamano: 'Tamaño' }[campoEditar]}
+           onCerrar={cerrarEditarDatos}
+         >
+           {campoEditar === 'todos' && (
+             <>
+             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 0 var(--space-2)' }}>
+               Sector, tamaño y ubicación salen en la cabecera de los informes.
+             </p>
+             <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+             <input
+               className="field"
+               autoFocus
+               // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
+               // contacto" en un campo de nombre de EMPRESA, "nope" sí.
+               autoComplete="nope"
+               value={formNombre}
+               onChange={(e) => setFormNombre(e.target.value)}
+               placeholder="razón social"
+             />
+             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 0 0' }}>
+               Cambiarlo aquí no cambia la cuenta del CRM.
+             </p>
+             </>
+           )}
+           {(campoEditar === 'todos' || campoEditar === 'sector') && (
+             <>
+             <div className="label">Sector</div>
+             <select className="field" autoFocus={campoEditar === 'sector'} value={formSector} onChange={(e) => setFormSector(e.target.value)}>
+               <option value="">— sin especificar —</option>
+               {sectores?.map((s) => (
+                 <option key={s.id} value={s.nombre}>{s.nombre}</option>
+               ))}
+               {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
+                   no se pierde al abrir el formulario. */}
+               {formSector && !sectores?.some((s) => s.nombre === formSector) && (
+                 <option value={formSector}>{formSector}</option>
+               )}
+             </select>
+             </>
+           )}
+           {(campoEditar === 'todos' || campoEditar === 'tamano') && (
+             <>
+             <div className="label">Tamaño</div>
+             <select className="field" autoFocus={campoEditar === 'tamano'} value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
+               <option value="">— sin especificar —</option>
+               {TAMANOS.map((t) => (
+                 <option key={t} value={t}>{t}</option>
+               ))}
+             </select>
+             </>
+           )}
+           {(campoEditar === 'todos' || campoEditar === 'ubicacion') && (
+             <>
+             <div className="label">Ubicación general</div>
+             <input
+               className="field"
+               autoFocus={campoEditar === 'ubicacion'}
+               autoComplete="off"
+               value={formUbicacion}
+               onChange={(e) => setFormUbicacion(e.target.value)}
+               placeholder="p. ej. Polígono Norte, Sevilla"
+             />
+             </>
+           )}
            {guardadoDatos.error && (
              <div style={{ marginTop: 8 }}>
                <Aviso tipo="error">{guardadoDatos.error}</Aviso>
@@ -741,17 +764,17 @@ export function FichaCliente() {
             {/* Quien puede editar ve siempre Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
                 al tocar uno abre «Datos del cliente»; el resto solo ve los rellenos. */}
             {([
-              ['Sector', cliente.sector],
-              ['Ubicación', cliente.ubicacion_general],
-              ['Tamaño', cliente.tamano_aprox],
-            ] as const).map(([etiqueta, valor]) =>
+              ['Sector', cliente.sector, 'sector'],
+              ['Ubicación', cliente.ubicacion_general, 'ubicacion'],
+              ['Tamaño', cliente.tamano_aprox, 'tamano'],
+            ] as const).map(([etiqueta, valor, campo]) =>
               puedeEditar ? (
                 <FilaNavegable
                   key={etiqueta}
                   titulo={etiqueta}
                   valor={valor || 'sin indicar'}
                   valorTenue={!valor}
-                  onClick={abrirEditarDatos}
+                  onClick={() => abrirEditarDatos(campo)}
                 />
               ) : (
                 valor && <FilaDato key={etiqueta} etiqueta={etiqueta} valor={valor} />

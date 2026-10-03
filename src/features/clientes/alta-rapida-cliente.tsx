@@ -305,7 +305,7 @@ export function AltaRapidaCliente() {
   async function crearSinVisita() {
     if (!nombre.trim() || !nombreProyecto.trim() || creacionCliente.cargando || bloqueadoPorDuplicado) return;
     await creacionCliente.ejecutar(crearCliente, {
-      onExito: (cliente) => navigate(cliente.enCola ? '/clientes' : `/clientes/${cliente.id}`),
+      onExito: (cliente) => navigate(cliente.enCola ? volver : `/clientes/${cliente.id}`, cliente.enCola ? undefined : { state: { from: volver } }),
     });
   }
 
@@ -318,7 +318,7 @@ export function AltaRapidaCliente() {
     // Archivado: sí se enseña (si no, se daría de alta otra vez), pero se va
     // a su ficha a reactivarlo en vez de arrancarle una visita a escondidas.
     if (clientesExistentes?.some((c) => c.id === clienteId && c.estado_relacion === CLIENTE_ARCHIVADO)) {
-      navigate(`/clientes/${clienteId}`);
+      navigate(`/clientes/${clienteId}`, { state: { from: volver } });
       return;
     }
     const { data } = await supabase
