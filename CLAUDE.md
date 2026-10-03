@@ -3,6 +3,7 @@
 
 # 📵📵📵 CAPTURAS DE PANTALLA: PROHIBIDO HACERLAS, NO SOLO ENSEÑARLAS 📵📵📵
 **NUNCA llamar a `screenshot` / `zoom` (ni `computer{action:"screenshot"}`) en este usuario: cada captura aparece en su pantalla aunque yo no la mencione.** Sin excepción, ni «solo para ubicar un clic».
+**Tampoco abrir el panel del navegador de Claude (`preview_start`, `mcp__Claude_Browser__*`): enseña la página en su pantalla igual que una captura (3 oct, se enfadó dos veces). El servidor de desarrollo se arranca con Bash en segundo plano (`npm run dev`) y se prueba SOLO con la ventana Playwright, con JS/texto.**
 Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenadas con `getBoundingClientRect`), `form_input`, SQL. Si de verdad no hay otra forma, PARAR y preguntar a Cesar antes de hacer una.
 
 # 🛑🛑🛑 AGENTES, FLUJOS Y PROCESOS AUTOMÁTICOS: PRIMERO LA DOCUMENTACIÓN, DESPUÉS LAS PRUEBAS, DESPUÉS EL CLIC 🛑🛑🛑

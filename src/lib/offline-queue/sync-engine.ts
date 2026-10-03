@@ -212,6 +212,7 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
       estado: agotado ? 'error' : 'pendiente',
       intentos,
       ultimoError: mensaje,
+      permanente: err instanceof ErrorSubidaPermanente,
     });
     if (!agotado) {
       // Un fallo suelto (foto grande + cobertura floja: el timeout de la

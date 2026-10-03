@@ -808,8 +808,11 @@ export function DetalleVisitaCerrada() {
           data
             ? `${fechaCorta(data.fecha)}${
                 data.tipo_visita ? ` · ${etiqueta(TIPO_VISITA_LABEL, data.tipo_visita).toLowerCase()}` : ''
-              }${esNoPresencial(medioDe(data.medio)) ? ` · ${MEDIO_VISITA[medioDe(data.medio)].etiqueta}` : ''} · ${estadoLegible[data.estado_captura] ?? data.estado_captura}${
-                data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''
+              }${esNoPresencial(medioDe(data.medio)) ? ` · ${MEDIO_VISITA[medioDe(data.medio)].etiqueta}` : ''}${
+                // «cerrada · cerrada el …» repetía la palabra y en móvil el subtítulo se cortaba antes de la fecha.
+                data.estado_captura === 'consolidada' && data.cerrada_en
+                  ? ` · cerrada el ${fechaCorta(data.cerrada_en)}`
+                  : ` · ${estadoLegible[data.estado_captura] ?? data.estado_captura}${data.cerrada_en ? ` · cerrada el ${fechaCorta(data.cerrada_en)}` : ''}`
               }${data.reabierta_en ? ` · reabierta el ${fechaCorta(data.reabierta_en)}` : ''}`
             : undefined
         }

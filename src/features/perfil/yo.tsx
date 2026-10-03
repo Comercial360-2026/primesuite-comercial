@@ -359,15 +359,17 @@ export function Yo() {
                   )}
                 </div>
               ))}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                disabled={reintentandoCola}
-                onClick={reintentarAhora}
-              >
-                {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
-              </button>
+              {operacionesConError!.some((op) => !op.permanente) && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 8 }}
+                  disabled={reintentandoCola}
+                  onClick={reintentarAhora}
+                >
+                  {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
+                </button>
+              )}
             </div>
 
             <AyudaNota concepto="sincronizacion" />

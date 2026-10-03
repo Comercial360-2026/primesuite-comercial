@@ -207,6 +207,7 @@ type CamposComunes = {
   estado: EstadoOperacion;
   intentos: number;
   ultimoError?: string;
+  permanente?: boolean; // rechazo definitivo del servidor (tamaño/formato): reintentar no sirve
   creadoEn: string; // ISO timestamp
   // Denormalizado por encolarOperacion() (db.ts) a partir de la entidad/
   // payload — nunca lo rellena quien llama a encolar(). Existe SOLO para
