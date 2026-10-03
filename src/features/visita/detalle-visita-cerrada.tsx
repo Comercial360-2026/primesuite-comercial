@@ -1054,7 +1054,7 @@ export function DetalleVisitaCerrada() {
                   error={reabriendo.error}
                   confirmar="Sí, reabrir"
                   cargandoTexto="Reabriendo…"
-                  reversible="Vuelve a estar en curso y se podrán añadir más fotos, notas y hallazgos. Mientras esté reabierta, deja de ser visible para el resto de la empresa: solo la verán el responsable y los participantes."
+                  reversible="Vuelve a estar en curso y se podrán añadir más fotos, notas y hallazgos. Mientras esté reabierta, deja de ser visible para el resto de la empresa: solo la verán el responsable y los participantes. Al cerrarla otra vez se genera un informe nuevo en SharePoint; el anterior se queda ahí."
                 >
                   Vas a reabrir esta visita.
                 </ConfirmacionBorrado>
