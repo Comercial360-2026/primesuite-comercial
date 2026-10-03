@@ -1,3 +1,6 @@
+# 🔇🔇🔇 RESPUESTAS: SOLO EL RESULTADO. CERO EXPLICACIONES QUE NO PIDA 🔇🔇🔇
+**Prohibido explicar causas, contexto, opciones o razonamientos si Cesar no los pide.** Formato: qué está hecho / qué falla / qué le toca a él (pasos exactos). Máximo unas pocas líneas. Sin párrafos de «por qué», sin listas largas, sin narrar lo que voy a hacer ni lo que he hecho paso a paso. Una duda de decisión = una pregunta corta con mi recomendación.
+
 # 📵📵📵 CAPTURAS DE PANTALLA: PROHIBIDO HACERLAS, NO SOLO ENSEÑARLAS 📵📵📵
 **NUNCA llamar a `screenshot` / `zoom` (ni `computer{action:"screenshot"}`) en este usuario: cada captura aparece en su pantalla aunque yo no la mencione.** Sin excepción, ni «solo para ubicar un clic».
 Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenadas con `getBoundingClientRect`), `form_input`, SQL. Si de verdad no hay otra forma, PARAR y preguntar a Cesar antes de hacer una.
