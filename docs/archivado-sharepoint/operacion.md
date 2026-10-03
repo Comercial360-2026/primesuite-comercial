@@ -82,3 +82,8 @@ Probado el 3 oct en transacción con rollback: encendido, una visita recién rea
 - Tamaño o formato (Storage 413 / 415): ya no se reintenta 5 veces; va directo a «error» con mensaje en español. Cola offline (fotos, audios y documentos de una visita en curso): Yo → «1 elemento sin sincronizar» dice «El documento pesa más de lo que admite el servidor. No se puede subir: hay que hacerlo de nuevo más ligero», con «Descartar». Documento adjuntado a una visita cerrada (subida directa): el aviso rojo bajo «Adjuntar un documento» dice «pesa más de lo que admite el servidor (máx. 25 MB)» o «tiene un formato que el servidor no admite».
 - Probado en la app simulando la respuesta 413 del servidor en el navegador (sin tocar el bucket real): ambos caminos, y la cola quedó vacía. Los mensajes reales de Storage (413 «exceeded the maximum allowed size», 415 «mime type … is not supported») se obtuvieron con la API.
 - Solo en inglés quedan otros errores (red, cuota, sesión): esos sí se reintentan.
+
+## Restos de pruebas en SharePoint que hay que borrar a mano (3 oct)
+- `…/PrimeNotes - Comerciales/ZZ Prueba fallo/` (carpeta entera: informe HTML y PDF de una visita de prueba ya borrada de la app; la app no borra en SharePoint).
+- `…/Copias de seguridad/2026-10/Base de datos/` (copias de prueba `…0727`, `…0736`) y la carpeta antigua `PrimeNotes - Comerciales/Copias de seguridad`.
+- Intento de provocar un fallo real del informe (3 oct): una foto con el archivo inexistente NO lo rompe; el informe se genera igualmente (sin esa foto). El camino de fallo sigue sin probarse con un fallo real.
