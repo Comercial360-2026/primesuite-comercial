@@ -6,7 +6,8 @@
 //  · Dirección desde Yo → «Hacer copia ahora» con su sesión (`forzar`: salta la comprobación).
 // Lee todo con service_role (la copia hecha desde el navegador solo traía lo que veía quien pulsaba),
 // sube el JSON a `backups-visita` (se borra a las 2 h) y lo manda por el MISMO webhook de Power
-// Automate que el archivado de visitas: ruta `Copias de seguridad/Base de datos/Últimas copias/`. El flujo
+// Automate PROPIO de copias («PrimeSuite - Subir copia de seguridad», webhook en Vault como
+// POWER_AUTOMATE_WEBHOOK_COPIA_URL): carpeta fija `PrimeNotes/Copias de seguridad/Base de datos/Últimas copias/`. El flujo
 // confirma en confirmar-archivado-sharepoint (captura_id = 'copia:<registro_id>', compara tamaños).
 // Desplegar con --no-verify-jwt (el cron no manda JWT); la autenticación es la de abajo.
 
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
     .lt('creado_en', new Date(ahora - 30 * 60_000).toISOString());
 
   const [{ data: webhookUrl }, { data: secreto }] = await Promise.all([
-    admin.rpc('fn_webhook_power_automate_archivar'),
+    admin.rpc('fn_webhook_power_automate_copia'),
     admin.rpc('fn_secreto_power_automate'),
   ]);
   if (!webhookUrl || !secreto) return json({ error: 'Falta configuración del webhook de archivado.' }, 500);
@@ -148,7 +149,9 @@ Deno.serve(async (req) => {
       .update({ storage_path: storagePath, tamano: bytes.length, filas })
       .eq('id', reg.id);
 
-    // --- Al flujo de Power Automate (misma ruta que las visitas: cliente/proyecto/visita) ---
+    // --- Al flujo PROPIO de copias («PrimeSuite - Subir copia de seguridad»): la carpeta de destino
+    // (PrimeNotes/Copias de seguridad/Base de datos/Últimas copias) está fija en el flujo, no en
+    // carpeta_*; esos campos se siguen mandando porque el flujo es copia del de visitas y su esquema los trae. ---
     const r = await fetch(webhookUrl as string, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +159,7 @@ Deno.serve(async (req) => {
         secreto,
         visita_id: reg.id,
         carpeta_cliente: 'Copias de seguridad',
-        // Una sola carpeta fija: el flujo «PrimeSuite - Rotar copias de seguridad» (Power Automate)
+        // Sin efecto en la ruta (fija en el flujo). El flujo «PrimeSuite - Rotar copias de seguridad»
         // conserva las 8 más recientes por nombre (AAAA-MM-DD-HHMM) y borra el resto.
         carpeta_proyecto: 'Base de datos',
         carpeta_visita: 'Últimas copias',

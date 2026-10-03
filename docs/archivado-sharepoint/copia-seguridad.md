@@ -11,8 +11,8 @@ JSON con las filas de 23 tablas (no archivos). Se genera en el servidor y se sub
 | Migración | `supabase/migrations/144_copia_seguridad_automatica.sql` (columnas nuevas de `registro_backup_completo`, cron `copia-seguridad-diaria` 03:30 UTC, quita la política de insert) |
 | Pantalla | Yo → «Copia de seguridad» (`src/features/perfil/yo.tsx`), solo Dirección |
 | Archivo temporal | bucket Supabase `backups-visita`, ruta `copias/<registro_id>.json` (se borra a las 2 h) |
-| **Copia definitiva en SharePoint** | sitio `https://primion.sharepoint.com/sites/DeptDIGDepartamentocomercial-Spain` → biblioteca Documentos → `General/PrimeNotes/PrimeNotes - Comerciales/Copias de seguridad/Base de datos/Últimas copias/primenotes-copia-AAAA-MM-DD-HHMM.json` (dentro de PrimeNotes, en la carpeta `PrimeNotes - Comerciales`) |
-| Flujo que sube el archivo | Power Automate, entorno `Default-9680142b-e519-4506-8d12-c0704c2fafb4`: «PrimeSuite - Archivar visita a SharePoint» (id `4b9ccfbe-5456-4522-93b5-89d99ee9961c`), el mismo de las visitas. Ruta = `carpeta_cliente/carpeta_proyecto/carpeta_visita` → `Copias de seguridad / Base de datos / Últimas copias` |
+| **Copia definitiva en SharePoint** | sitio `https://primion.sharepoint.com/sites/DeptDIGDepartamentocomercial-Spain` → biblioteca Documentos → `General/PrimeNotes/Copias de seguridad/Base de datos/Últimas copias/primenotes-copia-AAAA-MM-DD-HHMM.json` (**desde el 3 oct 10:16**; antes colgaba por error de `PrimeNotes - Comerciales`, carpeta de los comerciales) |
+| Flujo que sube el archivo | Power Automate, entorno `Default-9680142b-e519-4506-8d12-c0704c2fafb4`: «PrimeSuite - Subir copia de seguridad» (id `810abbb5-1a26-46b1-bd78-30a80ae3bfc0`), PROPIO de copias (copia por «Save As» del de visitas, que no se toca). Carpeta de destino FIJA en su «Create file». Webhook = secreto de Vault `POWER_AUTOMATE_WEBHOOK_COPIA_URL` (función `fn_webhook_power_automate_copia`, migración 145). El de visitas sigue siendo «PrimeSuite - Archivar visita a SharePoint» (id `4b9ccfbe-5456-4522-93b5-89d99ee9961c`) |
 | Flujo que rota (borra) | Power Automate, mismo entorno: «PrimeSuite - Rotar copias de seguridad» (id `9e82b899-a8ef-4022-8749-67c40f994d2d`), lunes 04:00 Madrid, propietario cesar.borrego@primion.eu |
 | Estado | tabla `registro_backup_completo` (`enviada` → `confirmada` / `fallida`, ruta, tamaño, filas) |
 
@@ -44,7 +44,7 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 
 ---
 
-# Cambio de ubicación (decidido 3 oct): la copia va en `PrimeNotes/Copias de seguridad`, NO en `PrimeNotes - Comerciales`
+# Cambio de ubicación (HECHO 3 oct): la copia va en `PrimeNotes/Copias de seguridad`, NO en `PrimeNotes - Comerciales`
 
 **Por qué:** `PrimeNotes - Comerciales` es la carpeta de los comerciales; la copia lleva datos de todos los clientes y no debe colgar de ahí (heredaba permisos). Se colgó ahí por comodidad técnica (la ruta base del flujo de visitas es fija) y fue un error, no una decisión.
 
@@ -62,3 +62,8 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 4. Cambiar `generar-copia-seguridad` para usar esa URL (la ruta deja de depender de `carpeta_*`).
 5. Cambiar la carpeta del flujo de rotación a la nueva ruta.
 6. Cesar borra la carpeta antigua `PrimeNotes - Comerciales/Copias de seguridad` y revisa permisos de la nueva.
+
+## Estado del cambio de ubicación (3 oct, 10:19)
+- Capas 1-5 HECHAS y verificadas: flujo propio creado y guardado; copia de prueba de las 10:16 subida a `General/PrimeNotes/Copias de seguridad/Base de datos/Últimas copias` (110 596 bytes) y registro en `confirmada`; secreto en Vault; `generar-copia-seguridad` desplegada con el webhook nuevo; flujo de rotación apuntado a la carpeta nueva (guardado 10:18).
+- Pendiente de Cesar: borrar la carpeta antigua `PrimeNotes - Comerciales/Copias de seguridad` (si ya no hay nada útil), revisar permisos de la nueva, segundo propietario de los 3 flujos, y la prueba de la rotación sobre la carpeta nueva (con 1 copia no debe borrar nada).
+- Por qué un flujo propio: ver arriba. El flujo de visitas no se modificó.
