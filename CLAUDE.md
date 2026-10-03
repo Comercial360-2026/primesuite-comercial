@@ -167,8 +167,9 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   de alta que acaban en una ficha— pasa `state={desde(location)}` (o `{ from: volver }`
   si la pantalla intermedia ya tiene `useVolverA`). Aplicado el 3 oct en
   listado-clientes (+ búsqueda), alta-rapida-cliente, listado-comerciales /
-  detalle-comercial y agenda (Solo mías/Todas, Lista/Mes). Sin comprobar con datos:
-  Agenda (no hay visitas planificadas). Pendiente de barrer: lo que ya usa URL
+  detalle-comercial y el calendario de la Agenda (`calendario-mes.tsx`: ?mes=, ?dia=), todo
+  comprobado con datos. OJO: `features/hoy/agenda.tsx` es CÓDIGO MUERTO (nadie lo importa);
+  la Agenda real vive en `agenda-del-dia.tsx`. Pendiente de barrer: lo que ya usa URL
   (mi-espacio, mis-proximos-pasos, cola-vocabulario, agenda-del-dia).
 - **El ← recuerda el origen aunque se llegue «hacia atrás».** El ← hace `navigate(origen)`
   sin estado, así que la pantalla a la que vuelves perdía SU origen (Lista → Ficha →
