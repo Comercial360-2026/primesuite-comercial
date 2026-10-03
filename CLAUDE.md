@@ -158,8 +158,8 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   `editandoNombre`, `editandoResumen`, `editando`…), su `CabeceraDetalle` usa
   `onVolver={() => (editando ? cerrarEdicion() : navigate(volver))}` y no un
   `volverA` fijo: ← es el paso anterior (cancelar la edición), no el origen.
-  Ya aplicado en ficha-cliente, ficha-proyecto, detalle-visita-cerrada y
-  cola-vocabulario (3 oct). Las hojas (`HojaSuperior`) ya retroceden con su ×.
+  Ya aplicado en ficha-proyecto, detalle-visita-cerrada y cola-vocabulario
+  (3 oct); la ficha de cliente usa hojas (Datos del cliente, Cuenta CRM). Las hojas (`HojaSuperior`) ya retroceden con su ×.
 - **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
   del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
   (no depende del «Guardar» de Editar datos).

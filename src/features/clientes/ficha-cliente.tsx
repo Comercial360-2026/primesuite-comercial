@@ -174,6 +174,21 @@ export function FichaCliente() {
     );
   }
 
+  function cerrarEditarDatos() {
+    setEditandoDatos(false);
+    guardadoDatos.limpiarError();
+  }
+
+  // «Guardar» solo se activa si algo ha cambiado respecto a la ficha.
+  function hayCambiosDatos() {
+    return (
+      formNombre.trim() !== (cliente?.nombre ?? '') ||
+      formSector !== (cliente?.sector ?? '') ||
+      formTamano !== (cliente?.tamano_aprox ?? '') ||
+      formUbicacion.trim() !== (cliente?.ubicacion_general ?? '')
+    );
+  }
+
   async function guardarDatos() {
     if (!clienteId || !formNombre.trim()) return;
     if (!navigator.onLine) {
@@ -500,8 +515,7 @@ export function FichaCliente() {
         ayuda="ficha-cliente"
         subtitulo={cliente?.sector || undefined}
         avatar={cliente?.nombre}
-        // Con «Editar datos» abierto, ← cierra el panel (paso anterior) y no saca de la ficha.
-        onVolver={() => (editandoDatos ? setEditandoDatos(false) : navigate(volver))}
+        volverA={volver}
         derecha={
           <>
             {clienteId && (
@@ -544,10 +558,9 @@ export function FichaCliente() {
               <button
                 type="button"
                 className="boton-icono"
-                aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-                title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-                aria-expanded={editandoDatos}
-                onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
+                aria-label="Editar datos del cliente"
+                title="Editar datos del cliente"
+                onClick={abrirEditarDatos}
               >
                 <Icono nombre="editar" size={16} />
               </button>
@@ -653,7 +666,10 @@ export function FichaCliente() {
        )}
 
        {editandoDatos && (
-         <div className="card">
+         <HojaSuperior titulo="Datos del cliente" onCerrar={cerrarEditarDatos}>
+           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 0 var(--space-2)' }}>
+             Sector, tamaño y ubicación salen en la cabecera de los informes.
+           </p>
            <div className="label" style={{ marginTop: 0 }}>Nombre</div>
            <input
              className="field"
@@ -665,6 +681,9 @@ export function FichaCliente() {
              onChange={(e) => setFormNombre(e.target.value)}
              placeholder="razón social"
            />
+           <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 0 0' }}>
+             Cambiarlo aquí no cambia la cuenta del CRM.
+           </p>
            <div className="label">Sector</div>
            <select className="field" value={formSector} onChange={(e) => setFormSector(e.target.value)}>
              <option value="">— sin especificar —</option>
@@ -701,32 +720,43 @@ export function FichaCliente() {
              <button
                className="btn btn-secondary"
                disabled={guardadoDatos.cargando}
-               onClick={() => {
-                 setEditandoDatos(false);
-                 guardadoDatos.limpiarError();
-               }}
+               onClick={cerrarEditarDatos}
              >
                Cancelar
              </button>
              <button
                className="btn btn-primary"
-               disabled={guardadoDatos.cargando || !formNombre.trim()}
+               disabled={guardadoDatos.cargando || !formNombre.trim() || !hayCambiosDatos()}
                onClick={guardarDatos}
              >
                {guardadoDatos.cargando ? 'Guardando…' : 'Guardar'}
              </button>
            </div>
-         </div>
+         </HojaSuperior>
        )}
 
        <div className="lista-agrupada">
         {cliente && (
           <SeccionLista titulo="Datos" prominencia="tenue">
-            {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
-            {cliente?.ubicacion_general && (
-              <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
+            {/* Quien puede editar ve siempre Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
+                al tocar uno abre «Datos del cliente»; el resto solo ve los rellenos. */}
+            {([
+              ['Sector', cliente.sector],
+              ['Ubicación', cliente.ubicacion_general],
+              ['Tamaño', cliente.tamano_aprox],
+            ] as const).map(([etiqueta, valor]) =>
+              puedeEditar ? (
+                <FilaNavegable
+                  key={etiqueta}
+                  titulo={etiqueta}
+                  valor={valor || 'sin indicar'}
+                  valorTenue={!valor}
+                  onClick={abrirEditarDatos}
+                />
+              ) : (
+                valor && <FilaDato key={etiqueta} etiqueta={etiqueta} valor={valor} />
+              )
             )}
-            {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
             {responsableNombre && !esDireccionComercial && (
               <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
