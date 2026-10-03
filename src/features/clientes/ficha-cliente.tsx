@@ -578,9 +578,20 @@ export function FichaCliente() {
        )}
        {archivado && (
          <Aviso titulo="Cliente inactivo">
-           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo al final
-           de esta ficha.
+           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo aquí debajo.
          </Aviso>
+       )}
+       {archivado && puedeEditar && (
+         <SeccionLista>
+           <FilaNavegable
+             icono="restaurar"
+             titulo="Reactivar cliente"
+             subtitulo={cambioArchivado.cargando ? 'Guardando…' : 'Vuelve a Clientes y se puede visitar otra vez'}
+             chevron={false}
+             disabled={cambioArchivado.cargando}
+             onClick={() => cambiarArchivado(false)}
+           />
+         </SeccionLista>
        )}
        {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
@@ -981,21 +992,19 @@ export function FichaCliente() {
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}
 
-        {puedeEditar && (
+        {puedeEditar && !archivado && (
           <SeccionLista>
             <FilaNavegable
-              icono={archivado ? 'restaurar' : 'oculto'}
-              titulo={archivado ? 'Reactivar cliente' : 'Cliente inactivo'}
+              icono="oculto"
+              titulo="Marcar como inactivo"
               subtitulo={
                 cambioArchivado.cargando
                   ? 'Guardando…'
-                  : archivado
-                    ? 'Vuelve a Clientes y se puede visitar otra vez'
-                    : 'Ya no trabajáis con él: sale de las listas; no borra nada, ni archivos ni SharePoint'
+                  : 'Ya no trabajáis con él: sale de las listas; no borra nada, ni archivos ni SharePoint'
               }
               chevron={false}
               disabled={cambioArchivado.cargando}
-              onClick={() => cambiarArchivado(!archivado)}
+              onClick={() => cambiarArchivado(true)}
             />
           </SeccionLista>
         )}
