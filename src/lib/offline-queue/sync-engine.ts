@@ -2,6 +2,7 @@ import { bucketDeTipo } from '@/lib/buckets-visita';
 import { supabase } from '@/lib/supabase-client';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { motivoRechazoSubida } from '@/lib/documentos-visita';
 import {
   obtenerPendientes,
   actualizarOperacion,
@@ -205,7 +206,8 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
   } catch (err) {
     const intentos = actual.intentos + 1;
     const mensaje = err instanceof Error ? err.message : String(err);
-    const agotado = intentos >= MAX_INTENTOS;
+    // Un rechazo del servidor por tamaño o formato no se arregla reintentando: va directo a «error».
+    const agotado = intentos >= MAX_INTENTOS || err instanceof ErrorSubidaPermanente;
     await actualizarOperacion(actual.id, {
       estado: agotado ? 'error' : 'pendiente',
       intentos,
@@ -222,6 +224,20 @@ async function procesarOperacion(operacion: OperacionPendiente): Promise<void> {
       setTimeout(() => void procesarCola(), espera);
     }
   }
+}
+
+class ErrorSubidaPermanente extends Error {}
+
+// Storage devuelve mensajes en inglés; el comercial los ve en Yo → «sin sincronizar». Tamaño y formato son
+// definitivos (los topes de cada bucket están en operacion.md); el resto se reintenta como siempre.
+function errorDeSubida(mensaje: string, tipo: string): Error {
+  const que = tipo === 'foto' ? 'La foto' : tipo === 'audio' ? 'El audio' : 'El documento';
+  const motivo = motivoRechazoSubida(mensaje);
+  if (motivo === 'tamano') {
+    return new ErrorSubidaPermanente(`${que} pesa más de lo que admite el servidor. No se puede subir: hay que hacerlo de nuevo más ligero.`);
+  }
+  if (motivo === 'formato') return new ErrorSubidaPermanente(`${que} tiene un formato que el servidor no admite. No se puede subir.`);
+  return new Error(mensaje);
 }
 
 async function sincronizarVisita(operacion: OperacionPendiente<'visita'>): Promise<void> {
@@ -390,7 +406,7 @@ async function sincronizarCapturaLibre(
       upsert: true,
       contentType: payload.mime || operacion.archivoLocal.type || undefined,
     });
-    if (errorSubida) throw new Error(errorSubida.message);
+    if (errorSubida) throw errorDeSubida(errorSubida.message, payload.tipo);
     storagePath = ruta;
   }
 

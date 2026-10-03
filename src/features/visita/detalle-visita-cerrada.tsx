@@ -38,7 +38,7 @@ import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunt
 import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { plural } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
-import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento } from '@/lib/documentos-visita';
+import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento, motivoRechazoSubida } from '@/lib/documentos-visita';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { VisorFotos } from './visor-fotos';
@@ -767,7 +767,12 @@ export function DetalleVisitaCerrada() {
           ok = true;
           queryClient.invalidateQueries({ queryKey });
         },
-        mensajeError: `No se pudo adjuntar «${archivo.name}». Inténtalo de nuevo.`,
+        mensajeError: (err) => {
+          const motivo = motivoRechazoSubida(err instanceof Error ? err.message : '');
+          if (motivo === 'tamano') return `«${archivo.name}» pesa más de lo que admite el servidor (máx. 25 MB). Prueba con una versión más ligera.`;
+          if (motivo === 'formato') return `«${archivo.name}» tiene un formato que el servidor no admite. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`;
+          return `No se pudo adjuntar «${archivo.name}». Inténtalo de nuevo.`;
+        },
       }
     );
     return ok;

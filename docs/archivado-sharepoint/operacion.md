@@ -77,3 +77,8 @@ Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la �
 
 ## Cierre automático (`visita_autocierre_horas`, APAGADO)
 Probado el 3 oct en transacción con rollback: encendido, una visita recién reabierta NO se cierra; una con 30 h sin actividad se cierra sola (`cierre_automatico`, `cerrada_en` = su última actividad) y conserva las marcas del informe (no duplica, migración 148). Se deja APAGADO hasta desplegar la app con los avisos (PR #24): la base de datos es la misma para producción y para pruebas, y la app de producción actual no tiene esos avisos. Encender con `update ajustes_app set valor = true where clave = 'visita_autocierre_horas';`.
+
+## Si el servidor rechaza una subida (3 oct)
+- Tamaño o formato (Storage 413 / 415): ya no se reintenta 5 veces; va directo a «error» con mensaje en español. Cola offline (fotos, audios y documentos de una visita en curso): Yo → «1 elemento sin sincronizar» dice «El documento pesa más de lo que admite el servidor. No se puede subir: hay que hacerlo de nuevo más ligero», con «Descartar». Documento adjuntado a una visita cerrada (subida directa): el aviso rojo bajo «Adjuntar un documento» dice «pesa más de lo que admite el servidor (máx. 25 MB)» o «tiene un formato que el servidor no admite».
+- Probado en la app simulando la respuesta 413 del servidor en el navegador (sin tocar el bucket real): ambos caminos, y la cola quedó vacía. Los mensajes reales de Storage (413 «exceeded the maximum allowed size», 415 «mime type … is not supported») se obtuvieron con la API.
+- Solo en inglés quedan otros errores (red, cuota, sesión): esos sí se reintentan.

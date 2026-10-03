@@ -30,3 +30,11 @@ export function formatearBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
 }
+
+// Storage rechaza por tamaño o formato con mensajes en inglés; esto los reconoce para mostrarlos en español y
+// no reintentar lo que no se arregla reintentando.
+export function motivoRechazoSubida(mensaje: string): 'tamano' | 'formato' | null {
+  if (/exceeded the maximum allowed size|payload too large/i.test(mensaje)) return 'tamano';
+  if (/mime type|not supported|invalid_mime_type/i.test(mensaje)) return 'formato';
+  return null;
+}
