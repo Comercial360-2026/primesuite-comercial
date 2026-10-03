@@ -944,6 +944,55 @@ export function DetalleVisitaCerrada() {
             <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
           )}
 
+          {/* Documentos justo bajo las descargas: al final de una visita con decenas de capturas nadie los encontraba. */}
+          {data && visitaId && (data.documentos.length > 0 || puedeAdjuntar) && (
+        <SeccionLista
+          titulo={`Documentos (${data.documentos.length})`}
+          accion={
+            puedeAdjuntar ? (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Adjuntar un documento"
+                title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
+                disabled={adjuntandoDocumento.cargando}
+                onClick={() => inputDocumentoRef.current?.click()}
+              >
+                <Icono nombre="mas" size={18} />
+              </button>
+            ) : undefined
+          }
+        >
+          {data.documentos.map((d) => (
+            <FilaNavegable
+              key={d.id}
+              icono="documento"
+              titulo={d.titulo || d.nombre_original || 'Documento'}
+              subtitulo={d.bytes != null ? formatearTamano(d.bytes) : undefined}
+              to={`/capturas/${d.id}`}
+              state={origen}
+            />
+          ))}
+          {puedeAdjuntar && (
+            <input
+              ref={inputDocumentoRef}
+              type="file"
+              accept={ACCEPT_DOCUMENTO}
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const archivos = Array.from(e.target.files ?? []);
+                e.target.value = '';
+                void (async () => {
+                  for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
+                })();
+              }}
+            />
+          )}
+          {adjuntandoDocumento.error && <Aviso tipo="error">{adjuntandoDocumento.error}</Aviso>}
+        </SeccionLista>
+      )}
+
           {!!fallosArchivado?.length && (
             <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
               <Aviso tipo="atencion">
@@ -1004,48 +1053,6 @@ export function DetalleVisitaCerrada() {
               {bloqueAudios(data.audios)}
             </>
           )}
-
-      {data && visitaId && (data.documentos.length > 0 || puedeAdjuntar) && (
-        <SeccionLista titulo={`Documentos (${data.documentos.length})`}>
-          {data.documentos.map((d) => (
-            <FilaNavegable
-              key={d.id}
-              icono="documento"
-              titulo={d.titulo || d.nombre_original || 'Documento'}
-              subtitulo={d.bytes != null ? formatearTamano(d.bytes) : undefined}
-              to={`/capturas/${d.id}`}
-              state={origen}
-            />
-          ))}
-          {puedeAdjuntar && (
-            <FilaNavegable
-              icono="mas"
-              titulo={adjuntandoDocumento.cargando ? 'Subiendo…' : 'Adjuntar un documento'}
-              subtitulo="PDF, Word, Excel, PowerPoint, TXT o CSV"
-              chevron={false}
-              disabled={adjuntandoDocumento.cargando}
-              onClick={() => inputDocumentoRef.current?.click()}
-            />
-          )}
-          {puedeAdjuntar && (
-            <input
-              ref={inputDocumentoRef}
-              type="file"
-              accept={ACCEPT_DOCUMENTO}
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const archivos = Array.from(e.target.files ?? []);
-                e.target.value = '';
-                void (async () => {
-                  for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
-                })();
-              }}
-            />
-          )}
-          {adjuntandoDocumento.error && <Aviso tipo="error">{adjuntandoDocumento.error}</Aviso>}
-        </SeccionLista>
-      )}
 
       {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (
         <div style={{ marginTop: 4 }}>

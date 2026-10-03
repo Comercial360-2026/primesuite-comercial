@@ -2331,7 +2331,19 @@ export function VisitaActiva() {
             marginBottom: 'var(--space-3)',
           }}
         >
-          <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
+          <span className="label" style={{ marginTop: 0, flex: 1 }}>Captura lo que veas</span>
+          {/* Un documento se adjunta pocas veces comparado con foto/audio/nota: icono redondo junto al título
+              en vez de un quinto botón ancho al final de la rejilla. */}
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Adjuntar un documento"
+            title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
+            disabled={capturaDocumento.cargando || espacioBloqueado}
+            onClick={() => inputDocumentoRef.current?.click()}
+          >
+            <Icono nombre="documento" size={18} />
+          </button>
           {/* Sin zona: chip (control, no un texto que hay que adivinar que
               se pincha). Con zona activa, desaparece y manda la banda. */}
           {!hayZonaActiva && (
@@ -2615,15 +2627,6 @@ export function VisitaActiva() {
           >
             <Icono nombre="paso" size={22} weight="duotone" />
             Próximo paso
-          </button>
-          <button
-            type="button"
-            className="capture-btn capture-btn--documento capture-btn--ancho"
-            disabled={capturaDocumento.cargando || espacioBloqueado}
-            onClick={() => inputDocumentoRef.current?.click()}
-          >
-            <Icono nombre="documento" size={22} weight="duotone" />
-            {capturaDocumento.cargando ? 'Guardando…' : 'Adjuntar un documento'}
           </button>
         </div>
 
