@@ -188,6 +188,16 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   CRM = un cliente activo, también en BD (índice único `cliente_crm_accountid_unico`, migración
   146). En la ficha, vincular una cuenta que ya es de otro cliente da error y remite a
   Deduplicación. Probado el 3 oct (alta de un cliente nuevo de punta a punta, borrado después).
+- **Cliente creado a mano que luego aparece en el CRM con otro nombre.** La sincronización del CRM
+  nunca crea ni toca clientes (solo `crm_cuenta`). Se arregla vinculando: en la ficha, la hoja «Cuenta CRM»
+  lista las cuentas parecidas; y en el alta, si eliges la cuenta del CRM y ya existe un cliente parecido SIN
+  cuenta, su fila dice «es este: vincular cuenta y visitar» y vincula en vez de crear un segundo cliente.
+  Probado el 3 oct con datos (cliente «Zeta Prueba» + cuenta «Zeta Prueba Industrial, S.L.», borrados).
+  Hueco conocido: nadie avisa proactivamente de clientes sin cuenta (hoy 0 sin vincular).
+- **Pantalla `screen--split`: nada fijo debajo del `screen__scroll` salvo un botón.** Bloques largos
+  (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
+  (visita cerrada, 3 oct).
+
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
   Cuenta CRM son filas tocables (3 oct).

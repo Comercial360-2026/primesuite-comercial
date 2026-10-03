@@ -1,7 +1,7 @@
 import { payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { uuid } from '@/lib/uuid';
 import { esSinRed } from '@/lib/red';
@@ -45,6 +45,7 @@ export function AltaRapidaCliente() {
   // Cuenta del CRM elegida en el buscador que sale bajo el nombre. Opcional:
   // un cliente que aún no está en el CRM (o un alta sin red) se crea sin ella
   // y se vincula luego con el lápiz de la ficha.
+  const queryClient = useQueryClient();
   const [cuentaCrm, setCuentaCrm] = useState<CuentaCrm | null>(null);
   const proyectoRef = useRef<HTMLInputElement>(null);
 
@@ -94,10 +95,10 @@ export function AltaRapidaCliente() {
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string; crm_accountid: string | null }>> => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion')
+        .select('id, nombre, estado_relacion, crm_accountid')
         .eq('estado_fusion', 'activo');
       if (error) throw error;
       return data ?? [];
@@ -331,6 +332,30 @@ export function AltaRapidaCliente() {
   // la visita directamente sobre ese cliente. Si ya hay una visita en curso
   // con él se avisa antes; si no, va directo a la ventana "¿A qué vas?"
   // (el arranque real lo hace arrancarConObjetivo al confirmar).
+  // Cliente que se dio de alta a mano y cuya empresa ya está en el CRM con su nombre correcto: con la cuenta elegida
+  // arriba, tocar su fila le vincula esa cuenta (en vez de crear un segundo cliente) y sigue a la visita.
+  async function vincularYVisitar(c: { id: string; nombre: string }) {
+    if (!cuentaCrm || creacionCliente.cargando) return;
+    if (!navigator.onLine) {
+      creacionCliente.establecerError('Necesitas conexión para vincular la cuenta del CRM.');
+      return;
+    }
+    const { error, count } = await supabase
+      .from('cliente')
+      .update({ crm_accountid: cuentaCrm.accountid }, { count: 'exact' })
+      .eq('id', c.id);
+    if (error || !count) {
+      creacionCliente.establecerError(
+        error?.code === '23505' ? 'Esa cuenta del CRM ya está vinculada a otro cliente.' : 'No se pudo vincular la cuenta. Inténtalo de nuevo.'
+      );
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: ['nombres-cliente-alta-rapida'] });
+    void queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+    void queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+    await visitarExistente(c.id, c.nombre);
+  }
+
   async function visitarExistente(clienteId: string, clienteNombre: string) {
     if (creacionCliente.cargando) return;
     // Archivado: sí se enseña (si no, se daría de alta otra vez), pero se va
@@ -427,10 +452,20 @@ export function AltaRapidaCliente() {
               <FilaNavegable
                 key={c.id}
                 titulo={c.nombre}
-                valor={c.estado_relacion === CLIENTE_ARCHIVADO ? 'inactivo' : 'iniciar visita'}
+                valor={
+                  c.estado_relacion === CLIENTE_ARCHIVADO
+                    ? 'inactivo'
+                    : cuentaCrm && !c.crm_accountid
+                      ? 'es este: vincular cuenta y visitar'
+                      : 'iniciar visita'
+                }
                 valorTenue
                 disabled={creacionCliente.cargando}
-                onClick={() => visitarExistente(c.id, c.nombre)}
+                onClick={() =>
+                  cuentaCrm && !c.crm_accountid && c.estado_relacion !== CLIENTE_ARCHIVADO
+                    ? vincularYVisitar(c)
+                    : visitarExistente(c.id, c.nombre)
+                }
               />
             ))}
           </SeccionLista>
