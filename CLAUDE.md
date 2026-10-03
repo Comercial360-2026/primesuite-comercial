@@ -11,6 +11,9 @@ Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenad
 2. **Lo no documentado se comprueba en el entorno real** (nombre de biblioteca, campo dinámico, orden, rutas) antes de construir encima.
 3. **Probar por capas, con muchas pruebas:** primero solo leer/listar, luego la acción destructiva con datos de prueba y un número pequeño, y solo al final el valor real. Verificar el resultado real tras cada capa.
 4. **Cualquier acción que borre** exige: documentación leída + prueba en capa segura + comprobar que si algo falla no borra nada.
+6. **Antes de ejecutar: leer también los problemas conocidos** (incidencias de la comunidad, issues, límites del diseñador) de cada pieza, no solo el manual. Decir qué he leído y qué NO está documentado.
+7. **Todo lo que se crea en un sistema externo (flujos, funciones, carpetas, cron, permisos) se anota en el repo en el mismo momento**, con ids, rutas y estructura exacta (ver `docs/archivado-sharepoint/copia-seguridad.md`). Si no está en el repo, no existe.
+8. **Orden de Cesar = escrito en CLAUDE.md al instante, y comprobado con grep.** Incumplir una regla ya escrita es el error más grave.
 5. **Si me pillo construyendo sin haber hecho 1-3: PARAR, decirlo y documentarme.** (Registro: 3 oct, empecé a crear un flujo de borrado de SharePoint de memoria; Cesar me paró.)
 
 # 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
