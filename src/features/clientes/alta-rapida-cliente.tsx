@@ -21,7 +21,7 @@ import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
-import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
+import { ResultadosCuentaCrm, textoCuentaCrm, useClientesPorClaveDeCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 
 // El alta crea cliente + primer proyecto: con red, en una transacción vía la
 // RPC `crear_cliente_con_proyecto` (que sustituye al antiguo trigger del
@@ -127,6 +127,10 @@ export function AltaRapidaCliente() {
 
   const nombreNorm = normalizarNombre(nombre);
   const nombreClave = claveDuplicado(nombre);
+  // Cliente que ya tiene vinculada una cuenta del CRM con este nombre (aunque el cliente se llame distinto:
+  // «Verescence» con la cuenta «Verescence La Granja»).
+  const porClaveCuenta = useClientesPorClaveDeCuenta(nombreNorm.length >= 3);
+  const idPorCuenta = nombreClave ? porClaveCuenta.get(nombreClave)?.id : undefined;
   const coincidencias = useMemo(() => {
     if (nombreNorm.length < 3 || !clientesExistentes) return [];
     return clientesExistentes
@@ -135,14 +139,22 @@ export function AltaRapidaCliente() {
       // comparten la misma clave sin coletilla jurídica — este segundo caso
       // es el que se escapaba: "BIMBO S.L." teniendo ya "Bimbo" no avisaba,
       // que es justo lo que luego hay que arreglar en Deduplicación.
-      .filter((c) => c.norm.includes(nombreNorm) || (!!nombreClave && c.clave === nombreClave))
+      // Además: lo escrito empieza por el nombre de un cliente ya existente («Verescence La Granja» con «Verescence»)
+      // o coincide con una cuenta del CRM ya vinculada a ese cliente.
+      .filter(
+        (c) =>
+          c.norm.includes(nombreNorm) ||
+          (!!nombreClave && c.clave === nombreClave) ||
+          (c.norm.length >= 4 && nombreNorm.startsWith(`${c.norm} `)) ||
+          c.id === idPorCuenta
+      )
       .sort((a, b) => {
         const rango = (x: { norm: string; clave: string }) =>
           x.norm === nombreNorm ? 0 : x.clave === nombreClave ? 1 : x.norm.startsWith(nombreNorm) ? 2 : 3;
         return rango(a) - rango(b) || a.nombre.localeCompare(b.nombre, 'es');
       })
       .slice(0, 4);
-  }, [nombreNorm, nombreClave, clientesExistentes]);
+  }, [nombreNorm, nombreClave, clientesExistentes, idPorCuenta]);
 
   const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
   const [dupClienteConfirmado, confirmarDupCliente] = useConfirmacionDuplicado(nombreNorm);

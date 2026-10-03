@@ -170,6 +170,16 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   detalle-comercial y agenda (Solo mías/Todas, Lista/Mes). Sin comprobar con datos:
   Agenda (no hay visitas planificadas). Pendiente de barrer: lo que ya usa URL
   (mi-espacio, mis-proximos-pasos, cola-vocabulario, agenda-del-dia).
+- **El ← recuerda el origen aunque se llegue «hacia atrás».** El ← hace `navigate(origen)`
+  sin estado, así que la pantalla a la que vuelves perdía SU origen (Lista → Ficha →
+  Proyecto → ← → ← caía en Clientes «Solo míos»). `useVolverA` guarda en `sessionStorage`
+  el último origen de cada ruta y lo usa cuando llega sin `state.from`. Por eso toda
+  pantalla de detalle usa `useVolverA`, nunca un `volverA` fijo. Comprobado el 3 oct con
+  Lista(Todos) → Ficha → Proyecto → Visita y tres ←.
+- **Duplicados al dar de alta: comparar también con el nombre de la cuenta CRM y sus hermanas.**
+  «Verescence La Granja» no encontraba al cliente «Verescence» y las cuentas hermanas del CRM
+  (`…, S.l`, `…, S.L.`) salían libres. `useClientesPorClaveDeCuenta` (cuenta-crm.tsx) las marca
+  «parece la misma empresa que «X»».
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero.
 
