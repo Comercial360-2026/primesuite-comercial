@@ -291,7 +291,10 @@ Deno.serve(async (req) => {
         // Se reintenta pasados 15 min, hasta 5 veces (fn_visitas_para_informe).
         console.error(`No se pudo archivar el informe de la visita ${v.visita_id}`, e);
         if (!intentoMarcado) {
-          await admin.rpc('fn_marcar_intento_informe', { p_visita_id: v.visita_id, p_html_path: null, p_pdf_path: null });
+          await admin.rpc('fn_marcar_intento_informe', { p_visita_id: v.visita_id, p_html_path: null, p_pdf_path: null, p_error: String(e) });
+        } else {
+          // Intento ya contado antes de llamar al flujo (p. ej. Power Automate respondió 5xx): solo se anota el motivo.
+          await admin.from('visita').update({ informe_error: String(e).slice(0, 500) }).eq('id', v.visita_id);
         }
         resumen.errores++;
       }

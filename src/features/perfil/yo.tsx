@@ -111,7 +111,7 @@ export function Yo() {
   // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
   // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
   // LayoutShell, ver use-avisos-gestion.ts.
-  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing, estadoArchivado } = useAvisosGestion();
+  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing, estadoArchivado, problemasArchivado } = useAvisosGestion();
 
   // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
   // visitas de equipo), no en una pantalla aparte.
@@ -657,22 +657,22 @@ export function Yo() {
               />
             )}
             {!!estadoArchivado &&
-              Number(estadoArchivado.sin_copiar) + Number(estadoArchivado.agotadas) + Number(estadoArchivado.posibles_duplicados) > 0 && (
+              problemasArchivado > 0 && (
                 <FilaNavegable
                   icono="almacenamiento"
                   titulo="Copia a SharePoint"
                   subtitulo={[
                     Number(estadoArchivado.agotadas) > 0 &&
                       `${estadoArchivado.agotadas} sin copiar tras 5 intentos — revisar el flujo de Power Automate y tocar aquí para reintentar`,
+                    Number(estadoArchivado.informes_agotados) > 0 &&
+                      `${estadoArchivado.informes_agotados} informe(s) de visita sin copiar tras 5 intentos — tocar aquí para reintentar`,
                     Number(estadoArchivado.sin_copiar) > 0 && `${estadoArchivado.sin_copiar} esperando copia desde hace horas`,
                     Number(estadoArchivado.posibles_duplicados) > 0 &&
                       `${estadoArchivado.posibles_duplicados} con posible duplicado «(reintento …)» en SharePoint`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
-                  badge={
-                    Number(estadoArchivado.sin_copiar) + Number(estadoArchivado.agotadas) + Number(estadoArchivado.posibles_duplicados)
-                  }
+                  badge={problemasArchivado}
                   tono="aviso"
                   chevron={false}
                   // Tocar la fila reintenta las copias agotadas (vuelven a la cola): se dice en el subtítulo.

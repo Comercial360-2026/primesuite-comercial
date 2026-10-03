@@ -96,11 +96,15 @@ export function useAvisosGestion() {
     },
   });
   const problemasArchivado = estadoArchivado
-    ? Number(estadoArchivado.sin_copiar) + Number(estadoArchivado.agotadas) + Number(estadoArchivado.posibles_duplicados)
+    ? Number(estadoArchivado.sin_copiar) +
+      Number(estadoArchivado.agotadas) +
+      Number(estadoArchivado.posibles_duplicados) +
+      Number(estadoArchivado.informes_agotados)
     : 0;
 
   return {
     estadoArchivado,
+    problemasArchivado,
     topeBriefing,
     numSolicitudesPendientes,
     numPeticionesAcceso,

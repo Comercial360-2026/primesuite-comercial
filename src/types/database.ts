@@ -2780,6 +2780,7 @@ export type Database = {
         Args: never
         Returns: {
           agotadas: number
+          informes_agotados: number
           posibles_duplicados: number
           sin_copiar: number
         }[]
