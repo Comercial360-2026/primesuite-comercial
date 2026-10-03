@@ -28,7 +28,7 @@ Conserva las 8 más recientes por nombre; cuenta copias, no días (si dejan de l
 ## Pendiente (de Cesar)
 - Borrar a mano las copias de prueba de `…/Copias de seguridad/2026-10/Base de datos/` (`…0727`, `…0736`): el flujo no vigila esa carpeta.
 - Romper la herencia de permisos de `Copias de seguridad` (solo Dirección e IT): el JSON trae datos de todos los clientes.
-- Segundo propietario en los dos flujos.
+- (DESCARTADO 3 oct por Cesar: el programa y los flujos son solo suyos; no se añade copropietario.)
 - Restauración real sobre una base de pruebas con un archivo de SharePoint (solo se probó el formato).
 
 ## Trampas encontradas (costaron horas)
@@ -77,3 +77,6 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 - Descifrar: `node scripts/copia-seguridad/descifrar.mjs descifrar archivo.json.enc copia-privada.pem salida.json`.
 - Probado: ida y vuelta (Deno cifra → Node descifra, archivo idéntico) con una clave desechable. Documentación leída: MDN (AES-GCM, RSA-OAEP), límites Edge Functions (256 MB memoria, 2 s CPU).
 - Rotación: ordena por nombre, no se ve afectada por la extensión. Las copias antiguas `.json` (sin cifrar) siguen en la carpeta hasta que la rotación las borre.
+
+## Restauración real (3 oct) — HECHA
+Archivo real `primenotes-copia-2026-10-03-1052.json.enc` bajado de SharePoint → descifrado con la privada (`scripts/copia-seguridad/descifrar.mjs`) → cargado en un esquema temporal `restaura_test` del propio proyecto con `jsonb_populate_recordset(null::public.<tabla>, j->'tablas'->'<tabla>')` (vía `supabase db query --linked -f`, sin pasar los datos por el chat) → 23 tablas, 194 filas, recuento idéntico al `filas` del archivo → esquema borrado (comprobado: 0 quedan). No se tocó ninguna tabla `public`. Restaurar de verdad = igual, pero insertando en `public` en orden de dependencias (cliente, comercial… visita… hallazgo) sobre una base vacía.
