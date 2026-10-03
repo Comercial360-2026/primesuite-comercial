@@ -52,3 +52,9 @@ Apagado: «Yo» muestra «Espacio del equipo 2%» y `/mi-espacio` redirige a `/y
 ## Prueba del interruptor `archivado_informe_activo` (3 oct 2026)
 Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la única visita cerrada sin informe; Verescence ya lo tenía del 2 oct): `informe_sharepoint_en` = 10:11:06 UTC, 0 intentos, ruta `…/SAPA/Accesos/2026-09-17 Visita/Informe de la visita (cerrada 2026-09-23 16-29).html`. Sin errores. No borra nada. Estado tras la prueba: ENCENDIDO (decidido por Cesar el 3 oct: se queda encendido).
 `archivado_liberar_activo`: NO probado a propósito (borra originales; requiere PR #16 en producción). Hoy no liberaría nada: ninguna captura pasa de 30 días (Verescence cumple el 14 oct, SAPA el 23 oct).
+
+## PENDIENTE DE COMPROBAR (anotado 3 oct, a petición de Cesar) — `archivado_informe_activo` encendido
+Lo dije como riesgo sin medirlo; hay que comprobarlo, no darlo por bueno:
+1. **Memoria de la función `procesar-archivado-sharepoint` con un informe grande** (HTML con muchas fotos, ~20 MB): medirla de verdad (probar con la visita que más pese; mirar logs de la función y el límite de 256 MB de Edge Functions) y ver qué pasa si se supera.
+2. **Reintentos si falla un informe:** comprobar en el código y en una prueba real qué ocurre (¿cuántos intentos?, ¿`informe_intentos` y `informe_intento_en` se actualizan?, ¿deja de reintentar?, ¿se ve en la app?, ¿bloquea los demás informes de la pasada?). El «máx. 2 visitas por pasada» tampoco está medido con carga real.
+3. Qué pasa con una visita reabierta y vuelta a cerrar (informe nuevo con `rev`).
