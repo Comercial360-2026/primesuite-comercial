@@ -41,3 +41,24 @@ Conserva las 8 más recientes por nombre; cuenta copias, no días (si dejan de l
 
 ## Qué se hizo mal (para no repetirlo)
 Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación de cada acción ni buscar los problemas conocidos del diseñador, y se probó el borrado sin una capa segura previa. La regla escrita en `CLAUDE.md` («agentes y procesos: primero documentación, luego pruebas por capas, luego clic») es obligatoria desde esta fecha.
+
+---
+
+# Cambio de ubicación (decidido 3 oct): la copia va en `PrimeNotes/Copias de seguridad`, NO en `PrimeNotes - Comerciales`
+
+**Por qué:** `PrimeNotes - Comerciales` es la carpeta de los comerciales; la copia lleva datos de todos los clientes y no debe colgar de ahí (heredaba permisos). Se colgó ahí por comodidad técnica (la ruta base del flujo de visitas es fija) y fue un error, no una decisión.
+
+**Diseño elegido (A, por aislamiento y no por ahorrar código):** un flujo PROPIO para copias, copia del de visitas («Save As»), con la carpeta de destino fija: `/Shared Documents/General/PrimeNotes/Copias de seguridad/Base de datos/Últimas copias`. El flujo de visitas no se toca (si falla uno, el otro sigue). Mantiene la comprobación del secreto y la llamada de confirmación (`copia:<registro_id>`).
+
+**Documentación leída antes de hacerlo (3 oct):**
+- Conector SharePoint (Learn): «Create file» no sobrescribe; «Get files (properties only)» devuelve 100 por defecto, hasta 5000.
+- Power Automate (Learn + búsqueda de incidencias): «Save As» copia acciones y disparador, el flujo nuevo queda como **borrador y apagado**; el disparador HTTP genera **URL nueva** al guardar (la URL lleva firma = secreto). Desde ago 2025 las URL HTTP son del tipo `*.environment.api.powerplatform.com` (las antiguas `logic.azure.com` dejaron de valer el 30 nov 2025); la actual de visitas ya es del tipo nuevo.
+- **No documentado / por comprobar en real:** si el «Save As» conserva bien la comprobación del secreto y la conexión de SharePoint; el campo Folder Path del «Create file» se rellena con texto (se prueba antes de usarlo).
+
+**Plan por capas (nada se ejecuta antes de su capa anterior):**
+1. «Save As» del flujo de visitas → «PrimeSuite - Subir copia de seguridad». Solo se cambia el Folder Path de «Create file» (texto fijo). Sin encender.
+2. Encender y probar con una petición de prueba controlada; comprobar el archivo y la confirmación.
+3. Guardar la URL nueva en Supabase Vault como `POWER_AUTOMATE_WEBHOOK_COPIA_URL` (la pega Cesar; la URL es secreto) + función SQL `fn_webhook_power_automate_copia` (migración 145).
+4. Cambiar `generar-copia-seguridad` para usar esa URL (la ruta deja de depender de `carpeta_*`).
+5. Cambiar la carpeta del flujo de rotación a la nueva ruta.
+6. Cesar borra la carpeta antigua `PrimeNotes - Comerciales/Copias de seguridad` y revisa permisos de la nueva.
