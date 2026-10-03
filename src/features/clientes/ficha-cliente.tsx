@@ -150,7 +150,14 @@ export function FichaCliente() {
           () =>
             supabase
               .from('cliente')
-              .update({ crm_accountid: cuenta?.accountid ?? null }, { count: 'exact' })
+              .update(
+                {
+                  crm_accountid: cuenta?.accountid ?? null,
+                  // Sin ubicación escrita, se toma la ciudad de la cuenta del CRM (nunca pisa lo que ya hay).
+                  ...(cuenta?.ciudad && !cliente?.ubicacion_general ? { ubicacion_general: cuenta.ciudad } : {}),
+                },
+                { count: 'exact' }
+              )
               .eq('id', clienteId),
           'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
         );
@@ -647,7 +654,7 @@ export function FichaCliente() {
 
        {editandoDatos && (
          <div className="card">
-           <div className="label" style={{ marginTop: 0 }}>Datos del cliente</div>
+           <div className="label" style={{ marginTop: 0 }}>Nombre</div>
            <input
              className="field"
              autoFocus
