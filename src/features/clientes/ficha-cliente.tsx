@@ -126,7 +126,8 @@ export function FichaCliente() {
     setFormTamano(cliente?.tamano_aprox ?? '');
     setFormUbicacion(cliente?.ubicacion_general ?? '');
     setFormCrm(cuentaCrm ?? null);
-    setBuscaCrm('');
+    // Sin cuenta vinculada se busca ya por el nombre del cliente (como hace el alta): lo normal es que salga.
+    setBuscaCrm(cuentaCrm ? '' : (cliente?.nombre ?? ''));
     guardadoDatos.limpiarError();
     setEditandoDatos(true);
   }
@@ -717,11 +718,21 @@ export function FichaCliente() {
               <FilaDato etiqueta="Responsable" valor={responsableNombre} />
             )}
             {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
-                cliente buscar. Se vincula con el lápiz de la cabecera. */}
-            <FilaDato
-              etiqueta="Cuenta CRM"
-              valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
-            />
+                cliente buscar. Quien puede editar la vincula tocando la fila (abre «Editar datos»). */}
+            {puedeEditar && !cliente.crm_accountid ? (
+              <FilaNavegable
+                titulo="Cuenta CRM"
+                subtitulo="Sin ella, el briefing no encuentra a este cliente. Toca para vincularla."
+                valor="sin vincular"
+                tono="aviso"
+                onClick={abrirEditarDatos}
+              />
+            ) : (
+              <FilaDato
+                etiqueta="Cuenta CRM"
+                valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+              />
+            )}
           </SeccionLista>
         )}
 

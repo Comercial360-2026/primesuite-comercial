@@ -393,12 +393,15 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         {/* Paso 3 — objetivo + empezar */}
         {!!clienteId && !!proyectoId && (
           <div>
-            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
-              {cliente?.nombre}
-              {proyectoElegido && (
-                <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> · {proyectoElegido.nombre}</span>
-              )}
-            </div>
+            {/* El proyecto al que irá la visita, a la vista y tocable: antes era un texto gris y,
+                con un solo proyecto, se elegía solo sin que se notara. */}
+            <SeccionLista>
+              <FilaNavegable
+                titulo={proyectoElegido?.nombre ?? '…'}
+                subtitulo={`${cliente?.nombre ?? ''} · la visita irá a este proyecto — toca para cambiar`}
+                onClick={() => setProyectoId('')}
+              />
+            </SeccionLista>
 
             {clienteDeOtro && (
               <div
