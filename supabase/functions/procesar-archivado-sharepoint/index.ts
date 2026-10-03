@@ -196,6 +196,9 @@ Deno.serve(async (req) => {
       .filter((x: { visita_id: string }) => !soloVisita || x.visita_id === soloVisita)
       .slice(0, 2);
     for (const v of informesDeEstaPasada) {
+      // El intento se cuenta aunque la generación falle antes de llegar al webhook (memoria, tiempo, 5xx): sin esto
+      // `informe_intentos` no avanzaba y esa visita se reintentaba cada 10 min para siempre, ocupando una de las 2 plazas.
+      let intentoMarcado = false;
       try {
         // Qué formatos faltan: HTML (mapa de fotos, solo se ve descargándolo) y PDF (se previsualiza
         // en SharePoint/Teams). Cada uno se confirma por separado.
@@ -263,6 +266,7 @@ Deno.serve(async (req) => {
           p_html_path: html?.ruta ?? null,
           p_pdf_path: pdf?.ruta ?? null,
         });
+        intentoMarcado = true;
         const r = await fetch(webhookUrl as string, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -284,8 +288,11 @@ Deno.serve(async (req) => {
         await r.body?.cancel();
         resumen.informes_enviados += archivos.length;
       } catch (e) {
-        // informe_intento_en ya está puesto (si llegó a marcarse): se reintenta pasados 15 min, hasta 5 veces.
+        // Se reintenta pasados 15 min, hasta 5 veces (fn_visitas_para_informe).
         console.error(`No se pudo archivar el informe de la visita ${v.visita_id}`, e);
+        if (!intentoMarcado) {
+          await admin.rpc('fn_marcar_intento_informe', { p_visita_id: v.visita_id, p_html_path: null, p_pdf_path: null });
+        }
         resumen.errores++;
       }
     }

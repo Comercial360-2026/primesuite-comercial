@@ -53,8 +53,8 @@ Apagado: «Yo» muestra «Espacio del equipo 2%» y `/mi-espacio` redirige a `/y
 Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la única visita cerrada sin informe; Verescence ya lo tenía del 2 oct): `informe_sharepoint_en` = 10:11:06 UTC, 0 intentos, ruta `…/SAPA/Accesos/2026-09-17 Visita/Informe de la visita (cerrada 2026-09-23 16-29).html`. Sin errores. No borra nada. Estado tras la prueba: ENCENDIDO (decidido por Cesar el 3 oct: se queda encendido).
 `archivado_liberar_activo`: NO probado a propósito (borra originales; requiere PR #16 en producción). Hoy no liberaría nada: ninguna captura pasa de 30 días (Verescence cumple el 14 oct, SAPA el 23 oct).
 
-## PENDIENTE DE COMPROBAR (anotado 3 oct, a petición de Cesar) — `archivado_informe_activo` encendido
-Lo dije como riesgo sin medirlo; hay que comprobarlo, no darlo por bueno:
-1. **Memoria de la función `procesar-archivado-sharepoint` con un informe grande** (HTML con muchas fotos, ~20 MB): medirla de verdad (probar con la visita que más pese; mirar logs de la función y el límite de 256 MB de Edge Functions) y ver qué pasa si se supera.
-2. **Reintentos si falla un informe:** comprobar en el código y en una prueba real qué ocurre (¿cuántos intentos?, ¿`informe_intentos` y `informe_intento_en` se actualizan?, ¿deja de reintentar?, ¿se ve en la app?, ¿bloquea los demás informes de la pasada?). El «máx. 2 visitas por pasada» tampoco está medido con carga real.
-3. Qué pasa con una visita reabierta y vuelta a cerrar (informe nuevo con `rev`).
+## Informe a SharePoint: memoria y reintentos (comprobado 3 oct)
+- **Tiempo medido** (SAPA, 34 fotos, pasada de las 10:10 UTC): 8 llamadas de miniaturas de 5-8 s y una generación de 55,8 s. Límite de pared de la función: 150 s (gratuito) / 400 s (de pago): margen ~2,7x con ese informe. **Memoria: NO medida** (los registros no la dan); si un informe la supera, falla como cualquier otro error.
+- **Fallo encontrado y arreglado:** el intento se marcaba DESPUÉS de generar; si la generación fallaba antes, `informe_intentos` no avanzaba y la visita se reintentaba cada 10 min sin fin, ocupando una de las 2 plazas por pasada. Ahora el `catch` marca el intento (`fn_marcar_intento_informe` con rutas nulas, que no pisa las existentes): 5 intentos con 15 min de espera. Función `procesar-archivado-sharepoint` v14 desplegada.
+- **Probado:** el RPC con nulos (sube `informe_intentos`, pone `informe_intento_en`, conserva `informe_storage_path`); restaurado a 0. **Sin probar con un fallo real** de generación.
+- **Sin comprobar:** si tras 5 intentos fallidos algo lo avisa en la app (el aviso de «Copia a SharePoint» cuenta capturas, no informes); visita reabierta y vuelta a cerrar.
