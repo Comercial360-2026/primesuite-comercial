@@ -69,3 +69,11 @@ Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la �
 - Probado en transacción con rollback sobre una visita real (se dejó intacta): reabrir conserva las marcas; cerrar sin cambios las conserva; cerrar tras cambiar el objetivo las borra (informe nuevo) y `veces_reabierta` pasa a 2.
 - Quien puede reabrir directo: el responsable de la visita y Dirección (trigger `fn_proteger_reabrir_visita`); el resto, por solicitud. La app pide confirmación y avisa del informe nuevo.
 - Abierto: `ajustes_app.visita_autocierre_horas` está APAGADO (18 h si se enciende): una visita reabierta y olvidada no se cierra sola y mientras tanto no la ve el resto de la empresa.
+
+## Límites de subida (comprobados 3 oct)
+- Servidor (bucket de Storage, no se puede saltar desde la app): fotos 15 MB (jpeg/png/webp), audios 30 MB, documentos 25 MB (pdf, Word, Excel, PowerPoint, txt, csv). Probado con la API: un doc de 26 MB y una foto de 16 MB devuelven «EntityTooLarge» (413); uno de 1 MB entra.
+- App (avisa antes de subir): documentos > 25 MB → «pesa más de 25 MB. Prueba con una versión más ligera»; foto > 12 MB tras comprimir → «pesa demasiado incluso comprimida». Probado en pantalla con archivos de 26 y 16 MB. Audio: la grabación se corta a los 10 min (≈ 5-10 MB), el límite de 30 MB del servidor no se ha probado con un archivo grande.
+- Además hay cuota total del equipo (el «pozo»): con el pozo lleno se cortan fotos y audios.
+
+## Cierre automático (`visita_autocierre_horas`, APAGADO)
+Probado el 3 oct en transacción con rollback: encendido, una visita recién reabierta NO se cierra; una con 30 h sin actividad se cierra sola (`cierre_automatico`, `cerrada_en` = su última actividad) y conserva las marcas del informe (no duplica, migración 148). Se deja APAGADO hasta desplegar la app con los avisos (PR #24): la base de datos es la misma para producción y para pruebas, y la app de producción actual no tiene esos avisos. Encender con `update ajustes_app set valor = true where clave = 'visita_autocierre_horas';`.
