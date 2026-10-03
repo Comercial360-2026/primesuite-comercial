@@ -726,10 +726,11 @@ export function VisitaActiva() {
       cierre_automatico: boolean;
       medio: string;
       enlace_reunion: string | null;
+      reabierta_en: string | null;
     } | null> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo, estado_captura, cierre_automatico, medio, enlace_reunion')
+        .select('objetivo, estado_captura, cierre_automatico, medio, enlace_reunion, reabierta_en')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -2295,6 +2296,13 @@ export function VisitaActiva() {
               void queryClient.invalidateQueries({ queryKey: objetivoQueryKey });
             }}
           />
+        )}
+
+        {/* Visita reabierta: mientras esté en curso no la ve el resto de la empresa (solo responsable y participantes). */}
+        {!visitaCerrada && visitaServidor?.reabierta_en && (
+          <Aviso tipo="info" titulo="Visita reabierta">
+            El resto del equipo no la ve hasta que la cierres de nuevo.
+          </Aviso>
         )}
 
         {/* Captura — es lo que se viene a hacer en esta pantalla. */}

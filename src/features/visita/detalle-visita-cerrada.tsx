@@ -853,9 +853,79 @@ export function DetalleVisitaCerrada() {
           {data.cierre_automatico && data.estado_captura === 'consolidada' && (
             <Aviso tipo="info" titulo="Cerrada automáticamente">
               Esta visita se cerró sola tras muchas horas sin actividad. Si faltaba algo por capturar,
-              {puedeReabrirDirecto || puedeSolicitarReapertura ? ' reábrela más abajo.' : ' pide al responsable que la reabra.'}
+              {puedeReabrirDirecto || puedeSolicitarReapertura ? ' reábrela con la fila de abajo.' : ' pide al responsable que la reabra.'}
             </Aviso>
           )}
+          {/* El estado (cerrada) y la acción que lo cambia (reabrir) van juntos y arriba: al final de una visita con decenas de capturas nadie los encontraba. */}
+          {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (
+        <div style={{ marginTop: 4 }}>
+          {puedeReabrirDirecto &&
+            (queriendoReabrir ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={() => {
+                    reabriendo.limpiarError();
+                    setQueriendoReabrir(false);
+                  }}
+                  onConfirmar={reabrirDirecto}
+                  cargando={reabriendo.cargando}
+                  error={reabriendo.error}
+                  confirmar="Sí, reabrir"
+                  cargandoTexto="Reabriendo…"
+                  reversible="Vuelve a estar en curso y se podrán añadir más fotos, notas y hallazgos. Mientras esté reabierta, deja de ser visible para el resto de la empresa: solo la verán el responsable y los participantes. Al cerrarla otra vez, si algo ha cambiado, se genera un informe nuevo en SharePoint y el anterior se queda ahí; si no ha cambiado nada, no se duplica."
+                >
+                  Vas a reabrir esta visita.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="restaurar"
+                  titulo={data.cerrada_en ? `Cerrada el ${fechaCorta(data.cerrada_en)}` : 'Visita cerrada'}
+                  subtitulo="Toca para reabrirla y añadir fotos o corregir"
+                  chevron={false}
+                  onClick={() => setQueriendoReabrir(true)}
+                />
+              </SeccionLista>
+            ))}
+
+          {puedeSolicitarReapertura &&
+            (miSolicitudPendiente ? (
+              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+                <Aviso tipo="info">
+                  Solicitud de reapertura enviada — esperando respuesta del responsable.
+                </Aviso>
+              </div>
+            ) : queriendoSolicitar ? (
+              <div style={{ marginBottom: 8 }}>
+                <ConfirmacionBorrado
+                  onCancelar={() => {
+                    solicitando.limpiarError();
+                    setQueriendoSolicitar(false);
+                  }}
+                  onConfirmar={pedirReapertura}
+                  cargando={solicitando.cargando}
+                  error={solicitando.error}
+                  confirmar="Sí, pedir reapertura"
+                  cargandoTexto="Enviando…"
+                  reversible="Se le pide al responsable de la visita que la reabra — no se reabre hasta que lo acepte."
+                >
+                  Vas a pedir reabrir esta visita.
+                </ConfirmacionBorrado>
+              </div>
+            ) : (
+              <SeccionLista>
+                <FilaNavegable
+                  icono="restaurar"
+                  titulo={data.cerrada_en ? `Cerrada el ${fechaCorta(data.cerrada_en)}` : 'Visita cerrada'}
+                  subtitulo="Toca para pedir al responsable que la reabra"
+                  chevron={false}
+                  onClick={() => setQueriendoSolicitar(true)}
+                />
+              </SeccionLista>
+            ))}
+        </div>
+      )}
           {kpis.length > 0 && (
             <div className="dvc-kpis">
               {kpis.map((k) => (
@@ -1053,74 +1123,6 @@ export function DetalleVisitaCerrada() {
               {bloqueAudios(data.audios)}
             </>
           )}
-
-      {data && visitaId && visitaCerrada && (puedeReabrirDirecto || puedeSolicitarReapertura || miSolicitudPendiente) && (
-        <div style={{ marginTop: 4 }}>
-          {puedeReabrirDirecto &&
-            (queriendoReabrir ? (
-              <div style={{ marginBottom: 8 }}>
-                <ConfirmacionBorrado
-                  onCancelar={() => {
-                    reabriendo.limpiarError();
-                    setQueriendoReabrir(false);
-                  }}
-                  onConfirmar={reabrirDirecto}
-                  cargando={reabriendo.cargando}
-                  error={reabriendo.error}
-                  confirmar="Sí, reabrir"
-                  cargandoTexto="Reabriendo…"
-                  reversible="Vuelve a estar en curso y se podrán añadir más fotos, notas y hallazgos. Mientras esté reabierta, deja de ser visible para el resto de la empresa: solo la verán el responsable y los participantes. Al cerrarla otra vez se genera un informe nuevo en SharePoint; el anterior se queda ahí."
-                >
-                  Vas a reabrir esta visita.
-                </ConfirmacionBorrado>
-              </div>
-            ) : (
-              <SeccionLista>
-                <FilaNavegable
-                  icono="restaurar"
-                  titulo="Reabrir visita"
-                  chevron={false}
-                  onClick={() => setQueriendoReabrir(true)}
-                />
-              </SeccionLista>
-            ))}
-
-          {puedeSolicitarReapertura &&
-            (miSolicitudPendiente ? (
-              <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
-                <Aviso tipo="info">
-                  Solicitud de reapertura enviada — esperando respuesta del responsable.
-                </Aviso>
-              </div>
-            ) : queriendoSolicitar ? (
-              <div style={{ marginBottom: 8 }}>
-                <ConfirmacionBorrado
-                  onCancelar={() => {
-                    solicitando.limpiarError();
-                    setQueriendoSolicitar(false);
-                  }}
-                  onConfirmar={pedirReapertura}
-                  cargando={solicitando.cargando}
-                  error={solicitando.error}
-                  confirmar="Sí, pedir reapertura"
-                  cargandoTexto="Enviando…"
-                  reversible="Se le pide al responsable de la visita que la reabra — no se reabre hasta que lo acepte."
-                >
-                  Vas a pedir reabrir esta visita.
-                </ConfirmacionBorrado>
-              </div>
-            ) : (
-              <SeccionLista>
-                <FilaNavegable
-                  icono="restaurar"
-                  titulo="Pedir reabrir visita"
-                  chevron={false}
-                  onClick={() => setQueriendoSolicitar(true)}
-                />
-              </SeccionLista>
-            ))}
-        </div>
-      )}
 
       {data && visitaId && puedeBorrarVisita && (
         <div style={{ marginTop: 4 }}>
