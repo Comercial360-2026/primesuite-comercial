@@ -997,9 +997,6 @@ export function DetalleVisitaCerrada() {
             </>
           )}
 
-        </div>
-      )}
-
       {data && visitaId && (data.documentos.length > 0 || puedeAdjuntar) && (
         <SeccionLista titulo={`Documentos (${data.documentos.length})`}>
           {data.documentos.map((d) => (
@@ -1154,6 +1151,8 @@ export function DetalleVisitaCerrada() {
                 />
               </SeccionLista>
             ))}
+        </div>
+      )}
         </div>
       )}
 
