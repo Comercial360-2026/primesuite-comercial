@@ -170,8 +170,8 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   detalle-comercial y agenda (Solo mías/Todas, Lista/Mes). Sin comprobar con datos:
   Agenda (no hay visitas planificadas). Pendiente de barrer: lo que ya usa URL
   (mi-espacio, mis-proximos-pasos, cola-vocabulario, agenda-del-dia).
-- **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo); el lápiz de la
-  cabecera es para renombrar. No abrir el formulario entero desde una fila.
+- **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
+  entero.
 
 - **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
   del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
