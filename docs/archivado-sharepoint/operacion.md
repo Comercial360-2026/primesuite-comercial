@@ -45,3 +45,6 @@ Si el flujo sube un archivo y falla justo la confirmación, el reintento crea «
 
 ## Borrar visita/cliente
 La app NO borra en SharePoint (decisión: SharePoint es el archivo histórico). Las confirmaciones de borrado dicen cuántos archivos se conservan allí. Alternativas en `../pendiente-borrado-sharepoint.md`.
+
+## Prueba del interruptor `espacio_manual_activo` (3 oct 2026, local, usuario Dirección)
+Apagado: «Yo» muestra «Espacio del equipo 2%» y `/mi-espacio` redirige a `/yo`. Encendido: «Yo» muestra «Almacenamiento» y `/mi-espacio` carga (2 visitas, 15,7 MB, 2%). Vuelto a apagar y comprobado. Valor final: false.
