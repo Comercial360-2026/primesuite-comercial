@@ -180,6 +180,13 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   «Verescence La Granja» no encontraba al cliente «Verescence» y las cuentas hermanas del CRM
   (`…, S.l`, `…, S.L.`) salían libres. `useClientesPorClaveDeCuenta` (cuenta-crm.tsx) las marca
   «parece la misma empresa que «X»».
+- **Alta de cliente: duplicado fuerte = NO se crea; parecido = solo aviso.** Fuerte: mismo nombre,
+  mismo nombre sin «S.L.» o la cuenta del CRM de un cliente que ya tienes (o una hermana suya).
+  No hay «crear igual»: si es otra empresa, se le pone un nombre que la distinga («Verescence
+  Toledo» junto a «Verescence La Granja» SÍ se puede crear: es solo «parecido»). Una cuenta del
+  CRM = un cliente activo, también en BD (índice único `cliente_crm_accountid_unico`, migración
+  146). En la ficha, vincular una cuenta que ya es de otro cliente da error y remite a
+  Deduplicación. Probado el 3 oct (alta de un cliente nuevo de punta a punta, borrado después).
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero.
 

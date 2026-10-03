@@ -10,13 +10,12 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { AvisoTardando } from '@/components/ui/aviso-tardando';
+import { Aviso } from '@/components/ui/aviso';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { normalizarNombre, claveDuplicado, CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
-import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
-import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
@@ -156,9 +155,12 @@ export function AltaRapidaCliente() {
       .slice(0, 4);
   }, [nombreNorm, nombreClave, clientesExistentes, idPorCuenta]);
 
-  const hayExacto = coincidencias.some((c) => c.norm === nombreNorm);
-  const [dupClienteConfirmado, confirmarDupCliente] = useConfirmacionDuplicado(nombreNorm);
-  const bloqueadoPorDuplicado = hayExacto && !dupClienteConfirmado;
+  // Duplicado fuerte = mismo nombre, mismo nombre sin «S.L.» o la cuenta del CRM de un cliente que ya tienes: NO se
+  // puede crear otro (se va a la ficha que ya existe, o, si es otra empresa, se le pone un nombre que la distinga).
+  // El resto de parecidos («Verescence» dentro de «Verescence Norte») solo avisa.
+  const fuerte = coincidencias.find((c) => c.norm === nombreNorm || (!!nombreClave && c.clave === nombreClave) || c.id === idPorCuenta);
+  const hayExacto = !!fuerte;
+  const bloqueadoPorDuplicado = !!fuerte;
 
   // Defensa explícita: sin pantalla de login construida todavía, `comercial`
   // puede no estar resuelto. Antes esto hacía que el botón no hiciera nada
@@ -203,6 +205,10 @@ export function AltaRapidaCliente() {
       // Si el fallo no parece de red (RLS, validación de la RPC…), se muestra
       // tal cual — encolarlo solo lo escondería. Si parece de red, se encola.
       if (!esSinRed(errorCliente?.message)) {
+        // Índice único de la cuenta del CRM (migración 146): otra persona acaba de crear a este cliente.
+        if (errorCliente?.message?.includes('cliente_crm_accountid_unico')) {
+          throw new Error('Esa cuenta del CRM ya es de otro cliente. Busca su ficha en Clientes.');
+        }
         throw new Error(errorCliente?.message ?? 'No se pudo crear el cliente.');
       }
     }
@@ -416,7 +422,7 @@ export function AltaRapidaCliente() {
         )}
 
         {coincidencias.length > 0 && (
-          <SeccionLista titulo={hayExacto ? 'Ya existe un cliente con este nombre' : 'Ya existen clientes parecidos'}>
+          <SeccionLista titulo={hayExacto ? 'Este cliente ya existe' : 'Ya existen clientes parecidos'}>
             {coincidencias.map((c) => (
               <FilaNavegable
                 key={c.id}
@@ -429,13 +435,12 @@ export function AltaRapidaCliente() {
             ))}
           </SeccionLista>
         )}
-        {hayExacto && !dupClienteConfirmado && (
+        {fuerte && (
           <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
-            <AvisoNombreDuplicado
-              titulo="Ya existe un cliente con este nombre."
-              subtitulo="Si es otro negocio distinto, puedes crearlo igual."
-              onConfirmar={confirmarDupCliente}
-            />
+            <Aviso tipo="atencion">
+              Ya tienes a «{fuerte.nombre}». Toca su fila para ir a él. Si es otra empresa, cambia el nombre para
+              distinguirla (por ejemplo, añade la ciudad).
+            </Aviso>
           </div>
         )}
 

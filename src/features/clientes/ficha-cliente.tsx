@@ -964,7 +964,13 @@ export function FichaCliente() {
               excluirClienteId={clienteId}
               titulo={cliente?.crm_accountid ? 'Cambiar por' : `Cuentas parecidas a «${cliente?.nombre ?? ''}»`}
               disabled={guardadoCrm.cargando}
-              onElegir={(c) => void vincularCrm(c)}
+              onElegir={(c, otro) =>
+                otro
+                  ? guardadoCrm.establecerError(
+                      `Esa cuenta ya es del cliente «${otro.nombre}» (o de la misma empresa). Si son el mismo cliente, pide a Dirección que los fusione en Deduplicación.`
+                    )
+                  : void vincularCrm(c)
+              }
             />
             {guardadoCrm.error && (
               <div style={{ marginTop: 8 }}>
