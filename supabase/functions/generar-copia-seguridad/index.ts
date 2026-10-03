@@ -6,7 +6,7 @@
 //  · Dirección desde Yo → «Hacer copia ahora» con su sesión (`forzar`: salta la comprobación).
 // Lee todo con service_role (la copia hecha desde el navegador solo traía lo que veía quien pulsaba),
 // sube el JSON a `backups-visita` (se borra a las 2 h) y lo manda por el MISMO webhook de Power
-// Automate que el archivado de visitas: ruta `Copias de seguridad/AAAA-MM/Base de datos/`. El flujo
+// Automate que el archivado de visitas: ruta `Copias de seguridad/Base de datos/Últimas copias/`. El flujo
 // confirma en confirmar-archivado-sharepoint (captura_id = 'copia:<registro_id>', compara tamaños).
 // Desplegar con --no-verify-jwt (el cron no manda JWT); la autenticación es la de abajo.
 
@@ -156,8 +156,10 @@ Deno.serve(async (req) => {
         secreto,
         visita_id: reg.id,
         carpeta_cliente: 'Copias de seguridad',
-        carpeta_proyecto: fecha.slice(0, 7),
-        carpeta_visita: 'Base de datos',
+        // Una sola carpeta fija: el flujo «PrimeSuite - Rotar copias de seguridad» (Power Automate)
+        // conserva las 8 más recientes por nombre (AAAA-MM-DD-HHMM) y borra el resto.
+        carpeta_proyecto: 'Base de datos',
+        carpeta_visita: 'Últimas copias',
         archivos: [
           {
             captura_id: `copia:${reg.id}`,
