@@ -6,6 +6,14 @@
 **Tampoco abrir el panel del navegador de Claude (`preview_start`, `mcp__Claude_Browser__*`): enseña la página en su pantalla igual que una captura (3 oct, se enfadó dos veces). El servidor de desarrollo se arranca con Bash en segundo plano (`npm run dev`) y se prueba SOLO con la ventana Playwright, con JS/texto.**
 Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenadas con `getBoundingClientRect`), `form_input`, SQL. Si de verdad no hay otra forma, PARAR y preguntar a Cesar antes de hacer una.
 
+# 🧪 PRUEBAS EN EL NAVEGADOR (Playwright) — reglas de oficio (3 oct)
+- Servidor de desarrollo: `npm run dev` con Bash en segundo plano (puerto 5173). Si cae («connection refused»), relanzarlo.
+- Ventana: 1470×779. Si se redimensiona para probar móvil (375×812), **devolverla a 1470×779 en la misma tanda**: si no, la app sale pegada a la izquierda en su Chrome (pasó 2 veces).
+- «Browser is already in use»: matar el Chrome principal de `ms-playwright-mcp` (`ps aux | grep ms-playwright-mcp`); la sesión iniciada se conserva.
+- Ficheros que se suben: dentro del repo en `.playwright-mcp/` (ignorado); borrarlos al acabar.
+- Un fallo de red del servidor se simula en el navegador con `page.route` (respuesta 413/415…), sin tocar buckets ni ajustes: la base de datos es la MISMA para producción y para pruebas.
+- Datos de prueba: SAPA (cliente 6506a9ba…) es de prueba. Visitas de prueba: crearlas por la app y borrarlas con SQL en una transacción (`captura_libre`, `visita_interlocutor`, `visita_participante` y después `visita`: el trigger exige un responsable, así que participante y visita van en la MISMA transacción) y los archivos de Storage con la API. Nunca dejarlas vivas.
+
 # 🛑🛑🛑 AGENTES, FLUJOS Y PROCESOS AUTOMÁTICOS: PRIMERO LA DOCUMENTACIÓN, DESPUÉS LAS PRUEBAS, DESPUÉS EL CLIC 🛑🛑🛑
 **Siempre que se cree o toque un agente, un flujo (Power Automate, Copilot Studio…), un cron, un webhook o cualquier proceso automático — y más si BORRA o ESCRIBE datos:**
 1. **ANTES de abrir el editor o escribir código: leer la documentación oficial** de cada pieza (acciones, parámetros reales, límites, qué devuelve). Nada de memoria ni «probar a ver si cuela». Decir qué documentación he leído.
@@ -58,6 +66,11 @@ Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenad
 | 1 oct | Dije que a la IA le faltaba en 3 pantallas: ya estaba, de memoria | Mirar el código antes de afirmar qué hay |
 | 1 oct | Arreglé solo SAPA en vez de la clase de bug (briefing/IA en todas las pantallas) | Barrer toda la app (método de bugs) |
 | 1 oct | Briefing en visita cerrada solo si ya existía uno: no se podía generar | Probar el caso «no existe aún», no solo el que ya funciona |
+| 3 oct | Dejé la ventana de Playwright a 375 px y la app salió pegada a la izquierda (2 veces) | Devolver a 1470×779 en la misma tanda |
+| 3 oct | Abrí el panel del navegador de Claude (`preview_start`): enseña la página, Cesar lo vio como captura (2 veces) | Servidor con Bash en segundo plano; solo Playwright |
+| 3 oct | Al arreglar el scroll de la visita cerrada metí «Documentos» y «Reabrir» al final de una pantalla de 5700 px y empeoré el hallazgo | Estado y acción juntos y arriba; medir dónde queda cada acción |
+| 3 oct | Repetí «probar un fallo real del informe» como si lo hubiera; di pruebas por hechas con estado simulado | Decir siempre «simulado» o «real» |
+| 3 oct | Dije «apuntado» sin comprobarlo: un script falló por un assert y CLAUDE.md no se actualizó | Tras cada edición, grep del resultado |
 
 ---
 
@@ -209,6 +222,17 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   «N visitas · última <fecha>» (la última que ya ocurrió, no una planificada); da igual que haya uno o cinco
   proyectos. El proyecto enseña 10 visitas y «Ver todas las visitas (N)» las abre todas: un tope sin salida
   deja visitas inalcanzables. Probado el 3 oct con 12 visitas (10 → 12).
+
+- **Estado y la acción que lo cambia, juntos y arriba.** Si una pantalla dice «cerrada» / «inactivo» /
+  «planificada», la acción que lo cambia (Reabrir, Reactivar…) va junto a ese estado, no al final de una
+  pantalla larga (visita cerrada: franja «Cerrada el … · toca para reabrirla»; cliente inactivo: «Reactivar
+  cliente» bajo el aviso). Lo destructivo (Borrar…) sí va al final, aparte. La cabecera de toda visita dice
+  su estado (en curso / planificada / cerrada).
+- **Una fila de acción se llama por la acción, no por el estado**: «Marcar como inactivo», no «Cliente inactivo».
+- **Pantallas de edición larga: «Guardar» fijo al pie** (`.btn-guardar-fijo`, sticky) para no bajar hasta el
+  final a guardar lo cambiado arriba (oportunidad, hallazgo, paso, captura).
+- **Adjuntar documento = icono redondo / «+» en la cabecera de su sección**, nunca una fila al final.
+- **Un tope de pantalla (`limit(10)`) lleva siempre «Ver todas»**: si no, lo que queda fuera es inalcanzable.
 
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
