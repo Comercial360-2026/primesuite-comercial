@@ -51,6 +51,19 @@ const TABLAS_BACKUP = [
   'proximo_paso',
   'termino',
   'ubicacion',
+  // Sin estas, restaurar perdería a qué proyecto pertenece cada visita, las categorías de los
+  // hallazgos y de las oportunidades, las zonas, los briefings, las peticiones de reapertura y los
+  // ajustes. No se incluyen crm_* (se recargan a diario desde el CRM) ni consulta_ia (cada uno solo
+  // ve las suyas, no sería una copia completa).
+  'proyecto',
+  'hallazgo_area',
+  'oportunidad_termino',
+  'zona_visita',
+  'categoria_vocabulario',
+  'sector',
+  'briefing_visita',
+  'visita_solicitud_reapertura',
+  'ajustes_app',
 ] as const;
 
 const ETIQUETA_ROL: Record<string, string> = {
