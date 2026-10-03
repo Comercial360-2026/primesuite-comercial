@@ -226,7 +226,7 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
 - **Estado y la acción que lo cambia, juntos y arriba.** Si una pantalla dice «cerrada» / «inactivo» /
   «planificada», la acción que lo cambia (Reabrir, Reactivar…) va junto a ese estado, no al final de una
   pantalla larga (visita cerrada: franja «Cerrada el … · toca para reabrirla»; cliente inactivo: «Reactivar
-  cliente» bajo el aviso). Lo destructivo (Borrar…) sí va al final, aparte. La cabecera de toda visita dice
+  cliente» bajo el aviso; comercial de baja: «Reactivar comercial» bajo el aviso, 3 oct). Lo destructivo (Borrar…) sí va al final, aparte. La cabecera de toda visita dice
   su estado (en curso / planificada / cerrada).
 - **Una fila de acción se llama por la acción, no por el estado**: «Marcar como inactivo», no «Cliente inactivo».
 - **Pantallas de edición larga: «Guardar» fijo al pie** (`.btn-guardar-fijo`, sticky) para no bajar hasta el

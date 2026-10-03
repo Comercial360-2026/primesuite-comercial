@@ -280,8 +280,20 @@ export function DetalleComercial() {
        <div className="lista-agrupada">
         {!data.activo && (
           <Aviso tipo="atencion" titulo="Comercial de baja">
-            No puede iniciar sesión. Sus visitas y lo que registró se conservan. Puedes reactivarlo abajo.
+            No puede iniciar sesión. Sus visitas y lo que registró se conservan.
           </Aviso>
+        )}
+        {!data.activo && (
+          <SeccionLista>
+            <FilaNavegable
+              icono="restaurar"
+              titulo="Reactivar comercial"
+              subtitulo={cambiandoEstado ? 'Reactivando…' : 'Vuelve a poder entrar en la app'}
+              chevron={false}
+              disabled={cambiandoEstado}
+              onClick={() => cambiarEstado(true)}
+            />
+          </SeccionLista>
         )}
 
         {data.activo && peticionAcceso && !enlaceReenviado && (
@@ -435,8 +447,7 @@ export function DetalleComercial() {
         </SeccionLista>
 
         {/* De baja: guardar cambios en los datos sigue siendo posible, pero
-            deja de ser la acción principal de la pantalla (eso es
-            Reactivar, fijo abajo) — se ofrece aquí como acción secundaria. */}
+            deja de ser la acción principal (eso es Reactivar, arriba). */}
         {!activo && (
           <button
             className="btn btn-secondary"
@@ -496,20 +507,15 @@ export function DetalleComercial() {
        </div>
       </div>
 
-      {/* CTA fijo abajo: Guardar cambios si está activo (secundario cuando
-          hay un panel de baja/traspaso abierto, para no competir con él),
-          Reactivar si está de baja — un solo primario visible a la vez. */}
-      {activo ? (
+      {/* CTA fijo abajo: solo Guardar si está activo. Reactivar (de baja) va
+          junto al aviso de baja, arriba. */}
+      {activo && (
         <button
           className={`btn ${modo ? 'btn-secondary' : 'btn-primary'}`}
           disabled={!nombre.trim() || !hayCambios || guardando}
           onClick={guardar}
         >
           {guardando ? 'Guardando…' : 'Guardar'}
-        </button>
-      ) : (
-        <button className="btn btn-primary" disabled={cambiandoEstado} onClick={() => cambiarEstado(true)}>
-          {cambiandoEstado ? 'Reactivando…' : 'Reactivar comercial'}
         </button>
       )}
     </div>
