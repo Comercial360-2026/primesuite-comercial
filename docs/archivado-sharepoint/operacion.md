@@ -28,7 +28,7 @@ Cada visita cerrada puede dejar en su carpeta de SharePoint DOS archivos: «Info
 - Los informes se suben 2 h a `backups-visita` (Supabase) para que el flujo los descargue y la limpieza los borra; solo quedan en SharePoint.
 - Interruptor `ajustes_app.archivado_informe_activo` (**apagado**): encendido, copia el informe de TODAS las visitas cerradas que no lo tengan (máx. 2 visitas por pasada de 10 min; un informe HTML con fotos puede pesar ~20 MB — con 34 fotos funcionó; el límite real es la memoria de la función, sin medir). Prueba/reintento de una sola: POST al worker con `{"visita_id": "…", "informe": true}`.
 - Reabrir y volver a cerrar una visita copia los informes otra vez (nombre con la hora del nuevo cierre; los anteriores se quedan). Cambios posteriores al cierre no regeneran el informe.
-- Fallos: `visita.informe_intentos` (máx. 5, 15 min entre intentos). No hay aviso en Yo para informes agotados (pendiente si hace falta).
+- Fallos: `visita.informe_intentos` (máx. 5, 15 min entre intentos). Los informes agotados se avisan en Yo → Gestión → «Copia a SharePoint» (migración 147, ver abajo).
 - Probado el 2 oct con la visita de Verescence: HTML y PDF creados en su carpeta, confirmaciones con tamaño coincidente, ejecuciones «Succeeded» en Power Automate, segunda pasada sin reenviar, reabrir/recerrar los deja pendientes.
 
 ## Copia de seguridad de las tablas (migración 144)
@@ -57,7 +57,7 @@ Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la �
 - **Tiempo medido** (SAPA, 34 fotos, pasada de las 10:10 UTC): 8 llamadas de miniaturas de 5-8 s y una generación de 55,8 s. Límite de pared de la función: 150 s (gratuito) / 400 s (de pago): margen ~2,7x con ese informe. **Memoria: NO medida** (los registros no la dan); si un informe la supera, falla como cualquier otro error.
 - **Fallo encontrado y arreglado:** el intento se marcaba DESPUÉS de generar; si la generación fallaba antes, `informe_intentos` no avanzaba y la visita se reintentaba cada 10 min sin fin, ocupando una de las 2 plazas por pasada. Ahora el `catch` marca el intento (`fn_marcar_intento_informe` con rutas nulas, que no pisa las existentes): 5 intentos con 15 min de espera. Función `procesar-archivado-sharepoint` v14 desplegada.
 - **Probado:** el RPC con nulos (sube `informe_intentos`, pone `informe_intento_en`, conserva `informe_storage_path`); restaurado a 0. **Sin probar con un fallo real** de generación.
-- **Sin comprobar:** si tras 5 intentos fallidos algo lo avisa en la app (el aviso de «Copia a SharePoint» cuenta capturas, no informes); visita reabierta y vuelta a cerrar.
+- **Sin comprobar:** visita reabierta y vuelta a cerrar (el aviso tras 5 fallos se resolvió con la migración 147).
 
 ## Aviso de informes agotados (migración 147, 3 oct)
 - Tras 5 intentos fallidos (`visita.informe_intentos >= 5`) la visita deja de reintentarse. Ahora Yo → Gestión → «Copia a SharePoint» lo cuenta («N informe(s) de visita sin copiar tras 5 intentos») y suma al punto de la pestaña Yo. Tocar el aviso (`fn_reintentar_archivado`) devuelve esos informes a la cola con 5 intentos más (el cron los retoma en ≤10 min).
