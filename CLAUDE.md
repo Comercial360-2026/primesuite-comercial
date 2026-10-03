@@ -1,3 +1,11 @@
+# 🛑🛑🛑 AGENTES, FLUJOS Y PROCESOS AUTOMÁTICOS: PRIMERO LA DOCUMENTACIÓN, DESPUÉS LAS PRUEBAS, DESPUÉS EL CLIC 🛑🛑🛑
+**Siempre que se cree o toque un agente, un flujo (Power Automate, Copilot Studio…), un cron, un webhook o cualquier proceso automático — y más si BORRA o ESCRIBE datos:**
+1. **ANTES de abrir el editor o escribir código: leer la documentación oficial** de cada pieza (acciones, parámetros reales, límites, qué devuelve). Nada de memoria ni «probar a ver si cuela». Decir qué documentación he leído.
+2. **Lo no documentado se comprueba en el entorno real** (nombre de biblioteca, campo dinámico, orden, rutas) antes de construir encima.
+3. **Probar por capas, con muchas pruebas:** primero solo leer/listar, luego la acción destructiva con datos de prueba y un número pequeño, y solo al final el valor real. Verificar el resultado real tras cada capa.
+4. **Cualquier acción que borre** exige: documentación leída + prueba en capa segura + comprobar que si algo falla no borra nada.
+5. **Si me pillo construyendo sin haber hecho 1-3: PARAR, decirlo y documentarme.** (Registro: 3 oct, empecé a crear un flujo de borrado de SharePoint de memoria; Cesar me paró.)
+
 # 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
 - **Comprobar todo en ESTA sesión antes de afirmar. Las notas/memoria NO son hechos.** «No puedo / no hay sesión / está bloqueado» = probarlo primero.
 - **Prohibido enseñar imágenes/capturas y explicar de más.** Verificar con JS/SQL/`get_page_text`.
