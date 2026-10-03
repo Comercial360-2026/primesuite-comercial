@@ -198,6 +198,12 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
   (visita cerrada, 3 oct).
 
+- **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
+  pueda pulsarse varias veces (reabrir/cerrar visita, «Hacer copia ahora», reintentar archivado, adjuntar
+  documento) no debe duplicar archivos en SharePoint si nada cambió, y lo que sí cambie lo dice antes de
+  confirmar. Reabrir/cerrar: migración 148 (huella del contenido). Al añadir una acción nueva que suba algo
+  a SharePoint, comprobar qué pasa pulsándola dos veces seguidas.
+
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
   Cuenta CRM son filas tocables (3 oct).

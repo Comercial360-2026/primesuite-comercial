@@ -27,7 +27,7 @@ Cada visita cerrada puede dejar en su carpeta de SharePoint DOS archivos: «Info
 - En la app, la fila «Informe web» de una visita cerrada tiene «Abrir» (pestaña nueva, sin descargar) y «Descargar».
 - Los informes se suben 2 h a `backups-visita` (Supabase) para que el flujo los descargue y la limpieza los borra; solo quedan en SharePoint.
 - Interruptor `ajustes_app.archivado_informe_activo` (**apagado**): encendido, copia el informe de TODAS las visitas cerradas que no lo tengan (máx. 2 visitas por pasada de 10 min; un informe HTML con fotos puede pesar ~20 MB — con 34 fotos funcionó; el límite real es la memoria de la función, sin medir). Prueba/reintento de una sola: POST al worker con `{"visita_id": "…", "informe": true}`.
-- Reabrir y volver a cerrar una visita copia los informes otra vez (nombre con la hora del nuevo cierre; los anteriores se quedan). Cambios posteriores al cierre no regeneran el informe.
+- Reabrir y volver a cerrar (migración 148, 3 oct): SIN cambios en el contenido NO se genera informe nuevo (la reapertura ya no borra las marcas; `informe_huella` guarda una huella del contenido al confirmarse el informe y el cierre la compara). CON cambios (captura, hallazgo, oportunidad, paso, resumen, objetivo) se genera uno nuevo «(rev …)» y el anterior se queda en SharePoint. `visita.veces_reabierta` cuenta las reaperturas. Cambios posteriores al cierre sin reabrir no regeneran el informe.
 - Fallos: `visita.informe_intentos` (máx. 5, 15 min entre intentos). Los informes agotados se avisan en Yo → Gestión → «Copia a SharePoint» (migración 147, ver abajo).
 - Probado el 2 oct con la visita de Verescence: HTML y PDF creados en su carpeta, confirmaciones con tamaño coincidente, ejecuciones «Succeeded» en Power Automate, segunda pasada sin reenviar, reabrir/recerrar los deja pendientes.
 
@@ -64,3 +64,8 @@ Encendido a las ~10:04 UTC; el cron de las 10:10 copió el informe de SAPA (la �
 - El motivo del último fallo queda en `visita.informe_error` (solo por SQL; no se muestra en la app). Función `procesar-archivado-sharepoint` v16.
 - Probado el 3 oct con estado simulado (no se provocó un fallo real de generación para no romper la generación de una visita real): visita de SAPA con `informe_intentos=5` y PDF a null → aviso visible en Yo; al tocarlo `informe_intentos`=0 y error vacío; valores restaurados. El camino del `catch` (marcar intento + guardar motivo) se probó antes a nivel de RPC, no con un fallo real.
 - Qué hacer si salta: comprobar el flujo de Power Automate (activo, conexión de SharePoint) y `select informe_error from visita where informe_intentos >= 5;`, y tocar el aviso.
+
+## Reabrir y volver a cerrar sin duplicados (migración 148, 3 oct)
+- Probado en transacción con rollback sobre una visita real (se dejó intacta): reabrir conserva las marcas; cerrar sin cambios las conserva; cerrar tras cambiar el objetivo las borra (informe nuevo) y `veces_reabierta` pasa a 2.
+- Quien puede reabrir directo: el responsable de la visita y Dirección (trigger `fn_proteger_reabrir_visita`); el resto, por solicitud. La app pide confirmación y avisa del informe nuevo.
+- Abierto: `ajustes_app.visita_autocierre_horas` está APAGADO (18 h si se enciende): una visita reabierta y olvidada no se cierra sola y mientras tanto no la ve el resto de la empresa.
