@@ -32,7 +32,6 @@ import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
 import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
-import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
 import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
@@ -846,13 +845,13 @@ export function FichaCliente() {
               // Remate de una línea con la actividad de ESTE proyecto — para
               // no tener que entrar a cada uno a saber si tiene algo abierto.
               // El historial completo (por visita) vive dentro del propio
-              // proyecto, no aquí (ver historial-visitas-cliente.tsx).
+              // proyecto, no en la ficha del cliente (ni con un solo proyecto).
               const estadoTxt =
                 p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : null;
               const actividadTxt = p.visitaEnCurso
                 ? 'Visita en curso'
                 : p.ultimaVisitaFecha
-                  ? `Última visita ${fechaCorta(p.ultimaVisitaFecha)}`
+                  ? `${p.numVisitas} ${p.numVisitas === 1 ? 'visita' : 'visitas'} · última ${fechaCorta(p.ultimaVisitaFecha)}`
                   : 'Sin visitas todavía';
               return (
                 <FilaNavegable
@@ -977,15 +976,6 @@ export function FichaCliente() {
             )}
           </HojaSuperior>
         )}
-
-        {/* Con 2+ proyectos, mezclar sus visitas en una sola lista confundía
-            de qué proyecto era cada una (Cesar, 14 sept) — cada proyecto
-            enseña ya su propio historial al entrar. Con uno solo, el paso
-            intermedio no aporta nada: se sigue mostrando aquí directo. */}
-        {clienteId && proyectos && proyectos.length === 1 && (
-          <HistorialVisitasCliente clienteId={clienteId} />
-        )}
-
 
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>

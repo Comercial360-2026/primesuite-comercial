@@ -205,6 +205,11 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   confirmar. Reabrir/cerrar: migración 148 (huella del contenido). Al añadir una acción nueva que suba algo
   a SharePoint, comprobar qué pasa pulsándola dos veces seguidas.
 
+- **Las visitas viven dentro de su proyecto, no en la ficha del cliente.** La ficha lista proyectos con
+  «N visitas · última <fecha>» (la última que ya ocurrió, no una planificada); da igual que haya uno o cinco
+  proyectos. El proyecto enseña 10 visitas y «Ver todas las visitas (N)» las abre todas: un tope sin salida
+  deja visitas inalcanzables. Probado el 3 oct con 12 visitas (10 → 12).
+
 - **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
   entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
   Cuenta CRM son filas tocables (3 oct).

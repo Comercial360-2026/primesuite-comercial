@@ -203,7 +203,6 @@ export function FichaProyecto() {
       ['visitas-vivas-proyecto'],
       ['resumen-visitas-proyecto'],
       ['historial-visitas-proyecto'],
-      ['historial-visitas-cliente', clienteId],
       ['oportunidades-activas-proyecto'],
       ['oportunidades-abiertas-proyecto'],
       ['proximos-pasos-proyecto'],
