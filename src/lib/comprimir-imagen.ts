@@ -1,6 +1,9 @@
 const LADO_MAXIMO_PX = 1600;
 const CALIDAD_JPEG = 0.75;
 
+// Los tipos que admite el bucket `fotos-visita` (migración 131 y anteriores): lo demás no se puede subir nunca.
+export const TIPOS_FOTO_ADMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
+
 export async function comprimirImagen(archivo: Blob): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(archivo);
@@ -21,7 +24,7 @@ export async function comprimirImagen(archivo: Blob): Promise<Blob> {
       canvas.toBlob(resolve, 'image/jpeg', CALIDAD_JPEG)
     );
 
-    if (!blobComprimido || blobComprimido.size >= archivo.size) return archivo;
+    if (!blobComprimido || (blobComprimido.size >= archivo.size && TIPOS_FOTO_ADMITIDOS.includes(archivo.type))) return archivo;
     return blobComprimido;
   } catch (err) {
     console.error('No se pudo comprimir la imagen, se sube sin comprimir:', err);

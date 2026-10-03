@@ -19,7 +19,7 @@ import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useInactividadVisita } from '@/hooks/use-inactividad-visita';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { comprimirImagen } from '@/lib/comprimir-imagen';
+import { comprimirImagen, TIPOS_FOTO_ADMITIDOS } from '@/lib/comprimir-imagen';
 import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
@@ -1003,6 +1003,12 @@ export function VisitaActiva() {
     }
     pedirUbicacionFoto();
     const archivoComprimido = await comprimirImagen(archivo);
+    // Un formato que el servidor rechaza (SVG, GIF, HEIC sin convertir) no se encola: se reintentaría para siempre.
+    if (!TIPOS_FOTO_ADMITIDOS.includes(archivoComprimido.type)) {
+      flushSync(() => setFotoPendiente(null));
+      capturaFoto.establecerError('Ese formato de imagen no se admite. Haz la foto con la cámara o elige un JPG o PNG.');
+      return;
+    }
     if (archivoComprimido.size > LIMITE_FOTO_BYTES) {
       flushSync(() => setFotoPendiente(null));
       capturaFoto.establecerError(

@@ -7,7 +7,7 @@
 //   3. La pantalla /ayuda ("Cómo funciona PrimeNotes") → recorre estos dos
 //      mapas, los agrupa y deja buscar.
 //   4. El tour guiado del primer uso (<TourGuiado>, ver
-//      src/hooks/use-tour-guiado.ts; solo desde Yo → "Ver guía rápida") → PasoTour, más abajo.
+//      src/hooks/use-tour-guiado.ts; DESACTIVADO 3 oct: ya no hay forma de lanzarlo) → PasoTour, más abajo.
 //
 // Añadir ayuda a algo nuevo = una entrada aquí, EN EL MISMO COMMIT que el
 // cambio de comportamiento. Un texto de ayuda que ya no es cierto es un bug
@@ -464,7 +464,7 @@ export interface PasoTour {
 }
 
 // Tour de bienvenida — 4 pasos, uno por pestaña del menú de abajo. Ya
-// no sale solo al entrar: solo desde Yo → "Ver guía rápida".
+// no sale solo ni se puede lanzar (filas de Yo quitadas el 3 oct).
 // Mismo contenido para cualquier rol: el menú de abajo es igual para
 // comercial y Dirección Comercial.
 export const TOUR_NAVEGACION: PasoTour[] = [
@@ -490,8 +490,8 @@ export const TOUR_NAVEGACION: PasoTour[] = [
   },
 ];
 
-// Paso extra solo para Dirección Comercial — se lanza desde Yo → "Ver guía
-// de Dirección" y señala el bloque de gestión que un
+// Paso extra solo para Dirección Comercial — (desactivado 3 oct, antes se lanzaba desde Yo → "Ver guía
+// de Dirección") y señala el bloque de gestión que un
 // comercial no tiene.
 export const TOUR_DIRECCION: PasoTour[] = [
   {

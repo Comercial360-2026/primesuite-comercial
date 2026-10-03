@@ -13,8 +13,6 @@ import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
 import { useAvisosGestion } from '@/hooks/use-avisos-gestion';
-import { useTourGuiado } from '@/hooks/use-tour-guiado';
-import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -26,8 +24,6 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
-import { TourGuiado } from '@/components/ui/tour-guiado';
-import { TOUR_DIRECCION } from '@/lib/ayuda';
 
 // La copia automática salta a los 7 días; a los 8 sin una confirmada es que algo falla.
 const DIAS_AVISO_BACKUP = 8;
@@ -111,16 +107,6 @@ export function Yo() {
 
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
-
-  // Paso extra del tour, solo Dirección — señala "El equipo". Ya no sale solo:
-  // lo lanza "Ver guía de Dirección" más abajo (el tour de bienvenida, las 4
-  // pestañas, vive en LayoutShell y lo lanza "Ver guía rápida").
-  const tourDireccion = useTourGuiado(
-    'direccion',
-    esDireccionComercial ? comercial?.id : undefined,
-    TOUR_DIRECCION
-  );
-  const tourNavControl = useTourNavegacionControl();
 
   // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
   // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
@@ -738,20 +724,6 @@ export function Yo() {
             subtitulo="Algo va mal o no se entiende — se lo cuentas a Dirección"
             onClick={() => setReportando(true)}
           />
-          <FilaNavegable
-            icono="guia"
-            titulo="Ver guía rápida"
-            subtitulo="El recorrido de bienvenida por el menú de abajo"
-            onClick={() => tourNavControl.reiniciar()}
-          />
-          {esDireccionComercial && (
-            <FilaNavegable
-              icono="guia"
-              titulo="Ver guía de Dirección"
-              subtitulo="Qué hay en «El equipo» y en Gestión"
-              onClick={() => tourDireccion.reiniciar()}
-            />
-          )}
         </SeccionLista>
 
         <SeccionLista>
@@ -791,16 +763,6 @@ export function Yo() {
               queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
             }
           }}
-        />
-      )}
-
-      {tourDireccion.paso && (
-        <TourGuiado
-          paso={tourDireccion.paso}
-          indice={tourDireccion.indice}
-          total={tourDireccion.total}
-          onSiguiente={tourDireccion.siguiente}
-          onSaltar={tourDireccion.saltar}
         />
       )}
     </div>
