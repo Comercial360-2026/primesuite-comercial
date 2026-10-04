@@ -83,13 +83,34 @@ export function useAvisosGestion() {
     },
   });
 
+  // Archivado a SharePoint (migraciones 132-134): archivos que llevan horas sin
+  // copiarse, copias agotadas tras 5 intentos y posibles duplicados por reintentos.
+  const { data: estadoArchivado } = useQuery({
+    queryKey: ['avisos-estado-archivado'],
+    refetchOnMount: 'always',
+    enabled: esDireccionComercial,
+    queryFn: async () => {
+      const { data, error: err } = await supabase.rpc('fn_estado_archivado').maybeSingle();
+      if (err) throw err;
+      return data;
+    },
+  });
+  const problemasArchivado = estadoArchivado
+    ? Number(estadoArchivado.sin_copiar) +
+      Number(estadoArchivado.agotadas) +
+      Number(estadoArchivado.posibles_duplicados) +
+      Number(estadoArchivado.informes_agotados)
+    : 0;
+
   return {
+    estadoArchivado,
+    problemasArchivado,
     topeBriefing,
     numSolicitudesPendientes,
     numPeticionesAcceso,
     numGruposDuplicados,
     hayAvisos:
       esDireccionComercial &&
-      (!!numSolicitudesPendientes || !!numPeticionesAcceso || !!numGruposDuplicados || !!topeBriefing?.alcanzado),
+      (!!numSolicitudesPendientes || !!numPeticionesAcceso || !!numGruposDuplicados || !!topeBriefing?.alcanzado || problemasArchivado > 0),
   };
 }

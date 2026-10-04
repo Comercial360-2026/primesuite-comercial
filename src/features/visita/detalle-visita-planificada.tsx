@@ -8,6 +8,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Icono } from '@/components/ui/iconos';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
+import { FilaMedioVisita } from './fila-medio-visita';
+import { medioDe } from '@/lib/medio-visita';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
@@ -32,6 +34,8 @@ interface VisitaPlan {
   franja: string | null;
   objetivo: string | null;
   tipo_visita: string | null;
+  medio: string;
+  enlace_reunion: string | null;
   estado_captura: string;
   cliente_id: string;
   cliente_nombre: string;
@@ -84,7 +88,7 @@ export function DetalleVisitaPlanificada() {
     queryFn: async (): Promise<VisitaPlan> => {
       const { data: fila, error } = await supabase
         .from('visita')
-        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, estado_captura, cliente:cliente_id(id, nombre)')
+        .select('id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, enlace_reunion, estado_captura, cliente:cliente_id(id, nombre)')
         .eq('id', visitaId!)
         .single();
       if (error) throw error;
@@ -96,6 +100,8 @@ export function DetalleVisitaPlanificada() {
         franja: fila.franja,
         objetivo: fila.objetivo,
         tipo_visita: fila.tipo_visita,
+        medio: fila.medio,
+        enlace_reunion: fila.enlace_reunion,
         estado_captura: fila.estado_captura,
         cliente_id: cli?.id ?? '',
         cliente_nombre: cli?.nombre ?? 'cliente',
@@ -193,7 +199,7 @@ export function DetalleVisitaPlanificada() {
         titulo={data?.cliente_nombre ?? 'Visita planificada'}
         ayuda="visita-planificada"
         volverA={volver}
-        subtitulo={data && fechaVisita ? fechaCorta(fechaVisita) : undefined}
+        subtitulo={data && fechaVisita ? `Planificada · ${fechaCorta(fechaVisita)}` : undefined}
         derecha={
           data && (
             <>
@@ -253,6 +259,14 @@ export function DetalleVisitaPlanificada() {
               />
               <FilaDato etiqueta="Objetivo" valor={data.objetivo ?? 'sin objetivo definido'} />
             </SeccionLista>
+            <FilaMedioVisita
+              visitaId={data.id}
+              clienteId={data.cliente_id}
+              medio={medioDe(data.medio)}
+              enlace={data.enlace_reunion}
+              editable
+              onCambiado={invalidarListas}
+            />
             {esPasada && (
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning-600)', fontWeight: 500, paddingInline: 'var(--fila-pad-x)' }}>
                 Atrasada — esta visita estaba planificada para una fecha que ya pasó.

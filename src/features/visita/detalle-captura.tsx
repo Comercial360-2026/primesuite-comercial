@@ -9,14 +9,19 @@ import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { SeccionLista } from '@/components/ui/seccion-lista';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
 import { RecategorizarItem } from './recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { enlaceMapa } from '@/lib/geo';
+import { bucketDeTipo } from '@/lib/buckets-visita';
+import { formatearBytes } from '@/lib/documentos-visita';
 import { SelectorZona } from '@/components/ui/selector-zona';
 import { TextareaDictado, InputDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
@@ -38,8 +43,10 @@ const ESTADO_SYNC_TEXTO: Record<string, string> = {
 // descarga.
 interface CapturaVista {
   id: string;
-  tipo: 'foto' | 'audio' | 'nota';
+  tipo: 'foto' | 'audio' | 'nota' | 'documento';
   titulo: string;
+  nombreOriginal?: string | null;
+  bytes?: number | null;
   contenidoTexto: string;
   zonaTexto: string;
   visitaId: string | undefined;
@@ -53,6 +60,8 @@ interface CapturaVista {
   latitud?: number | null;
   longitud?: number | null;
   storagePath?: string | null;
+  // 'sharepoint' = el original ya se liberó de Storage y solo vive en SharePoint.
+  ubicacionArchivo?: string | null;
 }
 
 // BUG real (13 sept, reportado por Cesar: "casi 2 minutos" para ver una
@@ -117,10 +126,31 @@ function DetalleCapturaPorId() {
   const refDictadoTitulo = useRef<RefCampoDictado>(null);
   const [zonaEdit, setZonaEdit] = useState('');
   const [urlMedia, setUrlMedia] = useState<string | null>(null);
+  // Solo documentos: URL para ABRIRLO en el navegador (sin forzar descarga);
+  // `urlMedia` es la de descargarlo con su nombre original.
+  const [urlAbrir, setUrlAbrir] = useState<string | null>(null);
   const guardado = useAccionAsync();
   const borrado = useAccionAsync();
   const [guardadoConExito, setGuardadoConExito] = useState(false);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  // ¿Hay ya una copia en SharePoint? Borrar la captura NO la borra allí (SharePoint
+  // es el archivo histórico, ver docs/pendiente-borrado-sharepoint.md): se avisa.
+  const [copiaEnSharepoint, setCopiaEnSharepoint] = useState(false);
+  useEffect(() => {
+    if (!confirmandoBorrado || !captura || captura.tipo === 'nota') return;
+    let cancelado = false;
+    void supabase
+      .from('captura_libre')
+      .select('ruta_sharepoint')
+      .eq('id', captura.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelado) setCopiaEnSharepoint(!!data?.ruta_sharepoint);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [confirmandoBorrado, captura]);
   // BUG real (13 sept, reportado por Cesar — confirmado con los logs de
   // Supabase: 14 PATCH seguidos a la misma foto, todos con éxito en el
   // servidor). El candado de "guardando" de la pastilla de zona
@@ -153,6 +183,8 @@ function DetalleCapturaPorId() {
           fuente: 'cola',
           estadoSync: op.estado,
           archivoLocal: op.archivoLocal ?? null,
+          nombreOriginal: p.nombreOriginal ?? null,
+          bytes: p.bytes ?? null,
           latitud: p.latitud ?? null,
           longitud: p.longitud ?? null,
         });
@@ -169,7 +201,7 @@ function DetalleCapturaPorId() {
       const { data, error } = await supabase
         .from('captura_libre')
         .select(
-          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, latitud, longitud, visita_id, comercial_autor_id, creado_en'
+          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, ubicacion_archivo, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes'
         )
         .eq('id', capturaId)
         .maybeSingle();
@@ -187,6 +219,9 @@ function DetalleCapturaPorId() {
           fuente: 'servidor',
           estadoSync: 'completado',
           storagePath: data.storage_path,
+          ubicacionArchivo: data.ubicacion_archivo,
+          nombreOriginal: data.nombre_original,
+          bytes: data.bytes,
           latitud: data.latitud,
           longitud: data.longitud,
         });
@@ -208,22 +243,53 @@ function DetalleCapturaPorId() {
     if (captura.archivoLocal) {
       const url = URL.createObjectURL(captura.archivoLocal);
       setUrlMedia(url);
+      setUrlAbrir(url);
       return () => URL.revokeObjectURL(url);
     }
-    if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio')) {
-      const bucket = captura.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+    if (captura.storagePath && (captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento')) {
+      const bucket = bucketDeTipo(captura.tipo);
       let vivo = true;
       supabase.storage
         .from(bucket)
-        .createSignedUrl(captura.storagePath, 600)
+        // El documento se descarga con su nombre original, no con el uuid de Storage.
+        .createSignedUrl(
+          captura.storagePath,
+          600,
+          captura.tipo === 'documento' ? { download: captura.nombreOriginal || true } : undefined
+        )
         .then(({ data }) => {
           if (vivo) setUrlMedia(data?.signedUrl ?? null);
         });
+      if (captura.tipo === 'documento') {
+        supabase.storage
+          .from(bucket)
+          .createSignedUrl(captura.storagePath, 600)
+          .then(({ data }) => {
+            if (vivo) setUrlAbrir(data?.signedUrl ?? null);
+          });
+      }
+      return () => {
+        vivo = false;
+      };
+    }
+    // Ya liberado de Storage: el contenido se pide a SharePoint (data: URL) con el permiso de la propia captura.
+    if (
+      captura.ubicacionArchivo === 'sharepoint' &&
+      (captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento')
+    ) {
+      let vivo = true;
+      void supabase.functions.invoke('obtener-url-archivo-sharepoint', { body: { capturaId: captura.id } }).then(({ data }) => {
+        if (!vivo) return;
+        const url = (data?.url as string | undefined) ?? null;
+        setUrlMedia(url);
+        setUrlAbrir(url);
+      });
       return () => {
         vivo = false;
       };
     }
     setUrlMedia(null);
+    setUrlAbrir(null);
   }, [captura]);
 
   // Regla 6 (contexto siempre visible): la cabecera dice de qué cliente y
@@ -450,7 +516,7 @@ function DetalleCapturaPorId() {
           );
 
           if (storagePath) {
-            const bucket = tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+            const bucket = bucketDeTipo(tipo);
             const { error: errStorage } = await supabase.storage.from(bucket).remove([storagePath]);
             if (errStorage) {
               console.error('No se pudo borrar el archivo de Storage tras borrar la fila:', errStorage.message);
@@ -469,12 +535,18 @@ function DetalleCapturaPorId() {
           if (captura.visitaId) {
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
           }
+          // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+          queryClient.invalidateQueries();
           navigate(volver);
         },
         mensajeError: 'No se pudo borrar la captura. Inténtalo de nuevo.',
       }
     );
   }
+
+  const puedeGestionarCaptura = !!captura && (comercial?.rol === 'direccion_comercial' || captura.autorId === comercial?.id);
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), puedeGestionarCaptura);
 
   if (cargandoInicial) {
     return (
@@ -504,11 +576,27 @@ function DetalleCapturaPorId() {
   return (
     <div className="screen">
       <CabeceraDetalle
-        titulo={captura.tipo === 'nota' ? 'Nota' : captura.tipo === 'foto' ? 'Foto' : 'Audio'}
+        titulo={
+          captura.tipo === 'nota' ? 'Nota' : captura.tipo === 'foto' ? 'Foto' : captura.tipo === 'documento' ? 'Documento' : 'Audio'
+        }
         subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
+        derecha={puedeGestionar ? <BotonPapelera etiqueta={`Borrar ${captura.tipo}`} onClick={() => setConfirmandoBorrado(true)} /> : undefined}
       />
+      {puedeGestionar && confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrado.cargando}
+          error={borrado.error}
+        >
+          {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+          {copiaEnSharepoint ? ' La copia que ya está en SharePoint se conserva allí; no se borra.' : ''}
+        </ConfirmacionBorrado>
+        </div>
+      )}
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         {fechaLarga(captura.creadoEn)}
@@ -547,22 +635,66 @@ function DetalleCapturaPorId() {
 
       {captura.tipo === 'audio' && urlMedia && <audio controls src={urlMedia} style={{ width: '100%' }} />}
 
-      {(captura.tipo === 'foto' || captura.tipo === 'audio') && (
+      {captura.tipo === 'documento' && (
+        <SeccionLista>
+          <FilaNavegable
+            icono="documento"
+            titulo={captura.nombreOriginal || 'Documento'}
+            subtitulo={
+              urlAbrir
+                ? `${captura.bytes != null ? `${formatearBytes(captura.bytes)} · ` : ''}Toca para abrirlo`
+                : 'Preparando…'
+            }
+            chevron={false}
+            disabled={!urlAbrir}
+            onClick={() => {
+              if (urlAbrir) window.open(urlAbrir, '_blank', 'noopener');
+            }}
+          />
+          <FilaNavegable
+            icono="descargar"
+            titulo="Descargar"
+            subtitulo="Con su nombre original"
+            chevron={false}
+            disabled={!urlMedia}
+            onClick={() => {
+              if (!urlMedia) return;
+              const a = document.createElement('a');
+              a.href = urlMedia;
+              a.download = captura.nombreOriginal || 'documento';
+              a.click();
+            }}
+          />
+        </SeccionLista>
+      )}
+
+      {(captura.tipo === 'foto' || captura.tipo === 'audio' || captura.tipo === 'documento') && (
         <>
           <InputDictado
             ref={refDictadoTitulo}
             valor={tituloEdit}
             onCambio={setTituloEdit}
-            placeholder={captura.tipo === 'foto' ? 'qué es esta foto (opcional)' : 'qué es este audio (opcional)'}
+            placeholder={
+              captura.tipo === 'foto'
+                ? 'qué es esta foto (opcional)'
+                : captura.tipo === 'documento'
+                  ? 'qué es este documento (opcional)'
+                  : 'qué es este audio (opcional)'
+            }
           />
-          <div className="label">Zona (opcional)</div>
-          <SelectorZona
-            visitaId={captura.visitaId}
-            value={zonaEdit}
-            onChange={setZonaEdit}
-            onGuardar={guardarZonaYa}
-            deshabilitado={guardado.cargando}
-          />
+          {/* Un documento es de la visita entera: no lleva zona. */}
+          {captura.tipo !== 'documento' && (
+            <>
+              <div className="label">Zona (opcional)</div>
+              <SelectorZona
+                visitaId={captura.visitaId}
+                value={zonaEdit}
+                onChange={setZonaEdit}
+                onGuardar={guardarZonaYa}
+                deshabilitado={guardado.cargando}
+              />
+            </>
+          )}
         </>
       )}
 
@@ -595,7 +727,7 @@ function DetalleCapturaPorId() {
           hacía juego con el resto de la app). Mientras la confirmación de
           borrado está abierta, baja a secundario para no competir. */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: 'auto' }}
         disabled={guardado.cargando || zonaGuardando || guardadoConExito || (captura.tipo === 'nota' && !textoEdit.trim())}
         onClick={guardarEdicion}
@@ -611,24 +743,6 @@ function DetalleCapturaPorId() {
         )}
       </button>
 
-      {!puedeGestionar ? null : !confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo={`Borrar ${captura.tipo}`}
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrado.cargando}
-          error={borrado.error}
-        >
-          {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
-        </ConfirmacionBorrado>
-      )}
     </div>
   );
 }

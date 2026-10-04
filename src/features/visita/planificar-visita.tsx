@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, filtroNombreOAlias, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -21,6 +21,9 @@ import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
+import { medioDe, type MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface Proyecto {
@@ -83,7 +86,7 @@ export function PlanificarVisita() {
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
         .neq('estado_relacion', CLIENTE_ARCHIVADO)
-        .ilike('cliente_nombre', `%${termino}%`)
+        .or(filtroNombreOAlias(termino))
         .order('cliente_nombre')
         .limit(8);
       if (error) throw error;
@@ -156,11 +159,20 @@ export function PlanificarVisita() {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>(medioDe(params.get('medio')));
+  const [enlace, setEnlace] = useState(params.get('enlace') ?? '');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [hora, setHora] = useState('');
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');
   const [comercialPlan, setComercialPlan] = useState('');
   const guardado = useAccionAsync();
+  // Parámetros con los que se abre el alta de cliente desde aquí: el medio elegido arriba viaja con ella.
+  function paramsAlta(base: Record<string, string>) {
+    const q = new URLSearchParams(base);
+    if (medio !== 'presencial') q.set('medio', medio);
+    if (medio === 'teams' && enlace.trim()) q.set('enlace', enlace.trim());
+    return q.toString();
+  }
 
   // Paso 2 — «+ Nuevo proyecto»: crea una línea de negocio nueva sin salir
   // del flujo y dirige la visita a ella.
@@ -210,6 +222,8 @@ export function PlanificarVisita() {
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
         objetivo: objetivoTexto,
+        medio,
+        enlaceReunion: enlace,
       });
       navigate(`/visita/${visitaId}`);
     } catch (e) {
@@ -252,9 +266,17 @@ export function PlanificarVisita() {
           pEstadoCaptura: 'agendada',
         });
         if (error) throw new Error(error);
-        const parche: { objetivo: string; hora_definida?: boolean; franja?: string | null } = {
+        const parche: {
+          objetivo: string;
+          hora_definida?: boolean;
+          franja?: string | null;
+          medio?: MedioVisita;
+          enlace_reunion?: string;
+        } = {
           objetivo: objetivoConsolidado,
         };
+        if (medio !== 'presencial') parche.medio = medio;
+        if (medio === 'teams' && enlace.trim()) parche.enlace_reunion = enlace.trim();
         if (!hora) {
           parche.hora_definida = false;
           parche.franja = franja || null;
@@ -327,6 +349,9 @@ export function PlanificarVisita() {
       />
 
       <div className="lista-agrupada">
+        {/* ¿Cómo es la visita? arriba y en todos los pasos (antes solo en el último, junto al objetivo). */}
+        <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
         {/* Paso 1 — cliente */}
         {!clienteId && (
           <div className="card">
@@ -347,16 +372,32 @@ export function PlanificarVisita() {
             {termino.length >= 2 && (
               <div style={{ marginTop: 8 }}>
                 {buscando && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>Buscando…</div>}
+                {/* Cuentas del CRM que aún no son cliente: el CRM nunca crea clientes solo; tocar una abre el alta con la cuenta elegida. */}
+                {termino.length >= 3 && (
+                  <ResultadosCuentaCrm
+                    texto={termino}
+                    titulo="En el CRM (aún no es cliente)"
+                    soloSinCliente
+                    onElegir={(c, existente) => {
+                      if (existente) {
+                        setBusqueda('');
+                        setClienteId(existente.id);
+                        return;
+                      }
+                      navigate(`/clientes/nuevo?${paramsAlta({ nombre: c.nombre, cuenta: c.accountid })}`, { state: desde(location) });
+                    }}
+                  />
+                )}
                 {!buscando && encontrados?.length === 0 && (
                   <div style={{ marginTop: 4 }}>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-                      No hay ningún cliente que se llame así.
+                      Ningún cliente tuyo se llama así.
                     </div>
                     <button
                       type="button"
                       className="btn btn-secondary"
                       onClick={() =>
-                        navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`, { state: desde(location) })
+                        navigate(`/clientes/nuevo?${paramsAlta({ nombre: termino })}`, { state: desde(location) })
                       }
                     >
                       Crear «{termino}» y seguir
@@ -506,6 +547,7 @@ export function PlanificarVisita() {
               valor={objetivo}
               onCambio={setObjetivo}
             />
+
 
             {cuando === 'otro' && (
               <>

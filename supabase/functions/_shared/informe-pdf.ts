@@ -139,14 +139,17 @@ export function etiqueta(mapa: Record<string, string>, valor: string | null | un
   return mapa[valor] ?? capitalizar(valor);
 }
 
+// Las Edge Functions corren en UTC: sin `timeZone` explícito las horas salían
+// 1-2 h antes de las reales y una visita de madrugada caía en el día anterior.
+const ZONA = 'Europe/Madrid';
 export function fechaLarga(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: ZONA });
 }
 export function fechaCorta(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: ZONA });
 }
 export function horaDe(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: ZONA });
 }
 export function mesesEntre(desdeISO: string, hastaISO: string): number {
   const a = new Date(desdeISO).getTime();
@@ -192,6 +195,9 @@ export interface OportunidadRow {
   prioridad: string;
   valor_estimado: number | null;
   horizonte_decision: string | null;
+  // Zona donde se detectó (informe web; el PDF no la usa).
+  zona_texto?: string | null;
+  ubicacion?: Nombrado | null;
 }
 export interface PasoRow {
   id: string;
@@ -199,6 +205,7 @@ export interface PasoRow {
   fecha_objetivo: string | null;
   estado: string;
   comercial_responsable: Nombrado | null;
+  zona_texto?: string | null;
 }
 // Un "área" del hallazgo (PM11 Fase 2): o una categoría del catálogo
 // ("Hardware") o un término concreto ("MIFARE › DESFire EV2"). Un hallazgo

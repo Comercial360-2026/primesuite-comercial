@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,9 +12,12 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
+import { useBorrarSolicitado, useSwipeBorrar, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
-import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
+import { ResultadosCuentaCrm, textoCuentaCrm, useSugerenciasCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
+import { usarNombreDelCrm, vincularClienteACuenta, volverAlNombreAnterior } from '@/lib/vincular-cuenta-crm';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -23,22 +26,25 @@ import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
-import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado, normalizarNombre } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
-import { BriefingHoja } from '@/features/visita/briefing-hoja';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerrar';
-import { HistorialVisitasCliente } from '@/features/clientes/historial-visitas-cliente';
 import { AccionesProyecto } from '@/features/proyectos/acciones-proyecto';
 import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyectos-cliente';
+import { quitarAdjuntosDeStorage } from '@/lib/buckets-visita';
 
 interface PrevisualizacionBorrado {
   num_fotos: number;
   num_audios: number;
+  num_archivos_sharepoint?: number;
+  num_documentos: number;
   num_notas: number;
   num_hallazgos: number;
   num_oportunidades: number;
@@ -93,14 +99,18 @@ export function FichaCliente() {
   // directo, requiere conexión.
   const TAMANOS = ['Pequeña', 'Mediana', 'Grande'] as const;
   const [editandoDatos, setEditandoDatos] = useState(false);
+  // Qué se edita: tocar una fila abre solo ese dato (Nombre, Sector, Ubicación o Tamaño).
+  const [campoEditar, setCampoEditar] = useState<'nombre' | 'sector' | 'ubicacion' | 'tamano'>('nombre');
   const [formNombre, setFormNombre] = useState('');
   const [formSector, setFormSector] = useState('');
   const [formTamano, setFormTamano] = useState('');
   const [formUbicacion, setFormUbicacion] = useState('');
-  // Cuenta del CRM (migración 121): se busca en el propio formulario. Elegir
-  // una vacía el buscador y la deja como fila con "quitar".
-  const [formCrm, setFormCrm] = useState<CuentaCrm | null>(null);
+  // Cuenta del CRM (migración 121): se vincula en su propia hoja, no en «Editar datos».
+  const [crmAbierto, setCrmAbierto] = useState(false);
   const [buscaCrm, setBuscaCrm] = useState('');
+  const guardadoCrm = useAccionAsync();
+  // Al vincular, el cliente pasa a llamarse como la cuenta del CRM (el nombre anterior queda como alias de búsqueda).
+  const [adoptarNombre, setAdoptarNombre] = useState(true);
   const guardadoDatos = useAccionAsync();
   const cambioArchivado = useAccionAsync();
 
@@ -117,15 +127,90 @@ export function FichaCliente() {
     },
   });
 
-  function abrirEditarDatos() {
+  function abrirEditarDatos(campo: 'nombre' | 'sector' | 'ubicacion' | 'tamano') {
+    setCampoEditar(campo);
     setFormNombre(cliente?.nombre ?? '');
     setFormSector(cliente?.sector ?? '');
     setFormTamano(cliente?.tamano_aprox ?? '');
     setFormUbicacion(cliente?.ubicacion_general ?? '');
-    setFormCrm(cuentaCrm ?? null);
-    setBuscaCrm('');
     guardadoDatos.limpiarError();
     setEditandoDatos(true);
+  }
+
+  // Sin cuenta vinculada se busca ya por el nombre del cliente (como hace el alta): lo normal es que salga.
+  function abrirCrm() {
+    setBuscaCrm(cliente?.crm_accountid ? '' : (cliente?.nombre ?? ''));
+    guardadoCrm.limpiarError();
+    setCrmAbierto(true);
+  }
+
+  // Elegir una cuenta (o quitarla con `null`) guarda al instante y cierra la hoja; si falla, la hoja
+  // se queda abierta con el error para reintentar.
+  async function vincularCrm(cuenta: CuentaCrm | null) {
+    if (!clienteId) return;
+    if (!navigator.onLine) {
+      guardadoCrm.establecerError('Necesitas conexión para vincular la cuenta del CRM.');
+      return;
+    }
+    if (!cliente) return;
+    await guardadoCrm.ejecutar(
+      async () => {
+        await vincularClienteACuenta(
+          { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general },
+          cuenta,
+          adoptarNombre,
+          cuentaCrm
+        );
+      },
+      {
+        onExito: () => {
+          setCrmAbierto(false);
+          setBuscaCrm('');
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+        },
+      }
+    );
+  }
+
+  // Nombre del cliente respecto a su cuenta ya vinculada: usar el del CRM, o volver al anterior (y no volver a ofrecerlo).
+  async function cambiarNombreCrm(accion: 'usar' | 'volver') {
+    if (!cliente || !cuentaCrm) return;
+    if (!navigator.onLine) {
+      guardadoCrm.establecerError('Necesitas conexión para cambiar el nombre.');
+      return;
+    }
+    const base = { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general };
+    await guardadoCrm.ejecutar(
+      async () => {
+        if (accion === 'usar') await usarNombreDelCrm(base, cuentaCrm);
+        else await volverAlNombreAnterior(base);
+      },
+      {
+        onExito: () => {
+          setCrmAbierto(false);
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-con-nombre-distinto'] });
+        },
+      }
+    );
+  }
+
+  function cerrarEditarDatos() {
+    setEditandoDatos(false);
+    guardadoDatos.limpiarError();
+  }
+
+  // «Guardar» solo se activa si algo ha cambiado respecto a la ficha.
+  function hayCambiosDatos() {
+    return (
+      formNombre.trim() !== (cliente?.nombre ?? '') ||
+      formSector !== (cliente?.sector ?? '') ||
+      formTamano !== (cliente?.tamano_aprox ?? '') ||
+      formUbicacion.trim() !== (cliente?.ubicacion_general ?? '')
+    );
   }
 
   async function guardarDatos() {
@@ -146,7 +231,6 @@ export function FichaCliente() {
                   sector: formSector || null,
                   tamano_aprox: formTamano || null,
                   ubicacion_general: formUbicacion.trim() || null,
-                  crm_accountid: formCrm?.accountid ?? null,
                 },
                 { count: 'exact' }
               )
@@ -165,13 +249,13 @@ export function FichaCliente() {
     );
   }
 
-  // Archivar = «ya no trabajamos con él» (prompt maestro 13): sale de
+  // Cliente inactivo = «ya no trabajamos con él» (prompt maestro 13): sale de
   // Clientes y de los buscadores de Nueva visita, conserva todo. Reversible,
   // así que sin confirmación. Mismo permiso y misma vía que Editar datos.
   async function cambiarArchivado(archivar: boolean) {
     if (!clienteId) return;
     if (!navigator.onLine) {
-      cambioArchivado.establecerError('Necesitas conexión para archivar o reactivar el cliente.');
+      cambioArchivado.establecerError('Necesitas conexión para cambiar el estado del cliente.');
       return;
     }
     await cambioArchivado.ejecutar(
@@ -236,7 +320,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid')
+        .select('id, nombre, nombre_alias, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid, crm_no_autovincular, crm_nombre_propio')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -406,10 +490,7 @@ export function FichaCliente() {
         // exige) — eliminar_cliente_completo() las borra como parte de la
         // cascada, así que si se hiciera al revés, fallaría sin permiso.
         if (rutas.length) {
-          await Promise.all([
-            supabase.storage.from('fotos-visita').remove(rutas),
-            supabase.storage.from('audios-visita').remove(rutas),
-          ]);
+          await quitarAdjuntosDeStorage(rutas);
         }
         // A partir de aquí los adjuntos ya no existen en Storage: un fallo
         // de red justo en esta llamada dejaría el cliente vivo pero sin sus
@@ -437,7 +518,7 @@ export function FichaCliente() {
           // a mano — mismo patrón que ya se cubría al borrar una visita
           // suelta, pero que faltaba aquí.
           queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-          navigate('/clientes');
+          navigate(volver, { replace: true });
         },
       }
     );
@@ -447,26 +528,46 @@ export function FichaCliente() {
   const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
-  // Briefing: vive por visita (briefing_visita.visita_id), no hay uno "del
-  // cliente" suelto — desde aquí se abre el de su visita en curso o, si no
-  // hay, la agendada más próxima. Sin ninguna de las dos, no hay a qué
-  // visita colgarlo y el botón no se muestra.
-  const { data: visitaIdBriefing } = useQuery({
-    queryKey: ['ficha-cliente-visita-briefing', clienteId],
-    enabled: !!clienteId,
-    queryFn: async (): Promise<string | null> => {
-      const { data, error } = await supabase
-        .from('visita')
-        .select('id, estado_captura, fecha')
-        .eq('cliente_id', clienteId!)
-        .in('estado_captura', ['en_curso', 'agendada'])
-        .order('fecha', { ascending: true })
-        .limit(10);
-      if (error) throw error;
-      const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
-      return (enCurso ?? data?.[0])?.id ?? null;
-    },
-  });
+  // Cliente creado a mano que ya aparece en el CRM: se sugiere (o, si la coincidencia es exacta y única, se vincula solo).
+  const sinCuentaEditable = !!cliente && !cliente.crm_accountid && !archivado && puedeEditar;
+  const clienteParaSugerir = useMemo(
+    () => (sinCuentaEditable && cliente ? [{ id: cliente.id, nombre: cliente.nombre }] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo cambia con el id/nombre
+    [sinCuentaEditable, cliente?.id, cliente?.nombre]
+  );
+  const sugerencias = useSugerenciasCuenta(clienteParaSugerir);
+  const sugerencia = cliente ? sugerencias.get(cliente.id) : undefined;
+  // ¿Se llama igual que su cuenta del CRM? (si no, y no decidió conservar el suyo, se le ofrece usar el del CRM)
+  const nombreCoincideConCrm =
+    !cuentaCrm || !cliente || cliente.crm_nombre_propio || normalizarNombre(cuentaCrm.nombre) === normalizarNombre(cliente.nombre);
+  const [vinculadoAuto, setVinculadoAuto] = useState<null | { cuenta: string; antes: string }>(null);
+  const autoIntentadoPara = useRef<string | null>(null);
+  useEffect(() => {
+    const exacta = sugerencia?.exacta;
+    if (!exacta || !cliente || cliente.crm_no_autovincular || autoIntentadoPara.current === cliente.id || !navigator.onLine) return;
+    autoIntentadoPara.current = cliente.id;
+    void vincularClienteACuenta(
+      { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general },
+      exacta,
+      true
+    )
+      .then(() => {
+        setVinculadoAuto({ cuenta: exacta.nombre, antes: cliente.nombre });
+        queryClient.invalidateQueries({ queryKey: ['cliente', cliente.id] });
+        queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+        queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+      })
+      .catch(() => {
+        /* sin permiso o sin red: queda la sugerencia manual */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez por cliente
+  }, [sugerencia?.exacta?.accountid, cliente?.id]);
+
+  // Briefing: vive por visita; el hook elige a cuál colgarlo.
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const swipeBorrar = useSwipeBorrar();
+  const confirmacionBorradoRef = useVerAlAbrir(confirmandoBorrarCliente);
+  useBorrarSolicitado(() => void pedirBorradoCliente(), esDireccionComercial && !!cliente);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
 
   return (
@@ -515,23 +616,54 @@ export function FichaCliente() {
                 <Icono nombre="briefing" size={18} />
               </button>
             )}
-            {puedeEditar && (
-              <button
-                type="button"
-                className="boton-icono"
-                aria-label={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-                title={editandoDatos ? 'Cerrar edición de datos' : 'Editar datos del cliente'}
-                aria-expanded={editandoDatos}
-                onClick={() => (editandoDatos ? setEditandoDatos(false) : abrirEditarDatos())}
-              >
-                <Icono nombre="editar" size={16} />
-              </button>
-            )}
+            {esDireccionComercial && <BotonPapelera etiqueta="Borrar cliente" onClick={() => void pedirBorradoCliente()} />}
           </>
         }
       />
 
       <div className="screen__scroll">
+        {esDireccionComercial && confirmandoBorrarCliente && (
+          <div ref={confirmacionBorradoRef}>
+          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+            <div className="card card--riesgo">
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
+            </div>
+          ) : (
+            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
+            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
+            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
+            <ConfirmacionBorrado
+              onCancelar={cancelarBorradoCliente}
+              onConfirmar={confirmarBorradoCliente}
+              cargando={borrandoCliente.cargando}
+              error={borrandoCliente.error}
+              confirmar="Sí, borrar el cliente entero"
+            >
+              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_documentos, 'documento', 'documentos')},{' '}
+              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
+              borrará también, para siempre.
+              {!!previsualizacionCliente.num_archivos_sharepoint && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                  {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
+                  SharePoint {previsualizacionCliente.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
+                  {previsualizacionCliente.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
+                </div>
+              )}
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                antes desde "mi espacio".
+              </div>
+            </ConfirmacionBorrado>
+          )}
+          </div>
+        )}
        {cargandoCliente && <EstadoLista estado="cargando" />}
        {sinConexionCliente && <EstadoLista estado="sin-conexion" onReintentar={reintentarCliente} />}
        {errorCliente && (
@@ -548,10 +680,59 @@ export function FichaCliente() {
          </div>
        )}
        {archivado && (
-         <Aviso titulo="Archivado">
-           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo al final
-           de esta ficha.
+         <Aviso titulo="Cliente inactivo">
+           No sale en Clientes ni al elegir cliente para una visita. Para volver a visitarlo, reactívalo aquí debajo.
          </Aviso>
+       )}
+       {archivado && puedeEditar && (
+         <SeccionLista>
+           <FilaNavegable
+             icono="restaurar"
+             titulo="Reactivar cliente"
+             subtitulo={cambioArchivado.cargando ? 'Guardando…' : 'Vuelve a Clientes y se puede visitar otra vez'}
+             chevron={false}
+             disabled={cambioArchivado.cargando}
+             onClick={() => cambiarArchivado(false)}
+           />
+         </SeccionLista>
+       )}
+       {vinculadoAuto && cliente?.crm_accountid && (
+         <Aviso tipo="info" titulo="Vinculado con el CRM">
+           Este cliente ya estaba en el CRM como «{vinculadoAuto.cuenta}»: se ha vinculado y ahora se llama así (antes «{vinculadoAuto.antes}», que
+           sigue encontrándose al buscar). Si no es la cuenta correcta, deshazlo o cámbiala en «Cuenta CRM».
+           <div style={{ marginTop: 8 }}>
+             <button
+               type="button"
+               className="btn btn-secondary"
+               disabled={guardadoCrm.cargando}
+               onClick={() => {
+                 setVinculadoAuto(null);
+                 void vincularCrm(null);
+               }}
+             >
+               Deshacer
+             </button>
+           </div>
+         </Aviso>
+       )}
+       {!vinculadoAuto && sinCuentaEditable && !!sugerencia?.candidatas.length && (
+         <SeccionLista>
+           <FilaNavegable
+             icono="buscar"
+             titulo={
+               sugerencia.candidatas.length === 1
+                 ? `Parece estar en el CRM: «${sugerencia.candidatas[0].nombre}»`
+                 : `Parece estar en el CRM (${sugerencia.candidatas.length} cuentas parecidas)`
+             }
+             subtitulo={
+               sugerencia.candidatas.length === 1
+                 ? `${sugerencia.candidatas[0].ciudad ?? 'Sin ciudad'} · toca para vincularla`
+                 : 'Toca para elegir la suya'
+             }
+             tono="aviso"
+             onClick={abrirCrm}
+           />
+         </SeccionLista>
        )}
        {clienteId && <AvisoVisitasSinCerrar clienteId={clienteId} />}
        {/* Acción: lo esporádico como chip, no como fila de lista ni botón
@@ -628,72 +809,71 @@ export function FichaCliente() {
        )}
 
        {editandoDatos && (
-         <div className="card">
-           <div className="label" style={{ marginTop: 0 }}>Datos del cliente</div>
-           <input
-             className="field"
-             autoFocus
-             // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
-             // contacto" en un campo de nombre de EMPRESA, "nope" sí.
-             autoComplete="nope"
-             value={formNombre}
-             onChange={(e) => setFormNombre(e.target.value)}
-             placeholder="razón social"
-           />
-           <div className="label">Sector</div>
-           <select className="field" value={formSector} onChange={(e) => setFormSector(e.target.value)}>
-             <option value="">— sin especificar —</option>
-             {sectores?.map((s) => (
-               <option key={s.id} value={s.nombre}>{s.nombre}</option>
-             ))}
-             {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
-                 no se pierde al abrir el formulario. */}
-             {formSector && !sectores?.some((s) => s.nombre === formSector) && (
-               <option value={formSector}>{formSector}</option>
-             )}
-           </select>
-           <div className="label">Tamaño</div>
-           <select className="field" value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
-             <option value="">— sin especificar —</option>
-             {TAMANOS.map((t) => (
-               <option key={t} value={t}>{t}</option>
-             ))}
-           </select>
-           <div className="label">Ubicación general</div>
-           <input
-             className="field"
-             autoComplete="off"
-             value={formUbicacion}
-             onChange={(e) => setFormUbicacion(e.target.value)}
-             placeholder="p. ej. Polígono Norte, Sevilla"
-           />
-           <div className="label">Cuenta en el CRM</div>
-           {formCrm ? (
-             <FilaNavegable
-               titulo={textoCuentaCrm(formCrm)}
-               valor="quitar"
-               valorTenue
-               chevron={false}
-               onClick={() => setFormCrm(null)}
-             />
-           ) : (
+         <HojaSuperior
+           titulo={{ nombre: 'Nombre', sector: 'Sector', ubicacion: 'Ubicación', tamano: 'Tamaño' }[campoEditar]}
+           onCerrar={cerrarEditarDatos}
+         >
+           {campoEditar !== 'nombre' && (
+             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '0 0 var(--space-2)' }}>
+               Sale en la cabecera de los informes.
+             </p>
+           )}
+           {campoEditar === 'nombre' && (
              <>
-               <input
-                 className="field"
-                 autoComplete="off"
-                 value={buscaCrm}
-                 onChange={(e) => setBuscaCrm(e.target.value)}
-                 placeholder="busca por nombre (mín. 3 letras)"
-               />
-               <ResultadosCuentaCrm
-                 texto={buscaCrm}
-                 excluirClienteId={clienteId}
-                 titulo="Resultados"
-                 onElegir={(c) => {
-                   setFormCrm(c);
-                   setBuscaCrm('');
-                 }}
-               />
+             <div className="label" style={{ marginTop: 0 }}>Nombre</div>
+             <input
+               className="field"
+               autoFocus
+               // Ver alta-rapida-cliente.tsx: "off" no evita "Autorrellenar
+               // contacto" en un campo de nombre de EMPRESA, "nope" sí.
+               autoComplete="nope"
+               value={formNombre}
+               onChange={(e) => setFormNombre(e.target.value)}
+               placeholder="razón social"
+             />
+             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '4px 0 0' }}>
+               Cambiarlo aquí no cambia la cuenta del CRM.
+             </p>
+             </>
+           )}
+           {campoEditar === 'sector' && (
+             <>
+             <div className="label">Sector</div>
+             <select className="field" autoFocus={campoEditar === 'sector'} value={formSector} onChange={(e) => setFormSector(e.target.value)}>
+               <option value="">— sin especificar —</option>
+               {sectores?.map((s) => (
+                 <option key={s.id} value={s.nombre}>{s.nombre}</option>
+               ))}
+               {/* Si el cliente ya tiene un sector que ya no está en el catálogo,
+                   no se pierde al abrir el formulario. */}
+               {formSector && !sectores?.some((s) => s.nombre === formSector) && (
+                 <option value={formSector}>{formSector}</option>
+               )}
+             </select>
+             </>
+           )}
+           {campoEditar === 'tamano' && (
+             <>
+             <div className="label">Tamaño</div>
+             <select className="field" autoFocus={campoEditar === 'tamano'} value={formTamano} onChange={(e) => setFormTamano(e.target.value)}>
+               <option value="">— sin especificar —</option>
+               {TAMANOS.map((t) => (
+                 <option key={t} value={t}>{t}</option>
+               ))}
+             </select>
+             </>
+           )}
+           {campoEditar === 'ubicacion' && (
+             <>
+             <div className="label">Ubicación general</div>
+             <input
+               className="field"
+               autoFocus={campoEditar === 'ubicacion'}
+               autoComplete="off"
+               value={formUbicacion}
+               onChange={(e) => setFormUbicacion(e.target.value)}
+               placeholder="p. ej. Polígono Norte, Sevilla"
+             />
              </>
            )}
            {guardadoDatos.error && (
@@ -705,42 +885,86 @@ export function FichaCliente() {
              <button
                className="btn btn-secondary"
                disabled={guardadoDatos.cargando}
-               onClick={() => {
-                 setEditandoDatos(false);
-                 guardadoDatos.limpiarError();
-               }}
+               onClick={cerrarEditarDatos}
              >
                Cancelar
              </button>
              <button
                className="btn btn-primary"
-               disabled={guardadoDatos.cargando || !formNombre.trim()}
+               disabled={guardadoDatos.cargando || !formNombre.trim() || !hayCambiosDatos()}
                onClick={guardarDatos}
              >
                {guardadoDatos.cargando ? 'Guardando…' : 'Guardar'}
              </button>
            </div>
-         </div>
+         </HojaSuperior>
        )}
 
        <div className="lista-agrupada">
         {cliente && (
-          <SeccionLista titulo="Datos" prominencia="tenue">
-            {cliente?.sector && <FilaDato etiqueta="Sector" valor={cliente.sector} />}
-            {cliente?.ubicacion_general && (
-              <FilaDato etiqueta="Ubicación" valor={cliente.ubicacion_general} />
+          <>
+            {/* Lo importante, siempre a la vista: la cuenta del CRM (sin ella el briefing no encuentra al cliente) y
+                quién lo lleva. Sector, ubicación y tamaño solo salen en la cabecera de los informes: van plegados. */}
+            <SeccionLista>
+              {responsableNombre && !esDireccionComercial && <FilaDato etiqueta="Responsable" valor={responsableNombre} />}
+              {puedeEditar ? (
+                <FilaNavegable
+                  titulo="Cuenta CRM"
+                  subtitulo={
+                    cliente.crm_accountid
+                      ? cuentaCrm && !nombreCoincideConCrm
+                        ? `El CRM la llama «${cuentaCrm.nombre}» · toca para usar ese nombre`
+                        : cliente.nombre_alias
+                          ? `Nombre anterior: «${cliente.nombre_alias}»`
+                          : undefined
+                      : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'
+                  }
+                  valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+                  tono={cliente.crm_accountid ? (cuentaCrm && !nombreCoincideConCrm ? 'aviso' : 'neutral') : 'aviso'}
+                  onClick={abrirCrm}
+                />
+              ) : (
+                <FilaDato
+                  etiqueta="Cuenta CRM"
+                  valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+                />
+              )}
+            </SeccionLista>
+            {(puedeEditar || !!(cliente.sector || cliente.ubicacion_general || cliente.tamano_aprox)) && (
+              <SeccionColapsable
+                titulo="Datos del cliente"
+                cantidad={4}
+                siempreAbrible
+                recordarComo={`cliente-${cliente.id}-datos`}
+                detalle={[cliente.sector, cliente.ubicacion_general, cliente.tamano_aprox].filter(Boolean).join(' · ') || 'sin completar'}
+              >
+                {/* Quien puede editar ve siempre Nombre, Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
+                    al tocar uno abre solo ese dato; el resto solo ve los rellenos. */}
+                <SeccionLista>
+                  {puedeEditar && (
+                    <FilaNavegable titulo="Nombre" valor={cliente.nombre} onClick={() => abrirEditarDatos('nombre')} />
+                  )}
+                  {([
+                    ['Sector', cliente.sector, 'sector'],
+                    ['Ubicación', cliente.ubicacion_general, 'ubicacion'],
+                    ['Tamaño', cliente.tamano_aprox, 'tamano'],
+                  ] as const).map(([etiqueta, valor, campo]) =>
+                    puedeEditar ? (
+                      <FilaNavegable
+                        key={etiqueta}
+                        titulo={etiqueta}
+                        valor={valor || 'sin indicar'}
+                        valorTenue={!valor}
+                        onClick={() => abrirEditarDatos(campo)}
+                      />
+                    ) : (
+                      valor && <FilaDato key={etiqueta} etiqueta={etiqueta} valor={valor} />
+                    )
+                  )}
+                </SeccionLista>
+              </SeccionColapsable>
             )}
-            {cliente?.tamano_aprox && <FilaDato etiqueta="Tamaño" valor={cliente.tamano_aprox} />}
-            {responsableNombre && !esDireccionComercial && (
-              <FilaDato etiqueta="Responsable" valor={responsableNombre} />
-            )}
-            {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
-                cliente buscar. Se vincula con el lápiz de la cabecera. */}
-            <FilaDato
-              etiqueta="Cuenta CRM"
-              valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
-            />
-          </SeccionLista>
+          </>
         )}
 
         {/* Lo que sabemos que tiene, sacado de los hallazgos de todas sus
@@ -789,13 +1013,13 @@ export function FichaCliente() {
               // Remate de una línea con la actividad de ESTE proyecto — para
               // no tener que entrar a cada uno a saber si tiene algo abierto.
               // El historial completo (por visita) vive dentro del propio
-              // proyecto, no aquí (ver historial-visitas-cliente.tsx).
+              // proyecto, no en la ficha del cliente (ni con un solo proyecto).
               const estadoTxt =
                 p.estado !== 'activo' ? ESTADO_PROYECTO_LABEL[p.estado] ?? p.estado : null;
               const actividadTxt = p.visitaEnCurso
                 ? 'Visita en curso'
                 : p.ultimaVisitaFecha
-                  ? `Última visita ${fechaCorta(p.ultimaVisitaFecha)}`
+                  ? `${p.numVisitas} ${p.numVisitas === 1 ? 'visita' : 'visitas'} · última ${fechaCorta(p.ultimaVisitaFecha)}`
                   : 'Sin visitas todavía';
               return (
                 <FilaNavegable
@@ -807,6 +1031,7 @@ export function FichaCliente() {
                   tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
+                  swipe={proyectosVigentes.length > 1 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
                 />
               );
             })}
@@ -833,6 +1058,7 @@ export function FichaCliente() {
                   densidad="compacta"
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
+                  swipe={proyectosVigentes.length > 0 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
                 />
               ))}
           </SeccionLista>
@@ -878,34 +1104,94 @@ export function FichaCliente() {
           </HojaSuperior>
         )}
 
-        {/* Con 2+ proyectos, mezclar sus visitas en una sola lista confundía
-            de qué proyecto era cada una (Cesar, 14 sept) — cada proyecto
-            enseña ya su propio historial al entrar. Con uno solo, el paso
-            intermedio no aporta nada: se sigue mostrando aquí directo. */}
-        {clienteId && proyectos && proyectos.length === 1 && (
-          <HistorialVisitasCliente clienteId={clienteId} />
+        {crmAbierto && (
+          <HojaSuperior titulo="Cuenta del CRM" onCerrar={() => setCrmAbierto(false)}>
+            {cliente?.crm_accountid && (
+              <SeccionLista titulo="Vinculada ahora">
+                <FilaNavegable
+                  titulo={cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…'}
+                  subtitulo={cliente.nombre_alias ? `Al quitarla vuelve a llamarse «${cliente.nombre_alias}»` : undefined}
+                  valor="quitar"
+                  valorTenue
+                  chevron={false}
+                  disabled={guardadoCrm.cargando}
+                  onClick={() => void vincularCrm(null)}
+                />
+                {cuentaCrm && !nombreCoincideConCrm && (
+                  <FilaNavegable
+                    titulo="Usar el nombre del CRM"
+                    subtitulo={`Pasa a llamarse «${cuentaCrm.nombre}» (antes «${cliente.nombre}», que se sigue encontrando al buscar)`}
+                    chevron={false}
+                    disabled={guardadoCrm.cargando}
+                    onClick={() => void cambiarNombreCrm('usar')}
+                  />
+                )}
+                {cliente.nombre_alias && (
+                  <FilaNavegable
+                    titulo={`Volver a «${cliente.nombre_alias}»`}
+                    subtitulo="Mantiene la cuenta vinculada y su nombre propio"
+                    chevron={false}
+                    disabled={guardadoCrm.cargando}
+                    onClick={() => void cambiarNombreCrm('volver')}
+                  />
+                )}
+              </SeccionLista>
+            )}
+            <input
+              className="field"
+              autoFocus
+              autoComplete="off"
+              value={buscaCrm}
+              onChange={(e) => setBuscaCrm(e.target.value)}
+              placeholder="busca otra cuenta por nombre (mín. 3 letras)"
+            />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '10px 4px', fontSize: 'var(--text-sm)' }}>
+              <input type="checkbox" checked={adoptarNombre} onChange={(e) => setAdoptarNombre(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                Usar el nombre de la cuenta del CRM
+                <span style={{ display: 'block', color: 'var(--ink-400)', fontSize: 'var(--text-xs)' }}>
+                  «{cliente?.nombre_alias ?? cliente?.nombre}» se guarda como nombre anterior y se sigue encontrando al buscar.
+                </span>
+              </span>
+            </label>
+            <ResultadosCuentaCrm
+              texto={buscaCrm}
+              excluirClienteId={clienteId}
+              titulo={cliente?.crm_accountid ? 'Cambiar por' : `Cuentas parecidas a «${cliente?.nombre ?? ''}»`}
+              disabled={guardadoCrm.cargando}
+              onElegir={(c, otro) =>
+                otro
+                  ? guardadoCrm.establecerError(
+                      `Esa cuenta ya es del cliente «${otro.nombre}» (o de la misma empresa). Si son el mismo cliente, pide a Dirección que los fusione en Deduplicación.`
+                    )
+                  : void vincularCrm(c)
+              }
+            />
+            {guardadoCrm.error && (
+              <div style={{ marginTop: 8 }}>
+                <Aviso tipo="error">{guardadoCrm.error}</Aviso>
+              </div>
+            )}
+          </HojaSuperior>
         )}
-
 
         {creadorNombre && (
           <div className="ficha-creada">Ficha creada por {creadorNombre}</div>
         )}
 
-        {puedeEditar && (
+        {puedeEditar && !archivado && (
           <SeccionLista>
             <FilaNavegable
-              icono={archivado ? 'restaurar' : 'oculto'}
-              titulo={archivado ? 'Reactivar cliente' : 'Archivar cliente'}
+              icono="oculto"
+              titulo="Marcar como inactivo"
               subtitulo={
                 cambioArchivado.cargando
                   ? 'Guardando…'
-                  : archivado
-                    ? 'Vuelve a Clientes y se puede visitar otra vez'
-                    : 'Ya no trabajáis con él: sale de las listas y se conserva todo'
+                  : 'Ya no trabajáis con él: sale de las listas; no borra nada, ni archivos ni SharePoint'
               }
               chevron={false}
               disabled={cambioArchivado.cargando}
-              onClick={() => cambiarArchivado(!archivado)}
+              onClick={() => cambiarArchivado(true)}
             />
           </SeccionLista>
         )}
@@ -913,53 +1199,9 @@ export function FichaCliente() {
 
         {/* Borrar cliente — solo Dirección (prompt maestro 13): con los
             clientes del CRM, borrar es para errores (duplicado, prueba); lo
-            normal es Archivar. Al fondo y en tono riesgo, como en el resto
+            normal es Cliente inactivo. Al fondo y en tono riesgo, como en el resto
             de la app. El backend (eliminar_cliente_completo) sigue
             admitiendo también al creador; la UI ya no se lo ofrece. */}
-        {esDireccionComercial && (
-        confirmandoBorrarCliente ? (
-          previsualizandoCliente.cargando || !previsualizacionCliente ? (
-            <div className="card card--riesgo">
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-            </div>
-          ) : (
-            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
-            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
-            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
-            <ConfirmacionBorrado
-              onCancelar={cancelarBorradoCliente}
-              onConfirmar={confirmarBorradoCliente}
-              cargando={borrandoCliente.cargando}
-              error={borrandoCliente.error}
-              confirmar="Sí, borrar el cliente entero"
-            >
-              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
-              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
-              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
-              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
-              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
-              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
-              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
-              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
-              borrará también, para siempre.
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
-                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
-                antes desde "mi espacio".
-              </div>
-            </ConfirmacionBorrado>
-          )
-        ) : (
-          <SeccionLista>
-            <FilaNavegable
-              icono="borrar"
-              titulo="Borrar cliente"
-              tono="riesgo"
-              chevron={false}
-              onClick={pedirBorradoCliente}
-            />
-          </SeccionLista>
-        )
-        )}
        </div>
       </div>
 

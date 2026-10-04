@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { desde } from '@/lib/volver-a';
+import { Icono } from '@/components/ui/iconos';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 
 // Aviso "por hora": mientras la app está abierta, da un toque ~30 min antes
 // de una visita planificada CON HORA que aún no se ha empezado, y sigue
@@ -29,6 +31,7 @@ interface VisitaAviso {
   id: string;
   fecha: string;
   cliente: { id: string; nombre: string } | null;
+  medio: string;
 }
 
 export function AvisoVisitaProxima() {
@@ -55,7 +58,7 @@ export function AvisoVisitaProxima() {
     queryFn: async (): Promise<VisitaAviso[]> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('id, fecha, cliente:cliente_id(id, nombre), visita_participante!inner(comercial_id)')
+        .select('id, fecha, medio, cliente:cliente_id(id, nombre), visita_participante!inner(comercial_id)')
         .eq('estado_captura', 'agendada')
         .eq('hora_definida', true)
         .eq('visita_participante.comercial_id', comercial!.id)
@@ -115,6 +118,12 @@ export function AvisoVisitaProxima() {
           navigate(`/clientes/${v.cliente.id}/repaso?visitaId=${v.id}`, { state: desde(location) })
         }
       >
+        {esNoPresencial(medioDe(v.medio)) && (
+          <span className={`etiqueta-medio etiqueta-medio--${medioDe(v.medio)}`} style={{ marginRight: 6, color: 'inherit' }}>
+            <Icono nombre={MEDIO_VISITA[medioDe(v.medio)].icono} size={16} />
+            {MEDIO_VISITA[medioDe(v.medio)].etiqueta} ·
+          </span>
+        )}
         {v.cliente?.nombre ?? 'Visita'} · {hora}
         {pasada ? ` — era ${cuando}, ¿la empezaste?` : ` — ${cuando}`}
       </span>

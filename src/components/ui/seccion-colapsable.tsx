@@ -25,12 +25,28 @@ interface Props {
    *  botón "+ añadir" para crear el primer elemento (Detalle de
    *  oportunidad: "Términos y soluciones"). */
   siempreAbrible?: boolean;
+  /** Clave para recordar abierta/cerrada en esta pestaña (sessionStorage): al ir a una ficha y volver, la
+   *  sección sigue como la dejaste (la pantalla se desmonta al navegar y, si no, vuelve plegada). */
+  recordarComo?: string;
+  /** Texto breve a la derecha del título en lugar de «(N)» (un resumen de lo que hay dentro). */
+  detalle?: ReactNode;
   children?: ReactNode;
 }
 
-export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, tono, siempreAbrible, children }: Props) {
-  const [abierta, setAbierta] = useState(defaultAbierta);
-  const tocadoPorUsuario = useRef(false);
+const leerRecordada = (clave?: string): boolean | null => {
+  if (!clave) return null;
+  try {
+    const v = sessionStorage.getItem(`colapsable:${clave}`);
+    return v === null ? null : v === '1';
+  } catch {
+    return null;
+  }
+};
+
+export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, tono, siempreAbrible, recordarComo, detalle, children }: Props) {
+  const [recordada] = useState(() => leerRecordada(recordarComo));
+  const [abierta, setAbierta] = useState(recordada ?? defaultAbierta);
+  const tocadoPorUsuario = useRef(recordada !== null);
   const vacia = cantidad === 0 && !siempreAbrible;
 
   useEffect(() => {
@@ -39,13 +55,20 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
 
   const alternar = () => {
     tocadoPorUsuario.current = true;
-    setAbierta((v) => !v);
+    if (recordarComo) {
+      try {
+        sessionStorage.setItem(`colapsable:${recordarComo}`, abierta ? '0' : '1');
+      } catch {
+        /* sin sessionStorage: solo no se recuerda */
+      }
+    }
+    setAbierta(!abierta);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div
-        className={`card${tono === 'aviso' ? ' card--aviso' : ''}`}
+        className={`card${tono === 'aviso' ? ' card--aviso' : ''}${abierta && !vacia ? ' card--colapsable-abierta' : ''}`}
         role="button"
         tabIndex={vacia ? -1 : 0}
         aria-expanded={abierta}
@@ -69,8 +92,9 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
           opacity: vacia ? 0.5 : 1,
         }}
       >
-        <span style={{ fontSize: 'var(--text-md)', fontWeight: 500, color: tono === 'aviso' ? 'var(--warning-600)' : undefined }}>
-          {titulo} <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>({cantidad})</span>
+        <span style={{ fontSize: 'var(--text-md)', fontWeight: abierta && !vacia ? 600 : 500, color: tono === 'aviso' ? 'var(--warning-600)' : abierta && !vacia ? 'var(--brand-600)' : undefined }}>
+          {titulo}{' '}
+          <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>{detalle !== undefined ? detalle : `(${cantidad})`}</span>
         </span>
         {!vacia && (
           <span
@@ -87,7 +111,7 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
         )}
       </div>
       {abierta && !vacia && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 8 }}>{children}</div>
+        <div className="colapsable-contenido">{children}</div>
       )}
     </div>
   );

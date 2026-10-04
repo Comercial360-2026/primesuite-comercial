@@ -7,16 +7,17 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { obtenerOperacionesConError, procesarCola, eliminarOperacion, EVENTO_COLA_PROCESADA } from '@/lib/offline-queue';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { formatearMB } from '@/lib/espacio';
 import { esSinRed } from '@/lib/red';
 import { fechaCorta } from '@/lib/fechas';
 import { useAvisosParticipacion } from '@/hooks/use-avisos-participacion';
 import { useAvisosGestion } from '@/hooks/use-avisos-gestion';
-import { useTourGuiado } from '@/hooks/use-tour-guiado';
-import { useTourNavegacionControl } from '@/hooks/use-tour-navegacion-context';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaClientesPorVincular } from '@/features/clientes/clientes-por-vincular';
+import { FilaDato } from '@/components/ui/fila-dato';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Avatar } from '@/components/ui/avatar';
@@ -24,32 +25,9 @@ import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { Aviso } from '@/components/ui/aviso';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { Icono } from '@/components/ui/iconos';
-import { TourGuiado } from '@/components/ui/tour-guiado';
-import { TOUR_DIRECCION } from '@/lib/ayuda';
 
-const DIAS_AVISO_BACKUP = 7;
-
-// Tablas incluidas en la copia completa. Solo datos (filas), no los
-// binarios de fotos/audios — esos ya tienen su propio backup por visita
-// (ver mi-espacio.tsx / Fase B). Bajar todas las fotos de todos los
-// clientes cada semana sería enorme y lento; esto es la red de seguridad
-// para los DATOS, no para los archivos.
-const TABLAS_BACKUP = [
-  'cliente',
-  'comercial',
-  'visita',
-  'visita_participante',
-  'visita_interlocutor',
-  'interlocutor',
-  'hallazgo',
-  'captura_libre',
-  'oportunidad',
-  'oportunidad_visita_seguimiento',
-  'oportunidad_area',
-  'proximo_paso',
-  'termino',
-  'ubicacion',
-] as const;
+// La copia automática salta a los 7 días; a los 8 sin una confirmada es que algo falla.
+const DIAS_AVISO_BACKUP = 8;
 
 const ETIQUETA_ROL: Record<string, string> = {
   comercial: 'Comercial',
@@ -121,23 +99,20 @@ export function Yo() {
     }
   }
 
+  // Tocar el aviso de «Copia a SharePoint»: vuelve a dar 5 intentos a las copias
+  // agotadas (el cron las retoma en ≤10 min) y refresca el aviso.
+  async function reintentarArchivado() {
+    await supabase.rpc('fn_reintentar_archivado');
+    void queryClient.invalidateQueries({ queryKey: ['avisos-estado-archivado'] });
+  }
+
   const esDireccionComercial = comercial?.rol === 'direccion_comercial';
   const etiquetaRol = comercial?.rol ? ETIQUETA_ROL[comercial.rol] ?? comercial.rol : '—';
-
-  // Paso extra del tour, solo Dirección — señala "El equipo" la primera vez
-  // que entra aquí. Tour de bienvenida (las 4 pestañas) vive en LayoutShell;
-  // "Ver guía rápida" más abajo relanza los dos.
-  const tourDireccion = useTourGuiado(
-    'direccion',
-    esDireccionComercial ? comercial?.id : undefined,
-    TOUR_DIRECCION
-  );
-  const tourNavControl = useTourNavegacionControl();
 
   // Los 3 avisos de "Gestión" (peticiones de acceso, solicitudes de ayuda,
   // clientes duplicados) — compartidos con el punto de la pestaña "Yo" en
   // LayoutShell, ver use-avisos-gestion.ts.
-  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing } = useAvisosGestion();
+  const { numSolicitudesPendientes, numPeticionesAcceso, numGruposDuplicados, topeBriefing, estadoArchivado, problemasArchivado } = useAvisosGestion();
 
   // Partes de "algo va mal" sin resolver — se muestran aquí mismo (como las
   // visitas de equipo), no en una pantalla aparte.
@@ -238,81 +213,51 @@ export function Yo() {
     ubicacion: 'ubicación',
   };
 
-  const { data: ultimoBackup } = useQuery({
+  // Últimos intentos de copia (automática o manual): la última confirmada decide el aviso; mientras
+  // hay una enviada esperando a SharePoint se consulta cada 5 s.
+  const { data: intentosBackup } = useQuery({
     queryKey: ['ultimo-backup-completo'],
     enabled: esDireccionComercial,
     refetchOnMount: 'always',
+    refetchInterval: (q) => (q.state.data?.[0]?.estado === 'enviada' ? 5000 : false),
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('registro_backup_completo')
-        .select('creado_en')
+        .select('estado, creado_en, error')
         .order('creado_en', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
       if (err) throw err;
-      return data?.creado_en ?? null;
+      return data;
     },
   });
+  const ultimoBackup = intentosBackup?.find((i) => i.estado === 'confirmada')?.creado_en ?? null;
+  const ultimoIntento = intentosBackup?.[0];
+  const copiaEnCurso = ultimoIntento?.estado === 'enviada';
+  const copiaFallida = ultimoIntento?.estado === 'fallida';
 
   const diasDesdeBackup = ultimoBackup
     ? Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24))
     : null;
-  const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP;
+  const backupPendiente = diasDesdeBackup === null || diasDesdeBackup >= DIAS_AVISO_BACKUP || copiaFallida;
 
+  // La copia la hace el servidor (generar-copia-seguridad) y la sube a SharePoint; aquí solo se pide.
   async function hacerCopiaCompleta() {
-    // Sin red, cada select de abajo devolvería error y se bajaría un JSON
-    // lleno de "Failed to fetch" que no vale para nada. Mejor no empezar.
     if (!navigator.onLine) {
-      setErrorExportacion('Sin conexión. La copia necesita internet para leer todos tus datos.');
+      setErrorExportacion('Sin conexión. Vuelve a intentarlo cuando tengas red.');
       return;
     }
     setExportando(true);
     setErrorExportacion(null);
     try {
-      const resultado: Record<string, unknown> = {};
-      for (const tabla of TABLAS_BACKUP) {
-        const { data, error: err } = await supabase.from(tabla).select('*');
-        // Si una tabla concreta falla (permiso, lo que sea), se anota el
-        // fallo dentro del propio backup en vez de abortar todo el
-        // proceso — mejor una copia con un hueco señalado que ninguna.
-        resultado[tabla] = err ? { error: err.message } : data;
-      }
-
-      // Pero si NINGUNA tabla se pudo leer (típico: la conexión se cayó a
-      // mitad), no se descarga una copia vacía — se avisa y punto.
-      const todasFallaron = Object.values(resultado).every(
-        (v) => v != null && typeof v === 'object' && 'error' in v
-      );
-      if (todasFallaron) {
-        throw new Error(navigator.onLine ? 'No se pudo leer ninguna tabla.' : 'Failed to fetch');
-      }
-
-      const fecha = new Date().toISOString().slice(0, 10);
-      const blob = new Blob([JSON.stringify({ generado_en: new Date().toISOString(), tablas: resultado }, null, 2)], {
-        type: 'application/json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `primenotes-backup-${fecha}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-
-      const { error: errLog } = await supabase
-        .from('registro_backup_completo')
-        .insert({ creado_por: comercial!.id });
-      if (errLog) throw new Error(errLog.message);
-
+      const { data, error: err } = await supabase.functions.invoke('generar-copia-seguridad', { body: { forzar: true } });
+      if (err) throw err;
+      if (data?.error) throw new Error(data.error);
       queryClient.invalidateQueries({ queryKey: ['ultimo-backup-completo'] });
     } catch (err) {
       setErrorExportacion(
         esSinRed(err)
           ? 'Sin conexión. Vuelve a intentarlo cuando tengas red.'
-          : err instanceof Error
-            ? `No se pudo completar la copia: ${err.message}`
-            : 'No se pudo completar la copia.'
+          : 'No se pudo iniciar la copia. Inténtalo de nuevo.'
       );
     } finally {
       setExportando(false);
@@ -324,6 +269,7 @@ export function Yo() {
   // lo pedía por su cuenta con fn_espacio_storage_usado y lo pintaba como
   // una tarjeta aparte con el mismo número.
   const { estado: espacioEquipo } = useEspacioEquipo();
+  const espacioManual = useEspacioManualActivo() === true;
   const tonoEquipo: 'neutral' | 'aviso' | 'riesgo' =
     espacioEquipo == null
       ? 'neutral'
@@ -414,15 +360,17 @@ export function Yo() {
                   )}
                 </div>
               ))}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ marginTop: 8 }}
-                disabled={reintentandoCola}
-                onClick={reintentarAhora}
-              >
-                {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
-              </button>
+              {operacionesConError!.some((op) => !op.permanente) && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 8 }}
+                  disabled={reintentandoCola}
+                  onClick={reintentarAhora}
+                >
+                  {reintentandoCola ? 'Reintentando…' : 'Reintentar ahora'}
+                </button>
+              )}
             </div>
 
             <AyudaNota concepto="sincronizacion" />
@@ -593,7 +541,7 @@ export function Yo() {
           </div>
         )}
 
-        {!esDireccionComercial && (
+        {!esDireccionComercial && espacioManual && (
           <SeccionLista titulo="Tu espacio">
             <FilaNavegable
               icono="almacenamiento"
@@ -621,14 +569,24 @@ export function Yo() {
                   espacio", la FilaDato "Espacio del equipo" y "Consumo por
                   comercial"— repartidas en dos secciones y dos de ellas
                   abrían la misma pantalla. */}
-              <FilaNavegable
-                icono="almacenamiento"
-                titulo="Almacenamiento"
-                subtitulo="Tus visitas y el consumo del equipo"
-                tono={tonoEquipo}
-                valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
-                to="/mi-espacio"
-              />
+              {espacioManual ? (
+                <FilaNavegable
+                  icono="almacenamiento"
+                  titulo="Almacenamiento"
+                  subtitulo="Tus visitas y el consumo del equipo"
+                  tono={tonoEquipo}
+                  valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+                  to="/mi-espacio"
+                />
+              ) : (
+                // Sin liberación manual solo queda el dato: cuánto lleva el pozo del equipo.
+                <FilaDato
+                  icono="almacenamiento"
+                  etiqueta="Espacio del equipo"
+                  tono={tonoEquipo}
+                  valor={espacioEquipo ? `${Math.round(espacioEquipo.pctEquipo)}%` : 'Calculando…'}
+                />
+              )}
               <FilaNavegable
                 icono="equipo"
                 titulo="Actividad por comercial"
@@ -643,22 +601,24 @@ export function Yo() {
               barra={diasDesdeBackup === null ? 100 : Math.min((diasDesdeBackup / DIAS_AVISO_BACKUP) * 100, 100)}
               error={errorExportacion ?? undefined}
               accion={{
-                icono: 'descargar',
+                icono: 'subir',
                 etiqueta: 'Hacer copia ahora',
                 onClick: hacerCopiaCompleta,
-                disabled: exportando,
-                cargando: exportando,
-                etiquetaCargando: 'Preparando la copia…',
+                disabled: exportando || copiaEnCurso,
+                cargando: exportando || copiaEnCurso,
+                etiquetaCargando: 'Copiando a SharePoint…',
                 enfasis: backupPendiente ? 'primario' : 'secundario',
               }}
             >
-              {diasDesdeBackup === null
-                ? 'Nunca hecha · Supabase no hace copias solo, conviene una'
-                : diasDesdeBackup === 0
-                  ? 'Última: hoy'
-                  : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'}${
-                      backupPendiente ? ' · conviene hacer una' : ''
-                    }`}
+              {copiaFallida
+                ? 'La última copia falló · revisa el flujo de Power Automate'
+                : diasDesdeBackup === null
+                  ? 'Aún sin copia en SharePoint · se hace sola cada semana'
+                  : diasDesdeBackup === 0
+                    ? 'Última: hoy · en SharePoint, cada semana'
+                    : `Última: hace ${diasDesdeBackup} día${diasDesdeBackup === 1 ? '' : 's'} · en SharePoint, cada semana${
+                        backupPendiente ? ' · algo falla' : ''
+                      }`}
             </TarjetaAccion>
           </div>
         )}
@@ -699,6 +659,30 @@ export function Yo() {
                 to="/deduplicacion"
               />
             )}
+            <FilaClientesPorVincular />
+            {!!estadoArchivado &&
+              problemasArchivado > 0 && (
+                <FilaNavegable
+                  icono="almacenamiento"
+                  titulo="Copia a SharePoint"
+                  subtitulo={[
+                    Number(estadoArchivado.agotadas) > 0 &&
+                      `${estadoArchivado.agotadas} sin copiar tras 5 intentos — revisar el flujo de Power Automate y tocar aquí para reintentar`,
+                    Number(estadoArchivado.informes_agotados) > 0 &&
+                      `${estadoArchivado.informes_agotados} informe(s) de visita sin copiar tras 5 intentos — tocar aquí para reintentar`,
+                    Number(estadoArchivado.sin_copiar) > 0 && `${estadoArchivado.sin_copiar} esperando copia desde hace horas`,
+                    Number(estadoArchivado.posibles_duplicados) > 0 &&
+                      `${estadoArchivado.posibles_duplicados} con posible duplicado «(reintento …)» en SharePoint`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  badge={problemasArchivado}
+                  tono="aviso"
+                  chevron={false}
+                  // Tocar la fila reintenta las copias agotadas (vuelven a la cola): se dice en el subtítulo.
+                  onClick={() => void reintentarArchivado()}
+                />
+              )}
             <FilaNavegable
               icono="clientes"
               titulo="Equipo"
@@ -744,12 +728,6 @@ export function Yo() {
             subtitulo="Algo va mal o no se entiende — se lo cuentas a Dirección"
             onClick={() => setReportando(true)}
           />
-          <FilaNavegable
-            icono="guia"
-            titulo="Ver guía rápida"
-            subtitulo="El recorrido de bienvenida por el menú de abajo"
-            onClick={() => tourNavControl.reiniciar()}
-          />
         </SeccionLista>
 
         <SeccionLista>
@@ -789,16 +767,6 @@ export function Yo() {
               queryClient.invalidateQueries({ queryKey: ['reportes-problema-pendientes'] });
             }
           }}
-        />
-      )}
-
-      {tourDireccion.paso && (
-        <TourGuiado
-          paso={tourDireccion.paso}
-          indice={tourDireccion.indice}
-          total={tourDireccion.total}
-          onSiguiente={tourDireccion.siguiente}
-          onSaltar={tourDireccion.saltar}
         />
       )}
     </div>

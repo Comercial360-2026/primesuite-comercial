@@ -62,6 +62,10 @@ export interface VisitaPayload {
   // opcional en el tipo porque la RPC no lo conoce: se aplica con un UPDATE
   // posterior en sincronizarVisita, mismo patrón que `franja`.
   objetivo?: string;
+  // Cómo se hace (migración 136). Sin él, presencial. Como `objetivo`, la RPC no
+  // lo conoce: se aplica con el UPDATE posterior de sincronizarVisita.
+  medio?: 'presencial' | 'teams' | 'llamada';
+  enlaceReunion?: string;
   // Solo para visitas planificadas a fecha futura (ver migración 69). Sin
   // estos, la visita nace 'en_curso' con fecha = now(), como siempre.
   fecha?: string; // ISO
@@ -112,12 +116,17 @@ export interface HallazgoPayload {
 export interface CapturaLibrePayload {
   visitaId: string;
   comercialAutorId: string;
-  tipo: 'foto' | 'audio' | 'nota';
+  tipo: 'foto' | 'audio' | 'nota' | 'documento';
   titulo?: string; // referencia corta para distinguir capturas en la lista; solo aplica a 'nota'
   contenidoTexto?: string; // nota, o transcripción posterior de audio
   ubicacionId?: string;
   zonaTexto?: string; // etiqueta de zona del Recorrido — ver HallazgoPayload
   categoriaFoto?: string;
+  // Solo 'documento': nombre del archivo tal como lo subió el comercial (para
+  // descargarlo/archivarlo con ese nombre), su tipo MIME y su tamaño.
+  nombreOriginal?: string;
+  mime?: string;
+  bytes?: number;
   latitud?: number;
   longitud?: number;
   // storagePath se rellena SOLO tras subida exitosa del binario, nunca antes
@@ -198,6 +207,7 @@ type CamposComunes = {
   estado: EstadoOperacion;
   intentos: number;
   ultimoError?: string;
+  permanente?: boolean; // rechazo definitivo del servidor (tamaño/formato): reintentar no sirve
   creadoEn: string; // ISO timestamp
   // Denormalizado por encolarOperacion() (db.ts) a partir de la entidad/
   // payload — nunca lo rellena quien llama a encolar(). Existe SOLO para

@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
@@ -8,13 +9,13 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
 import { desde } from '@/lib/volver-a';
 import { ListaVisitasHistorial, type VisitaHistorial } from '@/features/visita/lista-visitas-historial';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Las secciones de un proyecto (prompt maestro 13): arriba lo VIVO, que dura
 // varias visitas (oportunidades activas, próximos pasos); debajo sus visitas,
 // cada una con lo que tiene dentro. Notas y hallazgos no se repiten aquí
 // sueltos: viven en su visita (y lo instalado, en la ficha del cliente). Lo
-// monta la Ficha de proyecto. El historial de TODO el cliente (todas sus
-// visitas, de cualquier proyecto) es otra cosa: `HistorialVisitasCliente`.
+// monta la Ficha de proyecto.
 //
 // Devuelve un fragment de <SeccionLista> (o el estado vacío) — sin envoltorio
 // propio: el que monta el componente pone el <div className="lista-agrupada">.
@@ -48,6 +49,7 @@ export function ActividadProyecto({
   // Origen a estampar en cada fila que navega a una pantalla de detalle,
   // para que su ← vuelva aquí (a la ficha que monta este componente).
   const origen = desde(useLocation());
+  const swipeBorrar = useSwipeBorrar();
 
   const { data: oportunidades } = useQuery({
     queryKey: ['oportunidades-activas-proyecto', proyectoId],
@@ -79,19 +81,23 @@ export function ActividadProyecto({
     },
   });
 
-  const { data: historialVisitas } = useQuery({
-    queryKey: ['historial-visitas-proyecto', proyectoId],
-    queryFn: async (): Promise<VisitaHistorial[]> => {
-      const { data, error } = await supabase
+  // Hasta 10 visitas; «Ver todas» quita el tope (sin él, la 11.ª y las anteriores no se podían abrir nunca).
+  const [verTodas, setVerTodas] = useEstadoRecordado(`proyecto-${proyectoId}-todas-las-visitas`, false);
+  const { data: historial } = useQuery({
+    queryKey: ['historial-visitas-proyecto', proyectoId, verTodas],
+    queryFn: async (): Promise<{ visitas: VisitaHistorial[]; total: number }> => {
+      let q = supabase
         .from('visita')
-        .select('id, fecha, objetivo, estado_captura')
+        .select('id, fecha, objetivo, estado_captura, medio', { count: 'exact' })
         .eq('proyecto_id', proyectoId)
-        .order('fecha', { ascending: false })
-        .limit(10);
+        .order('fecha', { ascending: false });
+      if (!verTodas) q = q.limit(10);
+      const { data, error, count } = await q;
       if (error) throw error;
-      return (data ?? []) as unknown as VisitaHistorial[];
+      return { visitas: (data ?? []) as unknown as VisitaHistorial[], total: count ?? data?.length ?? 0 };
     },
   });
+  const historialVisitas = historial?.visitas;
 
   // Ficha "vacía" = nada que un comercial haya registrado todavía en este
   // proyecto. `listasCargadas` evita el parpadeo de "vacía" mientras las
@@ -131,6 +137,7 @@ export function ActividadProyecto({
               valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
               to={`/oportunidades/${o.id}`}
               state={origen}
+              swipe={swipeBorrar(`/oportunidades/${o.id}`)}
             />
           ))}
         </SeccionLista>
@@ -156,6 +163,7 @@ export function ActividadProyecto({
                 valorTenue={!vencido}
                 to={`/proximos-pasos/${p.id}`}
                 state={origen}
+                swipe={swipeBorrar(`/proximos-pasos/${p.id}`)}
               />
             );
           })}
@@ -163,6 +171,11 @@ export function ActividadProyecto({
       )}
 
       {!!historialVisitas?.length && <ListaVisitasHistorial visitas={historialVisitas} />}
+      {!verTodas && (historial?.total ?? 0) > 10 && (
+        <SeccionLista>
+          <FilaNavegable titulo={`Ver todas las visitas (${historial!.total})`} chevron={false} valorTenue onClick={() => setVerTodas(true)} />
+        </SeccionLista>
+      )}
     </>
   );
 }

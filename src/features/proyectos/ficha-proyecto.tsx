@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { useVolverA, desde } from '@/lib/volver-a';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
@@ -12,17 +12,18 @@ import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyecto
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
-import { useEspacioProyecto } from '@/hooks/use-espacio-proyecto';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 import { ActividadProyecto } from './actividad-proyecto';
 import { AccionesProyecto } from './acciones-proyecto';
@@ -36,7 +37,6 @@ import { AvisoVisitasSinCerrar } from '@/features/visita/aviso-visitas-sin-cerra
 export function FichaProyecto() {
   const { clienteId, proyectoId } = useParams<{ clienteId: string; proyectoId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   // ← vuelve a donde se vino (ficha de cliente, actividad de Dirección…) o,
@@ -79,12 +79,6 @@ export function FichaProyecto() {
   const { estadoDe: estadoInformeDe, descargar: descargarInforme } = useDescargarInforme();
   const estadoInforme = proyectoId ? estadoInformeDe('proyecto', proyectoId) : 'inactivo';
   const informeListo = typeof estadoInforme === 'object' ? estadoInforme : null;
-
-  // "Liberar espacio" solo tiene sentido si hay alguna visita cerrada que
-  // liberar — sin eso, no se ofrece un botón que solo llevaría a una
-  // pantalla vacía. Mismo hook que usa la pantalla de destino: comparten
-  // queryKey, así que no se repite la consulta al entrar en ella.
-  const { visitas: visitasLiberables } = useEspacioProyecto(proyectoId);
 
   const { data: resumenVisitas } = useQuery({
     queryKey: ['resumen-visitas-proyecto', proyectoId],
@@ -210,7 +204,6 @@ export function FichaProyecto() {
       ['visitas-vivas-proyecto'],
       ['resumen-visitas-proyecto'],
       ['historial-visitas-proyecto'],
-      ['historial-visitas-cliente', clienteId],
       ['oportunidades-activas-proyecto'],
       ['oportunidades-abiertas-proyecto'],
       ['proximos-pasos-proyecto'],
@@ -222,6 +215,8 @@ export function FichaProyecto() {
   }
 
   const [preguntaIAAbierta, setPreguntaIAAbierta] = useState(false);
+  const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
   // Renombrar (lápiz de la cabecera) — UPDATE directo, requiere conexión,
@@ -402,6 +397,9 @@ export function FichaProyecto() {
             { etiqueta: 'Terminar', a: 'terminado' },
           ];
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!proyecto && destinosBorrado.length > 0);
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -410,7 +408,8 @@ export function FichaProyecto() {
         avatarForma="proyecto"
         ayuda="ficha-proyecto"
         subtitulo={cliente?.nombre}
-        volverA={volver}
+        // Con el nombre en edición, ← cierra la edición (paso anterior) y no saca de la ficha.
+        onVolver={() => (editandoNombre ? setEditandoNombre(false) : navigate(volver))}
         derecha={
           <>
             {puedePreguntarIA && (
@@ -424,6 +423,17 @@ export function FichaProyecto() {
                 <Icono nombre="ia" size={18} />
               </button>
             )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
             <button
               type="button"
               className="boton-icono"
@@ -434,11 +444,45 @@ export function FichaProyecto() {
             >
               <Icono nombre="editar" size={16} />
             </button>
+            <BotonPapelera
+              etiqueta={destinosBorrado.length === 0 ? 'No se puede borrar: no hay otro proyecto activo del cliente' : 'Borrar proyecto'}
+              disabled={destinosBorrado.length === 0}
+              onClick={() => setConfirmandoBorrado(true)}
+            />
           </>
         }
       />
 
       <div className="screen__scroll">
+          {confirmandoBorrado && (
+            <div ref={confirmacionRef}>
+            <ConfirmacionBorrado
+              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
+              confirmar="Sí, borrar el proyecto"
+              cargando={borrado.cargando}
+              error={borrado.error}
+              onCancelar={() => {
+                setConfirmandoBorrado(false);
+                borrado.limpiarError();
+              }}
+              onConfirmar={confirmarBorrado}
+            >
+              Se borra el proyecto «{proyecto?.nombre}» y su actividad se mueve a:
+              <select
+                className="field"
+                style={{ marginTop: 8 }}
+                value={destinoBorrado || destinosBorrado[0]?.id || ''}
+                onChange={(e) => setDestinoBorrado(e.target.value)}
+              >
+                {destinosBorrado.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </ConfirmacionBorrado>
+            </div>
+          )}
         {cargandoProyecto && <EstadoLista estado="cargando" />}
         {sinConexionProyecto && (
           <EstadoLista estado="sin-conexion" onReintentar={reintentarProyecto} />
@@ -483,7 +527,7 @@ export function FichaProyecto() {
         )}
         {!terminado && cliente?.estado_relacion === CLIENTE_ARCHIVADO && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
-            Cliente archivado: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
+            Cliente inactivo: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
           </div>
         )}
 
@@ -581,71 +625,28 @@ export function FichaProyecto() {
                   },
                 ]}
               />
-              {visitasLiberables.length > 0 && (
-                <FilaNavegable
-                  densidad="compacta"
-                  icono="descargar"
-                  titulo="Liberar espacio"
-                  subtitulo={`${plural(visitasLiberables.length, 'visita cerrada', 'visitas cerradas')} en este proyecto`}
-                  onClick={() =>
-                    navigate(`/clientes/${clienteId}/proyectos/${proyectoId}/espacio`, { state: desde(location) })
-                  }
-                />
-              )}
             </SeccionLista>
           )}
 
-          {confirmandoBorrado ? (
-            <ConfirmacionBorrado
-              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
-              confirmar="Sí, borrar el proyecto"
-              cargando={borrado.cargando}
-              error={borrado.error}
-              onCancelar={() => {
-                setConfirmandoBorrado(false);
-                borrado.limpiarError();
-              }}
-              onConfirmar={confirmarBorrado}
-            >
-              Se borra el proyecto «{proyecto?.nombre}» y su actividad se mueve a:
-              <select
-                className="field"
-                style={{ marginTop: 8 }}
-                value={destinoBorrado || destinosBorrado[0]?.id || ''}
-                onChange={(e) => setDestinoBorrado(e.target.value)}
-              >
-                {destinosBorrado.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </ConfirmacionBorrado>
-          ) : (
-            <SeccionLista>
-              <FilaNavegable
-                icono="borrar"
-                titulo="Borrar proyecto"
-                subtitulo={
-                  destinosBorrado.length === 0 ? 'No hay otro proyecto activo del cliente' : undefined
-                }
-                tono="riesgo"
-                chevron={false}
-                disabled={destinosBorrado.length === 0}
-                onClick={() => setConfirmandoBorrado(true)}
-              />
-            </SeccionLista>
-          )}
         </div>
       </div>
 
-      {/* Cliente archivado: solo consulta, como un proyecto terminado — se
+      {/* Cliente inactivo: solo consulta, como un proyecto terminado — se
           reactiva desde su ficha (prompt maestro 13). */}
       {clienteId && proyectoId && !terminado && cliente?.estado_relacion !== CLIENTE_ARCHIVADO && (
         <AccionesProyecto
           clienteId={clienteId}
           proyectoId={proyectoId}
           clienteNombre={cliente?.nombre}
+        />
+      )}
+
+      {briefingAbierto && clienteId && cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={clienteId}
+          clienteNombre={cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
       )}
 

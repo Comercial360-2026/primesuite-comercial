@@ -1,3 +1,79 @@
+# 🔇🔇🔇 RESPUESTAS: SOLO EL RESULTADO. CERO EXPLICACIONES QUE NO PIDA 🔇🔇🔇
+**Prohibido explicar causas, contexto, opciones o razonamientos si Cesar no los pide.** Formato: qué está hecho / qué falla / qué le toca a él (pasos exactos). Máximo unas pocas líneas. Sin párrafos de «por qué», sin listas largas, sin narrar lo que voy a hacer ni lo que he hecho paso a paso. Una duda de decisión = una pregunta corta con mi recomendación.
+
+# 📵📵📵 CAPTURAS DE PANTALLA: PROHIBIDO HACERLAS, NO SOLO ENSEÑARLAS 📵📵📵
+**NUNCA llamar a `screenshot` / `zoom` (ni `computer{action:"screenshot"}`) en este usuario: cada captura aparece en su pantalla aunque yo no la mencione.** Sin excepción, ni «solo para ubicar un clic».
+**Tampoco abrir el panel del navegador de Claude (`preview_start`, `mcp__Claude_Browser__*`): enseña la página en su pantalla igual que una captura (3 oct, se enfadó dos veces). El servidor de desarrollo se arranca con Bash en segundo plano (`npm run dev`) y se prueba SOLO con la ventana Playwright, con JS/texto.**
+Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenadas con `getBoundingClientRect`), `form_input`, SQL. Si de verdad no hay otra forma, PARAR y preguntar a Cesar antes de hacer una.
+
+# 🧪 PRUEBAS EN EL NAVEGADOR (Playwright) — reglas de oficio (3 oct)
+- Servidor de desarrollo: `npm run dev` con Bash en segundo plano (puerto 5173). Si cae («connection refused»), relanzarlo.
+- Ventana: 1470×779. Si se redimensiona para probar móvil (375×812), **devolverla a 1470×779 en la misma tanda**: si no, la app sale pegada a la izquierda en su Chrome (pasó 2 veces).
+- «Browser is already in use»: matar el Chrome principal de `ms-playwright-mcp` (`ps aux | grep ms-playwright-mcp`); la sesión iniciada se conserva.
+- Ficheros que se suben: dentro del repo en `.playwright-mcp/` (ignorado); borrarlos al acabar.
+- Un fallo de red del servidor se simula en el navegador con `page.route` (respuesta 413/415…), sin tocar buckets ni ajustes: la base de datos es la MISMA para producción y para pruebas.
+- Datos de prueba: SAPA (cliente 6506a9ba…) es de prueba. Visitas de prueba: crearlas por la app y borrarlas con SQL en una transacción (`captura_libre`, `visita_interlocutor`, `visita_participante` y después `visita`: el trigger exige un responsable, así que participante y visita van en la MISMA transacción) y los archivos de Storage con la API. Nunca dejarlas vivas.
+
+# 🛑🛑🛑 AGENTES, FLUJOS Y PROCESOS AUTOMÁTICOS: PRIMERO LA DOCUMENTACIÓN, DESPUÉS LAS PRUEBAS, DESPUÉS EL CLIC 🛑🛑🛑
+**Siempre que se cree o toque un agente, un flujo (Power Automate, Copilot Studio…), un cron, un webhook o cualquier proceso automático — y más si BORRA o ESCRIBE datos:**
+1. **ANTES de abrir el editor o escribir código: leer la documentación oficial** de cada pieza (acciones, parámetros reales, límites, qué devuelve). Nada de memoria ni «probar a ver si cuela». Decir qué documentación he leído.
+2. **Lo no documentado se comprueba en el entorno real** (nombre de biblioteca, campo dinámico, orden, rutas) antes de construir encima.
+3. **Probar por capas, con muchas pruebas:** primero solo leer/listar, luego la acción destructiva con datos de prueba y un número pequeño, y solo al final el valor real. Verificar el resultado real tras cada capa.
+4. **Cualquier acción que borre** exige: documentación leída + prueba en capa segura + comprobar que si algo falla no borra nada.
+6. **Antes de ejecutar: leer también los problemas conocidos** (incidencias de la comunidad, issues, límites del diseñador) de cada pieza, no solo el manual. Decir qué he leído y qué NO está documentado.
+7. **Todo lo que se crea en un sistema externo (flujos, funciones, carpetas, cron, permisos) se anota en el repo en el mismo momento**, con ids, rutas y estructura exacta (ver `docs/archivado-sharepoint/copia-seguridad.md`). Si no está en el repo, no existe.
+8. **Orden de Cesar = escrito en CLAUDE.md al instante, y comprobado con grep.** Incumplir una regla ya escrita es el error más grave.
+5. **Si me pillo construyendo sin haber hecho 1-3: PARAR, decirlo y documentarme.** (Registro: 3 oct, empecé a crear un flujo de borrado de SharePoint de memoria; Cesar me paró.)
+
+# 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
+- **Comprobar todo en ESTA sesión antes de afirmar. Las notas/memoria NO son hechos.** «No puedo / no hay sesión / está bloqueado» = probarlo primero.
+- **Prohibido enseñar imágenes/capturas y explicar de más.** Verificar con JS/SQL/`get_page_text`.
+- **Prohibido escribir contraseñas/tokens en webs:** usar `request_credentials` (1Password; si `not_connected`, pedir pulsar Connect) o que Cesar inicie sesión.
+- Producción solo con `HAZ DEPLOY A PRODUCCIÓN`. No dejar pendiente lo que pueda hacer yo (CLI de Supabase, SQL, Chrome, MCP).
+# 🚫🚫🚫 PROHIBIDO MENTIR, INVENTAR O SUPONER — REGLA Nº 1, ABSOLUTA 🚫🚫🚫
+
+## ⛔ TOTALMENTE PROHIBIDO MENTIR. TOTALMENTE PROHIBIDO INVENTAR. ⛔
+
+**LEER ESTO ANTES DE CADA RESPUESTA. SIN EXCEPCIONES.**
+
+- **MIRAR ANTES DE RESPONDER.** Todo lo que afirmo lo he comprobado AHORA (código, BD, navegador, salida real de un comando). Si no lo he mirado, NO lo digo.
+- **«No puedo» / «no tengo» / «no veo» también hay que comprobarlo** (herramientas disponibles, ToolSearch) ANTES de decirlo. Decir «no puedo ver tu Chrome» sin mirar es mentir.
+- «Hecho», «arreglado», «subido», «anotado» = he mirado el resultado real después. Un comando sin error NO prueba que hizo lo que quería.
+- Lo que viene de memoria, notas o suposición se dice «según mis notas, SIN comprobar» y se comprueba antes de darlo por bueno.
+- Si no sé algo: «no lo sé». Nunca rellenar el hueco.
+- Si descubro que dije algo falso, lo corrijo YO al instante.
+
+- **PROHIBIDO decir «no he mentido en nada más» / «no hay más» sin haber REVISADO la conversación entera.** Afirmar un barrido que no he hecho es otra mentira.
+- **PROHIBIDO dar como hecho por mí lo que sale de notas de otra sesión** («ya lo probé», «ya está verificado»). Si no lo he hecho en ESTA sesión, se dice «según mis notas, no verificado ahora».
+- **PROHIBIDO poner excusas** («no hay visita para abrirlo»): si no lo hice, digo «no lo hice», no invento un motivo.
+- **Si Cesar dice que he mentido, NO me defiendo:** reviso lo dicho línea a línea, comprobando cada afirmación, y le digo cuáles eran falsas.
+- **Lo escrito en esta regla no sirve si no lo releo antes de cada respuesta. Releerla SIEMPRE.**
+
+**Historial (1 oct 2026):** Claude mintió o afirmó sin comprobar varias veces seguidas —dijo «anotado en CLAUDE.md» sin que se hubiera aplicado, dijo que no podía ver Chrome sin mirar, dio como cierto lo que sacó de notas— y le costó la confianza a Cesar. Después volvió a afirmar «no hay más mentiras» sin revisar y a decir «ya lo probé» desde notas. No se repite.
+
+---
+
+## Registro de errores y mentiras de Claude (se amplía en cada caso; releer)
+
+| Fecha | Qué dije/hice mal | Regla que lo evita |
+|---|---|---|
+| 1 oct | «Anotado en CLAUDE.md» sin comprobar: la edición no se aplicó | Tras cada edición, `grep` del resultado |
+| 1 oct | «No puedo ver tu Chrome» sin mirar: tenía la extensión | Comprobar herramientas (ToolSearch) antes de decir «no puedo» |
+| 1 oct | «El panel está a la derecha» sin saberlo | No describir la UI sin haberla comprobado |
+| 1 oct | Excusa inventada («no hay visita para abrir el repaso»): se abría directo | Si no lo hice, «no lo hice», sin motivo inventado |
+| 1 oct | «Ninguna otra mentira» sin revisar la conversación | No afirmar barridos que no he hecho |
+| 1 oct | «Ya lo probé» con datos de notas de otra sesión | Notas = «sin comprobar ahora» |
+| 1 oct | Dije que a la IA le faltaba en 3 pantallas: ya estaba, de memoria | Mirar el código antes de afirmar qué hay |
+| 1 oct | Arreglé solo SAPA en vez de la clase de bug (briefing/IA en todas las pantallas) | Barrer toda la app (método de bugs) |
+| 1 oct | Briefing en visita cerrada solo si ya existía uno: no se podía generar | Probar el caso «no existe aún», no solo el que ya funciona |
+| 3 oct | Dejé la ventana de Playwright a 375 px y la app salió pegada a la izquierda (2 veces) | Devolver a 1470×779 en la misma tanda |
+| 3 oct | Abrí el panel del navegador de Claude (`preview_start`): enseña la página, Cesar lo vio como captura (2 veces) | Servidor con Bash en segundo plano; solo Playwright |
+| 3 oct | Al arreglar el scroll de la visita cerrada metí «Documentos» y «Reabrir» al final de una pantalla de 5700 px y empeoré el hallazgo | Estado y acción juntos y arriba; medir dónde queda cada acción |
+| 3 oct | Repetí «probar un fallo real del informe» como si lo hubiera; di pruebas por hechas con estado simulado | Decir siempre «simulado» o «real» |
+| 3 oct | Dije «apuntado» sin comprobarlo: un script falló por un assert y CLAUDE.md no se actualizó | Tras cada edición, grep del resultado |
+
+---
+
 # PrimeSuite Comercial — reglas de trabajo
 
 Proyecto: `primesuite-comercial` (Vite + React + TypeScript + Supabase, desplegado en Netlify).
@@ -91,6 +167,117 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   navega a una, comprobar que estampa origen y que el destino usa
   `useVolverA`. Detalle en `src/lib/volver-a.ts`.
 
+- **← con un panel de edición abierto cierra el panel, no la pantalla.** Si una
+  pantalla de detalle tiene un modo/panel de edición en línea (`editandoDatos`,
+  `editandoNombre`, `editandoResumen`, `editando`…), su `CabeceraDetalle` usa
+  `onVolver={() => (editando ? cerrarEdicion() : navigate(volver))}` y no un
+  `volverA` fijo: ← es el paso anterior (cancelar la edición), no el origen.
+  Ya aplicado en ficha-proyecto, detalle-visita-cerrada y cola-vocabulario
+  (3 oct); la ficha de cliente usa hojas (Datos del cliente, Cuenta CRM). Las hojas (`HojaSuperior`) ya retroceden con su ×.
+- **Filtros y búsqueda de una lista viven en la URL, y quien navega desde ella estampa el origen.**
+  Un filtro (Solo míos/Todos, Lista/Mes, búsqueda…) en `useState` se pierde al volver
+  de una ficha. Va en `?vista=…` / `?q=…` (con `setSearchParams(prev => …)` para no
+  pisar otros parámetros) y TODO sitio que navega desde esa lista —filas, «+», flujos
+  de alta que acaban en una ficha— pasa `state={desde(location)}` (o `{ from: volver }`
+  si la pantalla intermedia ya tiene `useVolverA`). Aplicado el 3 oct en
+  listado-clientes (+ búsqueda), alta-rapida-cliente, listado-comerciales /
+  detalle-comercial y el calendario de la Agenda (`calendario-mes.tsx`: ?mes=, ?dia=), todo
+  comprobado con datos. OJO: `features/hoy/agenda.tsx` es CÓDIGO MUERTO (nadie lo importa);
+  la Agenda real vive en `agenda-del-dia.tsx`. Pendiente de barrer: lo que ya usa URL
+  (mi-espacio, mis-proximos-pasos, cola-vocabulario, agenda-del-dia).
+- **El ← recuerda el origen aunque se llegue «hacia atrás».** El ← hace `navigate(origen)`
+  sin estado, así que la pantalla a la que vuelves perdía SU origen (Lista → Ficha →
+  Proyecto → ← → ← caía en Clientes «Solo míos»). `useVolverA` guarda en `sessionStorage`
+  el último origen de cada ruta y lo usa cuando llega sin `state.from`. Por eso toda
+  pantalla de detalle usa `useVolverA`, nunca un `volverA` fijo. Comprobado el 3 oct con
+  Lista(Todos) → Ficha → Proyecto → Visita y tres ←.
+- **Duplicados al dar de alta: comparar también con el nombre de la cuenta CRM y sus hermanas.**
+  «Verescence La Granja» no encontraba al cliente «Verescence» y las cuentas hermanas del CRM
+  (`…, S.l`, `…, S.L.`) salían libres. `useClientesPorClaveDeCuenta` (cuenta-crm.tsx) las marca
+  «parece la misma empresa que «X»».
+- **Alta de cliente: duplicado fuerte = NO se crea; parecido = solo aviso.** Fuerte: mismo nombre,
+  mismo nombre sin «S.L.» o la cuenta del CRM de un cliente que ya tienes (o una hermana suya).
+  No hay «crear igual»: si es otra empresa, se le pone un nombre que la distinga («Verescence
+  Toledo» junto a «Verescence La Granja» SÍ se puede crear: es solo «parecido»). Una cuenta del
+  CRM = un cliente activo, también en BD (índice único `cliente_crm_accountid_unico`, migración
+  146). En la ficha, vincular una cuenta que ya es de otro cliente da error y remite a
+  Deduplicación. Probado el 3 oct (alta de un cliente nuevo de punta a punta, borrado después).
+- **Cliente creado a mano que luego aparece en el CRM con otro nombre.** La sincronización del CRM
+  nunca crea ni toca clientes (solo `crm_cuenta`). Se arregla vinculando: en la ficha, la hoja «Cuenta CRM»
+  lista las cuentas parecidas; y en el alta, si eliges la cuenta del CRM y ya existe un cliente parecido SIN
+  cuenta, su fila dice «es este: vincular cuenta y visitar» y vincula en vez de crear un segundo cliente.
+  Probado el 3 oct con datos (cliente «Zeta Prueba» + cuenta «Zeta Prueba Industrial, S.L.», borrados).
+  **Cerrado el 4 oct:** la ficha sugiere la cuenta («Parece estar en el CRM: …»; `useSugerenciasCuenta`) y, si la coincidencia
+  es exacta y única (mismo nombre sin «S.L.»/«S.A.»), se vincula sola al abrirla con «Deshacer»; Yo → Gestión → «Clientes por
+  vincular» (Dirección) las lista y vincula las exactas de golpe. Al vincular el cliente adopta el nombre de la cuenta (opcional,
+  casilla en «Cuenta CRM») y su nombre anterior queda en `cliente.nombre_alias` (los buscadores lo encuentran: usar
+  `filtroNombreOAlias`). Quitar o deshacer restaura el nombre y marca `crm_no_autovincular` (no se re-vincula solo). Migraciones 149-150.
+  Cambiar a otra cuenta si hubo un error: ficha → Cuenta CRM → «Cambiar por».
+  Ya vinculados con nombre distinto al de su cuenta (los de antes del 4 oct): en la ficha «El CRM la llama «X» · usar ese nombre» y en
+  «Clientes por vincular» (botón para todos); «Volver a «nombre anterior»» conserva la cuenta y marca `crm_nombre_propio` (no se vuelve a
+  ofrecer). La carpeta de SharePoint se fija la primera vez (`cliente.carpeta_sharepoint`): renombrar un cliente NO parte su historial.
+- **Ficha de cliente: lo que importa a la vista, lo demás plegado (4 oct).** Cuenta CRM y responsable siempre visibles; Nombre,
+  Sector, Ubicación y Tamaño van en «Datos del cliente» (desplegable con resumen, `SeccionColapsable detalle`): solo salen en la cabecera
+  de los informes y en Deduplicación, y el CRM no trae sector ni tamaño.
+- **Pantalla `screen--split`: nada fijo debajo del `screen__scroll` salvo un botón.** Bloques largos
+  (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
+  (visita cerrada, 3 oct).
+
+- **La vista se recuerda al volver (4 oct).** Todo conmutador/«Ver todas»/panel/sección plegada de una pantalla a la que
+  se vuelve desde una ficha usa `useEstadoRecordado(clave, inicial)` (`src/lib/use-estado-recordado.ts`, sessionStorage; la
+  clave lleva el id de la visita/proyecto) o `recordarComo` en `SeccionColapsable`; NUNCA `useState` a secas (se pierde al
+  navegar). Aplicado: Zona/Tipo (visita cerrada y en curso), zonas/mapa/descargas plegables, «Ver todas las visitas»
+  (proyecto), paneles de visitas abiertas, «Ver inactivos». El scroll se restaura solo (`use-restaurar-scroll.ts` en
+  LayoutShell) al volver al origen estampado en `state.from`. Los filtros de una lista siguen en la URL. Un panel no se
+  cierra a sí mismo al navegar (si no, al volver aparece cerrado).
+- **Todo buscador para elegir cliente ofrece también las cuentas del CRM (4 oct).** Con ≥3 letras, bloque «En el CRM (aún
+  no es cliente)» (`ResultadosCuentaCrm`): una cuenta sin cliente abre el alta con `?nombre=…&cuenta=<accountid>` (y
+  `&medio=` / `&enlace=`); una que ya tiene cliente (o una hermana) sigue con ese. Aplicado: Empezar visita, Planificar,
+  lista de Clientes (el alta ya lo tenía). Y «¿Cómo es la visita?» (Presencial/Teams/Llamada) va ARRIBA, en todos los
+  pasos, no al final.
+- **Borrar = deslizar la fila a la izquierda o papelera en la cabecera de la ficha (4 oct).** NO hay botón «Borrar» al final de pantalla.
+  La fila lleva `swipe={swipeBorrar(ruta)}` (`useSwipeBorrar`, `lib/borrar-solicitado.ts`): la papelera revelada navega a la ficha con
+  `state.borrar` y la ficha abre SU confirmación de siempre (`useBorrarSolicitado` + `useVerAlAbrir`, `BotonPapelera` en la cabecera).
+  Sin permiso (cliente: Dirección; visita: Dirección/responsable; captura: autor/Dirección; proyecto: otro vigente) ni fila deslizable ni papelera.
+  La confirmación va JUSTO BAJO LA CABECERA (no al final: con contenido cargando abajo quedaba fuera de pantalla en iPhone) y todo borrado desde una ficha refresca todas las listas (`queryClient.invalidateQueries()`, si no queda fila fantasma). Una sola fila abierta a la vez. `swipe` admite varias acciones (`AccionSwipe[]`, p. ej. Clientes: «Inactivo» + «Borrar») y `desactivada`+`motivo` (sin conexión). Aviso de una sola vez: `PistaDeslizar`. Pantalla nueva con borrado = papelera + estos hooks. Las capturas de `visita-activa` (`.va-item`) y las
+  notas/fotos de la visita cerrada no son `FilaNavegable`: solo tienen la papelera de su ficha.
+- **Dar de baja a un comercial (4 oct, migración 152, función `gestionar-comercial`).** Sin NINGÚN historial
+  (`fn_comercial_tiene_historial` recorre las claves foráneas en vivo) se borra del todo, cuenta de Auth incluida; con historial se
+  conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
+  y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
+  correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
+- **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
+  (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
+- **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
+  pueda pulsarse varias veces (reabrir/cerrar visita, «Hacer copia ahora», reintentar archivado, adjuntar
+  documento) no debe duplicar archivos en SharePoint si nada cambió, y lo que sí cambie lo dice antes de
+  confirmar. Reabrir/cerrar: migración 148 (huella del contenido). Al añadir una acción nueva que suba algo
+  a SharePoint, comprobar qué pasa pulsándola dos veces seguidas.
+
+- **Las visitas viven dentro de su proyecto, no en la ficha del cliente.** La ficha lista proyectos con
+  «N visitas · última <fecha>» (la última que ya ocurrió, no una planificada); da igual que haya uno o cinco
+  proyectos. El proyecto enseña 10 visitas y «Ver todas las visitas (N)» las abre todas: un tope sin salida
+  deja visitas inalcanzables. Probado el 3 oct con 12 visitas (10 → 12).
+
+- **Estado y la acción que lo cambia, juntos y arriba.** Si una pantalla dice «cerrada» / «inactivo» /
+  «planificada», la acción que lo cambia (Reabrir, Reactivar…) va junto a ese estado, no al final de una
+  pantalla larga (visita cerrada: franja «Cerrada el … · toca para reabrirla»; cliente inactivo: «Reactivar
+  cliente» bajo el aviso; comercial de baja: «Reactivar comercial» bajo el aviso, 3 oct). Lo destructivo (Borrar…) sí va al final, aparte. La cabecera de toda visita dice
+  su estado (en curso / planificada / cerrada).
+- **Una fila de acción se llama por la acción, no por el estado**: «Marcar como inactivo», no «Cliente inactivo».
+- **Pantallas de edición larga: «Guardar» fijo al pie** (`.btn-guardar-fijo`, sticky) para no bajar hasta el
+  final a guardar lo cambiado arriba (oportunidad, hallazgo, paso, captura).
+- **Adjuntar documento = icono redondo / «+» en la cabecera de su sección**, nunca una fila al final.
+- **Un tope de pantalla (`limit(10)`) lleva siempre «Ver todas»**: si no, lo que queda fuera es inalcanzable.
+
+- **Tocar una fila de dato abre SOLO ese dato** (hoja de un campo), no el formulario
+  entero. En la ficha de cliente no hay lápiz: Nombre, Sector, Ubicación, Tamaño y
+  Cuenta CRM son filas tocables (3 oct).
+
+- **Una decisión suelta no va dentro de un formulario largo.** Vincular la cuenta
+  del CRM tiene su propia hoja con las candidatas ya listadas y guarda al elegir
+  (no depende del «Guardar» de Editar datos).
+
 - **Buscador de selección: elegir un resultado vacía la búsqueda.** En un
   campo que busca sobre un catálogo o una lista y del que se *elige* algo
   (categoría, término, comercial, cliente…) quedándote en la misma
@@ -111,6 +298,35 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   cuando el buscador desaparece solo al pasar de paso
   (`empezar-visita-hoja`, `planificar-visita`), ni en los filtros de
   listado que navegan fuera (`listado-clientes`, `ayuda-manual`).
+
+- **Adjuntos de visita: una sola lista de buckets.** Todo sitio que borre,
+  liste o mida adjuntos de una visita usa `BUCKETS_VISITA` /
+  `quitarAdjuntosDeStorage` / `bucketDeTipo` (`src/lib/buckets-visita.ts`).
+  Nunca `from('fotos-visita')` + `from('audios-visita')` sueltos: un bucket
+  nuevo (como `documentos-visita`) se olvidaría en un borrado y dejaría
+  archivos huérfanos. En SQL, las funciones `fn_espacio_*` /
+  `fn_mis_visitas_espacio` / `fn_visitas_liberables_proyecto` llevan la misma
+  lista: al añadir un bucket se actualizan todas en la misma migración.
+
+## Cómo comunicarse con Cesar (obligatorio, repetido muchas veces)
+
+- **Sin explicaciones ni narración.** No anunciar qué voy a hacer ni explicar causas
+  salvo que se pidan. Un resultado en una línea; si le toca algo a él, los pasos exactos.
+- **Sin pantallazos.** Verificar en navegador con JS / `get_page_text` / `find`. NUNCA
+  llamar a `screenshot`: se ve en su pantalla aunque no se mencione (ver bloque grande arriba).
+- **Hacerlo yo antes de pasarle trabajo.** Si el clasificador de Claude Code lo
+  bloquea, decirlo en una línea y dar los pasos.
+- **Documentarse antes de programar integraciones externas** (Power Automate, SharePoint,
+  Supabase Edge, etc.): comprobar en la documentación cómo funciona cada pieza
+  (formatos, límites, nombres reales) ANTES de escribir código, y probar por capas.
+  Nada de «probar a ver si cuela».
+- **Briefing y «Pregunta a la IA» en TODA pantalla de un cliente o visita.**
+  Ficha de cliente, repaso, ficha de proyecto, detalle de oportunidad y las
+  tres visitas (en curso, planificada, cerrada) llevan los dos iconos en la
+  cabecera: `useVisitaBriefing(clienteId)` + `BriefingHoja`, y
+  `usePuedePreguntarIA` + `PreguntaIAHoja`. `npm run lint` falla si una
+  pantalla tiene uno sin el otro. Las filas de Hoy no llevan iconos: abren
+  una de esas pantallas, a un toque.
 
 ## Despliegue (Netlify)
 

@@ -52,6 +52,7 @@ export function ConfirmarBorradoVisita({
   const vacia =
     previsualizacion.num_fotos === 0 &&
     previsualizacion.num_audios === 0 &&
+    previsualizacion.num_documentos === 0 &&
     previsualizacion.num_notas === 0 &&
     previsualizacion.num_hallazgos === 0 &&
     previsualizacion.num_oportunidades === 0 &&
@@ -71,11 +72,19 @@ export function ConfirmarBorradoVisita({
         <>
           Esta visita arrastra: {plural(previsualizacion.num_fotos, 'foto', 'fotos')},{' '}
           {plural(previsualizacion.num_audios, 'audio', 'audios')},{' '}
+          {plural(previsualizacion.num_documentos, 'documento', 'documentos')},{' '}
           {plural(previsualizacion.num_notas, 'nota', 'notas')},{' '}
           {plural(previsualizacion.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
           {plural(previsualizacion.num_oportunidades, 'oportunidad', 'oportunidades')} y{' '}
           {plural(previsualizacion.num_proximos_pasos, 'próximo paso', 'próximos pasos')}. Todo eso se
           borrará también.
+          {!!previsualizacion.num_archivos_sharepoint && (
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+              {plural(previsualizacion.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en SharePoint
+              {previsualizacion.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
+              {previsualizacion.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
+            </div>
+          )}
         </>
       )}
     </ConfirmacionBorrado>

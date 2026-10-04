@@ -10,8 +10,9 @@ import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -214,6 +215,8 @@ export function DetalleProximoPaso() {
     // seguía mostrando como fantasma. No falla si la entrada local no existe.
     await eliminarOperacion(pasoId);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
 
@@ -292,6 +295,9 @@ export function DetalleProximoPaso() {
     navigate(volver);
   }
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!paso);
+
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
@@ -326,7 +332,18 @@ export function DetalleProximoPaso() {
         ayuda="proximo-paso"
         subtitulo={contextoCliente || undefined}
         onVolver={alVolver}
+        derecha={<BotonPapelera etiqueta="Borrar próximo paso" onClick={() => setConfirmandoBorrado(true)} />}
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
+        </div>
+      )}
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
       <TextareaDictado
@@ -406,7 +423,7 @@ export function DetalleProximoPaso() {
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={!descripcion.trim() || guardando || guardadoConExito}
         onClick={guardar}
@@ -414,22 +431,6 @@ export function DetalleProximoPaso() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar próximo paso"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        />
-      )}
     </div>
   );
 }

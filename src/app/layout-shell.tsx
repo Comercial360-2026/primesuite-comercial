@@ -1,3 +1,4 @@
+import { useRestaurarScroll } from '@/lib/use-restaurar-scroll';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -9,9 +10,11 @@ import { useTourGuiado } from '@/hooks/use-tour-guiado';
 import { TourNavegacionContext } from '@/hooks/use-tour-navegacion-context';
 import { AvisoVisitaProxima } from '@/components/ui/aviso-visita-proxima';
 import { AvisoEspacio } from '@/components/ui/aviso-espacio';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { BannerInstalar } from '@/components/ui/banner-instalar';
 import { TourGuiado } from '@/components/ui/tour-guiado';
-import { IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
+import { Icono, IconoHoy, IconoClientes, IconoTareas, IconoYo } from '@/components/ui/iconos';
+import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { TOUR_NAVEGACION } from '@/lib/ayuda';
 
 // Bottom nav de 4 secciones fijas — Visita activa NUNCA aparece aquí,
@@ -22,11 +25,13 @@ import { TOUR_NAVEGACION } from '@/lib/ayuda';
 // Vocabulario ahora vive dentro de la pantalla Yo, no en el menú.
 export function LayoutShell() {
   const { visitaEnCurso } = useVisitaActivaContext();
+  const medioEnCurso = visitaEnCurso && esNoPresencial(medioDe(visitaEnCurso.medio)) ? medioDe(visitaEnCurso.medio) : null;
   // El banner es un atajo de vuelta a la visita: sobra cuando ya estás
   // dentro de ella (la cabecera de esa pantalla ya dice "Visita en curso")
   // y en su pantalla de cierre/resumen (1.6 del recorrido de revisión).
   const location = useLocation();
   const { pathname } = location;
+  useRestaurarScroll();
   const dentroDeLaVisita =
     !!visitaEnCurso &&
     (pathname === `/visita/${visitaEnCurso.id}` ||
@@ -39,6 +44,7 @@ export function LayoutShell() {
   // clientes duplicados). Antes esto último solo se veía entrando en Yo
   // (Cesar, 14 sept: "entras y no te das cuenta").
   const { aviso: avisoLiberar } = useAvisoLiberar();
+  const espacioManual = useEspacioManualActivo() === true;
   const { hayAvisos: hayAvisosParticipacion } = useAvisosParticipacion();
   const { hayAvisos: hayAvisosGestion } = useAvisosGestion();
 
@@ -65,9 +71,10 @@ export function LayoutShell() {
           <Link
             to={`/visita/${visitaEnCurso.id}`}
             state={desde(location)}
-            className="visita-en-curso-banner"
+            className={`visita-en-curso-banner${medioEnCurso ? ` visita-en-curso-banner--${medioEnCurso}` : ''}`}
           >
-            Visita en curso con {visitaEnCurso.clienteNombre}
+            {medioEnCurso && <Icono nombre={MEDIO_VISITA[medioEnCurso].icono} size={18} />}
+            {medioEnCurso ? `${MEDIO_VISITA[medioEnCurso].etiqueta} en curso` : 'Visita en curso'} con {visitaEnCurso.clienteNombre}
           </Link>
         ) : !visitaEnCurso ? (
           <AvisoVisitaProxima />
@@ -105,7 +112,7 @@ export function LayoutShell() {
               <>
                 <IconoYo activo={isActive} />
                 Yo
-                {(avisoLiberar || hayAvisosParticipacion || hayAvisosGestion) && (
+                {((espacioManual && avisoLiberar) || hayAvisosParticipacion || hayAvisosGestion) && (
                   <span className="bottom-nav__dot" aria-label="Tienes un aviso" />
                 )}
               </>

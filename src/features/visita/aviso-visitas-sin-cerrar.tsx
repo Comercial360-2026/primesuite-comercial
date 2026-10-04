@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { desdeHace } from '@/lib/fechas';
 import { desde } from '@/lib/volver-a';
@@ -6,10 +5,12 @@ import { Icono } from '@/components/ui/iconos';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitasSinCerrar } from '@/hooks/use-visitas-sin-cerrar';
 import { PanelVisitasAbiertas } from './panel-visitas-abiertas';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Línea de aviso arriba de la ficha de cliente / proyecto: "N visita(s) sin
-// cerrar". Las visitas abiertas no se cierran solas (ver migración 102), así
-// que se empuja a cerrarlas desde donde el comercial mira el cliente.
+// cerrar". Solo se cierran solas las ABANDONADAS (sin actividad durante horas,
+// migración 135; la 102 había quitado el cierre a las 48 h), así que se empuja a
+// cerrarlas desde donde el comercial mira el cliente.
 //   · 1 visita  → enlaza directo a esa visita.
 //   · 2+        → abre un panel con la lista SIN salir de esta pantalla;
 //                 desde ahí se va, se cierra o se descarta cada una.
@@ -24,7 +25,8 @@ export function AvisoVisitasSinCerrar({
   const location = useLocation();
   const { comercial } = useSesionActual();
   const { data } = useVisitasSinCerrar({ clienteId, proyectoId, comercialId: comercial?.id });
-  const [panelAbierto, setPanelAbierto] = useState(false);
+  // Recordado: el panel se abre, tocas una visita y al volver (←) debe seguir abierto (sin esto volvías a la ficha con el panel cerrado).
+  const [panelAbierto, setPanelAbierto] = useEstadoRecordado(`panel-visitas-sin-cerrar-${clienteId ?? ''}-${proyectoId ?? ''}`, false);
 
   if (!data || data.total === 0) return null;
 

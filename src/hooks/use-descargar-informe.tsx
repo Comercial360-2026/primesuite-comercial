@@ -2,16 +2,20 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase-client';
 import { esSinRed } from '@/lib/red';
 
-export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number };
+// `partes`: el ZIP de originales se parte en varios archivos cuando pasa de ~40 MB (límite de 50 MB por objeto).
+export type EstadoDescarga = 'inactivo' | 'generando' | 'error' | 'sin-red' | { url: string; tamanoBytes: number; partes?: number };
 
 /** Qué informe se pide. 'visita' → PDF de UNA visita, con las fotos dentro
- *  (la descarga normal). 'visita-zip' → copia completa: ese PDF + fotos
- *  originales + audios en un zip (la que exige liberar espacio antes de
- *  borrar). 'proyecto' → PDF de UN proyecto, sin fotos. */
-export type TipoInforme = 'visita' | 'visita-zip' | 'proyecto';
+ *  (la descarga normal). 'visita-zip' → los ORIGINALES (fotos, audios y
+ *  documentos) en un zip, sin informe (en varios archivos si pasa de ~40 MB).
+ *  'visita-web' → el informe en formato web
+ *  (.html, con mapa de las fotos). 'proyecto' → PDF de UN proyecto, sin fotos. */
+export type TipoInforme = 'visita' | 'visita-web' | 'visita-zip' | 'proyecto';
 
 const PETICION_POR_TIPO: Record<TipoInforme, (id: string) => { funcion: string; body: object }> = {
   visita: (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'pdf' } }),
+  // Informe web: un único .html con las fotos, su ubicación y un mapa juntos.
+  'visita-web': (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'html' } }),
   'visita-zip': (id) => ({ funcion: 'generar-backup-visita', body: { visitaId: id, formato: 'zip' } }),
   proyecto: (id) => ({ funcion: 'generar-informe-proyecto', body: { proyectoId: id } }),
 };
@@ -59,6 +63,10 @@ async function guardarArchivoEnDisco(url: string) {
 // informe como parámetro.
 export function useDescargarInforme() {
   const [estados, setEstados] = useState<Record<string, EstadoDescarga>>({});
+  // % de fotos ya reducidas mientras se prepara un PDF/informe web (100 = montando el archivo).
+  const [progresos, setProgresos] = useState<Record<string, number>>({});
+  // Por qué falló, cuando el servidor lo explica (p. ej. «pesa 62 MB y no cabe en un solo archivo»).
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
 
   // Devuelve el resultado además de guardarlo en `estados`: quien encadena
   // varias descargas en secuencia (liberar espacio de un proyecto entero)
@@ -69,29 +77,61 @@ export function useDescargarInforme() {
   async function descargar(tipo: TipoInforme, id: string): Promise<EstadoDescarga> {
     const clave = `${tipo}:${id}`;
     setEstados((prev) => ({ ...prev, [clave]: 'generando' }));
+    setProgresos((prev) => ({ ...prev, [clave]: 0 }));
+    setMotivos((prev) => {
+      const { [clave]: _, ...resto } = prev;
+      return resto;
+    });
     let temporizador: ReturnType<typeof setTimeout> | undefined;
     try {
       const { funcion, body } = PETICION_POR_TIPO[tipo](id);
-      const invocacion = supabase.functions.invoke(funcion, { body });
-      const limite = new Promise<never>((_, reject) => {
-        temporizador = setTimeout(() => {
-          // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
-          // en la práctica, a los 45 s sin respuesta la causa es la red.
-          const e = new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.');
-          e.name = 'TimeoutDescarga';
-          reject(e);
-        }, TIMEOUT_MS);
-      });
-      const { data, error } = await Promise.race([invocacion, limite]);
-      if (error || !data?.url) throw error ?? new Error('Sin URL de descarga');
+      const conLimite = <T,>(p: PromiseLike<T>) => {
+        const limite = new Promise<never>((_, reject) => {
+          temporizador = setTimeout(() => {
+            // Se trata como falta de conexión (ver comentario de TIMEOUT_MS):
+            // en la práctica, a los 45 s sin respuesta la causa es la red.
+            const e = new Error('Ha tardado demasiado. Comprueba tu conexión e inténtalo de nuevo.');
+            e.name = 'TimeoutDescarga';
+            reject(e);
+          }, TIMEOUT_MS);
+        });
+        return Promise.race([p, limite]).finally(() => clearTimeout(temporizador));
+      };
+      // PDF e informe web llevan las fotos reducidas (caché en el servidor).
+      // Reducir cuesta CPU y cada llamada tiene presupuesto: se piden tandas hasta que no quede ninguna
+      // pendiente (visitas con muchas fotos no cabían en una sola petición). Si falla, se sigue: el informe
+      // sale con lo que haya.
+      if (tipo === 'visita' || tipo === 'visita-web') {
+        for (let i = 0; i < 15; i++) {
+          const { data: tanda, error: errorTanda } = await conLimite(
+            supabase.functions.invoke(funcion, { body: { visitaId: id, formato: 'miniaturas' } })
+          );
+          if (errorTanda || !tanda?.pendientes) break;
+          const hechas = Math.round(((tanda.fotos - tanda.pendientes) / tanda.fotos) * 100);
+          setProgresos((prev) => ({ ...prev, [clave]: hechas }));
+        }
+        setProgresos((prev) => ({ ...prev, [clave]: 100 }));
+      }
+      // Los originales (zip) se reparten en archivos de ~40 MB y una petición no da tiempo a todos si
+      // hay muchos: el servidor responde con los que ha hecho y `continuar`; se vuelve a pedir desde
+      // ahí hasta que no queda nada, y al final se bajan todos.
+      let { data, error } = await conLimite(supabase.functions.invoke(funcion, { body }));
+      const partes: { url: string; tamanoBytes: number }[] = [...(data?.partes ?? [])];
+      for (let vuelta = 0; !error && data?.continuar && vuelta < 50; vuelta++) {
+        ({ data, error } = await conLimite(supabase.functions.invoke(funcion, { body: { ...body, ...data.continuar } })));
+        if (data?.partes) partes.push(...data.partes);
+      }
+      if (error || (!data?.url && !partes.length)) throw error ?? new Error('Sin URL de descarga');
       clearTimeout(temporizador);
-      const listo = { url: data.url, tamanoBytes: data.tamanoBytes ?? 0 };
+      const urls: string[] = partes.length ? partes.map((p) => p.url) : [data.url];
+      const total = partes.length ? partes.reduce((t, x) => t + x.tamanoBytes, 0) : (data.tamanoBytes ?? 0);
+      const listo = { url: urls[0], tamanoBytes: total, ...(urls.length > 1 ? { partes: urls.length } : {}) };
       setEstados((prev) => ({ ...prev, [clave]: listo }));
       // Un solo toque: en cuanto está listo, el archivo se guarda solo. Si esto
       // fallara (sin red, CORS…), el estado ya es "listo" y queda el enlace
       // <a href> de reserva para bajarlo a mano.
       try {
-        await guardarArchivoEnDisco(data.url);
+        for (const u of urls) await guardarArchivoEnDisco(u);
       } catch {
         /* enlace de reserva visible en la propia fila/botón */
       }
@@ -99,6 +139,12 @@ export function useDescargarInforme() {
     } catch (e) {
       const sinRed = esSinRed(e) || (e instanceof Error && e.name === 'TimeoutDescarga');
       const resultado: EstadoDescarga = sinRed ? 'sin-red' : 'error';
+      if (!sinRed) {
+        // FunctionsHttpError lleva la respuesta: si trae un texto del servidor, es el motivo real.
+        const respuesta = (e as { context?: Response }).context;
+        const cuerpo = typeof respuesta?.clone === 'function' ? await respuesta.clone().json().catch(() => null) : null;
+        if (typeof cuerpo?.error === 'string') setMotivos((prev) => ({ ...prev, [clave]: cuerpo.error }));
+      }
       setEstados((prev) => ({ ...prev, [clave]: resultado }));
       return resultado;
     } finally {
@@ -110,5 +156,14 @@ export function useDescargarInforme() {
     return estados[`${tipo}:${id}`] ?? 'inactivo';
   }
 
-  return { estadoDe, descargar };
+  // null si no se está preparando nada.
+  function progresoDe(tipo: TipoInforme, id: string): number | null {
+    return estadoDe(tipo, id) === 'generando' ? progresos[`${tipo}:${id}`] ?? null : null;
+  }
+
+  function motivoDe(tipo: TipoInforme, id: string): string | null {
+    return estadoDe(tipo, id) === 'error' ? motivos[`${tipo}:${id}`] ?? null : null;
+  }
+
+  return { estadoDe, descargar, progresoDe, motivoDe };
 }

@@ -4,7 +4,12 @@ import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes } from '@/lib/fechas';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useOnline } from '@/hooks/use-online';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { Aviso } from '@/components/ui/aviso';
+import { PistaDeslizar } from '@/components/ui/pista-deslizar';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -13,7 +18,9 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Segmentado } from '@/components/ui/segmentado';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
-import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, filtroNombreOAlias } from '@/lib/nombres-cliente';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
+import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -30,8 +37,10 @@ export function ListadoClientes() {
   const navigate = useNavigate();
   const location = useLocation();
   const { comercial } = useSesionActual();
-  const [busqueda, setBusqueda] = useState('');
-  const [verArchivados, setVerArchivados] = useState(false);
+  const swipeBorrar = useSwipeBorrar();
+  // La búsqueda también vive en la URL (?q=), igual que la vista: al volver desde una ficha se ve lo mismo que dejaste.
+  const [busqueda, setBusquedaEstado] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
+  const [verArchivados, setVerArchivados] = useEstadoRecordado('clientes-ver-inactivos', false);
   const buscador = useBuscador(!!busqueda);
   // Decisión de producto (29/8/2026, ajustada 2026-09-05, abierta a todos
   // 2026-09-18): cualquier comercial ve por defecto solo su cartera, con
@@ -50,13 +59,45 @@ export function ListadoClientes() {
     searchParams.get('vista') === 'todos' ? 'todos' : 'mios'
   );
 
+  function ponerParam(clave: string, valor: string | null) {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (valor) n.set(clave, valor);
+        else n.delete(clave);
+        return n;
+      },
+      { replace: true }
+    );
+  }
   function cambiarVista(v: 'mios' | 'todos') {
     setVista(v);
-    setSearchParams(v === 'todos' ? { vista: 'todos' } : {}, { replace: true });
+    ponerParam('vista', v === 'todos' ? 'todos' : null);
+  }
+  function setBusqueda(v: string) {
+    setBusquedaEstado(v);
+    ponerParam('q', v.trim() ? v : null);
   }
 
   const soloMios = vista === 'mios';
   const queryClient = useQueryClient();
+  const online = useOnline();
+  const [errorInactivo, setErrorInactivo] = useState<string | null>(null);
+
+  // Mismo cambio y mismos permisos que «Marcar como inactivo» de la ficha (reversible, sin confirmación).
+  async function marcarInactivo(id: string) {
+    setErrorInactivo(null);
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('cliente').update({ estado_relacion: CLIENTE_ARCHIVADO }, { count: 'exact' }).eq('id', id),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+      );
+      for (const k of ['listado-clientes', 'cliente', 'planificar-buscar-cliente', 'empezar-visita-buscar'])
+        queryClient.invalidateQueries({ queryKey: [k] });
+    } catch (e) {
+      setErrorInactivo(e instanceof Error ? e.message : 'No se ha podido marcar como inactivo.');
+    }
+  }
 
   // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
   // compañero, comprobar antes de dar de alta un duplicado) — un buscador
@@ -102,7 +143,7 @@ export function ListadoClientes() {
         .order('cliente_nombre', { ascending: true });
 
       if (busqueda.trim()) {
-        query = query.ilike('cliente_nombre', `%${busqueda.trim()}%`);
+        query = query.or(filtroNombreOAlias(busqueda));
       }
       if (idsCartera) {
         query = query.in('cliente_id', idsCartera);
@@ -185,7 +226,7 @@ export function ListadoClientes() {
               className="boton-icono"
               aria-label="Nuevo cliente"
               title="Nuevo cliente"
-              onClick={() => navigate('/clientes/nuevo')}
+              onClick={() => navigate('/clientes/nuevo', { state: desde(location) })}
             >
               <Icono nombre="mas" size={18} />
             </button>
@@ -223,6 +264,8 @@ export function ListadoClientes() {
       )}
 
       <div className="screen__scroll">
+      {!!activos?.length && <PistaDeslizar />}
+      {errorInactivo && <Aviso tipo="error">{errorInactivo}</Aviso>}
       {cargandoDeVerdad && <EstadoLista estado="cargando" />}
 
       {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
@@ -241,10 +284,10 @@ export function ListadoClientes() {
           {archivados.length > 0 && (
             <SeccionLista>
               <FilaNavegable
-                titulo={verArchivados ? 'Ocultar archivados' : `Ver archivados (${archivados.length})`}
+                titulo={verArchivados ? 'Ocultar inactivos' : `Ver inactivos (${archivados.length})`}
                 chevron={false}
                 valorTenue
-                onClick={() => setVerArchivados((v) => !v)}
+                onClick={() => setVerArchivados(!verArchivados)}
               />
               {verArchivados && archivados.map(filaCliente)}
             </SeccionLista>
@@ -263,6 +306,22 @@ export function ListadoClientes() {
                 : 'No hay clientes.'
           }
         />
+      )}
+      {/* Buscando: también las cuentas del CRM que aún no son cliente. Tocar una abre el alta con esa cuenta
+          elegida; si ya hay un cliente con esa cuenta (o una hermana), abre su ficha. */}
+      {busqueda.trim().length >= 3 && (
+        <div className="lista-agrupada">
+          <ResultadosCuentaCrm
+            texto={busqueda}
+            titulo="En el CRM (aún no es cliente)"
+            soloSinCliente
+            onElegir={(c, existente) =>
+              existente
+                ? navigate(`/clientes/${existente.id}`, { state: desde(location) })
+                : navigate(`/clientes/nuevo?nombre=${encodeURIComponent(c.nombre)}&cuenta=${c.accountid}`, { state: desde(location) })
+            }
+          />
+        </div>
       )}
       </div>
     </div>
@@ -304,10 +363,24 @@ export function ListadoClientes() {
         // Cliente frío ("Sin visitar") o sin responsable → barra de
         // atención; lo sano (verde/amarillo) no distrae.
         tono={archivado ? 'neutral' : sinResponsable ? 'aviso' : c.semaforo === 'rojo' ? 'alerta' : 'neutral'}
-        valor={archivado ? 'archivado' : <EtiquetaSemaforo valor={c.semaforo} />}
+        valor={archivado ? 'inactivo' : <EtiquetaSemaforo valor={c.semaforo} />}
         valorTenue={archivado}
         to={`/clientes/${c.cliente_id}`}
         state={desde(location)}
+        swipe={[
+          ...(!archivado && (comercial?.rol === 'direccion_comercial' || respId === comercial?.id)
+            ? [
+                {
+                  etiqueta: 'Inactivo',
+                  icono: 'oculto' as const,
+                  desactivada: !online,
+                  motivo: 'Necesitas conexión para cambiar el estado',
+                  onAccion: () => void marcarInactivo(c.cliente_id),
+                },
+              ]
+            : []),
+          ...(comercial?.rol === 'direccion_comercial' ? [swipeBorrar(`/clientes/${c.cliente_id}`)] : []),
+        ]}
       />
     );
   }

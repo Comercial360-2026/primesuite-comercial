@@ -4,14 +4,16 @@ import { supabase } from '@/lib/supabase-client';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { fechaCorta } from '@/lib/fechas';
 import { PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
+import { formatearBytes } from '@/lib/documentos-visita';
 import type { OperacionPendiente } from '@/lib/offline-queue/types';
 
-export type GrupoCierre = 'fotos' | 'audios' | 'notas' | 'oportunidades' | 'hallazgos' | 'pasos';
+export type GrupoCierre = 'fotos' | 'audios' | 'notas' | 'documentos' | 'oportunidades' | 'hallazgos' | 'pasos';
 
 const TITULO: Record<GrupoCierre, string> = {
   fotos: 'Fotos',
   audios: 'Audios',
   notas: 'Notas',
+  documentos: 'Documentos',
   oportunidades: 'Oportunidades',
   hallazgos: 'Hallazgos',
   pasos: 'Próximos pasos',
@@ -89,6 +91,8 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
             titulo?: string;
             prioridad?: string;
             nota?: string;
+            nombreOriginal?: string;
+            bytes?: number;
             descripcion?: string;
             fechaObjetivo?: string;
           };
@@ -111,7 +115,7 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
                       comercial. */}
                   <span className="detalle-cierre__titulo">{p.titulo?.trim() || 'Foto'}</span>
                   {url ? (
-                    <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} />
+                    <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} loading="lazy" decoding="async" />
                   ) : (
                     <span className="detalle-cierre__meta">
                       {pendiente
@@ -153,6 +157,15 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
                     {p.contenidoTexto?.trim() || p.titulo?.trim() || 'Nota sin texto'}
                   </span>
                   {meta([zona, pendiente && 'pendiente de subir'])}
+                </>
+              )}
+
+              {grupo === 'documentos' && (
+                <>
+                  <span className="detalle-cierre__titulo">
+                    {p.titulo?.trim() || p.nombreOriginal || 'Documento'}
+                  </span>
+                  {meta([p.bytes != null && formatearBytes(p.bytes), pendiente && 'pendiente de subir'])}
                 </>
               )}
 

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase-client';
 // uno no invalide (ni comparta caché con) otro.
 
 export const CLAVE_CLASIFICACION_DETALLADA = 'clasificacion_detallada';
+export const CLAVE_ESPACIO_MANUAL = 'espacio_manual_activo';
 
 async function leerAjusteBooleano(clave: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -30,4 +31,16 @@ export function useClasificacionDetallada(): boolean {
     queryFn: () => leerAjusteBooleano(CLAVE_CLASIFICACION_DETALLADA),
   });
   return data ?? false;
+}
+
+// Liberación MANUAL de espacio («Mi espacio», petición de Dirección, avisos que mandan a liberar):
+// apagada por defecto (migración 143). `undefined` mientras carga: quien lo usa no enseña nada hasta
+// saberlo, para que no parpadee. La protección de cuota (cortar fotos y audios con el pozo lleno)
+// no depende de este ajuste.
+export function useEspacioManualActivo(): boolean | undefined {
+  const { data } = useQuery({
+    queryKey: ['ajuste', CLAVE_ESPACIO_MANUAL],
+    queryFn: () => leerAjusteBooleano(CLAVE_ESPACIO_MANUAL),
+  });
+  return data;
 }

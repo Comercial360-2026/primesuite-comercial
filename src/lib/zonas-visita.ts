@@ -32,3 +32,11 @@ export async function listarZonasUsadasEnVisita(visitaId: string): Promise<strin
 
   return deduplicarZonas((data ?? []).map((f) => f.zona_texto));
 }
+
+// Zonas ('' = sin zona) de más a menos elementos; «Sin zona» siempre al final. Mismo orden que el
+// informe web y los PDF (ordenarZonas en supabase/functions/_shared/informe-html.ts).
+export function ordenarZonasPorUso(contadores: Map<string, number>): string[] {
+  const orden = [...contadores.keys()].filter((z) => z !== '').sort((a, b) => (contadores.get(b) ?? 0) - (contadores.get(a) ?? 0));
+  if (contadores.has('')) orden.push('');
+  return orden;
+}

@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 
 // Deslizar una fila hacia la izquierda para revelar UNA acción (en la app,
 // "Anular" en la Agenda). Gesto táctil: en escritorio no se arrastra con
@@ -14,6 +14,9 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 const UMBRAL_EJE = 8; // px antes de decidir horizontal vs vertical
 const ARRASTRE_MIN_ABRIR = 0.5; // fracción del ancho de la acción para quedarse abierta
 
+// Una sola fila abierta a la vez: al abrir otra se cierra la anterior.
+let laAbierta: { yo: object; cerrar: () => void } | null = null;
+
 interface Opciones {
   /** Ancho en px de la zona de acción que se revela. */
   ancho: number;
@@ -26,11 +29,23 @@ export function useSwipeFila({ ancho, activo = true }: Opciones) {
   const [abierta, setAbierta] = useState(false);
   const inicio = useRef<{ x: number; y: number; base: number } | null>(null);
   const eje = useRef<null | 'x' | 'y'>(null);
+  const yo = useRef({});
 
   function cerrar() {
     setDx(0);
     setAbierta(false);
+    if (laAbierta?.yo === yo.current) laAbierta = null;
   }
+
+  // Abierta: un toque fuera de cualquier fila deslizable la cierra.
+  useEffect(() => {
+    if (!abierta) return;
+    const fuera = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest('.fila-swipe')) cerrar();
+    };
+    document.addEventListener('pointerdown', fuera);
+    return () => document.removeEventListener('pointerdown', fuera);
+  }, [abierta]);
 
   function onPointerDown(e: ReactPointerEvent) {
     if (!activo || e.pointerType === 'mouse') return;
@@ -64,6 +79,10 @@ export function useSwipeFila({ ancho, activo = true }: Opciones) {
       const abrir = dx <= -ancho * ARRASTRE_MIN_ABRIR;
       setDx(abrir ? -ancho : 0);
       setAbierta(abrir);
+      if (abrir) {
+        if (laAbierta && laAbierta.yo !== yo.current) laAbierta.cerrar();
+        laAbierta = { yo: yo.current, cerrar };
+      }
     }
     inicio.current = null;
     eje.current = null;

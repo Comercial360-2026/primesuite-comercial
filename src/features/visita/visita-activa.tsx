@@ -1,3 +1,5 @@
+import { bucketDeTipo } from '@/lib/buckets-visita';
+import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, mimeDeDocumento } from '@/lib/documentos-visita';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -10,15 +12,19 @@ import { uuid } from '@/lib/uuid';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
+import { useEspacioManualActivo } from '@/hooks/use-ajustes';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVisitaLocal } from '@/hooks/use-visita-local';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
+import { useInactividadVisita } from '@/hooks/use-inactividad-visita';
 import { useAccionAsync } from '@/hooks/use-accion-async';
-import { comprimirImagen } from '@/lib/comprimir-imagen';
+import { comprimirImagen, TIPOS_FOTO_ADMITIDOS } from '@/lib/comprimir-imagen';
 import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
+import { FilaMedioVisita } from './fila-medio-visita';
+import { MEDIO_VISITA, medioDe, esNoPresencial, type MedioVisita } from '@/lib/medio-visita';
 import { ParticipantesHoja } from './participantes-hoja';
 import { BriefingHoja } from './briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
@@ -41,6 +47,7 @@ import type {
   ProximoPasoPayload,
   CapturaLibrePayload,
 } from '@/lib/offline-queue/types';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Mapa id → URL de blob: una URL por Blob, revocada solo cuando ese Blob
 // deja de estar en la lista o cambia. Evita crear URLs en cada render sin
@@ -101,6 +108,7 @@ const COLOR_TIPO_ITEM: Partial<Record<NombreIcono, string>> = {
   audio: 'var(--tipo-audio)',
   hallazgo: 'var(--tipo-hallazgo)',
   paso: 'var(--tipo-paso)',
+  documento: 'var(--tipo-documento)',
   oportunidad: 'var(--signal-600)',
 };
 
@@ -116,6 +124,7 @@ interface CompaneroCaptura {
   zona_texto: string | null;
   latitud: number | null;
   longitud: number | null;
+  nombre_original: string | null;
 }
 interface CompaneroHallazgo {
   id: string;
@@ -150,6 +159,9 @@ interface CapturasPorUbicacionProps {
   fotosCompaneros: CompaneroCaptura[];
   audiosCompaneros: CompaneroCaptura[];
   notasCompaneros: CompaneroCaptura[];
+  // Documentos: no llevan zona — van aparte, en su propia sección.
+  documentos: OperacionPendiente[];
+  documentosCompaneros: CompaneroCaptura[];
   hallazgosCompaneros: CompaneroHallazgo[];
   oportunidadesCompaneros: CompaneroOportunidad[];
   pasosCompaneros: CompaneroPaso[];
@@ -191,6 +203,8 @@ function CapturasPorUbicacion({
   fotosCompaneros,
   audiosCompaneros,
   notasCompaneros,
+  documentos,
+  documentosCompaneros,
   hallazgosCompaneros,
   oportunidadesCompaneros,
   pasosCompaneros,
@@ -344,6 +358,8 @@ function CapturasPorUbicacion({
                       <img
                         src={url}
                         alt={titulo ?? 'foto'}
+                        loading="lazy"
+                        decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
                       />
                     )}
@@ -461,7 +477,7 @@ function CapturasPorUbicacion({
     });
   };
 
-  if (claves.size === 0) return null;
+  if (claves.size === 0 && documentos.length === 0 && documentosCompaneros.length === 0) return null;
 
   // Cabecera de zona — mismo lenguaje que la cabecera de categoría en
   // Categorías (`.voc-cat-label-row seccion-lista__subcabecera` +
@@ -497,6 +513,27 @@ function CapturasPorUbicacion({
     <div className="seccion-lista__grupo">
       {bloqueGeneral}
       {bloqueZonas}
+      {(documentos.length > 0 || documentosCompaneros.length > 0) && (
+        <>
+          <div className="seccion-lista__subcabecera">Documentos</div>
+          {documentos.map((d) =>
+            itemFila(
+              d.id,
+              'documento',
+              (d.payload as { titulo?: string; nombreOriginal?: string }).titulo ||
+                (d.payload as { nombreOriginal?: string }).nombreOriginal ||
+                'Documento',
+              hora(d.creadoEn),
+              () => onTocarCaptura(d.id)
+            )
+          )}
+          {documentosCompaneros.map((c) =>
+            itemFila(c.id, 'documento', c.titulo || c.nombre_original || 'Documento', deQuien(c.comercial_autor_id), () =>
+              onTocarCaptura(c.id)
+            )
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -514,7 +551,10 @@ export function VisitaActiva() {
   const queryClient = useQueryClient();
   const { comercial } = useSesionActual();
   const visitaLocal = useVisitaLocal(visitaId);
-  const { iniciarVisita } = useVisitaActivaContext();
+  const { iniciarVisita, visitaEnCurso } = useVisitaActivaContext();
+  // Medio con el que se arrancó la visita (lo trae el contexto al llegar desde la ventana
+  // «¿A qué vas?»), por si la cola ya se vació y no queda copia local. Se anula al cambiarlo a mano.
+  const medioEsperadoRef = useRef<MedioVisita | undefined>(visitaEnCurso?.id === visitaId ? visitaEnCurso?.medio : undefined);
   const { operaciones, encolar, recargar: recargarCola } = useSyncQueue(visitaId);
 
   // Zona (opcional) de la captura: una ETIQUETA DE TEXTO LIBRE que el
@@ -529,7 +569,7 @@ export function VisitaActiva() {
   const [objetivoAbierto, setObjetivoAbierto] = useState(false);
   // Panel de "otras visitas abiertas sin cerrar" — se abre sin salir de esta
   // visita en curso (nunca navegar fuera para ver una lista).
-  const [panelAbiertasVisible, setPanelAbiertasVisible] = useState(false);
+  const [panelAbiertasVisible, setPanelAbiertasVisible] = useEstadoRecordado(`visita-${visitaId}-panel-otras-abiertas`, false);
   // El editor de zona se abre BAJO DEMANDA desde el chip de la fila del
   // título; no vive fijo entre el título y los botones (eso empujaba la
   // captura hacia abajo aunque ya no estuvieras marcando zonas).
@@ -548,10 +588,10 @@ export function VisitaActiva() {
   const zonaParaCaptura = zonaActual.trim() || undefined;
   // Foto abierta en el visor a pantalla completa (tocar una miniatura).
   const [fotoVisorId, setFotoVisorId] = useState<string | null>(null);
-  // D1 (rediseño Zona 3): "En esta visita" agrupa por tipo por defecto; el
-  // conmutador a "por zona" solo tiene sentido si la visita ha usado el
-  // Recorrido (si no, no hay zonas que agrupar).
-  const [ordenPorZona, setOrdenPorZona] = useState(false);
+  // "En esta visita": si la visita ya usa zonas (Recorrido), se cuenta por zona —todo lo de una zona
+  // junto, como en los informes—; «Tipo» es la alternativa y lo que se elija se respeta. Sin zonas no
+  // hay conmutador (nada que agrupar).
+  const [ordenElegido, setOrdenElegido] = useEstadoRecordado<boolean | null>(`visita-${visitaId}-por-zona`, null);
   // "Anotar" (prompt maestro 10): una sola hoja que fusiona lo que antes
   // eran los botones "Hallazgo", "Oportunidad" y "Nota".
   const [anotarAbierto, setAnotarAbierto] = useState(false);
@@ -613,14 +653,18 @@ export function VisitaActiva() {
   // de zona.
   const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
   const capturaFoto = useAccionAsync();
+  const capturaDocumento = useAccionAsync();
+  const inputDocumentoRef = useRef<HTMLInputElement>(null);
   const capturaAudio = useAccionAsync();
 
   // Al 98% del pozo del equipo se cortan las subidas de binarios (fotos y
   // audios); las notas de texto siguen. Ver src/lib/espacio.ts.
   const { estado: espacioEquipo } = useEspacioEquipo();
   const espacioBloqueado = espacioEquipo?.nivel === 'bloqueo';
-  const MSG_ESPACIO_LLENO =
-    'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).';
+  const espacioManual = useEspacioManualActivo() === true;
+  const MSG_ESPACIO_LLENO = espacioManual
+    ? 'Espacio del equipo lleno. No se pueden añadir fotos ni audios hasta que alguien libere (Yo → Mi espacio).'
+    : 'Espacio del equipo lleno. No se pueden añadir fotos ni audios por ahora. Avisa a Dirección.';
 
   const inputFotoRef = useRef<HTMLInputElement>(null);
   // Coordenadas GPS de la última foto elegida. Best-effort: se pide en
@@ -671,14 +715,25 @@ export function VisitaActiva() {
     // responsable, o una solicitud aceptada de otro participante) y esta
     // pantalla necesita enterarse sola si sigue abierta esperando.
     refetchInterval: (query) => {
-      const d = query.state.data as { estado_captura?: string } | null | undefined;
+      const d = query.state.data as { estado_captura?: string; medio?: string } | null | undefined;
       if (d == null) return 4000;
+      // Visita recién sincronizada: la RPC la crea presencial y el UPDATE del medio
+      // (Teams / llamada) llega un instante después — releer rápido hasta que cuadre.
+      const esperado = medioEsperadoRef.current ?? visitaLocal?.medio;
+      if (d.medio === 'presencial' && esperado && esperado !== 'presencial') return 2000;
       return d.estado_captura === 'consolidada' ? 60000 : 20000;
     },
-    queryFn: async (): Promise<{ objetivo: string | null; estado_captura: string } | null> => {
+    queryFn: async (): Promise<{
+      objetivo: string | null;
+      estado_captura: string;
+      cierre_automatico: boolean;
+      medio: string;
+      enlace_reunion: string | null;
+      reabierta_en: string | null;
+    } | null> => {
       const { data, error } = await supabase
         .from('visita')
-        .select('objetivo, estado_captura')
+        .select('objetivo, estado_captura, cierre_automatico, medio, enlace_reunion, reabierta_en')
         .eq('id', visitaId!)
         .maybeSingle();
       if (error) throw error;
@@ -689,6 +744,17 @@ export function VisitaActiva() {
   // por un compañero). Solo lo sabemos cuando la fila del servidor ya
   // existe: mientras `visitaServidor` es null asumimos "en curso".
   const visitaCerrada = visitaServidor?.estado_captura === 'consolidada';
+  // Cómo es la visita (Teams / llamada). Mientras no existe en el servidor, el de la cola local.
+  // Si el servidor aún dice «presencial» (la RPC crea así y el medio llega con un UPDATE
+  // posterior) pero se arrancó con otro, se enseña el elegido y no un «Presencial» falso.
+  const esperadoMedio = medioEsperadoRef.current ?? visitaLocal?.medio;
+  const medioVisita = medioDe(
+    visitaServidor?.medio === 'presencial' && esperadoMedio && esperadoMedio !== 'presencial'
+      ? esperadoMedio
+      : (visitaServidor?.medio ?? visitaLocal?.medio)
+  );
+  // Aviso previo al cierre automático por inactividad (migración 135).
+  const inactividad = useInactividadVisita(visitaId, !!visitaServidor && !visitaCerrada);
 
   // Asegura que el banner "visita en curso" aparece aunque se haya llegado
   // aquí directamente (por ejemplo, retomando desde Agenda), no solo tras
@@ -696,9 +762,9 @@ export function VisitaActiva() {
   // enciende (la pantalla mostrará el aviso de "cerrada", no captura).
   useEffect(() => {
     if (visitaId && cliente && !visitaCerrada) {
-      iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre });
+      iniciarVisita({ id: visitaId, clienteNombre: cliente.nombre, medio: medioVisita });
     }
-  }, [visitaId, cliente, visitaCerrada, iniciarVisita]);
+  }, [visitaId, cliente, visitaCerrada, iniciarVisita, medioVisita]);
 
   // El badge de "Interlocutores" en la cabecera cuenta los que hay DADOS DE
   // ALTA para este cliente (su directorio), no solo los marcados presentes
@@ -883,6 +949,8 @@ export function VisitaActiva() {
   // coordenadas.
   function pedirUbicacionFoto() {
     coordsFotoRef.current = null;
+    // Teams / llamada: la foto es una captura de pantalla; la posición del comercial no dice nada.
+    if (esNoPresencial(medioVisita)) return;
     if (!('geolocation' in navigator)) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -895,6 +963,42 @@ export function VisitaActiva() {
     );
   }
 
+  // Adjuntar un documento (PDF, Office, CSV, TXT…): mismo camino que la foto —
+  // se encola YA con su binario (sube solo cuando hay red) y se sincroniza a
+  // captura_libre con tipo 'documento'. Sin pantalla de confirmación: el
+  // título es opcional y se pone después desde la ficha.
+  // Devuelve false si no se pudo (el aviso ya está puesto): con varios archivos seguidos, se para ahí.
+  async function adjuntarDocumento(archivo: File): Promise<boolean> {
+    if (espacioBloqueado) {
+      capturaDocumento.establecerError(MSG_ESPACIO_LLENO);
+      return false;
+    }
+    const mime = mimeDeDocumento(archivo);
+    if (!mime) {
+      capturaDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
+      return false;
+    }
+    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
+      capturaDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
+      return false;
+    }
+    capturaDocumento.limpiarError();
+    await encolar(
+      uuid(),
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: 'documento',
+        nombreOriginal: archivo.name,
+        mime,
+        bytes: archivo.size,
+      },
+      { dependeDe: visitaId, archivoLocal: archivo }
+    );
+    return true;
+  }
+
   async function capturarFoto(archivo: File) {
     if (espacioBloqueado) {
       flushSync(() => setFotoPendiente(null));
@@ -903,6 +1007,12 @@ export function VisitaActiva() {
     }
     pedirUbicacionFoto();
     const archivoComprimido = await comprimirImagen(archivo);
+    // Un formato que el servidor rechaza (SVG, GIF, HEIC sin convertir) no se encola: se reintentaría para siempre.
+    if (!TIPOS_FOTO_ADMITIDOS.includes(archivoComprimido.type)) {
+      flushSync(() => setFotoPendiente(null));
+      capturaFoto.establecerError('Ese formato de imagen no se admite. Haz la foto con la cámara o elige un JPG o PNG.');
+      return;
+    }
     if (archivoComprimido.size > LIMITE_FOTO_BYTES) {
       flushSync(() => setFotoPendiente(null));
       capturaFoto.establecerError(
@@ -948,7 +1058,7 @@ export function VisitaActiva() {
     const { data: fila } = await supabase.from('captura_libre').select('storage_path, tipo').eq('id', id).single();
     await supabase.from('captura_libre').delete().eq('id', id);
     if (fila?.storage_path) {
-      const bucket = fila.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+      const bucket = bucketDeTipo(fila.tipo);
       await supabase.storage.from(bucket).remove([fila.storage_path]);
     }
   }
@@ -1371,7 +1481,7 @@ export function VisitaActiva() {
         .throwOnError();
       for (const c of caps ?? []) {
         if (c.storage_path) {
-          const bucket = c.tipo === 'foto' ? 'fotos-visita' : 'audios-visita';
+          const bucket = bucketDeTipo(c.tipo);
           const { error: errStorage } = await supabase.storage.from(bucket).remove([c.storage_path]);
           if (errStorage) throw errStorage;
         }
@@ -1495,7 +1605,7 @@ export function VisitaActiva() {
       const [capturasRes, hallazgosRes, pasosRes, oportunidadesRes] = await Promise.all([
         supabase
           .from('captura_libre')
-          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto, latitud, longitud')
+          .select('id, tipo, titulo, contenido_texto, comercial_autor_id, creado_en, zona_texto, latitud, longitud, nombre_original')
           .eq('visita_id', visitaId!),
         supabase
           .from('hallazgo')
@@ -1586,6 +1696,7 @@ export function VisitaActiva() {
   );
   const notasCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'nota');
   const audiosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'audio');
+  const documentosCompaneros = capturasServidorSinLocales.filter((c) => c.tipo === 'documento');
   // B4 · Las fotos de compañeros también cuentan y se listan (antes se
   // pedían pero no se pintaban). Van como fila de texto —igual que sus
   // notas/audios—, no como miniatura: el binario está en Storage, no en la
@@ -1602,6 +1713,7 @@ export function VisitaActiva() {
   const hayCompaneros =
     notasCompaneros.length +
       audiosCompaneros.length +
+      documentosCompaneros.length +
       fotosCompaneros.length +
       hallazgosCompaneros.length +
       pasosCompaneros.length +
@@ -1752,10 +1864,17 @@ export function VisitaActiva() {
           onVolver={() => navigate(volver)}
         />
         <div className="screen__scroll">
-          <Aviso tipo="info" titulo="Esta visita ya está cerrada">
-            No se pueden añadir más capturas. Si te falta algo, míralo en el
-            detalle o empieza una visita nueva.
-          </Aviso>
+          {visitaServidor?.cierre_automatico ? (
+            <Aviso tipo="info" titulo="Se cerró sola por inactividad">
+              Llevaba muchas horas sin actividad. Si seguías con ella, ábrela en el detalle y reábrela
+              (lo que tengas sin subir en este móvil se sube igualmente).
+            </Aviso>
+          ) : (
+            <Aviso tipo="info" titulo="Esta visita ya está cerrada">
+              No se pueden añadir más capturas. Si te falta algo, míralo en el
+              detalle o empieza una visita nueva.
+            </Aviso>
+          )}
           <button
             className="btn btn-primary"
             style={{ marginTop: 12 }}
@@ -1773,6 +1892,7 @@ export function VisitaActiva() {
   const fotosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'foto');
   const audiosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'audio');
   const notasOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'nota');
+  const documentosOwn = capturas.filter((c) => (c.payload as { tipo?: string }).tipo === 'documento');
 
   // El nombre del proyecto se añade tal cual (sin la palabra "Proyecto"
   // delante), mismo criterio que Agenda. El `?? ''` es defensivo.
@@ -1854,7 +1974,10 @@ export function VisitaActiva() {
   const totalHallazgos = hallazgosV.length + hallazgosCompanerosV.length;
   const totalOportunidades = oportunidadesV.length + oportunidadesCompanerosV.length;
   const totalPasos = pasosV.length + pasosCompanerosV.length;
-  const totalEnVisita = totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos;
+  // Los documentos no llevan zona: se cuentan siempre, sea cual sea el filtro.
+  const totalDocumentos = documentosOwn.length + documentosCompaneros.length;
+  const totalEnVisita =
+    totalFotos + totalAudios + totalNotas + totalHallazgos + totalOportunidades + totalPasos + totalDocumentos;
   // D2: desglose corto si hay pocos tipos, si no colapsa a "N elementos".
   const contadorEnVisita = desgloseVisita({
     fotos: totalFotos,
@@ -1863,6 +1986,7 @@ export function VisitaActiva() {
     hallazgos: totalHallazgos,
     oportunidades: totalOportunidades,
     pasos: totalPasos,
+    documentos: totalDocumentos,
   });
   // Solo lo MÍO tiene estado de sincronización — lo de compañeros ya viene
   // del servidor. Regla 5: un único indicador en cristiano, no por ítem.
@@ -1881,6 +2005,7 @@ export function VisitaActiva() {
     fotosOwn.length + fotosCompaneros.length +
     audiosOwn.length + audiosCompaneros.length +
     notasOwn.length + notasCompaneros.length +
+    documentosOwn.length + documentosCompaneros.length +
     hallazgos.length + hallazgosCompaneros.length +
     oportunidadesEnVisita + pasosEnVisita;
   const recordatorioFaltaTexto =
@@ -1908,6 +2033,7 @@ export function VisitaActiva() {
   // no solo la cola local: si no, el conmutador se escondía cuando la zona
   // se había puesto desde la ficha de un hallazgo en vez de al capturar.
   const zonaUsada = zonasUsadas.length > 0;
+  const ordenPorZona = ordenElegido ?? zonaUsada;
   const hayZonaActiva = !!zonaActual.trim();
 
   // Cuántas cosas hay en una zona: lo mío (cola local) y lo de compañeros.
@@ -1962,7 +2088,7 @@ export function VisitaActiva() {
     <div className="screen screen--split">
       <CabeceraDetalle
         titulo={cliente?.nombre ?? '…'}
-        subtitulo={proyectoTexto ? `Visita en curso · ${proyectoTexto}` : 'Visita en curso'}
+        subtitulo={`${esNoPresencial(medioVisita) ? `${MEDIO_VISITA[medioVisita].etiqueta} en curso` : 'Visita en curso'}${proyectoTexto ? ` · ${proyectoTexto}` : ''}`}
         ayuda="visita-activa"
         onVolver={() => navigate(volver)}
         derecha={
@@ -2161,7 +2287,42 @@ export function VisitaActiva() {
           </div>
         )}
 
+        {visitaId && visitaLocal?.clienteId && (
+          <FilaMedioVisita
+            visitaId={visitaId}
+            clienteId={visitaLocal.clienteId}
+            medio={medioVisita}
+            enlace={visitaServidor?.enlace_reunion ?? null}
+            editable={!!visitaServidor}
+            onCambiado={() => {
+              medioEsperadoRef.current = 'presencial';
+              void queryClient.invalidateQueries({ queryKey: objetivoQueryKey });
+            }}
+          />
+        )}
+
+        {/* Visita reabierta: mientras esté en curso no la ve el resto de la empresa (solo responsable y participantes). */}
+        {!visitaCerrada && visitaServidor?.reabierta_en && (
+          <Aviso tipo="info" titulo="Visita reabierta">
+            El resto del equipo no la ve hasta que la cierres de nuevo.
+          </Aviso>
+        )}
+
         {/* Captura — es lo que se viene a hacer en esta pantalla. */}
+        <input
+          ref={inputDocumentoRef}
+          type="file"
+          accept={ACCEPT_DOCUMENTO}
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const archivos = Array.from(e.target.files ?? []);
+            e.target.value = '';
+            void (async () => {
+              for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
+            })();
+          }}
+        />
         <input
           ref={inputFotoRef}
           type="file"
@@ -2181,7 +2342,19 @@ export function VisitaActiva() {
             marginBottom: 'var(--space-3)',
           }}
         >
-          <span className="label" style={{ marginTop: 0 }}>Captura lo que veas</span>
+          <span className="label" style={{ marginTop: 0, flex: 1 }}>Captura lo que veas</span>
+          {/* Un documento se adjunta pocas veces comparado con foto/audio/nota: icono redondo junto al título
+              en vez de un quinto botón ancho al final de la rejilla. */}
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Adjuntar un documento"
+            title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
+            disabled={capturaDocumento.cargando || espacioBloqueado}
+            onClick={() => inputDocumentoRef.current?.click()}
+          >
+            <Icono nombre="documento" size={18} />
+          </button>
           {/* Sin zona: chip (control, no un texto que hay que adivinar que
               se pincha). Con zona activa, desaparece y manda la banda. */}
           {!hayZonaActiva && (
@@ -2473,12 +2646,19 @@ export function VisitaActiva() {
         {espacioBloqueado && (
           <Aviso tipo="atencion" titulo="Sin espacio para fotos ni audios">
             El espacio del equipo está lleno. Anotar y Próximo paso siguen
-            funcionando; para volver a subir fotos y audios, alguien tiene que
-            liberar espacio en Yo → Mi espacio.
+            funcionando; para volver a subir fotos y audios,{' '}
+            {espacioManual ? 'alguien tiene que liberar espacio en Yo → Mi espacio.' : 'avisa a Dirección.'}
           </Aviso>
         )}
 
+        {inactividad && (
+          <Aviso tipo="atencion" titulo="Visita sin actividad">
+            Lleva {inactividad.horasInactiva} h sin actividad. Si no hay nada nuevo, se cerrará sola en{' '}
+            {inactividad.horasRestantes} h (se puede reabrir). Captura algo o ciérrala tú.
+          </Aviso>
+        )}
         {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
+        {capturaDocumento.error && <Aviso tipo="error">{capturaDocumento.error}</Aviso>}
         {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
         {grabando && (
@@ -2502,11 +2682,11 @@ export function VisitaActiva() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
               <Segmentado
                 opciones={[
-                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
                   { valor: 'zona', etiqueta: 'Zona', icono: 'ubicacion' },
+                  { valor: 'tipo', etiqueta: 'Tipo', icono: 'lista' },
                 ]}
                 valor={ordenPorZona ? 'zona' : 'tipo'}
-                onCambio={(v) => setOrdenPorZona(v === 'zona')}
+                onCambio={(v) => setOrdenElegido(v === 'zona')}
               />
             </div>
           )}
@@ -2578,6 +2758,8 @@ export function VisitaActiva() {
                 fotosCompaneros={fotosCompaneros}
                 audiosCompaneros={audiosCompaneros}
                 notasCompaneros={notasCompaneros}
+                documentos={documentosOwn}
+                documentosCompaneros={documentosCompaneros}
                 hallazgosCompaneros={hallazgosCompaneros}
                 oportunidadesCompaneros={oportunidadesCompaneros}
                 pasosCompaneros={pasosCompaneros}
@@ -2632,6 +2814,8 @@ export function VisitaActiva() {
                                 <img
                                   src={url}
                                   alt={titulo ?? 'foto'}
+                                  loading="lazy"
+                                  decoding="async"
                                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
                                 />
                               )}
@@ -2684,6 +2868,30 @@ export function VisitaActiva() {
                         capitalizarFrase(c.titulo || c.contenido_texto || '(nota vacía)'),
                         `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
                         () => navigate(`/capturas/${c.id}`)
+                      )
+                    )}
+                  </>
+                )}
+                {(documentosOwn.length > 0 || documentosCompaneros.length > 0) && (
+                  <>
+                    <div className="seccion-lista__subcabecera">Documentos</div>
+                    {documentosOwn.map((d) => {
+                      const p = d.payload as { titulo?: string; nombreOriginal?: string };
+                      return filaEnVisita(
+                        d.id,
+                        'documento',
+                        p.titulo || p.nombreOriginal || 'Documento',
+                        subZonaHora(d),
+                        () => navigate(`/capturas/${d.id}`, { state: origen })
+                      );
+                    })}
+                    {documentosCompaneros.map((c) =>
+                      filaEnVisita(
+                        c.id,
+                        'documento',
+                        c.titulo || c.nombre_original || 'Documento',
+                        `de ${nombresComerciales?.[c.comercial_autor_id] ?? '…'}`,
+                        () => navigate(`/capturas/${c.id}`, { state: origen })
                       )
                     )}
                   </>

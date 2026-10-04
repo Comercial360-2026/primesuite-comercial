@@ -191,7 +191,7 @@ export async function encolarOperacion(operacion: OperacionPendiente): Promise<v
 
 export async function actualizarOperacion(
   id: string,
-  cambios: Partial<Pick<OperacionPendiente, 'estado' | 'intentos' | 'ultimoError' | 'payload'>>
+  cambios: Partial<Pick<OperacionPendiente, 'estado' | 'intentos' | 'ultimoError' | 'permanente' | 'payload'>>
 ): Promise<void> {
   await conDb(async (db) => {
     const existente = await db.get('operaciones', id);

@@ -8,6 +8,8 @@ import type { HallazgoPayload } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
@@ -301,6 +303,8 @@ export function DetalleHallazgo() {
     // local no existe (hallazgo abierto desde fuera de la visita).
     await eliminarOperacion(hallazgoId);
     await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
 
@@ -338,6 +342,9 @@ export function DetalleHallazgo() {
     navigate(volver);
   }
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!hallazgo);
+
   if (isLoading || (!hallazgo && !isError)) {
     return (
       <div className="screen">
@@ -367,7 +374,18 @@ export function DetalleHallazgo() {
         ayuda="detalle-hallazgo"
         subtitulo={contextoCliente || undefined}
         onVolver={alVolver}
+        derecha={<BotonPapelera etiqueta="Borrar hallazgo" onClick={() => setConfirmandoBorrado(true)} />}
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
+        </div>
+      )}
 
       <RecategorizarItem
         id={hallazgo.id}
@@ -464,7 +482,7 @@ export function DetalleHallazgo() {
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={guardando || guardadoConExito || faltaTipoFecha}
         onClick={guardar}
@@ -489,22 +507,6 @@ export function DetalleHallazgo() {
         </>
       )}
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar hallazgo"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        />
-      )}
     </div>
   );
 }

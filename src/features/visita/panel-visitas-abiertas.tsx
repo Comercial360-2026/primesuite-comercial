@@ -8,6 +8,7 @@ import { BotonVerMas } from '@/components/ui/boton-ver-mas';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaVisitaAbierta, type VisitaAbierta } from './fila-visita-abierta';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 const TOPE = 3;
 
@@ -34,7 +35,7 @@ export function PanelVisitasAbiertas({
   const [seleccionando, setSeleccionando] = useState(false);
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
-  const [verTodas, setVerTodas] = useState(false);
+  const [verTodas, setVerTodas] = useEstadoRecordado('panel-visitas-abiertas-todas', false);
 
   // Más antigua primero: la que más urge cerrar, arriba. Solo las propias son
   // seleccionables (a las de otro comercial no se les puede hacer nada).
@@ -70,8 +71,8 @@ export function PanelVisitasAbiertas({
     });
   }
 
+  // No se cierra el panel al navegar: al volver (←) de la visita sigue abierto (su estado se recuerda en quien lo abre).
   function irA(id: string) {
-    onCerrar();
     navigate(`/visita/${id}`, { state: desde(location) });
   }
 
@@ -108,7 +109,6 @@ export function PanelVisitasAbiertas({
                   disabled: marcadasArr.length !== 1 || !online,
                   onClick: () => {
                     const id = marcadasArr[0];
-                    onCerrar();
                     navigate(`/visita/${id}/cierre`, { state: desde(location) });
                   },
                 },
@@ -154,7 +154,7 @@ export function PanelVisitasAbiertas({
               <BotonVerMas
                 n={ordenadas.length - TOPE}
                 abierto={verTodas}
-                onClick={() => setVerTodas((x) => !x)}
+                onClick={() => setVerTodas(!verTodas)}
               />
             )}
           </div>

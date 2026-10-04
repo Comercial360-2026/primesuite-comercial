@@ -28,6 +28,30 @@ interface Briefing {
 const EN_MARCHA = ['pendiente', 'generando'];
 const HORA_MS = 60 * 60 * 1000;
 
+// Visita a la que colgar el briefing de un cliente: la en curso, si no la
+// agendada más próxima y, si tampoco, la última cerrada. Una sola consulta
+// para todas las pantallas del cliente (ficha, proyecto, oportunidad, repaso).
+export function useVisitaBriefing(clienteId: string | null | undefined) {
+  const { data } = useQuery({
+    queryKey: ['ficha-cliente-visita-briefing', clienteId],
+    enabled: !!clienteId,
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, estado_captura, fecha')
+        .eq('cliente_id', clienteId!)
+        .order('fecha', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      const enCurso = data?.find((v) => v.estado_captura === 'en_curso');
+      const proxima = [...(data ?? [])].reverse().find((v) => v.estado_captura === 'agendada');
+      const ultimaCerrada = data?.find((v) => v.estado_captura === 'consolidada');
+      return (enCurso ?? proxima ?? ultimaCerrada)?.id ?? null;
+    },
+  });
+  return data ?? null;
+}
+
 interface BriefingHojaProps {
   visitaId: string;
   clienteId: string;

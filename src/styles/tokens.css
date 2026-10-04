@@ -39,6 +39,16 @@
   --tipo-audio: #4A5FA5;
   --tipo-hallazgo: #9C5B3C;
   --tipo-paso: #6B4FA0;
+  --tipo-documento: #5B6B7A; /* documento adjunto: gris pizarra, el "archivo" frente a lo capturado en directo */
+
+  /* Medio de la visita (Teams / llamada). Presencial no lleva tono: es lo de
+     siempre. Como el resto de identidades, el color es la segunda pista: va
+     SIEMPRE con icono y palabra (la persona es daltónica). Tiñe el icono y un
+     fondo suave de la barra, nunca el texto. */
+  --medio-teams: #3F5FB0;
+  --medio-teams-050: #E8ECF7;
+  --medio-llamada: #2A7F7A;
+  --medio-llamada-050: #E4F1F0;
 
   /* Identidad de PERSONA — fondo del `Avatar` de un comercial o cliente
      (iniciales en blanco encima). Color por hash del nombre (determinista,

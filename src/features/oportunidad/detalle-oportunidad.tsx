@@ -11,19 +11,21 @@ import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorAreas } from '@/components/ui/selector-areas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { fechaCorta } from '@/lib/fechas';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { mismaArea, type Area } from '@/lib/vocabulario';
 import { leerAreasDeOportunidad, guardarAreasDeOportunidad } from '@/lib/oportunidad-areas';
 import { useClasificacionDetallada } from '@/hooks/use-ajustes';
+import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 // El texto visible sale en frase; el valor que se guarda es la clave en
@@ -108,6 +110,8 @@ export function DetalleOportunidad() {
   });
   const enCola = oportunidad?.enCola === true;
   const puedePreguntarIA = usePuedePreguntarIA(oportunidad?.cliente_id);
+  const visitaIdBriefing = useVisitaBriefing(oportunidad?.cliente_id);
+  const [briefingAbierto, setBriefingAbierto] = useState(false);
   // Regla 6 (contexto siempre visible): antes la cabecera no decía de qué
   // cliente era la oportunidad. El proyecto (siempre con nombre) se añade
   // detrás — mismo criterio que Agenda.
@@ -372,8 +376,13 @@ export function DetalleOportunidad() {
     await eliminarOperacion(oportunidadId);
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     setBorrando(false);
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
+
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!oportunidad);
 
   if (isLoading || (!oportunidad && !isError)) {
     return (
@@ -417,19 +426,46 @@ export function DetalleOportunidad() {
         ayuda="detalle-oportunidad"
         onVolver={alVolver}
         derecha={
-          puedePreguntarIA && (
-            <button
-              type="button"
-              className="boton-icono"
-              onClick={() => setPreguntaIAAbierta(true)}
-              aria-label="Pregunta a la IA"
-              title="Pregunta a la IA sobre este cliente"
-            >
-              <Icono nombre="ia" size={18} />
-            </button>
-          )
+          <>
+            {puedePreguntarIA && (
+              <button
+                type="button"
+                className="boton-icono"
+                onClick={() => setPreguntaIAAbierta(true)}
+                aria-label="Pregunta a la IA"
+                title="Pregunta a la IA sobre este cliente"
+              >
+                <Icono nombre="ia" size={18} />
+              </button>
+            )}
+            {!!visitaIdBriefing && (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Briefing"
+                title="Briefing del cliente"
+                onClick={() => setBriefingAbierto(true)}
+              >
+                <Icono nombre="briefing" size={18} />
+              </button>
+            )}
+            <BotonPapelera etiqueta="Borrar oportunidad" onClick={() => setConfirmandoBorrado(true)} />
+          </>
         }
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        >
+          Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
+          oportunidad asociada.
+        </ConfirmacionBorrado>
+        </div>
+      )}
 
       <RecategorizarItem
         id={oportunidad.id}
@@ -559,7 +595,7 @@ export function DetalleOportunidad() {
       {/* Mientras la confirmación de borrado está abierta, ella es el foco:
           "Guardar" baja a secundario para no competir (un solo primario). */}
       <button
-        className={`btn ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
+        className={`btn btn-guardar-fijo ${confirmandoBorrado ? 'btn-secondary' : 'btn-primary'}`}
         style={{ marginTop: confirmandoSalida ? undefined : 'auto' }}
         disabled={guardando || guardadoConExito}
         onClick={guardar}
@@ -567,24 +603,14 @@ export function DetalleOportunidad() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar oportunidad"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
+
+      {briefingAbierto && oportunidad?.cliente_id && oportunidad.cliente?.nombre && visitaIdBriefing && (
+        <BriefingHoja
+          visitaId={visitaIdBriefing}
+          clienteId={oportunidad?.cliente_id}
+          clienteNombre={oportunidad.cliente?.nombre}
+          onCerrar={() => setBriefingAbierto(false)}
         />
-      ) : (
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        >
-          Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
-          oportunidad asociada.
-        </ConfirmacionBorrado>
       )}
 
       {preguntaIAAbierta && oportunidad.cliente_id && oportunidad.cliente?.nombre && (

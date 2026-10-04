@@ -6,6 +6,8 @@ import { Modal } from '@/components/ui/modal';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import type { ExtraMedio, MedioVisita } from '@/lib/medio-visita';
 
 interface ProyectoOpcion {
   id: string;
@@ -22,14 +24,20 @@ interface ObjetivoVisitaModalProps {
   // Proyecto preseleccionado. Sirve también de valor devuelto cuando no hay
   // selector (p. ej. desde la ficha de un proyecto concreto).
   proyectoInicial?: string;
+  // Quien abre la ventana ya sabe el proyecto (alta rápida: el que se acaba de teclear
+  // y aún no existe): no se exige elegir uno.
+  proyectoImplicito?: boolean;
   // Crea una línea de negocio nueva para este cliente y devuelve su id. Si se
   // pasa, la ventana ofrece «+ Nuevo proyecto» aunque el cliente tenga uno solo.
   onCrearProyecto?: (nombre: string) => Promise<string>;
   // Arranca la visita con el objetivo escrito y el proyecto elegido. El
   // cierre de la ventana y la navegación los controla quien la abre, igual
   // que el resto de modales.
-  onConfirmar: (objetivo: string, proyectoId: string) => Promise<void> | void;
+  onConfirmar: (objetivo: string, proyectoId: string, extra: ExtraMedio) => Promise<void> | void;
   onCerrar: () => void;
+  // Medio ya elegido antes de abrir la ventana (p. ej. en «Empezar visita» y luego alta de cliente).
+  medioInicial?: MedioVisita;
+  enlaceInicial?: string;
 }
 
 // Ventana obligatoria al arrancar una visita "sobre la marcha" (los caminos
@@ -41,11 +49,16 @@ export function ObjetivoVisitaModal({
   clienteNombre,
   proyectos,
   proyectoInicial,
+  proyectoImplicito,
   onCrearProyecto,
   onConfirmar,
   onCerrar,
+  medioInicial,
+  enlaceInicial,
 }: ObjetivoVisitaModalProps) {
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>(medioInicial ?? 'presencial');
+  const [enlace, setEnlace] = useState(enlaceInicial ?? '');
   const refDictado = useRef<RefCampoDictado>(null);
   // Proyectos creados desde esta misma ventana, para que aparezcan en el
   // selector sin esperar a que la lista de origen se recargue.
@@ -103,14 +116,14 @@ export function ObjetivoVisitaModal({
     if (!objetivoConsolidado || arrancando) return;
     // Validación explícita: sin proyecto elegido no se arranca, en vez de
     // dejar que la visita se cree con proyecto_id vacío camino de la cola.
-    if (!proyectoId) {
+    if (!proyectoId && !proyectoImplicito) {
       setError('Elige un proyecto antes de empezar.');
       return;
     }
     setArrancando(true);
     setError(null);
     try {
-      await onConfirmar(objetivoConsolidado, proyectoId);
+      await onConfirmar(objetivoConsolidado, proyectoId, { medio, enlaceReunion: enlace });
     } catch (err) {
       setError(
         esSinRed(err)
@@ -123,6 +136,8 @@ export function ObjetivoVisitaModal({
 
   return (
     <Modal titulo={`¿A qué vas${clienteNombre ? ` a ${clienteNombre}` : ''}?`} onCerrar={onCerrar}>
+      <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0' }}>
         el objetivo de la visita. Podrás matizarlo dentro.
       </div>
@@ -134,6 +149,7 @@ export function ObjetivoVisitaModal({
         onCambio={setObjetivo}
         placeholder="cerrar el pedido pendiente, presentar la nueva gama, primera toma de contacto…"
       />
+
 
       {mostrarProyecto && (
         <>

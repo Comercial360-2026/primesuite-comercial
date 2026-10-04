@@ -23,7 +23,8 @@
 //   { accion: 'crear',      nombre, email, rol, zona_cartera?, app_url? }
 //     -> { id, action_link }
 //   { accion: 'editar',     id, nombre, rol, zona_cartera? }   -> { ok: true }
-//   { accion: 'desactivar', id, traspasar_a? }                 -> { ok: true }
+//   { accion: 'desactivar', id, traspasar_a? }                 -> { ok: true, resultado: 'borrado' | 'archivado' }
+//     (sin historial se borra del todo; con historial se conserva y se libera su correo)
 //   { accion: 'reactivar',  id }                               -> { ok: true }
 //   { accion: 'enlace_acceso', id, app_url? }                  -> { action_link }
 //   { accion: 'solicitar_acceso', email }                      -> { ok: true }  (SIN auth)
@@ -33,6 +34,7 @@
 // direccion_comercial. No se puede uno desactivar a sí mismo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { hayOtraDireccionActiva } from '../_shared/direccion.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -147,6 +149,9 @@ Deno.serve(async (req) => {
     if (errLista) return jsonResponse({ error: 'No se pudieron cargar los correos.' }, 400);
     const correos: Record<string, string> = {};
     for (const u of lista?.users ?? []) correos[u.id] = u.email ?? '';
+    // De baja con historial: en Auth su correo es un .invalid; aquí se enseña el original.
+    const { data: deBaja } = await admin.from('comercial').select('id, email_anterior').not('email_anterior', 'is', null);
+    for (const f of deBaja ?? []) correos[f.id] = f.email_anterior ?? correos[f.id];
     return jsonResponse({ correos });
   }
 
@@ -251,6 +256,16 @@ Deno.serve(async (req) => {
     if (!nombre) return jsonResponse({ error: 'Falta el nombre.' }, 400);
     if (!ROLES_VALIDOS.includes(rol)) return jsonResponse({ error: 'Rol no válido.' }, 400);
 
+    // No dejar la empresa sin Dirección Comercial: no se puede quitar el rol al último activo.
+    if (rol !== 'direccion_comercial') {
+      const { data: actual } = await admin.from('comercial').select('rol, activo').eq('id', id).maybeSingle();
+      if (actual?.rol === 'direccion_comercial' && actual.activo) {
+        if (!(await hayOtraDireccionActiva(admin, id))) {
+          return jsonResponse({ error: 'Debe quedar al menos una persona activa con rol Dirección Comercial.' }, 400);
+        }
+      }
+    }
+
     const { error } = await admin
       .from('comercial')
       .update({ nombre, rol, zona_cartera: zonaCartera, actualizado_en: new Date().toISOString() })
@@ -288,25 +303,97 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ------------------------------------------------------------ REACTIVAR
+  // Primero Auth (si falla, el comercial sigue de baja) y después la fila. Si se
+  // dio de baja con historial, se le devuelve su correo original (si sigue libre).
+  if (!desactivar) {
+    const { data: fila } = await admin.from('comercial').select('email_anterior').eq('id', id).maybeSingle();
+    const emailAnterior = fila?.email_anterior ?? null;
+    const { error: errAuth } = await admin.auth.admin.updateUserById(id, {
+      ban_duration: 'none',
+      ...(emailAnterior ? { email: emailAnterior, email_confirm: true } : {}),
+    });
+    if (errAuth) {
+      return jsonResponse(
+        {
+          error: emailAnterior
+            ? `No se pudo reactivar: devolverle el correo ${emailAnterior} ha fallado (¿lo usa ya otra cuenta?). ${errAuth.message}`
+            : `No se pudo reactivar: ${errAuth.message}`,
+        },
+        409
+      );
+    }
+    const { error: errFila } = await admin
+      .from('comercial')
+      .update({ activo: true, fecha_baja: null, email_anterior: null, actualizado_en: new Date().toISOString() })
+      .eq('id', id);
+    if (errFila) return jsonResponse({ error: `No se pudo actualizar: ${errFila.message}` }, 400);
+    return jsonResponse({ ok: true });
+  }
+
+  // ---------------------------------------------------------------- BAJA
+  // Sin ningún historial (ninguna fila de otras tablas lo cita): se borra del todo,
+  // cuenta de Auth incluida, y su correo queda libre. Con historial: se conserva
+  // todo, deja de poder entrar y su correo se libera (queda en `email_anterior`).
+  // Misma red de seguridad que en `editar`: quien llama es siempre Dirección y no puede darse
+  // de baja a sí mismo, así que hoy nunca salta; protege si algún día cambia esa regla.
+  const { data: objetivo } = await admin.from('comercial').select('rol').eq('id', id).maybeSingle();
+  if (objetivo?.rol === 'direccion_comercial' && !(await hayOtraDireccionActiva(admin, id))) {
+    return jsonResponse({ error: 'Debe quedar al menos una persona activa con rol Dirección Comercial.' }, 400);
+  }
+
+  const { data: tieneHistorial, error: errHist } = await admin.rpc('fn_comercial_tiene_historial', { p_id: id });
+  if (errHist) {
+    return jsonResponse({ error: `No se pudo comprobar su historial, no se ha dado de baja: ${errHist.message}` }, 500);
+  }
+
+  if (!tieneHistorial) {
+    // Auth primero: si falla (p. ej. es dueño de archivos de Storage) no se ha tocado
+    // nada y se sigue por la baja con historial.
+    const { error: errBorrarUsuario } = await admin.auth.admin.deleteUser(id);
+    if (!errBorrarUsuario) {
+      const { error: errBorrarFila } = await admin.from('comercial').delete().eq('id', id);
+      if (errBorrarFila) {
+        await admin
+          .from('comercial')
+          .update({ activo: false, fecha_baja: new Date().toISOString(), actualizado_en: new Date().toISOString() })
+          .eq('id', id);
+        return jsonResponse(
+          { error: `Su cuenta de acceso se borró, pero la ficha no (${errBorrarFila.message}); queda de baja.` },
+          500
+        );
+      }
+      return jsonResponse({ ok: true, resultado: 'borrado' });
+    }
+  }
+
+  const { data: usuario } = await admin.auth.admin.getUserById(id);
+  const emailActual = usuario?.user?.email ?? null;
+  const yaAnonimo = !emailActual || emailActual.endsWith('@baja.invalid');
   const { error: errFila } = await admin
     .from('comercial')
     .update({
-      activo: !desactivar,
-      fecha_baja: desactivar ? new Date().toISOString() : null,
+      activo: false,
+      fecha_baja: new Date().toISOString(),
+      ...(yaAnonimo ? {} : { email_anterior: emailActual }),
       actualizado_en: new Date().toISOString(),
     })
     .eq('id', id);
   if (errFila) return jsonResponse({ error: `No se pudo actualizar: ${errFila.message}` }, 400);
 
   const { error: errBan } = await admin.auth.admin.updateUserById(id, {
-    ban_duration: desactivar ? BAN_LARGO : 'none',
+    ban_duration: BAN_LARGO,
+    ...(yaAnonimo ? {} : { email: `baja-${id}@baja.invalid`, email_confirm: true }),
   });
   if (errBan) {
-    return jsonResponse(
-      { error: `El estado se guardó, pero no se pudo ${desactivar ? 'bloquear' : 'desbloquear'} el acceso: ${errBan.message}` },
-      500
-    );
+    return jsonResponse({ error: `El estado se guardó, pero no se pudo bloquear el acceso: ${errBan.message}` }, 500);
   }
 
-  return jsonResponse({ ok: true });
+  // Cierra las sesiones que tuviera abiertas (si no, seguiría dentro hasta que caduque su token).
+  const { error: errSesiones } = await admin.rpc('fn_cerrar_sesiones', { p_id: id });
+  if (errSesiones) {
+    return jsonResponse({ error: `Está de baja y bloqueado, pero no se pudieron cerrar sus sesiones abiertas: ${errSesiones.message}` }, 500);
+  }
+
+  return jsonResponse({ ok: true, resultado: 'archivado' });
 });

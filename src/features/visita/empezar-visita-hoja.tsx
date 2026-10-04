@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, filtroNombreOAlias, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -15,6 +15,9 @@ import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
+import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
+import type { MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
 
@@ -44,6 +47,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   const [proyectoId, setProyectoId] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>('presencial');
+  const [enlace, setEnlace] = useState('');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [creandoProyecto, setCreandoProyecto] = useState(false);
   const [nombreProyectoNuevo, setNombreProyectoNuevo] = useState('');
@@ -92,7 +97,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
         .neq('estado_relacion', CLIENTE_ARCHIVADO)
-        .ilike('cliente_nombre', `%${termino}%`)
+        .or(filtroNombreOAlias(termino))
         .order('cliente_nombre')
         .limit(8);
       if (error) throw error;
@@ -207,6 +212,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         proyectoId,
         clienteNombre: cliente?.nombre ?? '',
         objetivo: objetivoTexto,
+        medio,
+        enlaceReunion: enlace,
       });
       onCerrar();
       navigate(`/visita/${visitaId}`);
@@ -256,9 +263,21 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
 
   const proyectoElegido = proyectos?.find((p) => p.id === proyectoId) ?? null;
 
+  // Parámetros con los que se abre el alta de cliente desde aquí: el medio elegido arriba viaja con ella.
+  function paramsAlta(base: Record<string, string>) {
+    const q = new URLSearchParams(base);
+    if (medio !== 'presencial') q.set('medio', medio);
+    if (medio === 'teams' && enlace.trim()) q.set('enlace', enlace.trim());
+    return q.toString();
+  }
+
   return (
     <HojaSuperior titulo="empezar visita" onCerrar={cerrarORetroceder}>
       <div className="lista-agrupada" style={{ padding: '0 4px 8px' }}>
+        {/* ¿Cómo es la visita? va ARRIBA y en todos los pasos (antes solo salía en el último, tras elegir cliente y proyecto,
+            y parecía que no se podía elegir). Se arrastra al alta de cliente si hay que crearlo. */}
+        <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
         {/* Paso 1 — cliente */}
         {!clienteId && (
           <div>
@@ -278,17 +297,36 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             {termino.length >= 2 && buscando && (
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>Buscando…</div>
             )}
+            {/* Cuentas del CRM que aún no son cliente (3.700 en el CRM, solo unas pocas son clientes): el CRM nunca crea
+                clientes solo, así que aquí se ofrecen. Tocar una abre el alta con esa cuenta ya elegida; si ya hay un
+                cliente con esa cuenta (o una hermana), se sigue con ese. */}
+            {termino.length >= 3 && (
+              <ResultadosCuentaCrm
+                texto={termino}
+                titulo="En el CRM (aún no es cliente)"
+                soloSinCliente
+                onElegir={(c, existente) => {
+                  if (existente) {
+                    setBusqueda('');
+                    setClienteId(existente.id);
+                    return;
+                  }
+                  onCerrar();
+                  navigate(`/clientes/nuevo?${paramsAlta({ nombre: c.nombre, cuenta: c.accountid })}`, { state: desde(location) });
+                }}
+              />
+            )}
             {termino.length >= 2 && !buscando && encontrados?.length === 0 && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-                  No hay ningún cliente que se llame así.
+                  Ningún cliente tuyo se llama así.
                 </div>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
                     onCerrar();
-                    navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`, { state: desde(location) });
+                    navigate(`/clientes/nuevo?${paramsAlta({ nombre: termino })}`, { state: desde(location) });
                   }}
                 >
                   Crear «{termino}» y seguir
@@ -387,12 +425,15 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         {/* Paso 3 — objetivo + empezar */}
         {!!clienteId && !!proyectoId && (
           <div>
-            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
-              {cliente?.nombre}
-              {proyectoElegido && (
-                <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}> · {proyectoElegido.nombre}</span>
-              )}
-            </div>
+            {/* El proyecto al que irá la visita, a la vista y tocable: antes era un texto gris y,
+                con un solo proyecto, se elegía solo sin que se notara. */}
+            <SeccionLista>
+              <FilaNavegable
+                titulo={proyectoElegido?.nombre ?? '…'}
+                subtitulo={`${cliente?.nombre ?? ''} · la visita irá a este proyecto — toca para cambiar`}
+                onClick={() => setProyectoId('')}
+              />
+            </SeccionLista>
 
             {clienteDeOtro && (
               <div

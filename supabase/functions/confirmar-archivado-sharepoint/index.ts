@@ -1,0 +1,150 @@
+// supabase/functions/confirmar-archivado-sharepoint/index.ts
+//
+// Llamada por el flujo de Power Automate "Archivar visita a SharePoint",
+// una vez por archivo subido (dentro de su "Apply to each"), con el mismo
+// `secreto` compartido que valida el trigger del flujo (campo del payload,
+// no cabecera — así no hace falta tocar el flujo ya construido).
+//
+// IMPORTANTE para quien configure/revise el flujo: este endpoint confía en
+// el campo "secreto" del cuerpo, igual que el trigger — si se audita el
+// flujo y se decide añadir también una cabecera, este endpoint no la exige
+// hoy.
+//
+// Desde la migración 132 esto solo CONFIRMA LA COPIA: comprueba que SharePoint
+// guardó los mismos bytes y anota ruta_sharepoint + copiada_sharepoint_en. El
+// original de Supabase Storage NO se toca aquí; lo libera procesar-archivado-
+// sharepoint (fase 2) a los 30 días del cierre.
+
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+const BUCKET_POR_TIPO: Record<string, string> = {
+  foto: 'fotos-visita',
+  audio: 'audios-visita',
+  documento: 'documentos-visita',
+};
+
+function igualesEnTiempoConstante(a: string, b: string) {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length ^ eb.length;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return diff === 0;
+}
+
+async function tamanoEnStorage(admin: SupabaseClient, bucket: string, ruta: string | null) {
+  if (!ruta) return null;
+  const i = ruta.lastIndexOf('/');
+  const { data } = await admin.storage.from(bucket).list(i < 0 ? '' : ruta.slice(0, i), { search: ruta.slice(i + 1) });
+  const f = data?.find((x) => x.name === ruta.slice(i + 1));
+  const tam = f?.metadata?.size;
+  return typeof tam === 'number' ? tam : null;
+}
+
+Deno.serve(async (req) => {
+  let body: { secreto?: string; captura_id?: string; ruta_sharepoint?: string; tamano?: number | string };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'Cuerpo inválido' }, 400);
+  }
+
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data: secretoOk } = await admin.rpc('fn_secreto_power_automate');
+  if (!body.secreto || !secretoOk || !igualesEnTiempoConstante(body.secreto, secretoOk)) {
+    return json({ error: 'No autorizado' }, 401);
+  }
+
+  if (!body.captura_id || !body.ruta_sharepoint) {
+    return json({ error: 'Faltan captura_id o ruta_sharepoint' }, 400);
+  }
+
+  // La copia de seguridad de las tablas (generar-copia-seguridad) también viaja por este flujo:
+  // captura_id = 'copia:<registro_id>'. Misma regla de integridad: tamaño en SharePoint = tamaño del
+  // JSON guardado en el bucket de backups.
+  const copia = /^copia:([0-9a-f-]{36})$/i.exec(body.captura_id);
+  if (copia) {
+    const { data: reg } = await admin
+      .from('registro_backup_completo')
+      .select('storage_path, estado')
+      .eq('id', copia[1])
+      .maybeSingle();
+    if (!reg) return json({ error: 'Copia no encontrada' }, 404);
+    if (reg.estado === 'confirmada') return json({ ok: true, ya_copiada: true });
+    const subido = Number(body.tamano);
+    const original = await tamanoEnStorage(admin, 'backups-visita', reg.storage_path);
+    if (!subido || original === null || subido !== original) {
+      const motivo = `Tamaño no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}`;
+      await admin.from('registro_backup_completo').update({ error: motivo }).eq('id', copia[1]);
+      return json({ error: motivo }, 409);
+    }
+    const { error: errorCopia } = await admin
+      .from('registro_backup_completo')
+      .update({ estado: 'confirmada', ruta_sharepoint: body.ruta_sharepoint, confirmada_en: new Date().toISOString(), error: null })
+      .eq('id', copia[1]);
+    if (errorCopia) return json({ error: errorCopia.message }, 500);
+    return json({ ok: true });
+  }
+
+  // El informe de la visita viaja por el mismo flujo como un archivo más, con
+  // captura_id = 'informe:<visita_id>' (HTML) o 'informe-pdf:<visita_id>' (PDF); no es una captura.
+  // Misma regla de integridad: el tamaño en SharePoint tiene que ser el del informe guardado en el
+  // bucket de backups.
+  const informe = /^informe(-pdf)?:/.exec(body.captura_id);
+  if (informe) {
+    const formato = informe[1] ? 'pdf' : 'html';
+    const visitaId = body.captura_id.slice(informe[0].length);
+    if (!/^[0-9a-f-]{36}$/i.test(visitaId)) return json({ error: 'Informe no válido' }, 400);
+    const columnaRuta = formato === 'pdf' ? 'informe_pdf_storage_path' : 'informe_storage_path';
+    const { data: visita } = await admin.from('visita').select(columnaRuta).eq('id', visitaId).maybeSingle();
+    if (!visita) return json({ error: 'Visita no encontrada' }, 404);
+    const subido = Number(body.tamano);
+    const original = await tamanoEnStorage(
+      admin,
+      'backups-visita',
+      (visita as Record<string, string | null>)[columnaRuta]
+    );
+    if (!subido || original === null || subido !== original) {
+      return json(
+        { error: `Tamaño del informe ${formato} no coincide: subido=${body.tamano ?? 'sin dato'} original=${original ?? 'desconocido'}` },
+        409
+      );
+    }
+    const { error: errorInforme } = await admin.rpc('fn_confirmar_informe_visita', {
+      p_visita_id: visitaId,
+      p_ruta_sharepoint: body.ruta_sharepoint,
+      p_formato: formato,
+    });
+    if (errorInforme) return json({ error: errorInforme.message }, 500);
+    return json({ ok: true });
+  }
+
+  // Integridad: la copia solo se da por buena si SharePoint guardó exactamente
+  // los mismos bytes (mismo tamaño). Sin tamaño o distinto, NO se confirma: el
+  // original sigue en Supabase y el cron reintenta.
+  const { data: origen } = await admin
+    .from('captura_libre')
+    .select('tipo, storage_path, ubicacion_archivo, ruta_sharepoint')
+    .eq('id', body.captura_id)
+    .maybeSingle();
+  if (!origen) return json({ error: 'Captura no encontrada' }, 404);
+  if (origen.ubicacion_archivo === 'sharepoint' || origen.ruta_sharepoint) return json({ ok: true, ya_copiada: true });
+  const tamanoSubido = Number(body.tamano);
+  const tamanoOriginal = await tamanoEnStorage(admin, BUCKET_POR_TIPO[origen.tipo], origen.storage_path);
+  if (!tamanoSubido || tamanoOriginal === null || tamanoSubido !== tamanoOriginal) {
+    const motivo = `Tamaño no coincide: subido=${body.tamano ?? 'sin dato'} original=${tamanoOriginal ?? 'desconocido'}`;
+    await admin.from('captura_libre').update({ error_archivado: motivo }).eq('id', body.captura_id);
+    return json({ error: motivo }, 409);
+  }
+
+  const { error } = await admin.rpc('fn_confirmar_copia_captura', {
+    p_captura_id: body.captura_id,
+    p_ruta_sharepoint: body.ruta_sharepoint,
+  });
+  if (error) return json({ error: error.message }, 500);
+
+  return json({ ok: true });
+});
