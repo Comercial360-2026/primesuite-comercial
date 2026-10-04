@@ -361,7 +361,7 @@ body.buscando .zona-resumen{display:none}
   #subir{position:fixed;right:14px;bottom:14px;z-index:900;width:46px;height:46px;border-radius:99px;border:0;background:var(--b6);color:#fff;font-size:22px;box-shadow:0 4px 12px rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;cursor:pointer}
   #subir.ver{display:flex}
   /* Zonas plegadas: con decenas de capturas, una lista seguida de miles de píxeles no se recorre en el móvil. */
-  .zona-bloque h2{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;min-height:44px}
+  .zona-bloque h2{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;min-height:44px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .zona-bloque h2::after{content:'▾';color:var(--ink4);font-size:16px}
   .zona-bloque.plegada h2::after{content:'▸'}
   .zona-bloque{border-left:4px solid var(--b6)}
@@ -413,6 +413,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   var ultimoTipo=SECS[1]||SECS[0],ultimaZona='zonas',cambiandoVista=false;
   var res=$('resultados'),marcadores={},mapa=null;
   var movil=window.matchMedia('(max-width:900px)');
+  var buscandoAntes=false,abiertasAntes=null,vistaAntes=null;
 
   // --- Filtro: la zona elegida y el texto del buscador se combinan.
   function aplicar(){
@@ -449,6 +450,10 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
       var sec=document.createElement('section');
       sec.className='sec zona-bloque';sec.id='zb-'+i;sec.setAttribute('data-sec','zona-'+i);sec.setAttribute('data-i',i);
       var h=document.createElement('h2');h.textContent=z||'Sin zona';sec.appendChild(h);
+      // Oyente en el propio título (no delegado en document): iOS Safari no entrega el toque a document si el elemento no es «clicable».
+      h.setAttribute('role','button');h.setAttribute('tabindex','0');
+      h.addEventListener('click',function(){if(movil.matches)sec.classList.toggle('plegada')});
+      h.addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&movil.matches){e.preventDefault();sec.classList.toggle('plegada')}});
       var partes=[],cuerpo=document.createDocumentFragment();
       TIPOS.forEach(function(t){
         var its=origen.filter(function(e){return e.getAttribute('data-t')===t[0]&&(e.getAttribute('data-z')||'')===z});
@@ -472,6 +477,9 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   // --- Qué se ve: el resumen, una zona (o todas, una tras otra), una sección por tipo o los resultados de la búsqueda.
   function seleccionar(){
     var buscando=!!norm(texto);
+    // Al buscar se abren todas; al vaciar el buscador vuelven abiertas solo las que lo estaban antes de buscar.
+    if(buscando&&!buscandoAntes)abiertasAntes=todos('.zona-bloque').filter(function(z){return !z.classList.contains('plegada')}).map(function(z){return z.id});
+    var restaurar=!buscando&&buscandoAntes&&!!abiertasAntes&&vistaAntes===vista;
     var zi=vista.indexOf('zona-')===0?parseInt(vista.slice(5),10):-1;
     zona=zi>=0&&!buscando?ZONAS[zi]:null;
     body.setAttribute('data-modo',modo);
@@ -484,8 +492,9 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
       else if(id==='resumen')ver=!buscando&&vista==='resumen';
       else ver=modo==='tipo'&&(buscando||id===vista);
       s.classList.toggle('fuera',!ver);
-      if(s.classList.contains('zona-bloque'))s.classList.toggle('plegada',movil.matches&&!buscando&&vista==='zonas');
+      if(s.classList.contains('zona-bloque'))s.classList.toggle('plegada',movil.matches&&!buscando&&vista==='zonas'&&!(restaurar&&abiertasAntes.indexOf(s.id)>=0));
     });
+    buscandoAntes=buscando;vistaAntes=vista;
     var nt=$('nav-tipo'),nz=$('nav-zona');
     if(nt)nt.hidden=modo==='zona';
     if(nz)nz.hidden=modo!=='zona';
@@ -566,10 +575,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     window.addEventListener('scroll',function(){sub.classList.toggle('ver',window.scrollY>600)},{passive:true});
     sub.addEventListener('click',function(){window.scrollTo(0,0)});
   }
-  document.addEventListener('click',function(e){
-    var h=e.target.closest&&e.target.closest('.zona-bloque h2');
-    if(h&&movil.matches)h.parentNode.classList.toggle('plegada');
-  });
+
   var mc=$('menu-cerrar');if(mc)mc.addEventListener('click',cerrarMenu);
   if(velo)velo.addEventListener('click',cerrarMenu);
 
