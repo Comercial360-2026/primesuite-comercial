@@ -23,7 +23,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
 import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
-import type { MedioVisita } from '@/lib/medio-visita';
+import { medioDe, type MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 
 interface Proyecto {
@@ -159,8 +159,8 @@ export function PlanificarVisita() {
   const hoyISO = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState('');
   const [objetivo, setObjetivo] = useState('');
-  const [medio, setMedio] = useState<MedioVisita>('presencial');
-  const [enlace, setEnlace] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>(medioDe(params.get('medio')));
+  const [enlace, setEnlace] = useState(params.get('enlace') ?? '');
   const refDictadoObjetivo = useRef<RefCampoDictado>(null);
   const [hora, setHora] = useState('');
   const [franja, setFranja] = useState<'' | 'manana' | 'tarde'>('');

@@ -332,7 +332,14 @@ export function AltaRapidaCliente() {
           );
           return;
         }
-        navigate(`/planificar?clienteId=${cliente.id}&proyectoId=${cliente.proyectoId}`);
+        // El medio elegido en «Empezar visita»/«Planificar» sigue su camino hasta la planificación.
+        const medioUrl = params.get('medio');
+        const enlaceUrl = params.get('enlace');
+        navigate(
+          `/planificar?clienteId=${cliente.id}&proyectoId=${cliente.proyectoId}` +
+            (medioUrl ? `&medio=${encodeURIComponent(medioUrl)}` : '') +
+            (enlaceUrl ? `&enlace=${encodeURIComponent(enlaceUrl)}` : '')
+        );
       },
     });
   }
