@@ -28,6 +28,8 @@ interface Props {
   /** Clave para recordar abierta/cerrada en esta pestaña (sessionStorage): al ir a una ficha y volver, la
    *  sección sigue como la dejaste (la pantalla se desmonta al navegar y, si no, vuelve plegada). */
   recordarComo?: string;
+  /** Texto breve a la derecha del título en lugar de «(N)» (un resumen de lo que hay dentro). */
+  detalle?: ReactNode;
   children?: ReactNode;
 }
 
@@ -41,7 +43,7 @@ const leerRecordada = (clave?: string): boolean | null => {
   }
 };
 
-export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, tono, siempreAbrible, recordarComo, children }: Props) {
+export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, tono, siempreAbrible, recordarComo, detalle, children }: Props) {
   const [recordada] = useState(() => leerRecordada(recordarComo));
   const [abierta, setAbierta] = useState(recordada ?? defaultAbierta);
   const tocadoPorUsuario = useRef(recordada !== null);
@@ -91,7 +93,8 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
         }}
       >
         <span style={{ fontSize: 'var(--text-md)', fontWeight: abierta && !vacia ? 600 : 500, color: tono === 'aviso' ? 'var(--warning-600)' : abierta && !vacia ? 'var(--brand-600)' : undefined }}>
-          {titulo} <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>({cantidad})</span>
+          {titulo}{' '}
+          <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>{detalle !== undefined ? detalle : `(${cantidad})`}</span>
         </span>
         {!vacia && (
           <span

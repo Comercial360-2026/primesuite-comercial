@@ -362,6 +362,7 @@ export type Database = {
           creado_por: string | null
           crm_accountid: string | null
           crm_no_autovincular: boolean
+          crm_nombre_propio: boolean
           nombre_alias: string | null
           estado_fusion: string
           estado_relacion: string
@@ -379,6 +380,7 @@ export type Database = {
           creado_por?: string | null
           crm_accountid?: string | null
           crm_no_autovincular?: boolean
+          crm_nombre_propio?: boolean
           nombre_alias?: string | null
           estado_fusion?: string
           estado_relacion?: string
@@ -396,6 +398,7 @@ export type Database = {
           creado_por?: string | null
           crm_accountid?: string | null
           crm_no_autovincular?: boolean
+          crm_nombre_propio?: boolean
           nombre_alias?: string | null
           estado_fusion?: string
           estado_relacion?: string

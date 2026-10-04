@@ -213,6 +213,12 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   casilla en «Cuenta CRM») y su nombre anterior queda en `cliente.nombre_alias` (los buscadores lo encuentran: usar
   `filtroNombreOAlias`). Quitar o deshacer restaura el nombre y marca `crm_no_autovincular` (no se re-vincula solo). Migraciones 149-150.
   Cambiar a otra cuenta si hubo un error: ficha → Cuenta CRM → «Cambiar por».
+  Ya vinculados con nombre distinto al de su cuenta (los de antes del 4 oct): en la ficha «El CRM la llama «X» · usar ese nombre» y en
+  «Clientes por vincular» (botón para todos); «Volver a «nombre anterior»» conserva la cuenta y marca `crm_nombre_propio` (no se vuelve a
+  ofrecer). La carpeta de SharePoint se fija la primera vez (`cliente.carpeta_sharepoint`): renombrar un cliente NO parte su historial.
+- **Ficha de cliente: lo que importa a la vista, lo demás plegado (4 oct).** Cuenta CRM y responsable siempre visibles; Nombre,
+  Sector, Ubicación y Tamaño van en «Datos del cliente» (desplegable con resumen, `SeccionColapsable detalle`): solo salen en la cabecera
+  de los informes y en Deduplicación, y el CRM no trae sector ni tamaño.
 - **Pantalla `screen--split`: nada fijo debajo del `screen__scroll` salvo un botón.** Bloques largos
   (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
   (visita cerrada, 3 oct).

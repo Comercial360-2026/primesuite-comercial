@@ -304,6 +304,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
               <ResultadosCuentaCrm
                 texto={termino}
                 titulo="En el CRM (aún no es cliente)"
+                soloSinCliente
                 onElegir={(c, existente) => {
                   if (existente) {
                     setBusqueda('');

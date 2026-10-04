@@ -92,6 +92,7 @@ export function ResultadosCuentaCrm({
   excluirClienteId,
   disabled,
   titulo = 'Cuenta en el CRM',
+  soloSinCliente,
 }: {
   texto: string;
   /** `cliente`: el cliente que ya tiene vinculada esa cuenta (si no es el excluido). */
@@ -99,6 +100,8 @@ export function ResultadosCuentaCrm({
   excluirClienteId?: string;
   disabled?: boolean;
   titulo?: string;
+  /** Oculta las cuentas que ya tienen cliente (o una hermana): para los buscadores donde el cliente ya sale arriba. */
+  soloSinCliente?: boolean;
 }) {
   const q = normalizarNombre(texto);
   const activo = q.length >= 3;
@@ -128,6 +131,11 @@ export function ResultadosCuentaCrm({
   }
   if (isLoading) return null;
 
+  const visibles = soloSinCliente
+    ? resultados.filter((c) => !vinculadas?.[c.accountid] && !porClave.has(claveDuplicado(c.nombre)))
+    : resultados;
+  if (soloSinCliente && visibles.length === 0) return null;
+
   if (resultados.length === 0) {
     return (
       <p style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', paddingInline: 'var(--fila-pad-x)' }}>
@@ -138,7 +146,7 @@ export function ResultadosCuentaCrm({
 
   return (
     <SeccionLista titulo={titulo}>
-      {resultados.map((c) => {
+      {visibles.map((c) => {
           const cliente = vinculadas?.[c.accountid];
           const yaVinculada = cliente && cliente.id !== excluirClienteId;
           // Otra cuenta de la misma empresa que ya tiene cliente (duplicada en el CRM).

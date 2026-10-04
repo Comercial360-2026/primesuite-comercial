@@ -15,7 +15,7 @@ import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { ResultadosCuentaCrm, textoCuentaCrm, useSugerenciasCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
-import { vincularClienteACuenta } from '@/lib/vincular-cuenta-crm';
+import { usarNombreDelCrm, vincularClienteACuenta, volverAlNombreAnterior } from '@/lib/vincular-cuenta-crm';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -24,11 +24,12 @@ import { EtiquetaSemaforo } from '@/components/ui/etiqueta-semaforo';
 import { EcoTag } from '@/components/ui/eco-tag';
 import { Icono } from '@/components/ui/iconos';
 import { Aviso } from '@/components/ui/aviso';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { cargarEcosistemaCliente } from '@/lib/ecosistema';
-import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, hayNombreDuplicado, normalizarNombre } from '@/lib/nombres-cliente';
 import { InterlocutoresClienteHoja } from './interlocutores-cliente-hoja';
 import { PreguntaIAHoja, usePuedePreguntarIA } from './pregunta-ia-hoja';
 import { BriefingHoja, useVisitaBriefing } from '@/features/visita/briefing-hoja';
@@ -171,6 +172,30 @@ export function FichaCliente() {
     );
   }
 
+  // Nombre del cliente respecto a su cuenta ya vinculada: usar el del CRM, o volver al anterior (y no volver a ofrecerlo).
+  async function cambiarNombreCrm(accion: 'usar' | 'volver') {
+    if (!cliente || !cuentaCrm) return;
+    if (!navigator.onLine) {
+      guardadoCrm.establecerError('Necesitas conexión para cambiar el nombre.');
+      return;
+    }
+    const base = { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general };
+    await guardadoCrm.ejecutar(
+      async () => {
+        if (accion === 'usar') await usarNombreDelCrm(base, cuentaCrm);
+        else await volverAlNombreAnterior(base);
+      },
+      {
+        onExito: () => {
+          setCrmAbierto(false);
+          queryClient.invalidateQueries({ queryKey: ['cliente', clienteId] });
+          queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+          queryClient.invalidateQueries({ queryKey: ['clientes-con-nombre-distinto'] });
+        },
+      }
+    );
+  }
+
   function cerrarEditarDatos() {
     setEditandoDatos(false);
     guardadoDatos.limpiarError();
@@ -293,7 +318,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, nombre_alias, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid, crm_no_autovincular')
+        .select('id, nombre, nombre_alias, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid, crm_no_autovincular, crm_nombre_propio')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -510,6 +535,9 @@ export function FichaCliente() {
   );
   const sugerencias = useSugerenciasCuenta(clienteParaSugerir);
   const sugerencia = cliente ? sugerencias.get(cliente.id) : undefined;
+  // ¿Se llama igual que su cuenta del CRM? (si no, y no decidió conservar el suyo, se le ofrece usar el del CRM)
+  const nombreCoincideConCrm =
+    !cuentaCrm || !cliente || cliente.crm_nombre_propio || normalizarNombre(cuentaCrm.nombre) === normalizarNombre(cliente.nombre);
   const [vinculadoAuto, setVinculadoAuto] = useState<null | { cuenta: string; antes: string }>(null);
   const autoIntentadoPara = useRef<string | null>(null);
   useEffect(() => {
@@ -826,59 +854,69 @@ export function FichaCliente() {
 
        <div className="lista-agrupada">
         {cliente && (
-          <SeccionLista titulo="Datos" prominencia="tenue">
-            {/* Quien puede editar ve siempre Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
-                al tocar uno abre «Datos del cliente»; el resto solo ve los rellenos. */}
-            {puedeEditar && (
-              <FilaNavegable
-                titulo="Nombre"
-                valor={cliente.nombre}
-                onClick={() => abrirEditarDatos('nombre')}
-              />
-            )}
-            {([
-              ['Sector', cliente.sector, 'sector'],
-              ['Ubicación', cliente.ubicacion_general, 'ubicacion'],
-              ['Tamaño', cliente.tamano_aprox, 'tamano'],
-            ] as const).map(([etiqueta, valor, campo]) =>
-              puedeEditar ? (
+          <>
+            {/* Lo importante, siempre a la vista: la cuenta del CRM (sin ella el briefing no encuentra al cliente) y
+                quién lo lleva. Sector, ubicación y tamaño solo salen en la cabecera de los informes: van plegados. */}
+            <SeccionLista>
+              {responsableNombre && !esDireccionComercial && <FilaDato etiqueta="Responsable" valor={responsableNombre} />}
+              {puedeEditar ? (
                 <FilaNavegable
-                  key={etiqueta}
-                  titulo={etiqueta}
-                  valor={valor || 'sin indicar'}
-                  valorTenue={!valor}
-                  onClick={() => abrirEditarDatos(campo)}
+                  titulo="Cuenta CRM"
+                  subtitulo={
+                    cliente.crm_accountid
+                      ? cuentaCrm && !nombreCoincideConCrm
+                        ? `El CRM la llama «${cuentaCrm.nombre}» · toca para usar ese nombre`
+                        : cliente.nombre_alias
+                          ? `Nombre anterior: «${cliente.nombre_alias}»`
+                          : undefined
+                      : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'
+                  }
+                  valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+                  tono={cliente.crm_accountid ? (cuentaCrm && !nombreCoincideConCrm ? 'aviso' : 'neutral') : 'aviso'}
+                  onClick={abrirCrm}
                 />
               ) : (
-                valor && <FilaDato key={etiqueta} etiqueta={etiqueta} valor={valor} />
-              )
+                <FilaDato
+                  etiqueta="Cuenta CRM"
+                  valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
+                />
+              )}
+            </SeccionLista>
+            {(puedeEditar || !!(cliente.sector || cliente.ubicacion_general || cliente.tamano_aprox)) && (
+              <SeccionColapsable
+                titulo="Datos del cliente"
+                cantidad={4}
+                siempreAbrible
+                recordarComo={`cliente-${cliente.id}-datos`}
+                detalle={[cliente.sector, cliente.ubicacion_general, cliente.tamano_aprox].filter(Boolean).join(' · ') || 'sin completar'}
+              >
+                {/* Quien puede editar ve siempre Nombre, Sector, Ubicación y Tamaño (vacíos como «sin indicar») y
+                    al tocar uno abre solo ese dato; el resto solo ve los rellenos. */}
+                <SeccionLista>
+                  {puedeEditar && (
+                    <FilaNavegable titulo="Nombre" valor={cliente.nombre} onClick={() => abrirEditarDatos('nombre')} />
+                  )}
+                  {([
+                    ['Sector', cliente.sector, 'sector'],
+                    ['Ubicación', cliente.ubicacion_general, 'ubicacion'],
+                    ['Tamaño', cliente.tamano_aprox, 'tamano'],
+                  ] as const).map(([etiqueta, valor, campo]) =>
+                    puedeEditar ? (
+                      <FilaNavegable
+                        key={etiqueta}
+                        titulo={etiqueta}
+                        valor={valor || 'sin indicar'}
+                        valorTenue={!valor}
+                        onClick={() => abrirEditarDatos(campo)}
+                      />
+                    ) : (
+                      valor && <FilaDato key={etiqueta} etiqueta={etiqueta} valor={valor} />
+                    )
+                  )}
+                </SeccionLista>
+              </SeccionColapsable>
             )}
-            {responsableNombre && !esDireccionComercial && (
-              <FilaDato etiqueta="Responsable" valor={responsableNombre} />
-            )}
-            {/* Siempre visible: sin cuenta del CRM el briefing no sabe qué
-                cliente buscar. Quien puede editar la vincula tocando la fila (abre su propia hoja). */}
-            {puedeEditar ? (
-              <FilaNavegable
-                titulo="Cuenta CRM"
-                subtitulo={
-                  cliente.crm_accountid
-                    ? cliente.nombre_alias
-                      ? `Nombre anterior: «${cliente.nombre_alias}»`
-                      : undefined
-                    : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'
-                }
-                valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
-                tono={cliente.crm_accountid ? 'neutral' : 'aviso'}
-                onClick={abrirCrm}
-              />
-            ) : (
-              <FilaDato
-                etiqueta="Cuenta CRM"
-                valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
-              />
-            )}
-          </SeccionLista>
+          </>
         )}
 
         {/* Lo que sabemos que tiene, sacado de los hallazgos de todas sus
@@ -1029,6 +1067,24 @@ export function FichaCliente() {
                   disabled={guardadoCrm.cargando}
                   onClick={() => void vincularCrm(null)}
                 />
+                {cuentaCrm && !nombreCoincideConCrm && (
+                  <FilaNavegable
+                    titulo="Usar el nombre del CRM"
+                    subtitulo={`Pasa a llamarse «${cuentaCrm.nombre}» (antes «${cliente.nombre}», que se sigue encontrando al buscar)`}
+                    chevron={false}
+                    disabled={guardadoCrm.cargando}
+                    onClick={() => void cambiarNombreCrm('usar')}
+                  />
+                )}
+                {cliente.nombre_alias && (
+                  <FilaNavegable
+                    titulo={`Volver a «${cliente.nombre_alias}»`}
+                    subtitulo="Mantiene la cuenta vinculada y su nombre propio"
+                    chevron={false}
+                    disabled={guardadoCrm.cargando}
+                    onClick={() => void cambiarNombreCrm('volver')}
+                  />
+                )}
               </SeccionLista>
             )}
             <input

@@ -3,14 +3,14 @@ import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { desde } from '@/lib/volver-a';
-import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
-import { vincularClienteACuenta } from '@/lib/vincular-cuenta-crm';
+import { CLIENTE_ARCHIVADO, normalizarNombre } from '@/lib/nombres-cliente';
+import { usarNombreDelCrm, vincularClienteACuenta } from '@/lib/vincular-cuenta-crm';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { Aviso } from '@/components/ui/aviso';
-import { textoCuentaCrm, useSugerenciasCuenta } from '@/features/clientes/cuenta-crm';
+import { textoCuentaCrm, useSugerenciasCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 
 // Clientes creados a mano que ya aparecen en el CRM (solo Dirección). La sincronización del CRM nunca toca clientes: aquí
 // se ven los que tienen una cuenta que les corresponde y se vinculan (uno a uno desde su ficha, o de golpe las
@@ -21,6 +21,7 @@ interface ClienteSinCuenta {
   nombre_alias: string | null;
   ubicacion_general: string | null;
   crm_no_autovincular: boolean;
+  crm_nombre_propio?: boolean;
 }
 
 function useClientesPorVincular() {
@@ -43,20 +44,51 @@ function useClientesPorVincular() {
   return { clientes, sugerencias, conSugerencia, isLoading };
 }
 
+// Clientes YA vinculados que se llaman distinto a su cuenta del CRM (los vinculados antes de que existiera «usar el nombre
+// del CRM», o a los que no se lo pidió nadie). Se excluyen los que decidieron conservar su nombre (`crm_nombre_propio`).
+interface ClienteConNombreDistinto extends ClienteSinCuenta {
+  cuenta: CuentaCrm;
+}
+function useClientesConNombreDistinto() {
+  const { data } = useQuery({
+    queryKey: ['clientes-con-nombre-distinto'],
+    queryFn: async (): Promise<ClienteConNombreDistinto[]> => {
+      const { data, error } = await supabase
+        .from('cliente')
+        .select('id, nombre, nombre_alias, ubicacion_general, crm_no_autovincular, crm_nombre_propio, cuenta:crm_cuenta!cliente_crm_accountid_fkey(accountid, nombre, ciudad)')
+        .eq('estado_fusion', 'activo')
+        .neq('estado_relacion', CLIENTE_ARCHIVADO)
+        .not('crm_accountid', 'is', null)
+        .eq('crm_nombre_propio', false)
+        .order('nombre');
+      if (error) throw error;
+      const salida: ClienteConNombreDistinto[] = [];
+      for (const c of data ?? []) {
+        const cuenta = c.cuenta as unknown as CuentaCrm | null;
+        if (cuenta && normalizarNombre(cuenta.nombre) !== normalizarNombre(c.nombre)) salida.push({ ...c, cuenta });
+      }
+      return salida;
+    },
+  });
+  return data ?? [];
+}
+
 /** Fila para «Yo → Gestión»: solo sale si hay algún cliente por vincular. */
 export function FilaClientesPorVincular() {
   const { conSugerencia } = useClientesPorVincular();
-  if (conSugerencia.length === 0) return null;
+  const distintos = useClientesConNombreDistinto();
+  const n = conSugerencia.length + distintos.length;
+  if (n === 0) return null;
   return (
     <FilaNavegable
       icono="buscar"
       titulo="Clientes por vincular"
       subtitulo={
-        conSugerencia.length === 1
-          ? 'Un cliente creado a mano que ya está en el CRM'
-          : `${conSugerencia.length} clientes creados a mano que ya están en el CRM`
+        n === 1
+          ? 'Un cliente que ya está en el CRM y se llama distinto'
+          : `${n} clientes que ya están en el CRM y se llaman distinto`
       }
-      badge={conSugerencia.length}
+      badge={n}
       tono="aviso"
       to="/clientes-por-vincular"
     />
@@ -67,6 +99,7 @@ export function ClientesPorVincular() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { sugerencias, conSugerencia, isLoading } = useClientesPorVincular();
+  const distintos = useClientesConNombreDistinto();
   const [vinculando, setVinculando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hecho, setHecho] = useState<number | null>(null);
@@ -98,15 +131,38 @@ export function ClientesPorVincular() {
     }
   }
 
+  async function usarNombresDelCrm() {
+    if (!navigator.onLine) {
+      setError('Necesitas conexión para cambiar los nombres.');
+      return;
+    }
+    setVinculando(true);
+    setError(null);
+    let n = 0;
+    try {
+      for (const c of distintos) {
+        await usarNombreDelCrm(c, c.cuenta);
+        n++;
+      }
+    } catch (e) {
+      setError(`Se cambiaron ${n}; falló uno: ${e instanceof Error ? e.message : 'error desconocido'}`);
+    } finally {
+      setHecho((h) => (h ?? 0) + n);
+      setVinculando(false);
+      void queryClient.invalidateQueries({ queryKey: ['clientes-con-nombre-distinto'] });
+      void queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+    }
+  }
+
   return (
     <div className="screen">
       <CabeceraDetalle titulo="Clientes por vincular" ayuda="clientes-por-vincular" volverA="/yo" />
       {isLoading ? (
         <EstadoLista estado="cargando" />
-      ) : conSugerencia.length === 0 ? (
+      ) : conSugerencia.length === 0 && distintos.length === 0 ? (
         <EstadoLista
           estado="vacio"
-          mensaje={hecho ? `Hecho: ${hecho} vinculado${hecho === 1 ? '' : 's'}. Ya no queda ningún cliente por vincular.` : 'Ningún cliente creado a mano tiene una cuenta del CRM que le corresponda.'}
+          mensaje={hecho ? `Hecho: ${hecho} cliente${hecho === 1 ? '' : 's'} actualizado${hecho === 1 ? '' : 's'}. No queda ninguno por vincular ni con nombre distinto al del CRM.` : 'Ningún cliente tiene pendiente vincularse o cambiar su nombre al del CRM.'}
         />
       ) : (
         <div className="screen__scroll">
@@ -123,8 +179,29 @@ export function ClientesPorVincular() {
                 />
               </SeccionLista>
             )}
+            {distintos.length > 0 && (
+              <SeccionLista titulo="Ya vinculados, con nombre distinto al del CRM">
+                <FilaNavegable
+                  icono="check"
+                  titulo={`Usar el nombre del CRM en todos (${distintos.length})`}
+                  subtitulo="El nombre actual se guarda como nombre anterior y se sigue encontrando al buscar. Las carpetas de SharePoint no cambian"
+                  chevron={false}
+                  disabled={vinculando}
+                  onClick={() => void usarNombresDelCrm()}
+                />
+                {distintos.map((c) => (
+                  <FilaNavegable
+                    key={c.id}
+                    titulo={c.nombre}
+                    subtitulo={`El CRM la llama «${textoCuentaCrm(c.cuenta)}»`}
+                    to={`/clientes/${c.id}`}
+                    state={desde(location)}
+                  />
+                ))}
+              </SeccionLista>
+            )}
             {error && <Aviso tipo="error">{error}</Aviso>}
-            <SeccionLista titulo="Por revisar">
+            {conSugerencia.length > 0 && <SeccionLista titulo="Por revisar">
               {conSugerencia.map((c) => {
                 const s = sugerencias.get(c.id)!;
                 return (
@@ -143,7 +220,7 @@ export function ClientesPorVincular() {
                   />
                 );
               })}
-            </SeccionLista>
+            </SeccionLista>}
           </div>
         </div>
       )}

@@ -289,6 +289,7 @@ export function ListadoClientes() {
           <ResultadosCuentaCrm
             texto={busqueda}
             titulo="En el CRM (aún no es cliente)"
+            soloSinCliente
             onElegir={(c, existente) =>
               existente
                 ? navigate(`/clientes/${existente.id}`, { state: desde(location) })
