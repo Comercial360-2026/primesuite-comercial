@@ -14,10 +14,16 @@ export interface ClienteAVincular {
 }
 
 
-export async function vincularClienteACuenta(cliente: ClienteAVincular, cuenta: CuentaCrm | null, adoptarNombre: boolean) {
+export async function vincularClienteACuenta(
+  cliente: ClienteAVincular,
+  cuenta: CuentaCrm | null,
+  adoptarNombre: boolean,
+  /** La cuenta que tenía hasta ahora (al cambiarla o quitarla): si la ubicación del cliente es la ciudad de ESA cuenta, se actualiza. */
+  cuentaAnterior?: CuentaCrm | null
+) {
   const cambios: {
     crm_accountid: string | null;
-    ubicacion_general?: string;
+    ubicacion_general?: string | null;
     nombre?: string;
     nombre_alias?: string | null;
     crm_no_autovincular?: boolean;
@@ -25,8 +31,11 @@ export async function vincularClienteACuenta(cliente: ClienteAVincular, cuenta: 
     crm_accountid: cuenta?.accountid ?? null,
   };
   if (cuenta) {
-    // Sin ubicación escrita, se toma la ciudad de la cuenta (nunca pisa lo que ya hay).
-    if (cuenta.ciudad && !cliente.ubicacion_general) cambios.ubicacion_general = cuenta.ciudad;
+    // Sin ubicación escrita, se toma la ciudad de la cuenta. Nunca pisa lo que el comercial escribió: solo se sustituye la
+    // que venía de la cuenta anterior (misma ciudad que ella), para que cambiar de cuenta no deje la ciudad equivocada.
+    if (cuenta.ciudad && (!cliente.ubicacion_general || (cuentaAnterior?.ciudad && cliente.ubicacion_general === cuentaAnterior.ciudad))) {
+      cambios.ubicacion_general = cuenta.ciudad;
+    }
     if (adoptarNombre && normalizarNombre(cuenta.nombre) !== normalizarNombre(cliente.nombre)) {
       cambios.nombre = cuenta.nombre;
       // El alias es el nombre ORIGINAL: cambiar de cuenta más tarde no lo pierde.
@@ -35,6 +44,8 @@ export async function vincularClienteACuenta(cliente: ClienteAVincular, cuenta: 
   } else {
     // Quitar la cuenta a mano = «esta no era»: que no se vuelva a vincular sola.
     cambios.crm_no_autovincular = true;
+    // La ubicación que se había tomado de esa cuenta se quita (si la cambió el comercial, no se toca).
+    if (cuentaAnterior?.ciudad && cliente.ubicacion_general === cuentaAnterior.ciudad) cambios.ubicacion_general = null;
     if (cliente.nombre_alias) {
       cambios.nombre = cliente.nombre_alias;
       cambios.nombre_alias = null;

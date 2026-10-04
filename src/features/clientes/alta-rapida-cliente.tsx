@@ -113,14 +113,15 @@ export function AltaRapidaCliente() {
   const { data: clientesExistentes } = useQuery({
     queryKey: ['nombres-cliente-alta-rapida'],
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string; crm_accountid: string | null }>> => {
+    queryFn: async (): Promise<Array<{ id: string; nombre: string; nombreActual?: string; estado_relacion: string; crm_accountid: string | null }>> => {
       const { data, error } = await supabase
         .from('cliente')
         .select('id, nombre, nombre_alias, estado_relacion, crm_accountid')
         .eq('estado_fusion', 'activo');
       if (error) throw error;
       // El nombre que tenía antes de adoptar el del CRM también cuenta para el aviso de duplicados.
-      return (data ?? []).flatMap((c) => (c.nombre_alias ? [c, { ...c, nombre: c.nombre_alias }] : [c]));
+      // `nombreActual`: lo que se enseña al usuario (la fila del alias lleva el nombre de hoy, no el de antes).
+      return (data ?? []).flatMap((c) => (c.nombre_alias ? [c, { ...c, nombre: c.nombre_alias, nombreActual: c.nombre }] : [c]));
     },
   });
 
@@ -172,6 +173,8 @@ export function AltaRapidaCliente() {
           x.norm === nombreNorm ? 0 : x.clave === nombreClave ? 1 : x.norm.startsWith(nombreNorm) ? 2 : 3;
         return rango(a) - rango(b) || a.nombre.localeCompare(b.nombre, 'es');
       })
+      // Un cliente con alias puede entrar dos veces (por su nombre y por el anterior): una sola fila.
+      .filter((c, i, todos) => todos.findIndex((x) => x.id === c.id) === i)
       .slice(0, 4);
   }, [nombreNorm, nombreClave, clientesExistentes, idPorCuenta]);
 
@@ -477,7 +480,7 @@ export function AltaRapidaCliente() {
             {coincidencias.map((c) => (
               <FilaNavegable
                 key={c.id}
-                titulo={c.nombre}
+                titulo={c.nombreActual ?? c.nombre}
                 valor={
                   c.estado_relacion === CLIENTE_ARCHIVADO
                     ? 'inactivo'
@@ -499,7 +502,7 @@ export function AltaRapidaCliente() {
         {fuerte && (
           <div style={{ paddingInline: 'var(--fila-pad-x)' }}>
             <Aviso tipo="atencion">
-              Ya tienes a «{fuerte.nombre}». Toca su fila para ir a él. Si es otra empresa, cambia el nombre para
+              Ya tienes a «{fuerte.nombreActual ?? fuerte.nombre}». Toca su fila para ir a él. Si es otra empresa, cambia el nombre para
               distinguirla (por ejemplo, añade la ciudad).
             </Aviso>
           </div>

@@ -155,7 +155,8 @@ export function FichaCliente() {
         await vincularClienteACuenta(
           { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general },
           cuenta,
-          adoptarNombre
+          adoptarNombre,
+          cuentaCrm
         );
       },
       {
