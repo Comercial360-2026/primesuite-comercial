@@ -81,6 +81,17 @@ export function SesionActualProvider({ children }: { children: ReactNode }) {
         .eq('id', sesion.session.user.id)
         .single();
 
+      // Dado de baja con la app abierta: fuera (la baja también le cierra las sesiones en el servidor).
+      if (data && data.activo === false) {
+        await supabase.auth.signOut();
+        if (activo) {
+          setComercial(null);
+          setCargando(false);
+        }
+        guardarComercialCacheado(null);
+        return;
+      }
+
       if (activo) {
         setComercial(data ?? null);
         setCargando(false);

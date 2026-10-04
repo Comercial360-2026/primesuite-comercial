@@ -34,6 +34,7 @@
 // direccion_comercial. No se puede uno desactivar a sí mismo.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { hayOtraDireccionActiva } from '../_shared/direccion.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -255,6 +256,16 @@ Deno.serve(async (req) => {
     if (!nombre) return jsonResponse({ error: 'Falta el nombre.' }, 400);
     if (!ROLES_VALIDOS.includes(rol)) return jsonResponse({ error: 'Rol no válido.' }, 400);
 
+    // No dejar la empresa sin Dirección Comercial: no se puede quitar el rol al último activo.
+    if (rol !== 'direccion_comercial') {
+      const { data: actual } = await admin.from('comercial').select('rol, activo').eq('id', id).maybeSingle();
+      if (actual?.rol === 'direccion_comercial' && actual.activo) {
+        if (!(await hayOtraDireccionActiva(admin, id))) {
+          return jsonResponse({ error: 'Debe quedar al menos una persona activa con rol Dirección Comercial.' }, 400);
+        }
+      }
+    }
+
     const { error } = await admin
       .from('comercial')
       .update({ nombre, rol, zona_cartera: zonaCartera, actualizado_en: new Date().toISOString() })
@@ -324,6 +335,13 @@ Deno.serve(async (req) => {
   // Sin ningún historial (ninguna fila de otras tablas lo cita): se borra del todo,
   // cuenta de Auth incluida, y su correo queda libre. Con historial: se conserva
   // todo, deja de poder entrar y su correo se libera (queda en `email_anterior`).
+  // Misma red de seguridad que en `editar`: quien llama es siempre Dirección y no puede darse
+  // de baja a sí mismo, así que hoy nunca salta; protege si algún día cambia esa regla.
+  const { data: objetivo } = await admin.from('comercial').select('rol').eq('id', id).maybeSingle();
+  if (objetivo?.rol === 'direccion_comercial' && !(await hayOtraDireccionActiva(admin, id))) {
+    return jsonResponse({ error: 'Debe quedar al menos una persona activa con rol Dirección Comercial.' }, 400);
+  }
+
   const { data: tieneHistorial, error: errHist } = await admin.rpc('fn_comercial_tiene_historial', { p_id: id });
   if (errHist) {
     return jsonResponse({ error: `No se pudo comprobar su historial, no se ha dado de baja: ${errHist.message}` }, 500);
@@ -369,6 +387,12 @@ Deno.serve(async (req) => {
   });
   if (errBan) {
     return jsonResponse({ error: `El estado se guardó, pero no se pudo bloquear el acceso: ${errBan.message}` }, 500);
+  }
+
+  // Cierra las sesiones que tuviera abiertas (si no, seguiría dentro hasta que caduque su token).
+  const { error: errSesiones } = await admin.rpc('fn_cerrar_sesiones', { p_id: id });
+  if (errSesiones) {
+    return jsonResponse({ error: `Está de baja y bloqueado, pero no se pudieron cerrar sus sesiones abiertas: ${errSesiones.message}` }, 500);
   }
 
   return jsonResponse({ ok: true, resultado: 'archivado' });

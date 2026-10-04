@@ -70,7 +70,7 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 
 ---
 
-# Cifrado de la copia (3 oct) — código hecho, clave real PENDIENTE de generar por Cesar
+# Cifrado de la copia (3 oct) — HECHO: clave generada, función desplegada y copia descifrada y restaurada en prueba (pendiente solo: 2.ª copia de la clave privada fuera de iCloud)
 
 - Híbrido: AES-256-GCM para el JSON + RSA-OAEP 4096 (SHA-256) para la clave AES. `supabase/functions/_shared/cifrar-copia.ts`; formato `PSC1 | u16 largo | clave envuelta | iv 12 | cifrado+etiqueta`. Archivo en SharePoint: `primenotes-copia-AAAA-MM-DD-HHMM.json.enc`.
 - El servidor solo tiene la clave PÚBLICA (secreto de función `COPIA_CLAVE_PUBLICA`, PEM). Sin ella la función falla (500) y no sube nada: nunca en claro. La privada la genera Cesar con `scripts/copia-seguridad/descifrar.mjs generar-claves <carpeta>` (Claude no la ve) y la guarda en 1Password + papel.

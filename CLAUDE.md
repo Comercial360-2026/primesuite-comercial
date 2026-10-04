@@ -245,7 +245,7 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (`fn_comercial_tiene_historial` recorre las claves foráneas en vivo) se borra del todo, cuenta de Auth incluida; con historial se
   conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
   y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
-  correo ocupado = 409, reactivar normal).
+  correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
