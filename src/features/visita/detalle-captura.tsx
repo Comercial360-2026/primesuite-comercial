@@ -9,6 +9,8 @@ import type { CapturaLibrePayload } from '@/lib/offline-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -540,6 +542,10 @@ function DetalleCapturaPorId() {
     );
   }
 
+  const puedeGestionarCaptura = !!captura && (comercial?.rol === 'direccion_comercial' || captura.autorId === comercial?.id);
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), puedeGestionarCaptura);
+
   if (cargandoInicial) {
     return (
       <div className="screen">
@@ -574,6 +580,7 @@ function DetalleCapturaPorId() {
         subtitulo={contextoTexto || undefined}
         ayuda="detalle-captura"
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
+        derecha={puedeGestionar ? <BotonPapelera etiqueta={`Borrar ${captura.tipo}`} onClick={() => setConfirmandoBorrado(true)} /> : undefined}
       />
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
@@ -721,15 +728,8 @@ function DetalleCapturaPorId() {
         )}
       </button>
 
-      {!puedeGestionar ? null : !confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo={`Borrar ${captura.tipo}`}
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
+      {puedeGestionar && confirmandoBorrado && (
+        <div ref={confirmacionRef}>
         <ConfirmacionBorrado
           onCancelar={() => setConfirmandoBorrado(false)}
           onConfirmar={confirmarBorrado}
@@ -739,6 +739,7 @@ function DetalleCapturaPorId() {
           {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
           {copiaEnSharepoint ? ' La copia que ya está en SharePoint se conserva allí; no se borra.' : ''}
         </ConfirmacionBorrado>
+        </div>
       )}
     </div>
   );

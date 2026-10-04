@@ -12,6 +12,8 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
+import { useBorrarSolicitado, useSwipeBorrar, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { ResultadosCuentaCrm, textoCuentaCrm, useSugerenciasCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
@@ -563,6 +565,9 @@ export function FichaCliente() {
 
   // Briefing: vive por visita; el hook elige a cuál colgarlo.
   const visitaIdBriefing = useVisitaBriefing(clienteId);
+  const swipeBorrar = useSwipeBorrar();
+  const confirmacionBorradoRef = useVerAlAbrir(confirmandoBorrarCliente);
+  useBorrarSolicitado(() => void pedirBorradoCliente(), esDireccionComercial && !!cliente);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
 
   return (
@@ -611,6 +616,7 @@ export function FichaCliente() {
                 <Icono nombre="briefing" size={18} />
               </button>
             )}
+            {esDireccionComercial && <BotonPapelera etiqueta="Borrar cliente" onClick={() => void pedirBorradoCliente()} />}
           </>
         }
       />
@@ -983,6 +989,7 @@ export function FichaCliente() {
                   tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
+                  swipe={proyectosVigentes.length > 1 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
                 />
               );
             })}
@@ -1009,6 +1016,7 @@ export function FichaCliente() {
                   densidad="compacta"
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
+                  swipe={proyectosVigentes.length > 0 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
                 />
               ))}
           </SeccionLista>
@@ -1152,9 +1160,9 @@ export function FichaCliente() {
             normal es Cliente inactivo. Al fondo y en tono riesgo, como en el resto
             de la app. El backend (eliminar_cliente_completo) sigue
             admitiendo también al creador; la UI ya no se lo ofrece. */}
-        {esDireccionComercial && (
-        confirmandoBorrarCliente ? (
-          previsualizandoCliente.cargando || !previsualizacionCliente ? (
+        {esDireccionComercial && confirmandoBorrarCliente && (
+          <div ref={confirmacionBorradoRef}>
+          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
             <div className="card card--riesgo">
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
             </div>
@@ -1191,18 +1199,8 @@ export function FichaCliente() {
                 antes desde "mi espacio".
               </div>
             </ConfirmacionBorrado>
-          )
-        ) : (
-          <SeccionLista>
-            <FilaNavegable
-              icono="borrar"
-              titulo="Borrar cliente"
-              tono="riesgo"
-              chevron={false}
-              onClick={pedirBorradoCliente}
-            />
-          </SeccionLista>
-        )
+          )}
+          </div>
         )}
        </div>
       </div>

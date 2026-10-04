@@ -11,13 +11,14 @@ import { SelectorCategorias } from '@/components/ui/selector-categorias';
 import { SelectorAreas } from '@/components/ui/selector-areas';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 import { ETAPA_LABEL, PRIORIDAD_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { fechaCorta } from '@/lib/fechas';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
@@ -378,6 +379,9 @@ export function DetalleOportunidad() {
     navigate(volver);
   }
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!oportunidad);
+
   if (isLoading || (!oportunidad && !isError)) {
     return (
       <div className="screen">
@@ -443,6 +447,7 @@ export function DetalleOportunidad() {
                 <Icono nombre="briefing" size={18} />
               </button>
             )}
+            <BotonPapelera etiqueta="Borrar oportunidad" onClick={() => setConfirmandoBorrado(true)} />
           </>
         }
       />
@@ -583,15 +588,8 @@ export function DetalleOportunidad() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar oportunidad"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
         <ConfirmacionBorrado
           onCancelar={() => setConfirmandoBorrado(false)}
           onConfirmar={confirmarBorrado}
@@ -601,6 +599,7 @@ export function DetalleOportunidad() {
           Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
           oportunidad asociada.
         </ConfirmacionBorrado>
+        </div>
       )}
 
       {briefingAbierto && oportunidad?.cliente_id && oportunidad.cliente?.nombre && visitaIdBriefing && (

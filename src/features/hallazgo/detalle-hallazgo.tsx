@@ -8,6 +8,8 @@ import type { HallazgoPayload } from '@/lib/offline-queue';
 import { haceRelativo } from '@/lib/fechas';
 import { TIPO_FECHA_RELEVANTE_LABEL, etiqueta } from '@/lib/etiquetas-visita';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { RecategorizarItem } from '@/features/visita/recategorizar-item';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
@@ -338,6 +340,9 @@ export function DetalleHallazgo() {
     navigate(volver);
   }
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!hallazgo);
+
   if (isLoading || (!hallazgo && !isError)) {
     return (
       <div className="screen">
@@ -367,6 +372,7 @@ export function DetalleHallazgo() {
         ayuda="detalle-hallazgo"
         subtitulo={contextoCliente || undefined}
         onVolver={alVolver}
+        derecha={<BotonPapelera etiqueta="Borrar hallazgo" onClick={() => setConfirmandoBorrado(true)} />}
       />
 
       <RecategorizarItem
@@ -489,21 +495,15 @@ export function DetalleHallazgo() {
         </>
       )}
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar hallazgo"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
         <ConfirmacionBorrado
           onCancelar={() => setConfirmandoBorrado(false)}
           onConfirmar={confirmarBorrado}
           cargando={borrando}
           error={errorBorrado}
         />
+        </div>
       )}
     </div>
   );

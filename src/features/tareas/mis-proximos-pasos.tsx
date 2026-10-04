@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
@@ -32,6 +33,7 @@ interface ProximoPaso {
 export function MisProximosPasos() {
   const navigate = useNavigate();
   const location = useLocation();
+  const swipeBorrar = useSwipeBorrar();
   const { comercial } = useSesionActual();
   const queryClient = useQueryClient();
   // Filtro en la URL (?filtro=completado), no solo en memoria — mismo bug
@@ -175,6 +177,7 @@ export function MisProximosPasos() {
           subtitulo={subtitulo}
           to={`/proximos-pasos/${p.id}`}
           state={desde(location)}
+          swipe={swipeBorrar(`/proximos-pasos/${p.id}`)}
         />
       );
     }

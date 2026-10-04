@@ -4,6 +4,7 @@ import { desde } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes } from '@/lib/fechas';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -32,6 +33,7 @@ export function ListadoClientes() {
   const navigate = useNavigate();
   const location = useLocation();
   const { comercial } = useSesionActual();
+  const swipeBorrar = useSwipeBorrar();
   // La búsqueda también vive en la URL (?q=), igual que la vista: al volver desde una ficha se ve lo mismo que dejaste.
   const [busqueda, setBusquedaEstado] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [verArchivados, setVerArchivados] = useEstadoRecordado('clientes-ver-inactivos', false);
@@ -342,6 +344,7 @@ export function ListadoClientes() {
         valorTenue={archivado}
         to={`/clientes/${c.cliente_id}`}
         state={desde(location)}
+        swipe={comercial?.rol === 'direccion_comercial' ? swipeBorrar(`/clientes/${c.cliente_id}`) : undefined}
       />
     );
   }

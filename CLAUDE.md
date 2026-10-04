@@ -235,6 +235,12 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   `&medio=` / `&enlace=`); una que ya tiene cliente (o una hermana) sigue con ese. Aplicado: Empezar visita, Planificar,
   lista de Clientes (el alta ya lo tenía). Y «¿Cómo es la visita?» (Presencial/Teams/Llamada) va ARRIBA, en todos los
   pasos, no al final.
+- **Borrar = deslizar la fila a la izquierda o papelera en la cabecera de la ficha (4 oct).** NO hay botón «Borrar» al final de pantalla.
+  La fila lleva `swipe={swipeBorrar(ruta)}` (`useSwipeBorrar`, `lib/borrar-solicitado.ts`): la papelera revelada navega a la ficha con
+  `state.borrar` y la ficha abre SU confirmación de siempre (`useBorrarSolicitado` + `useVerAlAbrir`, `BotonPapelera` en la cabecera).
+  Sin permiso (cliente: Dirección; visita: Dirección/responsable; captura: autor/Dirección; proyecto: otro vigente) ni fila deslizable ni papelera.
+  Una sola fila abierta a la vez. Pantalla nueva con borrado = papelera + estos hooks. Las capturas de `visita-activa` (`.va-item`) y las
+  notas/fotos de la visita cerrada no son `FilaNavegable`: solo tienen la papelera de su ficha.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

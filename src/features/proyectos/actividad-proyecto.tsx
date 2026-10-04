@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta, haceRelativo } from '@/lib/fechas';
@@ -48,6 +49,7 @@ export function ActividadProyecto({
   // Origen a estampar en cada fila que navega a una pantalla de detalle,
   // para que su ← vuelva aquí (a la ficha que monta este componente).
   const origen = desde(useLocation());
+  const swipeBorrar = useSwipeBorrar();
 
   const { data: oportunidades } = useQuery({
     queryKey: ['oportunidades-activas-proyecto', proyectoId],
@@ -135,6 +137,7 @@ export function ActividadProyecto({
               valor={etiqueta(PRIORIDAD_LABEL, o.prioridad)}
               to={`/oportunidades/${o.id}`}
               state={origen}
+              swipe={swipeBorrar(`/oportunidades/${o.id}`)}
             />
           ))}
         </SeccionLista>
@@ -160,6 +163,7 @@ export function ActividadProyecto({
                 valorTenue={!vencido}
                 to={`/proximos-pasos/${p.id}`}
                 state={origen}
+                swipe={swipeBorrar(`/proximos-pasos/${p.id}`)}
               />
             );
           })}

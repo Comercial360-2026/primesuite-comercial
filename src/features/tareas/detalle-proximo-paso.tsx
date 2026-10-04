@@ -10,8 +10,9 @@ import { uuid } from '@/lib/uuid';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { crearVisitaConResponsable } from '@/lib/rpc';
 import { useVolverA } from '@/lib/volver-a';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { Icono } from '@/components/ui/iconos';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -292,6 +293,9 @@ export function DetalleProximoPaso() {
     navigate(volver);
   }
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!paso);
+
   if (isLoading || (!paso && !isError)) {
     return (
       <div className="screen">
@@ -326,6 +330,7 @@ export function DetalleProximoPaso() {
         ayuda="proximo-paso"
         subtitulo={contextoCliente || undefined}
         onVolver={alVolver}
+        derecha={<BotonPapelera etiqueta="Borrar próximo paso" onClick={() => setConfirmandoBorrado(true)} />}
       />
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
@@ -414,21 +419,15 @@ export function DetalleProximoPaso() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {!confirmandoBorrado ? (
-        <FilaNavegable
-          icono="borrar"
-          titulo="Borrar próximo paso"
-          tono="riesgo"
-          chevron={false}
-          onClick={() => setConfirmandoBorrado(true)}
-        />
-      ) : (
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
         <ConfirmacionBorrado
           onCancelar={() => setConfirmandoBorrado(false)}
           onConfirmar={confirmarBorrado}
           cargando={borrando}
           error={errorBorrado}
         />
+        </div>
       )}
     </div>
   );

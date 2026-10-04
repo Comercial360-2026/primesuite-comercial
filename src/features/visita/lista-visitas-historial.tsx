@@ -1,5 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
+import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { supabase } from '@/lib/supabase-client';
 import { fechaCorta } from '@/lib/fechas';
 import { desgloseVisita } from '@/lib/texto';
@@ -59,6 +61,25 @@ function useRecuentoVisitas(ids: string[]) {
 export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] }) {
   const origen = desde(useLocation());
   const { data: recuento } = useRecuentoVisitas(visitas.map((v) => v.id));
+  const swipeBorrar = useSwipeBorrar();
+  const { comercial } = useSesionActual();
+  // Borrar una visita cerrada: Dirección o su responsable (como en su ficha).
+  const idsCerradas = visitas.filter((v) => v.estado_captura === 'consolidada').map((v) => v.id);
+  const { data: soyResponsableDe } = useQuery({
+    queryKey: ['responsable-de-visitas', idsCerradas.join(','), comercial?.id],
+    enabled: idsCerradas.length > 0 && !!comercial?.id && comercial.rol !== 'direccion_comercial',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visita_participante')
+        .select('visita_id')
+        .in('visita_id', idsCerradas)
+        .eq('comercial_id', comercial!.id)
+        .eq('rol', 'responsable')
+        .eq('estado', 'aceptado');
+      if (error) throw error;
+      return new Set((data ?? []).map((r) => r.visita_id));
+    },
+  });
 
   return (
     <SeccionLista titulo="Visitas" categoria="visita">
@@ -86,6 +107,11 @@ export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] 
             valorTenue
             to={to}
             state={origen}
+            swipe={
+              v.estado_captura === 'consolidada' && (comercial?.rol === 'direccion_comercial' || soyResponsableDe?.has(v.id))
+                ? swipeBorrar(to)
+                : undefined
+            }
           />
         );
       })}

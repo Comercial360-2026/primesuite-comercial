@@ -12,11 +12,12 @@ import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyecto
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
-import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaAccion } from '@/components/ui/fila-accion';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
@@ -396,6 +397,9 @@ export function FichaProyecto() {
             { etiqueta: 'Terminar', a: 'terminado' },
           ];
 
+  const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  useBorrarSolicitado(() => setConfirmandoBorrado(true), !!proyecto && destinosBorrado.length > 0);
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -440,6 +444,11 @@ export function FichaProyecto() {
             >
               <Icono nombre="editar" size={16} />
             </button>
+            <BotonPapelera
+              etiqueta={destinosBorrado.length === 0 ? 'No se puede borrar: no hay otro proyecto activo del cliente' : 'Borrar proyecto'}
+              disabled={destinosBorrado.length === 0}
+              onClick={() => setConfirmandoBorrado(true)}
+            />
           </>
         }
       />
@@ -590,7 +599,8 @@ export function FichaProyecto() {
             </SeccionLista>
           )}
 
-          {confirmandoBorrado ? (
+          {confirmandoBorrado && (
+            <div ref={confirmacionRef}>
             <ConfirmacionBorrado
               reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
               confirmar="Sí, borrar el proyecto"
@@ -616,20 +626,7 @@ export function FichaProyecto() {
                 ))}
               </select>
             </ConfirmacionBorrado>
-          ) : (
-            <SeccionLista>
-              <FilaNavegable
-                icono="borrar"
-                titulo="Borrar proyecto"
-                subtitulo={
-                  destinosBorrado.length === 0 ? 'No hay otro proyecto activo del cliente' : undefined
-                }
-                tono="riesgo"
-                chevron={false}
-                disabled={destinosBorrado.length === 0}
-                onClick={() => setConfirmandoBorrado(true)}
-              />
-            </SeccionLista>
+            </div>
           )}
         </div>
       </div>

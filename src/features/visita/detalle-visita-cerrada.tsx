@@ -22,6 +22,8 @@ import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
 import { ConfirmarBorradoVisita } from '@/features/visita/confirmar-borrado-visita';
 import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
+import { useBorrarSolicitado, useSwipeBorrar, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
@@ -77,7 +79,7 @@ interface DetalleVisita {
   audios: Array<{ id: string; titulo: string | null; url: string | null; archivadaSharepoint: boolean; zona_texto: string | null }>;
   hayArchivadoSharepoint: boolean;
   notas: Array<{ id: string; titulo: string | null; contenido_texto: string | null; zona_texto: string | null }>;
-  documentos: Array<{ id: string; titulo: string | null; nombre_original: string | null; bytes: number | null }>;
+  documentos: Array<{ id: string; titulo: string | null; nombre_original: string | null; bytes: number | null; autor_id: string | null }>;
   hallazgos: Array<{ id: string; nota: string | null; zona_texto: string | null; areas: Area[] }>;
   oportunidades: Array<{ id: string; titulo: string; etapa: string; prioridad: string; valor_estimado: number | null; zona_texto: string | null }>;
   proximosPasos: Array<{ id: string; descripcion: string; fecha_objetivo: string | null; estado: string; zona_texto: string | null }>;
@@ -223,7 +225,7 @@ export function DetalleVisitaCerrada() {
         supabase
           .from('captura_libre')
           .select(
-            'id, tipo, titulo, contenido_texto, storage_path, latitud, longitud, zona_texto, nombre_original, bytes, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+            'id, tipo, titulo, contenido_texto, storage_path, comercial_autor_id, latitud, longitud, zona_texto, nombre_original, bytes, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
           )
           .eq('visita_id', visitaId!)
           .order('creado_en', { ascending: true }),
@@ -313,6 +315,7 @@ export function DetalleVisitaCerrada() {
           titulo: d.titulo,
           nombre_original: d.nombre_original,
           bytes: d.bytes,
+          autor_id: d.comercial_autor_id,
         })),
         hallazgos: (hallazgos ?? []).map((h) => ({
           id: h.id,
@@ -546,6 +549,7 @@ export function DetalleVisitaCerrada() {
               valor={o.valor_estimado != null ? `${o.valor_estimado.toLocaleString('es-ES')} €` : undefined}
               to={`/oportunidades/${o.id}`}
               state={origen}
+              swipe={swipeBorrar(`/oportunidades/${o.id}`)}
             />
           ))}
         {lista.reduce((t, o) => t + (o.valor_estimado ?? 0), 0) > 0 && (
@@ -569,6 +573,7 @@ export function DetalleVisitaCerrada() {
             valorTenue
             to={`/hallazgos/${h.id}`}
             state={origen}
+            swipe={swipeBorrar(`/hallazgos/${h.id}`)}
           />
         ))}
       </SeccionLista>
@@ -596,6 +601,7 @@ export function DetalleVisitaCerrada() {
               }
               to={`/proximos-pasos/${p.id}`}
               state={origen}
+              swipe={swipeBorrar(`/proximos-pasos/${p.id}`)}
             />
           );
         })}
@@ -817,6 +823,10 @@ export function DetalleVisitaCerrada() {
     !data.oportunidades.length &&
     !data.proximosPasos.length;
 
+  const swipeBorrar = useSwipeBorrar();
+  const confirmacionRef = useVerAlAbrir(!!visitaId && borrar.visitaBorrarId === visitaId);
+  useBorrarSolicitado(() => void borrar.pedir(visitaId!), !!data && !!visitaId && puedeBorrarVisita);
+
   return (
     <div className="screen screen--split">
       <CabeceraDetalle
@@ -859,6 +869,9 @@ export function DetalleVisitaCerrada() {
               >
                 <Icono nombre="briefing" size={18} />
               </button>
+            )}
+            {!!data && !!visitaId && puedeBorrarVisita && (
+              <BotonPapelera etiqueta="Borrar esta visita" onClick={() => void borrar.pedir(visitaId)} />
             )}
           </>
         }
@@ -1085,6 +1098,7 @@ export function DetalleVisitaCerrada() {
               subtitulo={d.bytes != null ? formatearTamano(d.bytes) : undefined}
               to={`/capturas/${d.id}`}
               state={origen}
+              swipe={esDireccionComercial || d.autor_id === comercial?.id ? swipeBorrar(`/capturas/${d.id}`) : undefined}
             />
           ))}
           {puedeAdjuntar && (
@@ -1155,8 +1169,8 @@ export function DetalleVisitaCerrada() {
             </>
           )}
 
-      {data && visitaId && puedeBorrarVisita && (
-        <div style={{ marginTop: 4 }}>
+      {data && visitaId && puedeBorrarVisita && borrar.visitaBorrarId === visitaId && (
+        <div ref={confirmacionRef} style={{ marginTop: 4 }}>
           {visitaCerrada && oportunidadesAbiertas.length > 0 && (
             <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
               <Aviso tipo="atencion">
@@ -1186,19 +1200,7 @@ export function DetalleVisitaCerrada() {
               confirmar) y eliminar_visita_completa lo rechaza también en el servidor pase lo que
               pase en el cliente: desde el incidente 2026-09-12 (SAPA borrada con 2 oportunidades
               abiertas) este botón no es un bypass de ese candado. */}
-          {(borrar.visitaBorrarId === visitaId ? (
-              <ConfirmarBorradoVisita ctrl={borrar} />
-            ) : (
-              <SeccionLista>
-                <FilaNavegable
-                  icono="borrar"
-                  titulo="Borrar esta visita"
-                  tono="riesgo"
-                  chevron={false}
-                  onClick={() => void borrar.pedir(visitaId)}
-                />
-              </SeccionLista>
-            ))}
+          <ConfirmarBorradoVisita ctrl={borrar} />
         </div>
       )}
         </div>
