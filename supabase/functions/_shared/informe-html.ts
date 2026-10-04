@@ -364,7 +364,9 @@ body.buscando .zona-resumen{display:none}
   .zona-bloque h2{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;min-height:44px}
   .zona-bloque h2::after{content:'▾';color:var(--ink4);font-size:16px}
   .zona-bloque.plegada h2::after{content:'▸'}
-  .zona-bloque.plegada{padding-bottom:10px}
+  .zona-bloque{border-left:4px solid var(--b6)}
+  .zona-bloque.plegada{padding-bottom:10px;border-left-color:var(--ink2);border-left-width:1px}
+  .zona-bloque.plegada h2{color:var(--ink7)}
   .zona-bloque.plegada > *:not(h2):not(.zona-resumen){display:none}
   .zona-bloque.plegada h2{margin-bottom:0}
   .centro{order:2;padding:12px 10px 48px}

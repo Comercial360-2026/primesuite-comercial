@@ -14,6 +14,7 @@ import { Segmentado } from '@/components/ui/segmentado';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
 import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -32,7 +33,7 @@ export function ListadoClientes() {
   const { comercial } = useSesionActual();
   // La búsqueda también vive en la URL (?q=), igual que la vista: al volver desde una ficha se ve lo mismo que dejaste.
   const [busqueda, setBusquedaEstado] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
-  const [verArchivados, setVerArchivados] = useState(false);
+  const [verArchivados, setVerArchivados] = useEstadoRecordado('clientes-ver-inactivos', false);
   const buscador = useBuscador(!!busqueda);
   // Decisión de producto (29/8/2026, ajustada 2026-09-05, abierta a todos
   // 2026-09-18): cualquier comercial ve por defecto solo su cartera, con
@@ -260,7 +261,7 @@ export function ListadoClientes() {
                 titulo={verArchivados ? 'Ocultar inactivos' : `Ver inactivos (${archivados.length})`}
                 chevron={false}
                 valorTenue
-                onClick={() => setVerArchivados((v) => !v)}
+                onClick={() => setVerArchivados(!verArchivados)}
               />
               {verArchivados && archivados.map(filaCliente)}
             </SeccionLista>

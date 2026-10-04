@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -9,6 +8,7 @@ import { EstadoLista } from '@/components/ui/estado-lista';
 import { etiqueta, PRIORIDAD_LABEL, ETAPA_LABEL } from '@/lib/etiquetas-visita';
 import { desde } from '@/lib/volver-a';
 import { ListaVisitasHistorial, type VisitaHistorial } from '@/features/visita/lista-visitas-historial';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Las secciones de un proyecto (prompt maestro 13): arriba lo VIVO, que dura
 // varias visitas (oportunidades activas, próximos pasos); debajo sus visitas,
@@ -80,7 +80,7 @@ export function ActividadProyecto({
   });
 
   // Hasta 10 visitas; «Ver todas» quita el tope (sin él, la 11.ª y las anteriores no se podían abrir nunca).
-  const [verTodas, setVerTodas] = useState(false);
+  const [verTodas, setVerTodas] = useEstadoRecordado(`proyecto-${proyectoId}-todas-las-visitas`, false);
   const { data: historial } = useQuery({
     queryKey: ['historial-visitas-proyecto', proyectoId, verTodas],
     queryFn: async (): Promise<{ visitas: VisitaHistorial[]; total: number }> => {

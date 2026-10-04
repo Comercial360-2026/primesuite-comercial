@@ -47,6 +47,7 @@ import type {
   ProximoPasoPayload,
   CapturaLibrePayload,
 } from '@/lib/offline-queue/types';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Mapa id → URL de blob: una URL por Blob, revocada solo cuando ese Blob
 // deja de estar en la lista o cambia. Evita crear URLs en cada render sin
@@ -357,6 +358,8 @@ function CapturasPorUbicacion({
                       <img
                         src={url}
                         alt={titulo ?? 'foto'}
+                        loading="lazy"
+                        decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
                       />
                     )}
@@ -566,7 +569,7 @@ export function VisitaActiva() {
   const [objetivoAbierto, setObjetivoAbierto] = useState(false);
   // Panel de "otras visitas abiertas sin cerrar" — se abre sin salir de esta
   // visita en curso (nunca navegar fuera para ver una lista).
-  const [panelAbiertasVisible, setPanelAbiertasVisible] = useState(false);
+  const [panelAbiertasVisible, setPanelAbiertasVisible] = useEstadoRecordado(`visita-${visitaId}-panel-otras-abiertas`, false);
   // El editor de zona se abre BAJO DEMANDA desde el chip de la fila del
   // título; no vive fijo entre el título y los botones (eso empujaba la
   // captura hacia abajo aunque ya no estuvieras marcando zonas).
@@ -588,7 +591,7 @@ export function VisitaActiva() {
   // "En esta visita": si la visita ya usa zonas (Recorrido), se cuenta por zona —todo lo de una zona
   // junto, como en los informes—; «Tipo» es la alternativa y lo que se elija se respeta. Sin zonas no
   // hay conmutador (nada que agrupar).
-  const [ordenElegido, setOrdenElegido] = useState<boolean | null>(null);
+  const [ordenElegido, setOrdenElegido] = useEstadoRecordado<boolean | null>(`visita-${visitaId}-por-zona`, null);
   // "Anotar" (prompt maestro 10): una sola hoja que fusiona lo que antes
   // eran los botones "Hallazgo", "Oportunidad" y "Nota".
   const [anotarAbierto, setAnotarAbierto] = useState(false);
@@ -2811,6 +2814,8 @@ export function VisitaActiva() {
                                 <img
                                   src={url}
                                   alt={titulo ?? 'foto'}
+                                  loading="lazy"
+                                  decoding="async"
                                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }}
                                 />
                               )}

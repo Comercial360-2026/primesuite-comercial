@@ -66,7 +66,7 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div
-        className={`card${tono === 'aviso' ? ' card--aviso' : ''}`}
+        className={`card${tono === 'aviso' ? ' card--aviso' : ''}${abierta && !vacia ? ' card--colapsable-abierta' : ''}`}
         role="button"
         tabIndex={vacia ? -1 : 0}
         aria-expanded={abierta}
@@ -90,7 +90,7 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
           opacity: vacia ? 0.5 : 1,
         }}
       >
-        <span style={{ fontSize: 'var(--text-md)', fontWeight: 500, color: tono === 'aviso' ? 'var(--warning-600)' : undefined }}>
+        <span style={{ fontSize: 'var(--text-md)', fontWeight: abierta && !vacia ? 600 : 500, color: tono === 'aviso' ? 'var(--warning-600)' : abierta && !vacia ? 'var(--brand-600)' : undefined }}>
           {titulo} <span style={{ color: 'var(--ink-400)', fontWeight: 400 }}>({cantidad})</span>
         </span>
         {!vacia && (
@@ -108,7 +108,7 @@ export function SeccionColapsable({ titulo, cantidad, defaultAbierta = false, to
         )}
       </div>
       {abierta && !vacia && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 8 }}>{children}</div>
+        <div className="colapsable-contenido">{children}</div>
       )}
     </div>
   );

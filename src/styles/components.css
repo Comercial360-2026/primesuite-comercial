@@ -487,6 +487,16 @@ button.interlocutor-fila__cuerpo--presente:hover {
   box-shadow: var(--shadow-card);
 }
 .card--acento { border-color: var(--brand-600); border-width: 1.5px; }
+/* Sección plegable ABIERTA: borde izquierdo de marca, título en marca, y su cabecera se queda pegada arriba
+   mientras se recorre el contenido (un toque la cierra). El contenido lleva la misma línea a la izquierda. */
+.card--colapsable-abierta {
+  border-left: 4px solid var(--brand-600); background: var(--brand-050);
+  position: sticky; top: 0; z-index: 2;
+}
+.colapsable-contenido {
+  display: flex; flex-direction: column; gap: 8px; padding-left: 10px; margin-left: 2px;
+  border-left: 2px solid var(--brand-050);
+}
 .card--riesgo { border-color: var(--risk-600); }
 .card--advertencia { border-color: var(--warning-600); }
 .card--oportunidad { border-color: var(--signal-600); }

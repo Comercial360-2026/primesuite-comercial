@@ -43,6 +43,7 @@ import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTa
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { VisorFotos } from './visor-fotos';
+import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 
 // Repaso de solo lectura de una visita ya cerrada. Cuenta lo mismo que el
 // informe.pdf y en el mismo orden: cabecera + KPI → resumen → objetivo →
@@ -523,7 +524,7 @@ export function DetalleVisitaCerrada() {
   data?.proximosPasos.forEach((p) => cuentaZona(p.zona_texto));
   const zonasOrden = ordenarZonasPorUso(contadorZonas);
   const hayZonas = zonasOrden.some((z) => z !== '');
-  const [verPorZona, setVerPorZona] = useState<boolean | null>(null);
+  const [verPorZona, setVerPorZona] = useEstadoRecordado<boolean | null>(`visita-${visitaId}-por-zona`, null);
   const porZona = hayZonas && (verPorZona ?? true);
 
   type Datos = NonNullable<typeof data>;

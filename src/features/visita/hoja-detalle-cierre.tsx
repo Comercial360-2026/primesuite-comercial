@@ -115,7 +115,7 @@ export function HojaDetalleCierre({ grupo, items, onCerrar }: Props) {
                       comercial. */}
                   <span className="detalle-cierre__titulo">{p.titulo?.trim() || 'Foto'}</span>
                   {url ? (
-                    <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} />
+                    <img className="detalle-cierre__foto" src={url} alt={p.titulo || 'foto de la visita'} loading="lazy" decoding="async" />
                   ) : (
                     <span className="detalle-cierre__meta">
                       {pendiente

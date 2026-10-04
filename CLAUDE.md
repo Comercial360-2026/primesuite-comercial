@@ -212,6 +212,15 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
   (visita cerrada, 3 oct).
 
+- **La vista se recuerda al volver (4 oct).** Todo conmutador/«Ver todas»/panel/sección plegada de una pantalla a la que
+  se vuelve desde una ficha usa `useEstadoRecordado(clave, inicial)` (`src/lib/use-estado-recordado.ts`, sessionStorage; la
+  clave lleva el id de la visita/proyecto) o `recordarComo` en `SeccionColapsable`; NUNCA `useState` a secas (se pierde al
+  navegar). Aplicado: Zona/Tipo (visita cerrada y en curso), zonas/mapa/descargas plegables, «Ver todas las visitas»
+  (proyecto), paneles de visitas abiertas, «Ver inactivos». El scroll se restaura solo (`use-restaurar-scroll.ts` en
+  LayoutShell) al volver al origen estampado en `state.from`. Los filtros de una lista siguen en la URL. Un panel no se
+  cierra a sí mismo al navegar (si no, al volver aparece cerrado).
+- **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
+  (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
   pueda pulsarse varias veces (reabrir/cerrar visita, «Hacer copia ahora», reintentar archivado, adjuntar
   documento) no debe duplicar archivos en SharePoint si nada cambió, y lo que sí cambie lo dice antes de

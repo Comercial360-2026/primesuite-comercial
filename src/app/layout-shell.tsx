@@ -1,3 +1,4 @@
+import { useRestaurarScroll } from '@/lib/use-restaurar-scroll';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -30,6 +31,7 @@ export function LayoutShell() {
   // y en su pantalla de cierre/resumen (1.6 del recorrido de revisión).
   const location = useLocation();
   const { pathname } = location;
+  useRestaurarScroll();
   const dentroDeLaVisita =
     !!visitaEnCurso &&
     (pathname === `/visita/${visitaEnCurso.id}` ||
