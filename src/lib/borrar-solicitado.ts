@@ -32,15 +32,15 @@ export function useBorrarSolicitado(abrir: () => void, listo: boolean) {
 }
 
 /** Ref para el contenedor de una confirmación: al abrirse se desplaza hasta
- *  verla (la confirmación vive al final de pantallas largas). */
+ *  verla. Va justo bajo la cabecera: con contenido que sigue cargando abajo, al final quedaba fuera de pantalla. */
 export function useVerAlAbrir<T extends HTMLElement = HTMLDivElement>(abierta: boolean) {
   const ref = useRef<T>(null);
   useEffect(() => {
     const el = ref.current;
     if (!abierta || !el) return;
-    const ver = () => el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const ver = () => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     ver();
-    // «Calculando qué se va a borrar…» crece al llegar el recuento: se vuelve a centrar.
+    // «Calculando qué se va a borrar…» crece al llegar el recuento: se vuelve a enseñar.
     const obs = new ResizeObserver(ver);
     obs.observe(el);
     return () => obs.disconnect();

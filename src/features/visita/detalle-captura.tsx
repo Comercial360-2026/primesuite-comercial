@@ -584,6 +584,19 @@ function DetalleCapturaPorId() {
         onVolver={() => (confirmandoBorrado ? setConfirmandoBorrado(false) : navigate(volver))}
         derecha={puedeGestionar ? <BotonPapelera etiqueta={`Borrar ${captura.tipo}`} onClick={() => setConfirmandoBorrado(true)} /> : undefined}
       />
+      {puedeGestionar && confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrado.cargando}
+          error={borrado.error}
+        >
+          {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
+          {copiaEnSharepoint ? ' La copia que ya está en SharePoint se conserva allí; no se borra.' : ''}
+        </ConfirmacionBorrado>
+        </div>
+      )}
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
         {fechaLarga(captura.creadoEn)}
@@ -730,19 +743,6 @@ function DetalleCapturaPorId() {
         )}
       </button>
 
-      {puedeGestionar && confirmandoBorrado && (
-        <div ref={confirmacionRef}>
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrado.cargando}
-          error={borrado.error}
-        >
-          {captura.tipo !== 'nota' ? 'El archivo se borrará también del almacenamiento.' : ''}
-          {copiaEnSharepoint ? ' La copia que ya está en SharePoint se conserva allí; no se borra.' : ''}
-        </ConfirmacionBorrado>
-        </div>
-      )}
     </div>
   );
 }

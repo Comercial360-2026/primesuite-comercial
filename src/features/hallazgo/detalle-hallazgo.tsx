@@ -376,6 +376,16 @@ export function DetalleHallazgo() {
         onVolver={alVolver}
         derecha={<BotonPapelera etiqueta="Borrar hallazgo" onClick={() => setConfirmandoBorrado(true)} />}
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
+        </div>
+      )}
 
       <RecategorizarItem
         id={hallazgo.id}
@@ -497,16 +507,6 @@ export function DetalleHallazgo() {
         </>
       )}
 
-      {confirmandoBorrado && (
-        <div ref={confirmacionRef}>
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        />
-        </div>
-      )}
     </div>
   );
 }

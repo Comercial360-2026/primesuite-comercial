@@ -454,6 +454,35 @@ export function FichaProyecto() {
       />
 
       <div className="screen__scroll">
+          {confirmandoBorrado && (
+            <div ref={confirmacionRef}>
+            <ConfirmacionBorrado
+              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
+              confirmar="Sí, borrar el proyecto"
+              cargando={borrado.cargando}
+              error={borrado.error}
+              onCancelar={() => {
+                setConfirmandoBorrado(false);
+                borrado.limpiarError();
+              }}
+              onConfirmar={confirmarBorrado}
+            >
+              Se borra el proyecto «{proyecto?.nombre}» y su actividad se mueve a:
+              <select
+                className="field"
+                style={{ marginTop: 8 }}
+                value={destinoBorrado || destinosBorrado[0]?.id || ''}
+                onChange={(e) => setDestinoBorrado(e.target.value)}
+              >
+                {destinosBorrado.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            </ConfirmacionBorrado>
+            </div>
+          )}
         {cargandoProyecto && <EstadoLista estado="cargando" />}
         {sinConexionProyecto && (
           <EstadoLista estado="sin-conexion" onReintentar={reintentarProyecto} />
@@ -599,35 +628,6 @@ export function FichaProyecto() {
             </SeccionLista>
           )}
 
-          {confirmandoBorrado && (
-            <div ref={confirmacionRef}>
-            <ConfirmacionBorrado
-              reversible="Su actividad (visitas, oportunidades, hallazgos y próximos pasos) no se borra: se mueve al proyecto que elijas."
-              confirmar="Sí, borrar el proyecto"
-              cargando={borrado.cargando}
-              error={borrado.error}
-              onCancelar={() => {
-                setConfirmandoBorrado(false);
-                borrado.limpiarError();
-              }}
-              onConfirmar={confirmarBorrado}
-            >
-              Se borra el proyecto «{proyecto?.nombre}» y su actividad se mueve a:
-              <select
-                className="field"
-                style={{ marginTop: 8 }}
-                value={destinoBorrado || destinosBorrado[0]?.id || ''}
-                onChange={(e) => setDestinoBorrado(e.target.value)}
-              >
-                {destinosBorrado.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </ConfirmacionBorrado>
-            </div>
-          )}
         </div>
       </div>
 

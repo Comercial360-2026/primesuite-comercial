@@ -334,6 +334,16 @@ export function DetalleProximoPaso() {
         onVolver={alVolver}
         derecha={<BotonPapelera etiqueta="Borrar próximo paso" onClick={() => setConfirmandoBorrado(true)} />}
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        />
+        </div>
+      )}
 
       <div className="label" style={{ marginTop: 0 }}>Descripción</div>
       <TextareaDictado
@@ -421,16 +431,6 @@ export function DetalleProximoPaso() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {confirmandoBorrado && (
-        <div ref={confirmacionRef}>
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        />
-        </div>
-      )}
     </div>
   );
 }

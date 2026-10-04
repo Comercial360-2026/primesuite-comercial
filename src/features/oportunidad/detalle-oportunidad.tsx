@@ -453,6 +453,19 @@ export function DetalleOportunidad() {
           </>
         }
       />
+      {confirmandoBorrado && (
+        <div ref={confirmacionRef}>
+        <ConfirmacionBorrado
+          onCancelar={() => setConfirmandoBorrado(false)}
+          onConfirmar={confirmarBorrado}
+          cargando={borrando}
+          error={errorBorrado}
+        >
+          Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
+          oportunidad asociada.
+        </ConfirmacionBorrado>
+        </div>
+      )}
 
       <RecategorizarItem
         id={oportunidad.id}
@@ -590,19 +603,6 @@ export function DetalleOportunidad() {
         {guardadoConExito ? <><Icono nombre="check" size={16} /> Guardado</> : guardando ? 'Guardando…' : 'Guardar'}
       </button>
 
-      {confirmandoBorrado && (
-        <div ref={confirmacionRef}>
-        <ConfirmacionBorrado
-          onCancelar={() => setConfirmandoBorrado(false)}
-          onConfirmar={confirmarBorrado}
-          cargando={borrando}
-          error={errorBorrado}
-        >
-          Se borrará también su histórico de seguimiento. Los próximos pasos vinculados no se borran: quedan sin
-          oportunidad asociada.
-        </ConfirmacionBorrado>
-        </div>
-      )}
 
       {briefingAbierto && oportunidad?.cliente_id && oportunidad.cliente?.nombre && visitaIdBriefing && (
         <BriefingHoja

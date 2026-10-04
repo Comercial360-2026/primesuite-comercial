@@ -622,6 +622,48 @@ export function FichaCliente() {
       />
 
       <div className="screen__scroll">
+        {esDireccionComercial && confirmandoBorrarCliente && (
+          <div ref={confirmacionBorradoRef}>
+          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
+            <div className="card card--riesgo">
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
+            </div>
+          ) : (
+            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
+            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
+            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
+            <ConfirmacionBorrado
+              onCancelar={cancelarBorradoCliente}
+              onConfirmar={confirmarBorradoCliente}
+              cargando={borrandoCliente.cargando}
+              error={borrandoCliente.error}
+              confirmar="Sí, borrar el cliente entero"
+            >
+              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
+              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
+              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
+              {plural(previsualizacionCliente.num_documentos, 'documento', 'documentos')},{' '}
+              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
+              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
+              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
+              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
+              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
+              borrará también, para siempre.
+              {!!previsualizacionCliente.num_archivos_sharepoint && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                  {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
+                  SharePoint {previsualizacionCliente.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
+                  {previsualizacionCliente.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
+                </div>
+              )}
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
+                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
+                antes desde "mi espacio".
+              </div>
+            </ConfirmacionBorrado>
+          )}
+          </div>
+        )}
        {cargandoCliente && <EstadoLista estado="cargando" />}
        {sinConexionCliente && <EstadoLista estado="sin-conexion" onReintentar={reintentarCliente} />}
        {errorCliente && (
@@ -1160,48 +1202,6 @@ export function FichaCliente() {
             normal es Cliente inactivo. Al fondo y en tono riesgo, como en el resto
             de la app. El backend (eliminar_cliente_completo) sigue
             admitiendo también al creador; la UI ya no se lo ofrece. */}
-        {esDireccionComercial && confirmandoBorrarCliente && (
-          <div ref={confirmacionBorradoRef}>
-          {previsualizandoCliente.cargando || !previsualizacionCliente ? (
-            <div className="card card--riesgo">
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-400)' }}>Calculando qué se va a borrar…</div>
-            </div>
-          ) : (
-            // Mismo panel de riesgo que el resto de la app (p. ej. "Borrar
-            // proyecto" en ficha-proyecto.tsx) — antes estaba reescrito a
-            // mano aquí, dos copias del mismo panel que mantener sincronizadas.
-            <ConfirmacionBorrado
-              onCancelar={cancelarBorradoCliente}
-              onConfirmar={confirmarBorradoCliente}
-              cargando={borrandoCliente.cargando}
-              error={borrandoCliente.error}
-              confirmar="Sí, borrar el cliente entero"
-            >
-              Este cliente arrastra: {plural(previsualizacionCliente.num_visitas, 'visita completa', 'visitas completas')},{' '}
-              {plural(previsualizacionCliente.num_fotos, 'foto', 'fotos')},{' '}
-              {plural(previsualizacionCliente.num_audios, 'audio', 'audios')},{' '}
-              {plural(previsualizacionCliente.num_documentos, 'documento', 'documentos')},{' '}
-              {plural(previsualizacionCliente.num_notas, 'nota', 'notas')},{' '}
-              {plural(previsualizacionCliente.num_hallazgos, 'hallazgo', 'hallazgos')},{' '}
-              {plural(previsualizacionCliente.num_oportunidades, 'oportunidad', 'oportunidades')},{' '}
-              {plural(previsualizacionCliente.num_proximos_pasos, 'próximo paso', 'próximos pasos')} y{' '}
-              {plural(previsualizacionCliente.num_ubicaciones, 'ubicación', 'ubicaciones')}, en todos sus proyectos. Todo eso se
-              borrará también, para siempre.
-              {!!previsualizacionCliente.num_archivos_sharepoint && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
-                  {plural(previsualizacionCliente.num_archivos_sharepoint, 'archivo copiado', 'archivos copiados')} en
-                  SharePoint {previsualizacionCliente.num_archivos_sharepoint === 1 ? 'se conserva' : 'se conservan'} allí: la app no
-                  {previsualizacionCliente.num_archivos_sharepoint === 1 ? ' lo borra' : ' los borra'}.
-                </div>
-              )}
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', fontWeight: 400, marginTop: 6 }}>
-                Esto no genera copias de seguridad automáticamente — si quieres conservar alguna visita, descárgala
-                antes desde "mi espacio".
-              </div>
-            </ConfirmacionBorrado>
-          )}
-          </div>
-        )}
        </div>
       </div>
 

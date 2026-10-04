@@ -883,6 +883,40 @@ export function DetalleVisitaCerrada() {
 
       {data && (
         <div className="screen__scroll" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      {data && visitaId && puedeBorrarVisita && borrar.visitaBorrarId === visitaId && (
+        <div ref={confirmacionRef} style={{ marginTop: 4 }}>
+          {visitaCerrada && oportunidadesAbiertas.length > 0 && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Tiene {plural(oportunidadesAbiertas.length, 'oportunidad abierta', 'oportunidades abiertas')} sin
+                cerrar:{' '}
+                {oportunidadesAbiertas.map((o, i) => (
+                  <span key={o.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/oportunidades/${o.id}`} state={origen}>
+                      {o.titulo}
+                    </Link>
+                  </span>
+                ))}
+                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de borrar la visita.
+              </Aviso>
+            </div>
+          )}
+          {visitaCerrada && haySinSubirLocal && (
+            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
+              <Aviso tipo="atencion">
+                Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
+                sincronicen antes de borrar la visita.
+              </Aviso>
+            </div>
+          )}
+          {/* ConfirmarBorradoVisita corta en seco si hay alguna oportunidad abierta (no deja ni
+              confirmar) y eliminar_visita_completa lo rechaza también en el servidor pase lo que
+              pase en el cliente: desde el incidente 2026-09-12 (SAPA borrada con 2 oportunidades
+              abiertas) este botón no es un bypass de ese candado. */}
+          <ConfirmarBorradoVisita ctrl={borrar} />
+        </div>
+      )}
           {data.cierre_automatico && data.estado_captura === 'consolidada' && (
             <Aviso tipo="info" titulo="Cerrada automáticamente">
               Esta visita se cerró sola tras muchas horas sin actividad. Si faltaba algo por capturar,
@@ -1169,40 +1203,6 @@ export function DetalleVisitaCerrada() {
             </>
           )}
 
-      {data && visitaId && puedeBorrarVisita && borrar.visitaBorrarId === visitaId && (
-        <div ref={confirmacionRef} style={{ marginTop: 4 }}>
-          {visitaCerrada && oportunidadesAbiertas.length > 0 && (
-            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
-              <Aviso tipo="atencion">
-                Tiene {plural(oportunidadesAbiertas.length, 'oportunidad abierta', 'oportunidades abiertas')} sin
-                cerrar:{' '}
-                {oportunidadesAbiertas.map((o, i) => (
-                  <span key={o.id}>
-                    {i > 0 && ', '}
-                    <Link to={`/oportunidades/${o.id}`} state={origen}>
-                      {o.titulo}
-                    </Link>
-                  </span>
-                ))}
-                . Ciérrala{oportunidadesAbiertas.length > 1 ? 's' : ''} antes de borrar la visita.
-              </Aviso>
-            </div>
-          )}
-          {visitaCerrada && haySinSubirLocal && (
-            <div style={{ paddingInline: 'var(--fila-pad-x)', marginBottom: 8 }}>
-              <Aviso tipo="atencion">
-                Esta visita tiene cambios de este dispositivo sin subir todavía. Conéctate y espera a que
-                sincronicen antes de borrar la visita.
-              </Aviso>
-            </div>
-          )}
-          {/* ConfirmarBorradoVisita corta en seco si hay alguna oportunidad abierta (no deja ni
-              confirmar) y eliminar_visita_completa lo rechaza también en el servidor pase lo que
-              pase en el cliente: desde el incidente 2026-09-12 (SAPA borrada con 2 oportunidades
-              abiertas) este botón no es un bypass de ese candado. */}
-          <ConfirmarBorradoVisita ctrl={borrar} />
-        </div>
-      )}
         </div>
       )}
 
