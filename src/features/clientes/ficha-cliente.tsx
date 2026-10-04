@@ -518,7 +518,7 @@ export function FichaCliente() {
           // a mano — mismo patrón que ya se cubría al borrar una visita
           // suelta, pero que faltaba aquí.
           queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
-          navigate('/clientes');
+          navigate(volver, { replace: true });
         },
       }
     );
