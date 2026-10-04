@@ -80,3 +80,10 @@ Se construyó y se ejecutó el flujo de borrado sin leer antes la documentación
 
 ## Restauración real (3 oct) — HECHA
 Archivo real `primenotes-copia-2026-10-03-1052.json.enc` bajado de SharePoint → descifrado con la privada (`scripts/copia-seguridad/descifrar.mjs`) → cargado en un esquema temporal `restaura_test` del propio proyecto con `jsonb_populate_recordset(null::public.<tabla>, j->'tablas'->'<tabla>')` (vía `supabase db query --linked -f`, sin pasar los datos por el chat) → 23 tablas, 194 filas, recuento idéntico al `filas` del archivo → esquema borrado (comprobado: 0 quedan). No se tocó ninguna tabla `public`. Restaurar de verdad = igual, pero insertando en `public` en orden de dependencias (cliente, comercial… visita… hallazgo) sobre una base vacía.
+
+## Cifrado de la copia — PENDIENTE para más adelante (anotado 4 oct)
+El cifrado funciona (ver arriba). Lo que queda no es código:
+1. **2.ª copia de la clave privada** (`copia-privada.pem`) fuera de iCloud: USB y/o 1Password (y papel, si se quiere). Hoy solo existe en `iCloud Drive/Claves PrimeNotes/`. Si se pierde, las copias `.json.enc` de SharePoint NO se pueden descifrar. NUNCA en el repo ni en el chat.
+2. **Copias antiguas sin cifrar** (`.json`, anteriores al 3 oct): siguen en la carpeta de SharePoint hasta que la rotación (8) las borre sola. Si se quiere quitarlas antes, las borra Cesar a mano (la app no borra en SharePoint).
+3. **Restauración real** sobre una base vacía: solo se ha probado en un esquema temporal (23 tablas, 194 filas). Restaurar de verdad = insertar en `public` en orden de dependencias. Conviene ensayarlo en un proyecto Supabase aparte antes de necesitarlo.
+4. **Ensayo periódico**: bajar una copia reciente, descifrarla y comprobar el recuento, p. ej. cada trimestre.
