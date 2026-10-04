@@ -260,7 +260,7 @@ a{color:var(--b6)}
 .derecha__tit{font-weight:700;color:var(--b7);padding:6px 4px 0}
 .mapa{flex:1;min-height:240px;border-radius:14px;border:1px solid var(--ink2);background:var(--ink1);display:flex;align-items:center;justify-content:center;color:var(--ink4);text-align:center;padding:16px;isolation:isolate}
 .mapa-nota{margin:0;padding:0 4px;color:var(--ink4);font-size:13px}
-.topbar,.velo{display:none}
+.topbar,.velo,#subir{display:none}
 
 /* --- Contenido --- */
 .sec.fuera{display:none}
@@ -348,7 +348,25 @@ body.buscando .zona-resumen{display:none}
   .vistas button{padding:11px 10px}
   .busca input{padding:12px 14px 12px 36px;font-size:16px}
   .derecha{display:none;order:1;position:static;height:280px;padding:10px 10px 0}
-  body.con-mapa .derecha,body.forzar-mapa .derecha{display:flex}
+  body.forzar-mapa .derecha{display:flex}
+  .topbar{flex-wrap:wrap}
+  .topbusca{flex:0 0 100%}
+  .topbusca .busca input{min-height:44px}
+  body:not(.con-mapa) #mapa-abrir{display:none}
+  #mapa-abrir.on{background:var(--b6);color:#fff}
+  .fotos{grid-template-columns:repeat(3,1fr);gap:6px}
+  .foto img,.sin-imagen{height:96px}
+  .foto figcaption{padding:4px 6px}
+  .foto__titulo,.foto .hora{display:none}
+  #subir{position:fixed;right:14px;bottom:14px;z-index:900;width:46px;height:46px;border-radius:99px;border:0;background:var(--b6);color:#fff;font-size:22px;box-shadow:0 4px 12px rgba(0,0,0,.3);display:none;align-items:center;justify-content:center;cursor:pointer}
+  #subir.ver{display:flex}
+  /* Zonas plegadas: con decenas de capturas, una lista seguida de miles de píxeles no se recorre en el móvil. */
+  .zona-bloque h2{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;min-height:44px}
+  .zona-bloque h2::after{content:'▾';color:var(--ink4);font-size:16px}
+  .zona-bloque.plegada h2::after{content:'▸'}
+  .zona-bloque.plegada{padding-bottom:10px}
+  .zona-bloque.plegada > *:not(h2):not(.zona-resumen){display:none}
+  .zona-bloque.plegada h2{margin-bottom:0}
   .centro{order:2;padding:12px 10px 48px}
   section,header.portada{padding:14px 14px}
   .portada h1{font-size:23px}
@@ -363,6 +381,8 @@ body.buscando .zona-resumen{display:none}
   .app,.app.sin-mapa{display:block}
   .centro{padding:0}.centro > *{max-width:none}
   .sec.fuera{display:block!important}
+  .zona-bloque.plegada > *{display:block!important}
+  .zona-bloque h2::after,#subir,#mapa-abrir,.topbusca{display:none!important}
   body.con-zonas #vista-tipo{display:none!important}
   section,header.portada{border:0;padding:0;break-inside:avoid-page}
   .foto{break-inside:avoid}.fotos{grid-template-columns:repeat(4,1fr)}
@@ -390,6 +410,7 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   var modo=HAY_ZONAS?'zona':'tipo',vista='resumen',zona=null,texto='';
   var ultimoTipo=SECS[1]||SECS[0],ultimaZona='zonas',cambiandoVista=false;
   var res=$('resultados'),marcadores={},mapa=null;
+  var movil=window.matchMedia('(max-width:900px)');
 
   // --- Filtro: la zona elegida y el texto del buscador se combinan.
   function aplicar(){
@@ -454,12 +475,14 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
     body.setAttribute('data-modo',modo);
     body.classList.toggle('buscando',buscando);
     body.classList.remove('forzar-mapa');
+    var bm2=$('mapa-abrir');if(bm2)bm2.classList.remove('on');
     todos('.sec').forEach(function(s){
       var id=s.getAttribute('data-sec'),ver;
       if(s.classList.contains('zona-bloque'))ver=modo==='zona'&&(buscando||vista==='zonas'||s.getAttribute('data-i')===String(zi));
       else if(id==='resumen')ver=!buscando&&vista==='resumen';
       else ver=modo==='tipo'&&(buscando||id===vista);
       s.classList.toggle('fuera',!ver);
+      if(s.classList.contains('zona-bloque'))s.classList.toggle('plegada',movil.matches&&!buscando&&vista==='zonas');
     });
     var nt=$('nav-tipo'),nz=$('nav-zona');
     if(nt)nt.hidden=modo==='zona';
@@ -514,7 +537,37 @@ const JS = (fotos: unknown[], pines: { n: number; lat: number; lng: number }[], 
   function abrirMenu(foco){lat.classList.add('abierto');velo.classList.add('abierto');if(bm)bm.setAttribute('aria-expanded','true');if(foco&&buscar)setTimeout(function(){buscar.focus()},230)}
   function cerrarMenu(){if(!lat)return;lat.classList.remove('abierto');velo.classList.remove('abierto');if(bm)bm.setAttribute('aria-expanded','false')}
   if(bm)bm.addEventListener('click',function(){lat.classList.contains('abierto')?cerrarMenu():abrirMenu(false)});
-  var ba=$('buscar-abrir');if(ba)ba.addEventListener('click',function(){abrirMenu(true)});
+  // En móvil el buscador sale en la barra de arriba (dentro del menú, que tapa la pantalla, los resultados no se veían).
+  var ba=$('buscar-abrir'),tb=$('topbusca'),cb=document.querySelector('.busca'),cbPadre=cb&&cb.parentNode,cbSig=cb&&cb.nextSibling;
+  function colocarBuscador(){
+    if(!cb||!tb)return;
+    if(movil.matches)tb.appendChild(cb);
+    else{cbPadre.insertBefore(cb,cbSig);tb.hidden=true}
+  }
+  if(movil.addEventListener)movil.addEventListener('change',colocarBuscador);
+  colocarBuscador();
+  if(ba)ba.addEventListener('click',function(){
+    if(!movil.matches){abrirMenu(true);return}
+    cerrarMenu();
+    tb.hidden=!tb.hidden;
+    if(!tb.hidden&&buscar)buscar.focus();
+    else if(buscar&&buscar.value){buscar.value='';texto='';seleccionar()}
+  });
+  var bmapa=$('mapa-abrir');
+  if(bmapa)bmapa.addEventListener('click',function(){
+    var on=body.classList.toggle('forzar-mapa');
+    bmapa.classList.toggle('on',on);
+    if(on){ajustarMapa(true);window.scrollTo(0,0)}
+  });
+  var sub=$('subir');
+  if(sub){
+    window.addEventListener('scroll',function(){sub.classList.toggle('ver',window.scrollY>600)},{passive:true});
+    sub.addEventListener('click',function(){window.scrollTo(0,0)});
+  }
+  document.addEventListener('click',function(e){
+    var h=e.target.closest&&e.target.closest('.zona-bloque h2');
+    if(h&&movil.matches)h.parentNode.classList.toggle('plegada');
+  });
   var mc=$('menu-cerrar');if(mc)mc.addEventListener('click',cerrarMenu);
   if(velo)velo.addEventListener('click',cerrarMenu);
 
@@ -712,7 +765,9 @@ export function generarInformeHtml(d: DatosInformeHtml): string {
 
   const topbar = `<header class="topbar">
     <button id="menu-abrir" type="button" aria-expanded="false" aria-controls="lateral">${ICONO.menu}<span id="menu-actual">Resumen</span></button>
+    ${pines.length ? `<button id="mapa-abrir" type="button" aria-label="Ver el mapa de las fotos">Mapa</button>` : ''}
     <button id="buscar-abrir" type="button" aria-label="Buscar en el informe">${ICONO.buscar}</button>
+    <div class="topbusca" id="topbusca" hidden></div>
   </header>
   <div class="velo" id="velo"></div>`;
 
@@ -766,6 +821,7 @@ ${resumen}
 ${mapa}
 </div>
 ${visor}
+<button id="subir" type="button" aria-label="Volver arriba">↑</button>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>${JS(fotosJs, pines, zonasOrden, secciones, d.urlTeselas, hayZonas)}</script>
 </body></html>`;
