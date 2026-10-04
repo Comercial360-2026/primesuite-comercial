@@ -15,6 +15,7 @@ import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador'
 import { Icono } from '@/components/ui/iconos';
 import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
 import { useEstadoRecordado } from '@/lib/use-estado-recordado';
+import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
 
 interface ClienteConSemaforo {
   cliente_id: string;
@@ -280,6 +281,21 @@ export function ListadoClientes() {
                 : 'No hay clientes.'
           }
         />
+      )}
+      {/* Buscando: también las cuentas del CRM que aún no son cliente. Tocar una abre el alta con esa cuenta
+          elegida; si ya hay un cliente con esa cuenta (o una hermana), abre su ficha. */}
+      {busqueda.trim().length >= 3 && (
+        <div className="lista-agrupada">
+          <ResultadosCuentaCrm
+            texto={busqueda}
+            titulo="En el CRM (aún no es cliente)"
+            onElegir={(c, existente) =>
+              existente
+                ? navigate(`/clientes/${existente.id}`, { state: desde(location) })
+                : navigate(`/clientes/nuevo?nombre=${encodeURIComponent(c.nombre)}&cuenta=${c.accountid}`, { state: desde(location) })
+            }
+          />
+        </div>
       )}
       </div>
     </div>

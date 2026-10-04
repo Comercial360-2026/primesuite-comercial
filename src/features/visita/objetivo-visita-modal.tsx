@@ -35,6 +35,9 @@ interface ObjetivoVisitaModalProps {
   // que el resto de modales.
   onConfirmar: (objetivo: string, proyectoId: string, extra: ExtraMedio) => Promise<void> | void;
   onCerrar: () => void;
+  // Medio ya elegido antes de abrir la ventana (p. ej. en «Empezar visita» y luego alta de cliente).
+  medioInicial?: MedioVisita;
+  enlaceInicial?: string;
 }
 
 // Ventana obligatoria al arrancar una visita "sobre la marcha" (los caminos
@@ -50,10 +53,12 @@ export function ObjetivoVisitaModal({
   onCrearProyecto,
   onConfirmar,
   onCerrar,
+  medioInicial,
+  enlaceInicial,
 }: ObjetivoVisitaModalProps) {
   const [objetivo, setObjetivo] = useState('');
-  const [medio, setMedio] = useState<MedioVisita>('presencial');
-  const [enlace, setEnlace] = useState('');
+  const [medio, setMedio] = useState<MedioVisita>(medioInicial ?? 'presencial');
+  const [enlace, setEnlace] = useState(enlaceInicial ?? '');
   const refDictado = useRef<RefCampoDictado>(null);
   // Proyectos creados desde esta misma ventana, para que aparezcan en el
   // selector sin esperar a que la lista de origen se recargue.

@@ -219,6 +219,11 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   (proyecto), paneles de visitas abiertas, «Ver inactivos». El scroll se restaura solo (`use-restaurar-scroll.ts` en
   LayoutShell) al volver al origen estampado en `state.from`. Los filtros de una lista siguen en la URL. Un panel no se
   cierra a sí mismo al navegar (si no, al volver aparece cerrado).
+- **Todo buscador para elegir cliente ofrece también las cuentas del CRM (4 oct).** Con ≥3 letras, bloque «En el CRM (aún
+  no es cliente)» (`ResultadosCuentaCrm`): una cuenta sin cliente abre el alta con `?nombre=…&cuenta=<accountid>` (y
+  `&medio=` / `&enlace=`); una que ya tiene cliente (o una hermana) sigue con ese. Aplicado: Empezar visita, Planificar,
+  lista de Clientes (el alta ya lo tenía). Y «¿Cómo es la visita?» (Presencial/Teams/Llamada) va ARRIBA, en todos los
+  pasos, no al final.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

@@ -16,6 +16,7 @@ import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { AvisoNombreDuplicado } from '@/components/ui/aviso-nombre-duplicado';
 import { SelectorMedioVisita } from '@/components/ui/selector-medio-visita';
+import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
 import type { MedioVisita } from '@/lib/medio-visita';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
@@ -262,9 +263,21 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
 
   const proyectoElegido = proyectos?.find((p) => p.id === proyectoId) ?? null;
 
+  // Parámetros con los que se abre el alta de cliente desde aquí: el medio elegido arriba viaja con ella.
+  function paramsAlta(base: Record<string, string>) {
+    const q = new URLSearchParams(base);
+    if (medio !== 'presencial') q.set('medio', medio);
+    if (medio === 'teams' && enlace.trim()) q.set('enlace', enlace.trim());
+    return q.toString();
+  }
+
   return (
     <HojaSuperior titulo="empezar visita" onCerrar={cerrarORetroceder}>
       <div className="lista-agrupada" style={{ padding: '0 4px 8px' }}>
+        {/* ¿Cómo es la visita? va ARRIBA y en todos los pasos (antes solo salía en el último, tras elegir cliente y proyecto,
+            y parecía que no se podía elegir). Se arrastra al alta de cliente si hay que crearlo. */}
+        <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
+
         {/* Paso 1 — cliente */}
         {!clienteId && (
           <div>
@@ -284,17 +297,35 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
             {termino.length >= 2 && buscando && (
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginTop: 6 }}>Buscando…</div>
             )}
+            {/* Cuentas del CRM que aún no son cliente (3.700 en el CRM, solo unas pocas son clientes): el CRM nunca crea
+                clientes solo, así que aquí se ofrecen. Tocar una abre el alta con esa cuenta ya elegida; si ya hay un
+                cliente con esa cuenta (o una hermana), se sigue con ese. */}
+            {termino.length >= 3 && (
+              <ResultadosCuentaCrm
+                texto={termino}
+                titulo="En el CRM (aún no es cliente)"
+                onElegir={(c, existente) => {
+                  if (existente) {
+                    setBusqueda('');
+                    setClienteId(existente.id);
+                    return;
+                  }
+                  onCerrar();
+                  navigate(`/clientes/nuevo?${paramsAlta({ nombre: c.nombre, cuenta: c.accountid })}`, { state: desde(location) });
+                }}
+              />
+            )}
             {termino.length >= 2 && !buscando && encontrados?.length === 0 && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 8 }}>
-                  No hay ningún cliente que se llame así.
+                  Ningún cliente tuyo se llama así.
                 </div>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
                     onCerrar();
-                    navigate(`/clientes/nuevo?nombre=${encodeURIComponent(termino)}`, { state: desde(location) });
+                    navigate(`/clientes/nuevo?${paramsAlta({ nombre: termino })}`, { state: desde(location) });
                   }}
                 >
                   Crear «{termino}» y seguir
@@ -424,8 +455,6 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                 )}
               </div>
             )}
-
-            <SelectorMedioVisita medio={medio} enlace={enlace} onMedio={setMedio} onEnlace={setEnlace} />
 
             <div className="label">Objetivo</div>
             <TextareaDictado

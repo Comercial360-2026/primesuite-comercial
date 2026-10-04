@@ -1,5 +1,5 @@
-import { payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
-import { useMemo, useRef, useState } from 'react';
+import { medioDe, payloadMedio, type ExtraMedio } from '@/lib/medio-visita';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
@@ -57,6 +57,24 @@ export function AltaRapidaCliente() {
     setNombre(c.nombre);
     if (!nombreProyecto.trim()) proyectoRef.current?.focus();
   }
+  // `?cuenta=` (desde «Empezar visita», al tocar una cuenta del CRM): se llega con la cuenta ya elegida.
+  const cuentaDeUrl = params.get('cuenta');
+  useEffect(() => {
+    if (!cuentaDeUrl) return;
+    let vivo = true;
+    void supabase
+      .from('crm_cuenta')
+      .select('accountid, nombre, ciudad')
+      .eq('accountid', cuentaDeUrl)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (vivo && data) elegirCuentaCrm(data);
+      });
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al entrar
+  }, [cuentaDeUrl]);
   const creacionCliente = useAccionAsync();
   // Orígenes: listado de Clientes o el buscador de "Nueva visita". El ←
   // vuelve a donde se venía; si no consta, al listado de Clientes.
@@ -550,6 +568,8 @@ export function AltaRapidaCliente() {
           }
           onConfirmar={arrancarConObjetivo}
           onCerrar={() => setObjetivoModal(null)}
+          medioInicial={medioDe(params.get('medio'))}
+          enlaceInicial={params.get('enlace') ?? undefined}
         />
       )}
     </div>
