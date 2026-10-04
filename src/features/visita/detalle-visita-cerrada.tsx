@@ -25,6 +25,7 @@ import { ConfirmacionBorrado } from '@/components/ui/confirmacion-borrado';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { SeccionLista } from '@/components/ui/seccion-lista';
+import { SeccionColapsable } from '@/components/ui/seccion-colapsable';
 import { TextareaDictado, type RefCampoDictado } from '@/components/ui/campo-dictado';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { FilaDato } from '@/components/ui/fila-dato';
@@ -621,12 +622,9 @@ export function DetalleVisitaCerrada() {
 
   const bloqueMapa =
     fotosMapa.length > 0 && (
-      <div>
-        <div className="seccion-lista__cabecera" style={{ paddingBottom: 6 }}>
-          Mapa de fotos ({fotosMapa.length})
-        </div>
+      <SeccionColapsable titulo="Mapa de fotos" cantidad={fotosMapa.length}>
         <MapaFotos fotos={fotosMapa} />
-      </div>
+      </SeccionColapsable>
     );
 
   // `grupos`: fotos agrupadas (por zona en «Tipo»; una sola en «Zona», donde el título ya es la zona).
@@ -697,15 +695,16 @@ export function DetalleVisitaCerrada() {
     const delaZona = <T,>(lista: T[], zona: (x: T) => string | null | undefined) => lista.filter((x) => zonaDeTexto(zona(x)) === z);
     const fotosZ = data.fotos.map((foto, idx) => ({ foto, idx })).filter(({ foto }) => zonaDeTexto(foto.ubicacion_nombre) === z);
     return (
-      <div key={z || 'sin-zona'} className="dvc-zona">
-        <div className="dvc-zona__titulo">{z || 'Sin zona'}</div>
+      // Plegadas: con decenas de capturas, una lista seguida de miles de píxeles no se puede recorrer en el móvil.
+      // Con una sola zona va abierta.
+      <SeccionColapsable key={z || 'sin-zona'} titulo={z || 'Sin zona'} cantidad={contadorZonas.get(z) ?? 0} defaultAbierta={zonasOrden.length === 1}>
         {bloqueOportunidades(delaZona(data.oportunidades, (o) => o.zona_texto), true)}
         {bloqueHallazgos(delaZona(data.hallazgos, (h) => h.zona_texto), true)}
         {bloquePasos(delaZona(data.proximosPasos, (p) => p.zona_texto), true)}
         {bloqueNotas(delaZona(data.notas, (n) => n.zona_texto), true)}
         {bloqueAudios(delaZona(data.audios, (a) => a.zona_texto), true)}
         {bloqueFotos([[z, fotosZ]], true)}
-      </div>
+      </SeccionColapsable>
     );
   };
 
@@ -943,9 +942,33 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {/* Resumen — primero y destacado, como en el informe. Se genera
-              solo al cerrar la visita; aquí se puede reescribir a mano. */}
           {!sinNada && (
+            <div className="dvc-bloque">
+              <div className="dvc-bloque__lb">Objetivo de la visita</div>
+              {data.objetivo?.trim() ? (
+                <div className="dvc-bloque__texto">{data.objetivo}</div>
+              ) : (
+                <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
+                  Sin objetivo registrado.
+                </div>
+              )}
+            </div>
+          )}
+          {!sinNada && puedeEditarResumen && data.resumen_origen === 'reglas' && !editandoResumen && (
+            <SeccionLista>
+              <FilaNavegable
+                icono="editar"
+                titulo="Escribir resumen"
+                subtitulo="Cómo fue la visita, en tus palabras (sustituye al automático en los informes)"
+                chevron={false}
+                onClick={abrirEditarResumen}
+              />
+            </SeccionLista>
+          )}
+          {/* Resumen: solo el escrito a mano. El automático («Ibas a: … Oportunidad: …»)
+              repetía el objetivo y las listas de debajo y ocupaba el primer pantallazo;
+              sigue yendo en los informes. Quien puede editarlo lo escribe con la fila de arriba. */}
+          {!sinNada && (data.resumen_origen !== 'reglas' || editandoResumen) && (
             <div className="dvc-bloque dvc-bloque--resumen">
               <div
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
@@ -1007,11 +1030,11 @@ export function DetalleVisitaCerrada() {
             </div>
           )}
 
-          {/* Descargas justo bajo el resumen: al fondo de la pantalla nadie
-              las encontraba y se acababa pidiendo el informe del proyecto,
-              que no lleva fotos (Cesar, 25 sept). */}
+          {/* Descargas plegadas en una línea: siguen a un toque (25 sept: al fondo nadie las encontraba) sin ocupar el primer pantallazo. */}
           {visitaId && visitaCerrada && (
-            <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
+            <SeccionColapsable titulo="Descargas" cantidad={3}>
+              <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
+            </SeccionColapsable>
           )}
 
           {/* Documentos justo bajo las descargas: al final de una visita con decenas de capturas nadie los encontraba. */}
@@ -1078,19 +1101,6 @@ export function DetalleVisitaCerrada() {
                 Algunas fotos o audios de esta visita se archivaron en SharePoint (más de 30 días cerrada). Se
                 siguen viendo igual que siempre, solo tardan un poco más en cargar.
               </Aviso>
-            </div>
-          )}
-
-          {!sinNada && (
-            <div className="dvc-bloque">
-              <div className="dvc-bloque__lb">Objetivo de la visita</div>
-              {data.objetivo?.trim() ? (
-                <div className="dvc-bloque__texto">{data.objetivo}</div>
-              ) : (
-                <div className="dvc-bloque__texto" style={{ color: 'var(--ink-400)', fontStyle: 'italic' }}>
-                  Sin objetivo registrado.
-                </div>
-              )}
             </div>
           )}
 
