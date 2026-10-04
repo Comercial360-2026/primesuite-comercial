@@ -278,7 +278,7 @@ export function FichaProyecto() {
     );
   }
 
-  async function cambiarEstado(nuevo: 'activo' | 'pausado' | 'terminado') {
+  async function cambiarEstado(nuevo: 'activo' | 'terminado') {
     if (!proyectoId) return;
     if (!navigator.onLine) {
       cambioEstado.establecerError('Necesitas conexión para cambiar el estado del proyecto.');

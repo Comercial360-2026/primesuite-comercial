@@ -20,7 +20,6 @@ export interface ProyectoDelCliente {
  *  (línea de contexto). */
 export const ESTADO_PROYECTO_LABEL: Record<string, string> = {
   activo: 'activo',
-  pausado: 'pausado',
   terminado: 'terminado',
 };
 

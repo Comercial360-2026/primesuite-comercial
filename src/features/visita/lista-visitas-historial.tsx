@@ -63,8 +63,8 @@ export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] 
   const { data: recuento } = useRecuentoVisitas(visitas.map((v) => v.id));
   const swipeBorrar = useSwipeBorrar();
   const { comercial } = useSesionActual();
-  // Borrar una visita cerrada: Dirección o su responsable (como en su ficha).
-  const idsCerradas = visitas.filter((v) => v.estado_captura === 'consolidada').map((v) => v.id);
+  // Borrar una visita cerrada o anular una planificada: Dirección o su responsable (como en su ficha).
+  const idsCerradas = visitas.filter((v) => v.estado_captura === 'consolidada' || v.estado_captura === 'agendada').map((v) => v.id);
   const { data: soyResponsableDe } = useQuery({
     queryKey: ['responsable-de-visitas', idsCerradas.join(','), comercial?.id],
     enabled: idsCerradas.length > 0 && !!comercial?.id && comercial.rol !== 'direccion_comercial',
@@ -108,8 +108,9 @@ export function ListaVisitasHistorial({ visitas }: { visitas: VisitaHistorial[] 
             to={to}
             state={origen}
             swipe={
-              v.estado_captura === 'consolidada' && (comercial?.rol === 'direccion_comercial' || soyResponsableDe?.has(v.id))
-                ? swipeBorrar(to)
+              (v.estado_captura === 'consolidada' || v.estado_captura === 'agendada') &&
+              (comercial?.rol === 'direccion_comercial' || soyResponsableDe?.has(v.id))
+                ? swipeBorrar(to, v.estado_captura === 'agendada' ? 'Anular' : 'Borrar')
                 : undefined
             }
           />
