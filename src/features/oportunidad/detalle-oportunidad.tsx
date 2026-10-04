@@ -376,6 +376,8 @@ export function DetalleOportunidad() {
     await eliminarOperacion(oportunidadId);
     await regenerarResumenSiAuto(oportunidad?.visita_origen_id ?? undefined);
     setBorrando(false);
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
 

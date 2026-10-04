@@ -60,6 +60,8 @@ export function useBorrarVisita(opts?: { onBorrada?: () => void }) {
   // Refrescar todo lo que lista visitas (prefijo, para las claves con
   // clienteId/fecha dentro).
   function invalidarListasDeVisitas() {
+    // La visita sale también de las listas del proyecto y de la ficha (claves distintas): refresco general.
+    queryClient.invalidateQueries();
     for (const k of [
       ['visitas-hoy'],
       ['visitas-proximas'],

@@ -215,6 +215,8 @@ export function DetalleProximoPaso() {
     // seguía mostrando como fantasma. No falla si la entrada local no existe.
     await eliminarOperacion(pasoId);
     queryClient.invalidateQueries({ queryKey: ['mis-proximos-pasos'] });
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
 

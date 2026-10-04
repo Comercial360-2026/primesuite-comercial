@@ -303,6 +303,8 @@ export function DetalleHallazgo() {
     // local no existe (hallazgo abierto desde fuera de la visita).
     await eliminarOperacion(hallazgoId);
     await regenerarResumenSiAuto(hallazgo?.visita_id ?? undefined);
+    // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+    queryClient.invalidateQueries();
     navigate(volver);
   }
 

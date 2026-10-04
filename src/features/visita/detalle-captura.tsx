@@ -535,6 +535,8 @@ function DetalleCapturaPorId() {
           if (captura.visitaId) {
             queryClient.invalidateQueries({ queryKey: ['detalle-visita-cerrada', captura.visitaId] });
           }
+          // Un borrado se nota en todas las listas (proyecto, visita, Pasos…): sin esto quedaba la fila fantasma.
+          queryClient.invalidateQueries();
           navigate(volver);
         },
         mensajeError: 'No se pudo borrar la captura. Inténtalo de nuevo.',
