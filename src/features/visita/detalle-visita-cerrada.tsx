@@ -88,20 +88,35 @@ const URL_FIRMADA_SEGUNDOS = 60 * 10;
 // siga ahí, o el enlace temporal de SharePoint (obtener-url-archivo-
 // sharepoint) una vez archivado — nunca guardado, se pide al vuelo cada vez
 // que se abre la visita (ver diseño, "Flujo de lectura").
-async function urlDeCaptura(
-  c: { id: string; storage_path: string | null; ubicacion_archivo?: string | null },
+async function urlsDeCapturas(
+  lista: { id: string; storage_path: string | null; ubicacion_archivo?: string | null }[],
   bucket: 'fotos-visita' | 'audios-visita'
-): Promise<string | null> {
-  if (c.storage_path) {
-    const { data } = await supabase.storage.from(bucket).createSignedUrl(c.storage_path, URL_FIRMADA_SEGUNDOS);
-    return data?.signedUrl ?? null;
+): Promise<Map<string, string | null>> {
+  const urls = new Map<string, string | null>();
+  // Las que siguen en Storage se firman TODAS en una sola petición (antes una por foto: con 34 fotos
+  // la pantalla tardaba 6-14 s en salir).
+  const enStorage = lista.filter((c) => c.storage_path);
+  if (enStorage.length > 0) {
+    const { data } = await supabase.storage.from(bucket).createSignedUrls(
+      enStorage.map((c) => c.storage_path!),
+      URL_FIRMADA_SEGUNDOS
+    );
+    // Se casan por ruta (no por posición); si una falla viene con error y sin enlace.
+    const porRuta = new Map((data ?? []).map((d) => [d.path, d.signedUrl]));
+    enStorage.forEach((c) => urls.set(c.id, porRuta.get(c.storage_path!) ?? null));
   }
-  if (c.ubicacion_archivo !== 'sharepoint') return null;
-  const { data, error } = await supabase.functions.invoke('obtener-url-archivo-sharepoint', {
-    body: { capturaId: c.id },
-  });
-  if (error || !data?.url) return null;
-  return data.url as string;
+  await Promise.all(
+    lista
+      .filter((c) => !c.storage_path)
+      .map(async (c) => {
+        if (c.ubicacion_archivo !== 'sharepoint') return urls.set(c.id, null);
+        const { data, error } = await supabase.functions.invoke('obtener-url-archivo-sharepoint', {
+          body: { capturaId: c.id },
+        });
+        urls.set(c.id, error || !data?.url ? null : (data.url as string));
+      })
+  );
+  return urls;
 }
 
 function esVencido(p: { fecha_objetivo: string | null; estado: string }): boolean {
@@ -238,6 +253,10 @@ export function DetalleVisitaCerrada() {
       const notas = (capturas ?? []).filter((c) => c.tipo === 'nota');
       const documentos = (capturas ?? []).filter((c) => c.tipo === 'documento');
 
+      const [urlsFotos, urlsAudios] = await Promise.all([
+        urlsDeCapturas(fotosBrutas, 'fotos-visita'),
+        urlsDeCapturas(audiosBrutos, 'audios-visita'),
+      ]);
       const fotos = await Promise.all(
         fotosBrutas.map(async (f) => {
           const ubicacion_nombre =
@@ -245,14 +264,14 @@ export function DetalleVisitaCerrada() {
             (f.ubicacion as unknown as { nombre: string } | null)?.nombre ??
             null;
           const geo = { latitud: f.latitud ?? null, longitud: f.longitud ?? null };
-          const url = await urlDeCaptura(f, 'fotos-visita');
+          const url = urlsFotos.get(f.id) ?? null;
           const archivadaSharepoint = f.ubicacion_archivo === 'sharepoint';
           return { id: f.id, titulo: f.titulo, url, ubicacion_nombre, archivadaSharepoint, ...geo };
         })
       );
       const audios = await Promise.all(
         audiosBrutos.map(async (a) => {
-          const url = await urlDeCaptura(a, 'audios-visita');
+          const url = urlsAudios.get(a.id) ?? null;
           return {
             id: a.id,
             titulo: a.titulo,
