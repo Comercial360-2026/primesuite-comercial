@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate, type Location } from 'react-router-dom';
 import { desde } from '@/lib/volver-a';
+import { useOnline } from '@/hooks/use-online';
 import type { AccionSwipe } from '@/components/ui/fila-navegable';
 
 // «Borrar deslizando»: la fila de una lista navega a la ficha con
@@ -52,10 +53,13 @@ export function useVerAlAbrir<T extends HTMLElement = HTMLDivElement>(abierta: b
 export function useSwipeBorrar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const online = useOnline();
   return (to: string, etiqueta = 'Borrar'): AccionSwipe => ({
     etiqueta,
     icono: 'borrar',
     tono: 'riesgo',
+    desactivada: !online,
+    motivo: 'Necesitas conexión para borrar',
     onAccion: () => navigate(to, { state: borrarDesde(location) }),
   });
 }

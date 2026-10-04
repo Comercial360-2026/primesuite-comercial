@@ -1398,6 +1398,7 @@ textarea.field {
   font-size: var(--text-xs); font-weight: 500; cursor: pointer;
 }
 .fila-swipe__accion--riesgo { background: var(--risk-600); color: #fff; }
+.fila-swipe__accion:disabled { opacity: .45; cursor: not-allowed; }
 .fila-swipe > .fila { position: relative; z-index: 1; }
 /* La primera fila de un grupo no lleva separador superior, también cuando
    va envuelta por el gesto de deslizar. */

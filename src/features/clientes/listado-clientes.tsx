@@ -6,6 +6,10 @@ import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes } from '@/lib/fechas';
 import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
+import { useOnline } from '@/hooks/use-online';
+import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { Aviso } from '@/components/ui/aviso';
+import { PistaDeslizar } from '@/components/ui/pista-deslizar';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -77,6 +81,23 @@ export function ListadoClientes() {
 
   const soloMios = vista === 'mios';
   const queryClient = useQueryClient();
+  const online = useOnline();
+  const [errorInactivo, setErrorInactivo] = useState<string | null>(null);
+
+  // Mismo cambio y mismos permisos que «Marcar como inactivo» de la ficha (reversible, sin confirmación).
+  async function marcarInactivo(id: string) {
+    setErrorInactivo(null);
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('cliente').update({ estado_relacion: CLIENTE_ARCHIVADO }, { count: 'exact' }).eq('id', id),
+        'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+      );
+      for (const k of ['listado-clientes', 'cliente', 'planificar-buscar-cliente', 'empezar-visita-buscar'])
+        queryClient.invalidateQueries({ queryKey: [k] });
+    } catch (e) {
+      setErrorInactivo(e instanceof Error ? e.message : 'No se ha podido marcar como inactivo.');
+    }
+  }
 
   // Al buscar, cualquiera encuentra CUALQUIER cliente (cubrir a un
   // compañero, comprobar antes de dar de alta un duplicado) — un buscador
@@ -243,6 +264,8 @@ export function ListadoClientes() {
       )}
 
       <div className="screen__scroll">
+      {!!activos?.length && <PistaDeslizar />}
+      {errorInactivo && <Aviso tipo="error">{errorInactivo}</Aviso>}
       {cargandoDeVerdad && <EstadoLista estado="cargando" />}
 
       {sinConexion && <EstadoLista estado="sin-conexion" onReintentar={reintentar} />}
@@ -344,7 +367,20 @@ export function ListadoClientes() {
         valorTenue={archivado}
         to={`/clientes/${c.cliente_id}`}
         state={desde(location)}
-        swipe={comercial?.rol === 'direccion_comercial' ? swipeBorrar(`/clientes/${c.cliente_id}`) : undefined}
+        swipe={[
+          ...(!archivado && (comercial?.rol === 'direccion_comercial' || respId === comercial?.id)
+            ? [
+                {
+                  etiqueta: 'Inactivo',
+                  icono: 'oculto' as const,
+                  desactivada: !online,
+                  motivo: 'Necesitas conexión para cambiar el estado',
+                  onAccion: () => void marcarInactivo(c.cliente_id),
+                },
+              ]
+            : []),
+          ...(comercial?.rol === 'direccion_comercial' ? [swipeBorrar(`/clientes/${c.cliente_id}`)] : []),
+        ]}
       />
     );
   }

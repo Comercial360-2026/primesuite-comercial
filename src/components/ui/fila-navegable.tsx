@@ -5,12 +5,15 @@ import { Avatar } from './avatar';
 import { FilaToggle, type EstadoSeleccion } from './fila-toggle';
 import { useSwipeFila } from '@/hooks/use-swipe-fila';
 
-/** Acción única que revela el gesto de deslizar (táctil). */
+/** Acción que revela el gesto de deslizar (táctil). */
 export interface AccionSwipe {
   etiqueta: string;
   icono: NombreIcono;
   onAccion: () => void;
   tono?: 'neutral' | 'riesgo';
+  /** Desactivada (p. ej. sin conexión); `motivo` sale como tooltip. */
+  desactivada?: boolean;
+  motivo?: string;
 }
 
 const ANCHO_SWIPE = 96;
@@ -66,7 +69,7 @@ interface PropsBase {
   seleccion?: EstadoSeleccion;
   /** Deslizar la fila a la izquierda revela esta acción (gesto táctil; se
    *  ignora con ratón y en modo seleccionar). */
-  swipe?: AccionSwipe;
+  swipe?: AccionSwipe | AccionSwipe[];
   /** `state` para el `<Link>` cuando se navega con `to` — se usa para
    *  estampar el origen (`desde(location)`) y que el ← de la pantalla de
    *  destino vuelva aquí (regla #14). Sin efecto con `onClick`. */
@@ -96,8 +99,10 @@ export function FilaNavegable({
   onClick,
 }: Props) {
   const seleccionando = seleccion?.activa ?? false;
-  const swipeActivo = !!swipe && !seleccionando;
-  const s = useSwipeFila({ ancho: ANCHO_SWIPE, activo: swipeActivo });
+  const acciones = swipe ? (Array.isArray(swipe) ? swipe : [swipe]) : [];
+  const swipeActivo = acciones.length > 0 && !seleccionando;
+  const ancho = ANCHO_SWIPE * Math.max(1, acciones.length);
+  const s = useSwipeFila({ ancho, activo: swipeActivo });
 
   const clases = [
     'fila',
@@ -202,19 +207,24 @@ export function FilaNavegable({
 
   return (
     <div className="fila-swipe">
-      <div className="fila-swipe__zona" aria-hidden={!s.abierta}>
-        <button
-          type="button"
-          tabIndex={s.abierta ? 0 : -1}
-          className={`fila-swipe__accion${swipe!.tono === 'riesgo' ? ' fila-swipe__accion--riesgo' : ''}`}
-          onClick={() => {
-            s.cerrar();
-            swipe!.onAccion();
-          }}
-        >
-          <Icono nombre={swipe!.icono} size={18} />
-          {swipe!.etiqueta}
-        </button>
+      <div className="fila-swipe__zona" style={{ width: ancho }} aria-hidden={!s.abierta}>
+        {acciones.map((a) => (
+          <button
+            key={a.etiqueta}
+            type="button"
+            tabIndex={s.abierta ? 0 : -1}
+            disabled={a.desactivada}
+            title={a.desactivada ? a.motivo : undefined}
+            className={`fila-swipe__accion${a.tono === 'riesgo' ? ' fila-swipe__accion--riesgo' : ''}`}
+            onClick={() => {
+              s.cerrar();
+              a.onAccion();
+            }}
+          >
+            <Icono nombre={a.icono} size={18} />
+            {a.desactivada && a.motivo ? 'Sin conexión' : a.etiqueta}
+          </button>
+        ))}
       </div>
       {elementoFila}
     </div>
