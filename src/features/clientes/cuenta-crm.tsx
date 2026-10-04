@@ -23,7 +23,7 @@ export function textoCuentaCrm(c: Pick<CuentaCrm, 'nombre' | 'ciudad'>) {
 
 const PAGINA = 1000; // tope de filas por petición de la API de Supabase
 
-function useCuentasCrm(activo: boolean) {
+export function useCuentasCrm(activo: boolean) {
   return useQuery({
     queryKey: ['crm-cuentas-activas'],
     enabled: activo,
@@ -48,7 +48,7 @@ function useCuentasCrm(activo: boolean) {
 
 // Clientes ya vinculados a alguna cuenta: elegir una que ya tiene cliente
 // casi siempre es un duplicado, y hay que decirlo en la propia fila.
-function useClientesPorCuenta(activo: boolean) {
+export function useClientesPorCuenta(activo: boolean) {
   return useQuery({
     queryKey: ['clientes-por-cuenta-crm'],
     enabled: activo,
@@ -162,4 +162,47 @@ export function ResultadosCuentaCrm({
         })}
     </SeccionLista>
   );
+}
+
+// --- Sugerencias de vínculo: clientes creados a mano que ya están en el CRM ---
+
+export interface ClienteSinCuenta {
+  id: string;
+  nombre: string;
+}
+export interface SugerenciaCuenta {
+  /** Cuentas del CRM cuyo nombre contiene todas las palabras del cliente (sin cliente propio), mejores primero. */
+  candidatas: CuentaCrm[];
+  /** Coincidencia EXACTA y ÚNICA (mismo nombre sin «S.L.»/«S.A.»): la única que se vincula sola. */
+  exacta: CuentaCrm | null;
+}
+
+/** Para cada cliente sin cuenta, qué cuentas del CRM podrían ser la suya. Todo en el móvil con las cuentas ya cargadas
+ *  (3.700 filas, una vez por hora): sin tabla de sugerencias que mantener y siempre al día con el último CRM. */
+export function useSugerenciasCuenta(clientes: ClienteSinCuenta[]) {
+  const activo = clientes.length > 0;
+  const { data: cuentas } = useCuentasCrm(activo);
+  const { data: vinculadas } = useClientesPorCuenta(activo);
+  const porClave = useClientesPorClaveDeCuenta(activo);
+  return useMemo(() => {
+    const m = new Map<string, SugerenciaCuenta>();
+    if (!cuentas || !vinculadas) return m;
+    const libres = cuentas.filter((c) => !vinculadas[c.accountid]);
+    for (const cli of clientes) {
+      const clave = claveDuplicado(cli.nombre);
+      const palabras = normalizarNombre(cli.nombre).split(/\s+/).filter(Boolean);
+      if (clave.length < 3) continue;
+      const candidatas = libres
+        .filter((c) => palabras.every((p) => c.norm.includes(p)))
+        .sort((a, b) => {
+          const rango = (x: { norm: string }) => (claveDuplicado(x.norm) === clave ? 0 : x.norm.startsWith(clave) ? 1 : 2);
+          return rango(a) - rango(b);
+        });
+      const iguales = libres.filter((c) => claveDuplicado(c.nombre) === clave);
+      // Exacta y única; y que ninguna hermana de esa empresa ya tenga cliente (sería un duplicado, no un vínculo).
+      const exacta = iguales.length === 1 && !porClave.has(clave) ? iguales[0] : null;
+      if (candidatas.length > 0) m.set(cli.id, { candidatas: candidatas.slice(0, 3), exacta });
+    }
+    return m;
+  }, [clientes, cuentas, vinculadas, porClave]);
 }

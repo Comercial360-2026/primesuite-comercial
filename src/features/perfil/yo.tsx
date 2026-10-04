@@ -16,6 +16,7 @@ import { useAvisosGestion } from '@/hooks/use-avisos-gestion';
 import { ReportarProblemaHoja } from '@/features/perfil/reportar-problema-hoja';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
+import { FilaClientesPorVincular } from '@/features/clientes/clientes-por-vincular';
 import { FilaDato } from '@/components/ui/fila-dato';
 import { TarjetaAccion } from '@/components/ui/tarjeta-accion';
 import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
@@ -658,6 +659,7 @@ export function Yo() {
                 to="/deduplicacion"
               />
             )}
+            <FilaClientesPorVincular />
             {!!estadoArchivado &&
               problemasArchivado > 0 && (
                 <FilaNavegable

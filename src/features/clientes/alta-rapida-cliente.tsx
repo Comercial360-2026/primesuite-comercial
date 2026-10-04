@@ -116,10 +116,11 @@ export function AltaRapidaCliente() {
     queryFn: async (): Promise<Array<{ id: string; nombre: string; estado_relacion: string; crm_accountid: string | null }>> => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, crm_accountid')
+        .select('id, nombre, nombre_alias, estado_relacion, crm_accountid')
         .eq('estado_fusion', 'activo');
       if (error) throw error;
-      return data ?? [];
+      // El nombre que tenía antes de adoptar el del CRM también cuenta para el aviso de duplicados.
+      return (data ?? []).flatMap((c) => (c.nombre_alias ? [c, { ...c, nombre: c.nombre_alias }] : [c]));
     },
   });
 

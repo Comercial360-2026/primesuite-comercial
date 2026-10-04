@@ -13,7 +13,7 @@ import { CabeceraSeccion } from '@/components/ui/cabecera-seccion';
 import { Segmentado } from '@/components/ui/segmentado';
 import { useBuscador, BotonBuscar, CampoBuscar } from '@/components/ui/buscador';
 import { Icono } from '@/components/ui/iconos';
-import { CLIENTE_ARCHIVADO } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, filtroNombreOAlias } from '@/lib/nombres-cliente';
 import { useEstadoRecordado } from '@/lib/use-estado-recordado';
 import { ResultadosCuentaCrm } from '@/features/clientes/cuenta-crm';
 
@@ -120,7 +120,7 @@ export function ListadoClientes() {
         .order('cliente_nombre', { ascending: true });
 
       if (busqueda.trim()) {
-        query = query.ilike('cliente_nombre', `%${busqueda.trim()}%`);
+        query = query.or(filtroNombreOAlias(busqueda));
       }
       if (idsCartera) {
         query = query.in('cliente_id', idsCartera);

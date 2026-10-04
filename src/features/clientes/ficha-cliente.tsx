@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +14,8 @@ import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
-import { ResultadosCuentaCrm, textoCuentaCrm, type CuentaCrm } from '@/features/clientes/cuenta-crm';
+import { ResultadosCuentaCrm, textoCuentaCrm, useSugerenciasCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
+import { vincularClienteACuenta } from '@/lib/vincular-cuenta-crm';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
 import { SeccionLista } from '@/components/ui/seccion-lista';
 import { FilaNavegable } from '@/components/ui/fila-navegable';
@@ -105,6 +106,8 @@ export function FichaCliente() {
   const [crmAbierto, setCrmAbierto] = useState(false);
   const [buscaCrm, setBuscaCrm] = useState('');
   const guardadoCrm = useAccionAsync();
+  // Al vincular, el cliente pasa a llamarse como la cuenta del CRM (el nombre anterior queda como alias de búsqueda).
+  const [adoptarNombre, setAdoptarNombre] = useState(true);
   const guardadoDatos = useAccionAsync();
   const cambioArchivado = useAccionAsync();
 
@@ -146,22 +149,13 @@ export function FichaCliente() {
       guardadoCrm.establecerError('Necesitas conexión para vincular la cuenta del CRM.');
       return;
     }
+    if (!cliente) return;
     await guardadoCrm.ejecutar(
       async () => {
-        await conReintentoDeSesion(
-          () =>
-            supabase
-              .from('cliente')
-              .update(
-                {
-                  crm_accountid: cuenta?.accountid ?? null,
-                  // Sin ubicación escrita, se toma la ciudad de la cuenta del CRM (nunca pisa lo que ya hay).
-                  ...(cuenta?.ciudad && !cliente?.ubicacion_general ? { ubicacion_general: cuenta.ciudad } : {}),
-                },
-                { count: 'exact' }
-              )
-              .eq('id', clienteId),
-          'No se ha podido guardar (0 filas afectadas). Puede que no tengas permiso.'
+        await vincularClienteACuenta(
+          { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general },
+          cuenta,
+          adoptarNombre
         );
       },
       {
@@ -298,7 +292,7 @@ export function FichaCliente() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cliente')
-        .select('id, nombre, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid')
+        .select('id, nombre, nombre_alias, estado_relacion, sector, ubicacion_general, tamano_aprox, responsable_id, creado_por, crm_accountid, crm_no_autovincular')
         .eq('id', clienteId!)
         .single();
       if (error) throw error;
@@ -506,6 +500,38 @@ export function FichaCliente() {
   const archivado = cliente?.estado_relacion === CLIENTE_ARCHIVADO;
   const puedePreguntarIA = usePuedePreguntarIA(clienteId);
 
+  // Cliente creado a mano que ya aparece en el CRM: se sugiere (o, si la coincidencia es exacta y única, se vincula solo).
+  const sinCuentaEditable = !!cliente && !cliente.crm_accountid && !archivado && puedeEditar;
+  const clienteParaSugerir = useMemo(
+    () => (sinCuentaEditable && cliente ? [{ id: cliente.id, nombre: cliente.nombre }] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo cambia con el id/nombre
+    [sinCuentaEditable, cliente?.id, cliente?.nombre]
+  );
+  const sugerencias = useSugerenciasCuenta(clienteParaSugerir);
+  const sugerencia = cliente ? sugerencias.get(cliente.id) : undefined;
+  const [vinculadoAuto, setVinculadoAuto] = useState<null | { cuenta: string; antes: string }>(null);
+  const autoIntentadoPara = useRef<string | null>(null);
+  useEffect(() => {
+    const exacta = sugerencia?.exacta;
+    if (!exacta || !cliente || cliente.crm_no_autovincular || autoIntentadoPara.current === cliente.id || !navigator.onLine) return;
+    autoIntentadoPara.current = cliente.id;
+    void vincularClienteACuenta(
+      { id: cliente.id, nombre: cliente.nombre, nombre_alias: cliente.nombre_alias, ubicacion_general: cliente.ubicacion_general },
+      exacta,
+      true
+    )
+      .then(() => {
+        setVinculadoAuto({ cuenta: exacta.nombre, antes: cliente.nombre });
+        queryClient.invalidateQueries({ queryKey: ['cliente', cliente.id] });
+        queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
+        queryClient.invalidateQueries({ queryKey: ['clientes-por-cuenta-crm'] });
+      })
+      .catch(() => {
+        /* sin permiso o sin red: queda la sugerencia manual */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez por cliente
+  }, [sugerencia?.exacta?.accountid, cliente?.id]);
+
   // Briefing: vive por visita; el hook elige a cuál colgarlo.
   const visitaIdBriefing = useVisitaBriefing(clienteId);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
@@ -590,6 +616,44 @@ export function FichaCliente() {
              chevron={false}
              disabled={cambioArchivado.cargando}
              onClick={() => cambiarArchivado(false)}
+           />
+         </SeccionLista>
+       )}
+       {vinculadoAuto && cliente?.crm_accountid && (
+         <Aviso tipo="info" titulo="Vinculado con el CRM">
+           Este cliente ya estaba en el CRM como «{vinculadoAuto.cuenta}»: se ha vinculado y ahora se llama así (antes «{vinculadoAuto.antes}», que
+           sigue encontrándose al buscar). Si no es la cuenta correcta, deshazlo o cámbiala en «Cuenta CRM».
+           <div style={{ marginTop: 8 }}>
+             <button
+               type="button"
+               className="btn btn-secondary"
+               disabled={guardadoCrm.cargando}
+               onClick={() => {
+                 setVinculadoAuto(null);
+                 void vincularCrm(null);
+               }}
+             >
+               Deshacer
+             </button>
+           </div>
+         </Aviso>
+       )}
+       {!vinculadoAuto && sinCuentaEditable && !!sugerencia?.candidatas.length && (
+         <SeccionLista>
+           <FilaNavegable
+             icono="buscar"
+             titulo={
+               sugerencia.candidatas.length === 1
+                 ? `Parece estar en el CRM: «${sugerencia.candidatas[0].nombre}»`
+                 : `Parece estar en el CRM (${sugerencia.candidatas.length} cuentas parecidas)`
+             }
+             subtitulo={
+               sugerencia.candidatas.length === 1
+                 ? `${sugerencia.candidatas[0].ciudad ?? 'Sin ciudad'} · toca para vincularla`
+                 : 'Toca para elegir la suya'
+             }
+             tono="aviso"
+             onClick={abrirCrm}
            />
          </SeccionLista>
        )}
@@ -796,7 +860,13 @@ export function FichaCliente() {
             {puedeEditar ? (
               <FilaNavegable
                 titulo="Cuenta CRM"
-                subtitulo={cliente.crm_accountid ? undefined : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'}
+                subtitulo={
+                  cliente.crm_accountid
+                    ? cliente.nombre_alias
+                      ? `Nombre anterior: «${cliente.nombre_alias}»`
+                      : undefined
+                    : 'Sin ella, el briefing no encuentra a este cliente. Toca para vincularla.'
+                }
                 valor={cliente.crm_accountid ? (cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…') : 'sin vincular'}
                 tono={cliente.crm_accountid ? 'neutral' : 'aviso'}
                 onClick={abrirCrm}
@@ -951,6 +1021,7 @@ export function FichaCliente() {
               <SeccionLista titulo="Vinculada ahora">
                 <FilaNavegable
                   titulo={cuentaCrm ? textoCuentaCrm(cuentaCrm) : '…'}
+                  subtitulo={cliente.nombre_alias ? `Al quitarla vuelve a llamarse «${cliente.nombre_alias}»` : undefined}
                   valor="quitar"
                   valorTenue
                   chevron={false}
@@ -967,6 +1038,15 @@ export function FichaCliente() {
               onChange={(e) => setBuscaCrm(e.target.value)}
               placeholder="busca otra cuenta por nombre (mín. 3 letras)"
             />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '10px 4px', fontSize: 'var(--text-sm)' }}>
+              <input type="checkbox" checked={adoptarNombre} onChange={(e) => setAdoptarNombre(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                Usar el nombre de la cuenta del CRM
+                <span style={{ display: 'block', color: 'var(--ink-400)', fontSize: 'var(--text-xs)' }}>
+                  «{cliente?.nombre_alias ?? cliente?.nombre}» se guarda como nombre anterior y se sigue encontrando al buscar.
+                </span>
+              </span>
+            </label>
             <ResultadosCuentaCrm
               texto={buscaCrm}
               excluirClienteId={clienteId}

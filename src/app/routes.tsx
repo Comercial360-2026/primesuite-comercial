@@ -26,6 +26,7 @@ import { FichaCliente } from '@/features/clientes/ficha-cliente';
 import { AltaRapidaCliente } from '@/features/clientes/alta-rapida-cliente';
 import { FichaProyecto } from '@/features/proyectos/ficha-proyecto';
 import { Deduplicacion } from '@/features/clientes/deduplicacion';
+import { ClientesPorVincular } from '@/features/clientes/clientes-por-vincular';
 import { DetalleHallazgo } from '@/features/hallazgo/detalle-hallazgo';
 import { DetalleOportunidad } from '@/features/oportunidad/detalle-oportunidad';
 import { MisProximosPasos } from '@/features/tareas/mis-proximos-pasos';
@@ -211,6 +212,15 @@ export function AppRoutes() {
             element={
               <RequireRole roles={['direccion_comercial']}>
                 <Deduplicacion />
+              </RequireRole>
+            }
+          />
+
+          <Route
+            path="/clientes-por-vincular"
+            element={
+              <RequireRole roles={['direccion_comercial']}>
+                <ClientesPorVincular />
               </RequireRole>
             }
           />

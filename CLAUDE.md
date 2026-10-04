@@ -207,7 +207,12 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   lista las cuentas parecidas; y en el alta, si eliges la cuenta del CRM y ya existe un cliente parecido SIN
   cuenta, su fila dice «es este: vincular cuenta y visitar» y vincula en vez de crear un segundo cliente.
   Probado el 3 oct con datos (cliente «Zeta Prueba» + cuenta «Zeta Prueba Industrial, S.L.», borrados).
-  Hueco conocido: nadie avisa proactivamente de clientes sin cuenta (hoy 0 sin vincular).
+  **Cerrado el 4 oct:** la ficha sugiere la cuenta («Parece estar en el CRM: …»; `useSugerenciasCuenta`) y, si la coincidencia
+  es exacta y única (mismo nombre sin «S.L.»/«S.A.»), se vincula sola al abrirla con «Deshacer»; Yo → Gestión → «Clientes por
+  vincular» (Dirección) las lista y vincula las exactas de golpe. Al vincular el cliente adopta el nombre de la cuenta (opcional,
+  casilla en «Cuenta CRM») y su nombre anterior queda en `cliente.nombre_alias` (los buscadores lo encuentran: usar
+  `filtroNombreOAlias`). Quitar o deshacer restaura el nombre y marca `crm_no_autovincular` (no se re-vincula solo). Migraciones 149-150.
+  Cambiar a otra cuenta si hubo un error: ficha → Cuenta CRM → «Cambiar por».
 - **Pantalla `screen--split`: nada fijo debajo del `screen__scroll` salvo un botón.** Bloques largos
   (Documentos, Reabrir, Borrar…) dentro del scroll; si no, en móvil la ventana de scroll queda diminuta
   (visita cerrada, 3 oct).

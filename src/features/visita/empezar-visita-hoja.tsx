@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
-import { CLIENTE_ARCHIVADO, hayNombreDuplicado } from '@/lib/nombres-cliente';
+import { CLIENTE_ARCHIVADO, filtroNombreOAlias, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { desde } from '@/lib/volver-a';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
@@ -97,7 +97,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
         .from('vw_semaforo_cliente')
         .select('cliente_id, cliente_nombre')
         .neq('estado_relacion', CLIENTE_ARCHIVADO)
-        .ilike('cliente_nombre', `%${termino}%`)
+        .or(filtroNombreOAlias(termino))
         .order('cliente_nombre')
         .limit(8);
       if (error) throw error;

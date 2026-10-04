@@ -327,6 +327,16 @@ const _PANTALLAS = {
     ojo: 'Al fusionar, las visitas, oportunidades, hallazgos, contactos y ubicaciones de las otras fichas pasan a la que se queda, y las demás desaparecen de la lista de clientes. No se puede deshacer desde la app: antes de confirmar, asegúrate de que de verdad son el mismo negocio.',
     soloDireccion: true,
   },
+  'clientes-por-vincular': {
+    grupo: 'direccion',
+    titulo: 'Clientes por vincular',
+    queEs:
+      'Clientes que alguien creó a mano antes de que su empresa estuviera en el CRM y que ahora tienen una cuenta que les corresponde. La sincronización del CRM nunca toca clientes, así que se vinculan aquí o en la ficha.',
+    cuando:
+      'Cuando sale la fila en Yo → Gestión. «Vincular las coincidencias exactas» lo hace de golpe cuando el nombre coincide (sin «S.L.»/«S.A.») y solo hay una cuenta; el resto se revisa tocando el cliente: su ficha enseña las cuentas parecidas. En la ficha de un cliente con coincidencia exacta, se vincula sola al abrirla, con «Deshacer».',
+    ojo: 'Al vincular, el cliente pasa a llamarse como la cuenta del CRM (se puede desmarcar en la hoja «Cuenta CRM»); su nombre anterior se guarda y se sigue encontrando al buscar. Si te equivocas, en «Cuenta CRM» puedes cambiarla por otra o quitarla (vuelve a su nombre anterior).',
+    soloDireccion: true,
+  },
   'consumo-comerciales': {
     grupo: 'direccion',
     titulo: 'Consumo por comercial',

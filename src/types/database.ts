@@ -361,6 +361,8 @@ export type Database = {
           creado_en: string
           creado_por: string | null
           crm_accountid: string | null
+          crm_no_autovincular: boolean
+          nombre_alias: string | null
           estado_fusion: string
           estado_relacion: string
           fusionado_en_id: string | null
@@ -376,6 +378,8 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           crm_accountid?: string | null
+          crm_no_autovincular?: boolean
+          nombre_alias?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -391,6 +395,8 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           crm_accountid?: string | null
+          crm_no_autovincular?: boolean
+          nombre_alias?: string | null
           estado_fusion?: string
           estado_relacion?: string
           fusionado_en_id?: string | null
@@ -2446,6 +2452,7 @@ export type Database = {
           cliente_maestro_estado_relacion: string | null
           cliente_maestro_id: string | null
           cliente_maestro_nombre: string | null
+          cliente_maestro_alias: string | null
         }
         Relationships: []
       }
@@ -2508,6 +2515,7 @@ export type Database = {
           cliente_id: string | null
           cliente_nombre: string | null
           estado_relacion: string | null
+          nombre_alias: string | null
           oportunidades_activas: number | null
           semaforo: string | null
           ultima_visita: string | null

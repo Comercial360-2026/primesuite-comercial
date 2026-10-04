@@ -60,3 +60,11 @@ export function hayNombreDuplicado(nombre: string, existentes: { nombre: string 
  *  él», prompt maestro 13): no sale en Clientes ni al elegir cliente para una
  *  visita; conserva todo y se reactiva desde su ficha. */
 export const CLIENTE_ARCHIVADO = 'inactivo';
+
+/** Filtro PostgREST (`.or(...)`) para buscar un cliente por su nombre O por el nombre que tenía antes de adoptar el del
+ *  CRM (`nombre_alias`): buscar «SAPA» sigue encontrando «SAPA OPERACIONES, S.L.». Se quitan los caracteres que rompen la
+ *  sintaxis del filtro (coma, paréntesis, comodines). */
+export function filtroNombreOAlias(termino: string): string {
+  const t = termino.replace(/[,()%*\\]/g, ' ').trim();
+  return `cliente_nombre.ilike.%${t}%,nombre_alias.ilike.%${t}%`;
+}
