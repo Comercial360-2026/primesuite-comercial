@@ -641,7 +641,7 @@ export function DetalleVisitaCerrada() {
 
   const bloqueMapa =
     fotosMapa.length > 0 && (
-      <SeccionColapsable titulo="Mapa de fotos" cantidad={fotosMapa.length}>
+      <SeccionColapsable recordarComo={`visita-${visitaId}-mapa`} titulo="Mapa de fotos" cantidad={fotosMapa.length}>
         <MapaFotos fotos={fotosMapa} />
       </SeccionColapsable>
     );
@@ -717,7 +717,7 @@ export function DetalleVisitaCerrada() {
     return (
       // Plegadas: con decenas de capturas, una lista seguida de miles de píxeles no se puede recorrer en el móvil.
       // Con una sola zona va abierta.
-      <SeccionColapsable key={z || 'sin-zona'} titulo={z || 'Sin zona'} cantidad={contadorZonas.get(z) ?? 0} defaultAbierta={zonasOrden.length === 1}>
+      <SeccionColapsable key={z || 'sin-zona'} recordarComo={`visita-${visitaId}-zona-${z}`} titulo={z || 'Sin zona'} cantidad={contadorZonas.get(z) ?? 0} defaultAbierta={zonasOrden.length === 1}>
         {bloqueOportunidades(delaZona(data.oportunidades, (o) => o.zona_texto), true)}
         {bloqueHallazgos(delaZona(data.hallazgos, (h) => h.zona_texto), true)}
         {bloquePasos(delaZona(data.proximosPasos, (p) => p.zona_texto), true)}
@@ -1052,7 +1052,7 @@ export function DetalleVisitaCerrada() {
 
           {/* Descargas plegadas en una línea: siguen a un toque (25 sept: al fondo nadie las encontraba) sin ocupar el primer pantallazo. */}
           {visitaId && visitaCerrada && (
-            <SeccionColapsable titulo="Descargas" cantidad={3}>
+            <SeccionColapsable recordarComo={`visita-${visitaId}-descargas`} titulo="Descargas" cantidad={3}>
               <DescargasVisita visitaId={visitaId} estadoDe={estadoDe} descargar={descargar} progresoDe={progresoDe} motivoDe={motivoDe} />
             </SeccionColapsable>
           )}
