@@ -665,7 +665,8 @@ export function DetalleVisitaCerrada() {
                 {lista.map(({ foto, idx }) =>
                   foto.url ? (
                     <button key={foto.id} type="button" onClick={() => setVisorIndice(idx)} aria-label={foto.titulo ?? 'ver foto'}>
-                      <img src={foto.url} alt={foto.titulo ?? 'foto'} />
+                      {/* lazy + async: son los ORIGINALES (varios MB) hechos miniatura; cargar y decodificar decenas a la vez agota la memoria del móvil y las que no caben se quedan en blanco. */}
+                      <img src={foto.url} alt={foto.titulo ?? 'foto'} loading="lazy" decoding="async" />
                     </button>
                   ) : (
                     <div key={foto.id} style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', alignSelf: 'center' }}>
