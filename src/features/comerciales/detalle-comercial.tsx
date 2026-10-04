@@ -221,16 +221,20 @@ export function DetalleComercial() {
     setCambiandoEstado(true);
     setError(null);
     try {
+      let borrado = false;
       if (activar) {
         await reactivarComercial(c.id);
       } else {
-        await desactivarComercial(c.id, totalCartera > 0 ? traspasoA : undefined);
+        const r = await desactivarComercial(c.id, totalCartera > 0 ? traspasoA : undefined);
+        borrado = r.resultado === 'borrado';
       }
-      queryClient.invalidateQueries({ queryKey: ['comercial', comercialId] });
+      // Si se borró del todo, su ficha ya no existe: no se refresca (daría un 406); se descarta al salir.
+      if (!borrado) queryClient.invalidateQueries({ queryKey: ['comercial', comercialId] });
       queryClient.invalidateQueries({ queryKey: ['comerciales-equipo'] });
       queryClient.invalidateQueries({ queryKey: ['listado-clientes'] });
       setModo(null);
       navigate(volver);
+      if (borrado) setTimeout(() => queryClient.removeQueries({ queryKey: ['comercial', comercialId] }), 100);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cambiar el estado.');
     } finally {
@@ -468,7 +472,7 @@ export function DetalleComercial() {
             cargandoTexto="Dando de baja…"
             confirmar={totalCartera > 0 ? 'Traspasar y dar de baja' : 'Sí, dar de baja'}
             confirmarDeshabilitado={totalCartera > 0 && !traspasoA}
-            reversible="Se puede reactivar más tarde."
+            reversible="Si no ha registrado nada, se borra del todo (cuenta incluida) y no se puede deshacer. Si tiene historial, se conserva todo y se puede reactivar más tarde; en ambos casos su correo queda libre."
             extra={
               <>
                 {totalCartera > 0 && <ResumenCartera cartera={cartera} nombre={data.nombre} />}
@@ -486,7 +490,7 @@ export function DetalleComercial() {
               </>
             }
           >
-            {data.nombre} dejará de poder entrar en la app. Sus visitas y todo lo que registró se conservan.
+            {data.nombre} dejará de poder entrar en la app. Lo que haya registrado (visitas, capturas, hallazgos…) se conserva siempre.
           </ConfirmacionBorrado>
         )}
 

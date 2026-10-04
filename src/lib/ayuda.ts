@@ -276,7 +276,7 @@ const _PANTALLAS = {
       'Los datos de un miembro del equipo: nombre, rol y zona, más su carga de cartera y un acceso a su actividad. Desde aquí se le da de baja o se reactiva, y se traspasa su cartera de clientes a otra persona.',
     cuando:
       'Para editarlo o cuando alguien deja el equipo: al dar de baja puedes traspasar en el mismo paso sus clientes, visitas planificadas y próximos pasos a otro comercial.',
-    ojo: 'Dar de baja bloquea el acceso de esa persona, pero conserva todo lo que registró. Se puede reactivar después.',
+    ojo: 'Dar de baja bloquea el acceso de esa persona y libera su correo. Si no ha registrado nada, se borra del todo; si tiene historial, se conserva todo lo que registró y se puede reactivar después (se le devuelve su correo si sigue libre).',
     soloDireccion: true,
   },
   'cola-vocabulario': {

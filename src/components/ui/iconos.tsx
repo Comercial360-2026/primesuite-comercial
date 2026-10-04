@@ -50,7 +50,6 @@ import {
   ListBullets,
   DotsThreeVertical,
   Compass,
-  Ticket,
   ChatsCircle,
   ArrowSquareOut,
   type IconProps,
@@ -127,7 +126,7 @@ const registro = {
   equipo: UsersThree, // tú y tus compañeros (grupo)
   opciones: DotsThreeVertical, // "más acciones sobre esto" (kebab)
   guia: Compass, // "Ver guía rápida" — relanzar el tour de bienvenida
-  briefing: Ticket, // tickets de Jira del cliente, en la cabecera de Visita activa
+  briefing: FileText, // resumen del cliente (briefing de la próxima visita), en la cabecera de las fichas
   ia: ChatsCircle, // «Pregunta a la IA» sobre el cliente (agente de consultas)
 } satisfies Record<string, IconoPhosphor>;
 

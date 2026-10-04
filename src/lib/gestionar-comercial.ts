@@ -118,7 +118,7 @@ export async function correosComerciales(): Promise<Record<string, string>> {
 // `traspasarA` (Fase 6b): antes de bloquear el acceso, pasa la cartera del
 // comercial (clientes + visitas planificadas + próximos pasos) a otro.
 export function desactivarComercial(id: string, traspasarA?: string) {
-  return invocar<{ ok: true }>(
+  return invocar<{ ok: true; resultado: 'borrado' | 'archivado' }>(
     { accion: 'desactivar', id, ...(traspasarA ? { traspasar_a: traspasarA } : {}) },
     'No se pudo dar de baja al comercial.'
   );
