@@ -12,8 +12,9 @@ import { useProyectosCliente, ESTADO_PROYECTO_LABEL } from '@/hooks/use-proyecto
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { useDescargarInforme, formatearMB } from '@/hooks/use-descargar-informe';
-import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { useBorrarSolicitado, useTerminarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
 import { BotonPapelera } from '@/components/ui/boton-papelera';
+import { FilaNavegable } from '@/components/ui/fila-navegable';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
 import { HojaSuperior } from '@/components/ui/hoja-superior';
@@ -384,21 +385,10 @@ export function FichaProyecto() {
   // visitas (la barra de abajo desaparece) y no sale en los selectores de
   // proyecto. Para volver a trabajarlo hay que "Reabrir".
   const terminado = estado === 'terminado';
-  const accionesEstado: Array<{ etiqueta: string; a: 'activo' | 'pausado' | 'terminado' }> =
-    estado === 'terminado'
-      ? [{ etiqueta: 'Reabrir', a: 'activo' }]
-      : estado === 'pausado'
-        ? [
-            { etiqueta: 'Reactivar', a: 'activo' },
-            { etiqueta: 'Terminar', a: 'terminado' },
-          ]
-        : [
-            { etiqueta: 'Pausar', a: 'pausado' },
-            { etiqueta: 'Terminar', a: 'terminado' },
-          ];
-
   const confirmacionRef = useVerAlAbrir(confirmandoBorrado);
+  const puertaRef = useVerAlAbrir(puerta);
   useBorrarSolicitado(() => setConfirmandoBorrado(true), !!proyecto && destinosBorrado.length > 0);
+  useTerminarSolicitado(() => void pulsarTerminar(), !!proyecto && !terminado);
 
   return (
     <div className="screen screen--split">
@@ -501,30 +491,20 @@ export function FichaProyecto() {
         )}
         {proyectoId && <AvisoVisitasSinCerrar proyectoId={proyectoId} />}
 
-        {/* Acciones de estado — chips (esporádico), no botones anchos. */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 14px' }}>
-          {accionesEstado.map((ac) => (
-            <button
-              key={ac.a}
-              type="button"
-              className="chip-accion"
-              disabled={
-                cambioEstado.cargando ||
-                verificandoTerminar ||
-                (ac.a === 'terminado' && puerta)
-              }
-              onClick={() => (ac.a === 'terminado' ? pulsarTerminar() : cambiarEstado(ac.a))}
-            >
-              {ac.a === 'terminado' && verificandoTerminar ? 'Comprobando…' : ac.etiqueta}
-            </button>
-          ))}
-        </div>
-        {cambioEstado.error && <Aviso tipo="error">{cambioEstado.error}</Aviso>}
+        {/* Estado y la acción que lo cambia, juntos y arriba: un proyecto terminado se reabre aquí. */}
         {terminado && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
-            Proyecto terminado: solo consulta. Reábrelo para volver a iniciar o planificar visitas.
-          </div>
+          <SeccionLista>
+            <FilaNavegable
+              icono="restaurar"
+              titulo="Proyecto terminado"
+              subtitulo="Solo consulta. Toca para reabrirlo y volver a iniciar o planificar visitas"
+              chevron={false}
+              disabled={cambioEstado.cargando}
+              onClick={() => cambiarEstado('activo')}
+            />
+          </SeccionLista>
         )}
+        {cambioEstado.error && <Aviso tipo="error">{cambioEstado.error}</Aviso>}
         {!terminado && cliente?.estado_relacion === CLIENTE_ARCHIVADO && (
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', marginBottom: 10 }}>
             Cliente inactivo: solo consulta. Reactívalo desde su ficha para volver a iniciar o planificar visitas.
@@ -532,6 +512,7 @@ export function FichaProyecto() {
         )}
 
         {puerta && (
+          <div ref={puertaRef}>
           <PuertaTerminarProyecto
             visitas={visitasVivas ?? []}
             responsables={responsablesVivas ?? {}}
@@ -552,6 +533,7 @@ export function FichaProyecto() {
               setPuerta(false);
             }}
           />
+          </div>
         )}
 
         {editandoNombre && (
@@ -628,6 +610,18 @@ export function FichaProyecto() {
             </SeccionLista>
           )}
 
+          {!terminado && (
+            <SeccionLista>
+              <FilaNavegable
+                icono="check-circulo"
+                titulo={verificandoTerminar ? 'Comprobando…' : 'Terminar proyecto'}
+                subtitulo="Pasa a solo consulta; se puede reabrir"
+                chevron={false}
+                disabled={cambioEstado.cargando || verificandoTerminar || puerta}
+                onClick={pulsarTerminar}
+              />
+            </SeccionLista>
+          )}
         </div>
       </div>
 

@@ -246,6 +246,10 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
   y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
   correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
+- **Estado del proyecto: solo activo / terminado (4 oct).** Se quitó «Pausar» (no bloqueaba nada, solo ponía una etiqueta). «Terminar
+  proyecto» es una fila al final de la ficha y deslizando el proyecto en la lista del cliente («Terminar» + «Borrar»; en un terminado,
+  «Reabrir» + «Borrar»); deslizar «Terminar» lleva a la ficha con `state.terminar` y allí corre la comprobación de siempre (puerta de
+  visitas vivas / oportunidades). «Reabrir» va ARRIBA, en la fila «Proyecto terminado» (estado y acción juntos).
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

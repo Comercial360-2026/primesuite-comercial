@@ -9,22 +9,33 @@ import type { AccionSwipe } from '@/components/ui/fila-navegable';
 // (con sus candados y recuentos) en cuanto está lista. Así el gesto y la
 // papelera de la cabecera comparten una sola confirmación.
 
-export function borrarDesde(location: Location) {
-  return { ...desde(location), borrar: true };
+export type Solicitud = 'borrar' | 'terminar';
+
+export function solicitudDesde(location: Location, clave: Solicitud) {
+  return { ...desde(location), [clave]: true };
 }
+export const borrarDesde = (location: Location) => solicitudDesde(location, 'borrar');
 
 /** Llama a `abrir` una vez cuando se llegó con `borrar` y `listo` es true
  *  (datos cargados y permiso comprobado). Limpia la marca para que recargar
  *  o volver no reabra la confirmación. */
 export function useBorrarSolicitado(abrir: () => void, listo: boolean) {
+  useSolicitado('borrar', abrir, listo);
+}
+/** Igual que `useBorrarSolicitado`, para «Terminar proyecto» deslizando. */
+export function useTerminarSolicitado(abrir: () => void, listo: boolean) {
+  useSolicitado('terminar', abrir, listo);
+}
+
+function useSolicitado(clave: Solicitud, abrir: () => void, listo: boolean) {
   const location = useLocation();
   const navigate = useNavigate();
-  const pedido = (location.state as { borrar?: boolean } | null)?.borrar === true;
+  const pedido = (location.state as Record<string, unknown> | null)?.[clave] === true;
   useEffect(() => {
     if (!pedido || !listo) return;
     navigate(location.pathname + location.search, {
       replace: true,
-      state: { ...(location.state as object), borrar: false },
+      state: { ...(location.state as object), [clave]: false },
     });
     abrir();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,5 +72,19 @@ export function useSwipeBorrar() {
     desactivada: !online,
     motivo: 'Necesitas conexión para borrar',
     onAccion: () => navigate(to, { state: borrarDesde(location) }),
+  });
+}
+
+/** Como `useSwipeBorrar`, para «Terminar»: tocarla lleva a la ficha, que hace la comprobación de siempre. */
+export function useSwipeTerminar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const online = useOnline();
+  return (to: string): AccionSwipe => ({
+    etiqueta: 'Terminar',
+    icono: 'check-circulo',
+    desactivada: !online,
+    motivo: 'Necesitas conexión para terminar el proyecto',
+    onAccion: () => navigate(to, { state: solicitudDesde(location, 'terminar') }),
   });
 }
