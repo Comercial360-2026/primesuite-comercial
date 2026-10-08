@@ -1,5 +1,4 @@
 import { bucketDeTipo } from '@/lib/buckets-visita';
-import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, mimeDeDocumento } from '@/lib/documentos-visita';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -654,8 +653,6 @@ export function VisitaActiva() {
   // de zona.
   const [zonaPendiente, setZonaPendiente] = useState<string | undefined>(undefined);
   const capturaFoto = useAccionAsync();
-  const capturaDocumento = useAccionAsync();
-  const inputDocumentoRef = useRef<HTMLInputElement>(null);
   const capturaAudio = useAccionAsync();
 
   // Al 98% del pozo del equipo se cortan las subidas de binarios (fotos y
@@ -964,44 +961,8 @@ export function VisitaActiva() {
     );
   }
 
-  // Adjuntar un documento (PDF, Office, CSV, TXT…): mismo camino que la foto —
-  // se encola YA con su binario (sube solo cuando hay red) y se sincroniza a
-  // captura_libre con tipo 'documento'. Sin pantalla de confirmación: el
-  // título es opcional y se pone después desde la ficha.
-  // Devuelve false si no se pudo (el aviso ya está puesto): con varios archivos seguidos, se para ahí.
-  async function adjuntarDocumento(archivo: File): Promise<boolean> {
-    if (espacioBloqueado) {
-      capturaDocumento.establecerError(MSG_ESPACIO_LLENO);
-      return false;
-    }
-    const mime = mimeDeDocumento(archivo);
-    if (!mime) {
-      capturaDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
-      return false;
-    }
-    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
-      capturaDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
-      return false;
-    }
-    capturaDocumento.limpiarError();
-    await encolar(
-      uuid(),
-      'captura_libre',
-      {
-        visitaId: visitaId!,
-        comercialAutorId: comercial!.id,
-        tipo: 'documento',
-        nombreOriginal: archivo.name,
-        mime,
-        bytes: archivo.size,
-      },
-      { dependeDe: visitaId, archivoLocal: archivo }
-    );
-    return true;
-  }
-
-  // Foto o audio que ya estaba en el móvil: mismo camino que la captura (se encola con su binario y sube cuando hay red),
-  // pero con la fecha y el GPS de la propia foto y marcada como «de la galería».
+  // Foto, audio o documento que ya estaba en el móvil: se encola con su binario y sube cuando hay red. Foto y audio llevan
+  // la fecha y el GPS de la propia foto y la marca «de la galería».
   async function subirDeGaleria(s: SubidaGaleria) {
     if (espacioBloqueado) throw new Error(MSG_ESPACIO_LLENO);
     await encolar(
@@ -1015,10 +976,8 @@ export function VisitaActiva() {
         nombreOriginal: s.nombre,
         mime: s.mime,
         bytes: s.bytes,
-        latitud: s.lat,
-        longitud: s.lng,
-        creadoEn: s.fecha.toISOString(),
-        desdeGaleria: true,
+        // Un documento no lleva fecha propia, GPS ni marca de galería: se guarda como siempre.
+        ...(s.tipo === 'documento' ? {} : { latitud: s.lat, longitud: s.lng, creadoEn: s.fecha.toISOString(), desdeGaleria: true }),
       },
       { dependeDe: visitaId, archivoLocal: s.archivo }
     );
@@ -2335,20 +2294,6 @@ export function VisitaActiva() {
 
         {/* Captura — es lo que se viene a hacer en esta pantalla. */}
         <input
-          ref={inputDocumentoRef}
-          type="file"
-          accept={ACCEPT_DOCUMENTO}
-          multiple
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const archivos = Array.from(e.target.files ?? []);
-            e.target.value = '';
-            void (async () => {
-              for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
-            })();
-          }}
-        />
-        <input
           ref={inputFotoRef}
           type="file"
           accept="image/*"
@@ -2368,8 +2313,7 @@ export function VisitaActiva() {
           }}
         >
           <span className="label" style={{ marginTop: 0, flex: 1 }}>Captura lo que veas</span>
-          {/* Un documento se adjunta pocas veces comparado con foto/audio/nota: icono redondo junto al título
-              en vez de un quinto botón ancho al final de la rejilla. */}
+          {/* Fotos, audios y documentos que ya tienes: un solo icono redondo junto al título (no un quinto botón ancho). */}
           <SubirGaleria
             visitaId={visitaId!}
             zonaInicial={zonaParaCaptura}
@@ -2386,8 +2330,8 @@ export function VisitaActiva() {
               <button
                 type="button"
                 className="boton-icono"
-                aria-label="Subir fotos o audios de la galería"
-                title="Subir fotos o audios que ya tienes en el móvil"
+                aria-label="Subir fotos, audios o documentos"
+                title="Subir fotos, audios o documentos que ya tienes (PDF, Word, Excel… también)"
                 disabled={deshab}
                 onClick={abrir}
               >
@@ -2395,16 +2339,6 @@ export function VisitaActiva() {
               </button>
             )}
           </SubirGaleria>
-          <button
-            type="button"
-            className="boton-icono"
-            aria-label="Adjuntar un documento"
-            title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
-            disabled={capturaDocumento.cargando || espacioBloqueado}
-            onClick={() => inputDocumentoRef.current?.click()}
-          >
-            <Icono nombre="documento" size={18} />
-          </button>
           {/* Sin zona: chip (control, no un texto que hay que adivinar que
               se pincha). Con zona activa, desaparece y manda la banda. */}
           {!hayZonaActiva && (
@@ -2708,7 +2642,6 @@ export function VisitaActiva() {
           </Aviso>
         )}
         {capturaFoto.error && <Aviso tipo="error">{capturaFoto.error}</Aviso>}
-        {capturaDocumento.error && <Aviso tipo="error">{capturaDocumento.error}</Aviso>}
         {capturaAudio.error && <Aviso tipo="error">{capturaAudio.error}</Aviso>}
         {avisoAudio && <Aviso tipo="atencion">{avisoAudio}</Aviso>}
         {grabando && (

@@ -610,6 +610,7 @@ Deno.serve(async (req) => {
     zona: string; // '' = sin zona
     creadoEn: string;
     dataUri: string;
+    deGaleria?: boolean;
   };
   const fotosParaPdf: FotoLista[] = [];
   // Para el informe web: TODAS las fotos recuperadas (también las de formato no embebible), con su GPS.
@@ -642,6 +643,7 @@ Deno.serve(async (req) => {
           ubicacionNombre,
           zona: zonaDeCaptura(f),
           creadoEn: f.creado_en,
+          deGaleria: f.desde_galeria,
           dataUri: `data:image/${formatoCache};base64,${base64Encode(enCache)}`,
         });
         continue;
@@ -705,6 +707,7 @@ Deno.serve(async (req) => {
         ubicacionNombre,
         zona: zonaDeCaptura(f),
         creadoEn: f.creado_en,
+        deGaleria: f.desde_galeria,
         dataUri: usaMini
           ? `data:image/${formatoMini};base64,${base64Encode(mini as Uint8Array)}`
           : `data:image/${formato};base64,${base64Encode(bytes)}`,
@@ -892,7 +895,7 @@ Deno.serve(async (req) => {
         {
           text: [
             { text: f.titulo || 'Foto', fontSize: 8.5, color: COLOR.ink700 },
-            { text: `  ·  ${horaDe(f.creadoEn)}`, fontSize: 8, color: COLOR.ink400 },
+            { text: `  ·  ${horaDe(f.creadoEn)}${f.deGaleria ? ' · galería' : ''}`, fontSize: 8, color: COLOR.ink400 },
           ],
           margin: [0, 4, 0, 0],
         },

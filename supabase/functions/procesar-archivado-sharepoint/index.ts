@@ -116,6 +116,14 @@ Deno.serve(async (req) => {
       .in('id', capturas.map((c: { captura_id: string }) => c.captura_id));
     const metaPorId = new Map((meta ?? []).map((m) => [m.id, m]));
     const usados = new Set<string>();
+    // Lo ya copiado de esta visita en pasadas anteriores: un archivo subido después (a una visita cerrada) con el mismo
+    // nombre no debe pisarlo («Presupuesto.pdf», o la misma hora de otro día).
+    const { data: yaCopiadas } = await admin
+      .from('captura_libre')
+      .select('ruta_sharepoint')
+      .eq('visita_id', v.visita_id)
+      .not('ruta_sharepoint', 'is', null);
+    for (const r of yaCopiadas ?? []) if (r.ruta_sharepoint) usados.add(String(r.ruta_sharepoint).split('/').pop()!);
 
     const archivos = [];
     for (const c of capturas) {
