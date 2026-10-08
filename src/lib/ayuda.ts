@@ -85,7 +85,7 @@ const _PANTALLAS = {
     queEs:
       'Tu punto de partida del día: la visita en curso o la siguiente («Ahora»), las planificadas para hoy, las atrasadas y un vistazo a las próximas.',
     cuando:
-      'Al empezar la jornada y entre visita y visita. Tocar una visita te lleva a prepararla o a retomarla; «Empezar visita sin planificar» abre la lista de clientes para arrancar una sobre la marcha. Si tienes varias visitas en curso, «También en curso» las lista: cada una la abres, la cierras o la descartas ahí mismo, y el color sube cuanto más lleve abierta. Si diriges el equipo, «Solo mías / Todas» amplía la vista.',
+      'Al empezar la jornada y entre visita y visita. Tocar una visita te lleva a prepararla o a retomarla; «Empezar visita sin planificar» abre la lista de clientes para arrancar una sobre la marcha. Si tienes varias visitas en curso, «También en curso» las lista: cada una la abres, la cierras o la descartas ahí mismo, y el color sube cuanto más lleve abierta. Si diriges el equipo, «Solo mías / Todas» amplía la vista. Si alguien te añade a su visita, arriba sale un aviso con «Aceptar» y «Rechazar» (en una visita ya en curso, «Aceptar y abrir» te lleva a ella); mientras no la aceptes no cuenta como visita tuya en curso y no te frena para abrir otra.',
   },
   agenda: {
     grupo: 'dia',

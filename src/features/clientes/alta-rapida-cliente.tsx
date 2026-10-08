@@ -20,6 +20,7 @@ import { useVolverA } from '@/lib/volver-a';
 import { ObjetivoVisitaModal } from '@/features/visita/objetivo-visita-modal';
 import { crearProyectoRapido } from '@/lib/crear-proyecto-rapido';
 import { VisitaEnCursoModal } from '@/features/visita/visita-en-curso-modal';
+import { buscarVisitaEnCurso, type AvisoVisitaEnCurso } from '@/hooks/use-aviso-visita-en-curso';
 import { ResultadosCuentaCrm, textoCuentaCrm, useClientesPorClaveDeCuenta, type CuentaCrm } from '@/features/clientes/cuenta-crm';
 
 // El alta crea cliente + primer proyecto: con red, en una transacción vía la
@@ -90,19 +91,7 @@ export function AltaRapidaCliente() {
   // Aviso si el cliente existente que se va a visitar ya tiene una visita
   // en curso (solo aplica a la vía "visitar un cliente que ya existe"; uno
   // nuevo no puede tener visitas previas).
-  const [enCursoModal, setEnCursoModal] = useState<
-    | null
-    | {
-        visita: {
-          id: string;
-          objetivo: string | null;
-          en_curso_desde: string | null;
-          proyecto: { nombre: string } | null;
-        };
-        clienteId: string;
-        clienteNombre: string;
-      }
-  >(null);
+  const [enCursoModal, setEnCursoModal] = useState<null | { aviso: AvisoVisitaEnCurso; clienteId: string; clienteNombre: string }>(null);
 
   // Nombres de los clientes activos. Un comercial ve TODOS los clientes al
   // buscar (la cartera —`cliente.responsable_id`— filtra "Solo míos" en el
@@ -393,22 +382,9 @@ export function AltaRapidaCliente() {
       navigate(`/clientes/${clienteId}`, { state: { from: volver } });
       return;
     }
-    const { data } = await supabase
-      .from('visita')
-      .select('id, objetivo, en_curso_desde, proyecto:proyecto_id(nombre)')
-      .eq('cliente_id', clienteId)
-      .eq('estado_captura', 'en_curso')
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      const v = data as unknown as {
-        id: string;
-        objetivo: string | null;
-        en_curso_desde: string | null;
-        proyecto: { nombre: string } | null;
-      };
-      setEnCursoModal({ visita: v, clienteId, clienteNombre });
+    const aviso = comercial?.id ? await buscarVisitaEnCurso(clienteId, comercial.id).catch(() => null) : null;
+    if (aviso?.mismoCliente) {
+      setEnCursoModal({ aviso, clienteId, clienteNombre });
     } else {
       setObjetivoModal({ modo: 'existente', clienteId, clienteNombre });
     }
@@ -551,10 +527,12 @@ export function AltaRapidaCliente() {
       {enCursoModal && (
         <VisitaEnCursoModal
           clienteNombre={enCursoModal.clienteNombre}
-          objetivo={enCursoModal.visita.objetivo}
-          proyectoNombre={enCursoModal.visita.proyecto?.nombre ?? null}
-          enCursoDesde={enCursoModal.visita.en_curso_desde}
-          onContinuar={() => navigate(`/visita/${enCursoModal.visita.id}`)}
+          objetivo={enCursoModal.aviso.objetivo}
+          proyectoNombre={enCursoModal.aviso.proyectoNombre}
+          enCursoDesde={enCursoModal.aviso.enCursoDesde}
+          esMia={enCursoModal.aviso.esMia}
+          responsableNombre={enCursoModal.aviso.responsableNombre}
+          onContinuar={() => navigate(`/visita/${enCursoModal.aviso.id}`)}
           onEmpezarOtra={() => {
             const { clienteId, clienteNombre } = enCursoModal;
             setEnCursoModal(null);

@@ -508,6 +508,8 @@ export function RepasoCliente() {
           objetivo={visitaEnCurso.objetivo}
           proyectoNombre={visitaEnCurso.proyectoNombre}
           enCursoDesde={visitaEnCurso.enCursoDesde}
+          esMia={visitaEnCurso.esMia}
+          responsableNombre={visitaEnCurso.responsableNombre}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoModalAbierto(false);

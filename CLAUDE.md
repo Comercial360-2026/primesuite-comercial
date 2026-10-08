@@ -246,6 +246,11 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
   y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
   correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
+- **«Visita en curso» suya = la que lleva (responsable) o en la que ya ACEPTÓ (8 oct).** Una invitación sin aceptar NO cuenta como visita en
+  curso (ni en el aviso «Ya tienes una visita en curso», `buscarVisitaEnCurso`, ni en «También en curso» de Hoy, ni en la visita activa): sale arriba
+  en Hoy como aviso con Aceptar / Rechazar (`InvitacionesHoy`; «Aceptar y abrir» si la visita ya está en curso). Si la visita en curso es de otra
+  persona (la acepté), el aviso dice «Participas en una visita en curso… La lleva X» y el botón principal es «Empezar la mía». Caso real: Borja,
+  invitado a una visita de Huelva, no abría la suya porque la invitación sin aceptar contaba y el aviso le sonaba a bloqueo.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

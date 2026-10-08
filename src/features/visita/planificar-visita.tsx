@@ -652,6 +652,8 @@ export function PlanificarVisita() {
         <VisitaEnCursoModal
           clienteNombre={visitaEnCurso.clienteNombre}
           objetivo={visitaEnCurso.objetivo}
+          esMia={visitaEnCurso.esMia}
+          responsableNombre={visitaEnCurso.responsableNombre}
           onContinuar={() => navigate(`/visita/${visitaEnCurso.id}`)}
           onEmpezarOtra={() => {
             setEnCursoAbierto(false);
