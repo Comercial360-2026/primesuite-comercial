@@ -253,6 +253,8 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   fecha de la foto. Una a una, tope 30, zona del lote + por foto, avisos (repetida por nombre+tamaño, >2 km de lo ya hecho, >2 días de
   la visita), resumen de fallos parciales. Offline en visita en curso = cola; en cerrada, directo (exige red). Clientes no tienen
   coordenadas: «lejos» se compara con las fotos con GPS de la visita (o la mediana del lote). Vídeo/ZIP no se admiten.
+  SharePoint: el cron copia lo subido a una visita cerrada igual que lo demás; el nombre lleva la fecha («Foto 2026-10-07 10-15-30.jpg»,
+  `procesar-archivado-sharepoint`) porque la misma hora de otro día colisionaría. Probado de punta a punta (8 oct). Funciones desplegadas.
   OJO pruebas: subir a una visita CERRADA hace que el cron (*/10) copie lo subido a SharePoint: borrar lo de prueba por la app antes.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
