@@ -321,7 +321,7 @@ Deno.serve(async (req) => {
     admin
       .from('captura_libre')
       .select(
-        'id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, nombre_original, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
+        'id, tipo, titulo, contenido_texto, storage_path, creado_en, latitud, longitud, zona_texto, nombre_original, desde_galeria, ubicacion:ubicacion_id(nombre), ubicacion_archivo, ruta_sharepoint'
       )
       .eq('visita_id', visitaId)
       .order('creado_en', { ascending: true }),
@@ -656,6 +656,7 @@ Deno.serve(async (req) => {
           urlOriginal: urlSharePoint(f.ruta_sharepoint),
           latitud: f.latitud,
           longitud: f.longitud,
+          deGaleria: f.desde_galeria,
         });
         continue;
       }
@@ -690,6 +691,7 @@ Deno.serve(async (req) => {
         urlOriginal: urlSharePoint(f.ruta_sharepoint),
         latitud: f.latitud,
         longitud: f.longitud,
+        deGaleria: f.desde_galeria,
       });
     }
 

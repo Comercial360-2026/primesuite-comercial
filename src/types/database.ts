@@ -195,6 +195,7 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto: string | null
           creado_en: string
+          desde_galeria: boolean
           error_archivado: string | null
           estado_subida: string
           estado_validacion: string
@@ -224,6 +225,7 @@ export type Database = {
           comercial_autor_id: string
           contenido_texto?: string | null
           creado_en?: string
+          desde_galeria?: boolean
           error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string
@@ -253,6 +255,7 @@ export type Database = {
           comercial_autor_id?: string
           contenido_texto?: string | null
           creado_en?: string
+          desde_galeria?: boolean
           error_archivado?: string | null
           estado_subida?: string
           estado_validacion?: string

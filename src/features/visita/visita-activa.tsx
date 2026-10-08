@@ -20,6 +20,7 @@ import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useInactividadVisita } from '@/hooks/use-inactividad-visita';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { comprimirImagen, TIPOS_FOTO_ADMITIDOS } from '@/lib/comprimir-imagen';
+import { SubirGaleria, type SubidaGaleria } from '@/features/visita/subir-galeria';
 import { AnotarHoja } from './anotar-hoja';
 import { PasoRapidoHoja } from './paso-rapido-hoja';
 import { InterlocutoresHoja } from './interlocutores-hoja';
@@ -997,6 +998,30 @@ export function VisitaActiva() {
       { dependeDe: visitaId, archivoLocal: archivo }
     );
     return true;
+  }
+
+  // Foto o audio que ya estaba en el móvil: mismo camino que la captura (se encola con su binario y sube cuando hay red),
+  // pero con la fecha y el GPS de la propia foto y marcada como «de la galería».
+  async function subirDeGaleria(s: SubidaGaleria) {
+    if (espacioBloqueado) throw new Error(MSG_ESPACIO_LLENO);
+    await encolar(
+      uuid(),
+      'captura_libre',
+      {
+        visitaId: visitaId!,
+        comercialAutorId: comercial!.id,
+        tipo: s.tipo,
+        zonaTexto: s.zona,
+        nombreOriginal: s.nombre,
+        mime: s.mime,
+        bytes: s.bytes,
+        latitud: s.lat,
+        longitud: s.lng,
+        creadoEn: s.fecha.toISOString(),
+        desdeGaleria: true,
+      },
+      { dependeDe: visitaId, archivoLocal: s.archivo }
+    );
   }
 
   async function capturarFoto(archivo: File) {
@@ -2345,6 +2370,31 @@ export function VisitaActiva() {
           <span className="label" style={{ marginTop: 0, flex: 1 }}>Captura lo que veas</span>
           {/* Un documento se adjunta pocas veces comparado con foto/audio/nota: icono redondo junto al título
               en vez de un quinto botón ancho al final de la rejilla. */}
+          <SubirGaleria
+            visitaId={visitaId!}
+            zonaInicial={zonaParaCaptura}
+            zonasExtra={zonasUsadas}
+            referencias={capturas.flatMap((c) => {
+              const p = c.payload as { latitud?: number; longitud?: number };
+              return p.latitud !== undefined && p.longitud !== undefined ? [{ lat: p.latitud, lng: p.longitud }] : [];
+            })}
+            fechaVisita={new Date().toISOString()}
+            onSubir={subirDeGaleria}
+            deshabilitado={espacioBloqueado}
+          >
+            {(abrir, deshab) => (
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Subir fotos o audios de la galería"
+                title="Subir fotos o audios que ya tienes en el móvil"
+                disabled={deshab}
+                onClick={abrir}
+              >
+                <Icono nombre="galeria" size={18} />
+              </button>
+            )}
+          </SubirGaleria>
           <button
             type="button"
             className="boton-icono"

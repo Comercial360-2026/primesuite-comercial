@@ -52,6 +52,8 @@ interface CapturaVista {
   visitaId: string | undefined;
   autorId: string | undefined;
   creadoEn: string;
+  // Subida de la galería del móvil: `creadoEn` es la fecha en que se hizo, no la de subida.
+  desdeGaleria?: boolean;
   // 'cola' = vive en IndexedDB (puede estar sin subir todavía).
   // 'servidor' = solo en Supabase, sin copia local.
   fuente: 'cola' | 'servidor';
@@ -179,7 +181,8 @@ function DetalleCapturaPorId() {
           zonaTexto: p.zonaTexto ?? '',
           visitaId: p.visitaId,
           autorId: p.comercialAutorId,
-          creadoEn: op.creadoEn,
+          creadoEn: p.creadoEn ?? op.creadoEn,
+          desdeGaleria: p.desdeGaleria ?? false,
           fuente: 'cola',
           estadoSync: op.estado,
           archivoLocal: op.archivoLocal ?? null,
@@ -201,7 +204,7 @@ function DetalleCapturaPorId() {
       const { data, error } = await supabase
         .from('captura_libre')
         .select(
-          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, ubicacion_archivo, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes'
+          'id, tipo, titulo, contenido_texto, zona_texto, storage_path, ubicacion_archivo, latitud, longitud, visita_id, comercial_autor_id, creado_en, nombre_original, bytes, desde_galeria'
         )
         .eq('id', capturaId)
         .maybeSingle();
@@ -216,6 +219,7 @@ function DetalleCapturaPorId() {
           visitaId: data.visita_id ?? undefined,
           autorId: data.comercial_autor_id ?? undefined,
           creadoEn: data.creado_en,
+          desdeGaleria: data.desde_galeria,
           fuente: 'servidor',
           estadoSync: 'completado',
           storagePath: data.storage_path,
@@ -599,7 +603,7 @@ function DetalleCapturaPorId() {
       )}
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)' }}>
-        {fechaLarga(captura.creadoEn)}
+        {captura.desdeGaleria ? 'Subida de la galería · hecha el ' : ''}{fechaLarga(captura.creadoEn)}
         {mostrarEstadoSync ? ` · ${ESTADO_SYNC_TEXTO[captura.estadoSync] ?? captura.estadoSync}` : ''}
       </div>
 

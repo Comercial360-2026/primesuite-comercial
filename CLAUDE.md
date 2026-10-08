@@ -246,6 +246,14 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
   y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
   correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
+- **Subir fotos/audios de la galería (8 oct, migración 154 `captura_libre.desde_galeria`).** Icono galería junto al de documento en visita en curso
+  y cerrada (`subir-galeria.tsx`, `SubirGaleria`). Medido con el simulador: iOS entrega la HEIC ya como JPEG (`.jpeg`) con su EXIF
+  (fecha y GPS) y `File.lastModified` = fecha de la foto (sin EXIF = fecha de importación). Se lee el EXIF (`lib/exif.ts`) ANTES de
+  comprimir (el canvas lo borra); fecha y GPS son los de la foto, NUNCA la posición actual; sin GPS = sin coordenadas. `creado_en` =
+  fecha de la foto. Una a una, tope 30, zona del lote + por foto, avisos (repetida por nombre+tamaño, >2 km de lo ya hecho, >2 días de
+  la visita), resumen de fallos parciales. Offline en visita en curso = cola; en cerrada, directo (exige red). Clientes no tienen
+  coordenadas: «lejos» se compara con las fotos con GPS de la visita (o la mediana del lote). Vídeo/ZIP no se admiten.
+  OJO pruebas: subir a una visita CERRADA hace que el cron (*/10) copie lo subido a SharePoint: borrar lo de prueba por la app antes.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

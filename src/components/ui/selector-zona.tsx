@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
+import { deduplicarZonas, listarZonasUsadasEnVisita } from '@/lib/zonas-visita';
 import { AyudaNota } from '@/components/ui/ayuda-nota';
 
 interface SelectorZonaProps {
@@ -19,6 +19,8 @@ interface SelectorZonaProps {
   // seguidos a la misma foto). Cuando la pantalla está guardando por su
   // cuenta (el botón general "Guardar"), esto bloquea también los chips.
   deshabilitado?: boolean;
+  // Zonas que solo existen en este móvil (aún sin sincronizar): se ofrecen igual.
+  zonasExtra?: string[];
 }
 
 // Campo de zona: buscador + chips de las ya usadas en esta visita, con
@@ -29,7 +31,7 @@ interface SelectorZonaProps {
 // Visita activa, pero sin su peso visual — aquí es un campo más de un
 // formulario, no un modo que afecta a todo lo que se captura después.
 // Vacío = sin zona = «General», nunca obliga a rellenar.
-export function SelectorZona({ visitaId, value, onChange, onGuardar, deshabilitado }: SelectorZonaProps) {
+export function SelectorZona({ visitaId, value, onChange, onGuardar, deshabilitado, zonasExtra }: SelectorZonaProps) {
   const { data: zonasUsadas } = useQuery({
     queryKey: ['zonas-usadas-visita', visitaId],
     enabled: !!visitaId,
@@ -132,10 +134,11 @@ export function SelectorZona({ visitaId, value, onChange, onGuardar, deshabilita
   }
 
   const q = texto.trim().toLocaleLowerCase('es');
-  const coincidencias = (zonasUsadas ?? []).filter(
+  const todas = deduplicarZonas([...(zonasUsadas ?? []), ...(zonasExtra ?? [])]);
+  const coincidencias = todas.filter(
     (z) => !q || z.toLocaleLowerCase('es').includes(q)
   );
-  const existeExacta = (zonasUsadas ?? []).some((z) => z.toLocaleLowerCase('es') === q);
+  const existeExacta = todas.some((z) => z.toLocaleLowerCase('es') === q);
 
   return (
     <div>

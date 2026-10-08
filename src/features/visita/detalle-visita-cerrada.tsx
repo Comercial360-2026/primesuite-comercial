@@ -41,6 +41,8 @@ import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunt
 import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { plural } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
+import { SubirGaleria, type SubidaGaleria } from '@/features/visita/subir-galeria';
+import { bucketDeTipo } from '@/lib/buckets-visita';
 import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento, motivoRechazoSubida } from '@/lib/documentos-visita';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
@@ -748,6 +750,38 @@ export function DetalleVisitaCerrada() {
   const puedeAdjuntar = visitaCerrada && (esDireccionComercial || miParticipacion?.estado === 'aceptado');
   const adjuntandoDocumento = useAccionAsync();
   const inputDocumentoRef = useRef<HTMLInputElement>(null);
+  // Foto o audio de la galería en una visita ya cerrada: directo a Supabase (esta pantalla exige conexión), con la
+  // fecha y el GPS de la propia foto. Lanza Error si no se pudo (la hoja lo cuenta como fallo de esa foto).
+  async function subirDeGaleria(s: SubidaGaleria) {
+    if (!visitaId || !comercial || !data?.cliente_id) throw new Error('La visita no está lista. Inténtalo de nuevo.');
+    const id = uuid();
+    const bucket = bucketDeTipo(s.tipo);
+    const ruta = `${visitaId}/${id}.${s.tipo === 'foto' ? 'jpg' : /mp4/.test(s.mime) ? 'm4a' : s.mime === 'audio/mpeg' ? 'mp3' : s.mime === 'audio/webm' ? 'webm' : 'aac'}`;
+    const { error: errSubida } = await supabase.storage.from(bucket).upload(ruta, s.archivo, { contentType: s.mime });
+    if (errSubida) throw new Error(motivoRechazoSubida(errSubida.message) === 'tamano' ? 'Pesa más de lo que admite el servidor.' : errSubida.message);
+    const { error: errFila } = await supabase.from('captura_libre').insert({
+      id,
+      visita_id: visitaId,
+      cliente_id: data.cliente_id,
+      comercial_autor_id: comercial.id,
+      tipo: s.tipo,
+      storage_path: ruta,
+      estado_subida: 'completado',
+      zona_texto: s.zona ?? null,
+      latitud: s.lat ?? null,
+      longitud: s.lng ?? null,
+      creado_en: s.fecha.toISOString(),
+      desde_galeria: true,
+      nombre_original: s.nombre,
+      mime: s.mime,
+      bytes: s.bytes,
+    });
+    if (errFila) {
+      await supabase.storage.from(bucket).remove([ruta]);
+      throw new Error(errFila.message);
+    }
+  }
+
   // Devuelve false si no se pudo (aviso ya puesto): con varios archivos, se para ahí.
   async function adjuntarDocumento(archivo: File): Promise<boolean> {
     if (!visitaId || !comercial || !data?.cliente_id) return false;
@@ -1111,16 +1145,37 @@ export function DetalleVisitaCerrada() {
           titulo={`Documentos (${data.documentos.length})`}
           accion={
             puedeAdjuntar ? (
-              <button
-                type="button"
-                className="boton-icono"
-                aria-label="Adjuntar un documento"
-                title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
-                disabled={adjuntandoDocumento.cargando}
-                onClick={() => inputDocumentoRef.current?.click()}
-              >
-                <Icono nombre="mas" size={18} />
-              </button>
+              <>
+                <SubirGaleria
+                  visitaId={visitaId}
+                  referencias={data.fotos.flatMap((f) => (f.latitud != null && f.longitud != null ? [{ lat: Number(f.latitud), lng: Number(f.longitud) }] : []))}
+                  fechaVisita={data.fecha}
+                  onSubir={subirDeGaleria}
+                  onTerminado={(n) => n > 0 && queryClient.invalidateQueries({ queryKey })}
+                >
+                  {(abrir) => (
+                    <button
+                      type="button"
+                      className="boton-icono"
+                      aria-label="Subir fotos o audios de la galería"
+                      title="Subir fotos o audios que ya tienes en el móvil"
+                      onClick={abrir}
+                    >
+                      <Icono nombre="galeria" size={18} />
+                    </button>
+                  )}
+                </SubirGaleria>
+                <button
+                  type="button"
+                  className="boton-icono"
+                  aria-label="Adjuntar un documento"
+                  title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
+                  disabled={adjuntandoDocumento.cargando}
+                  onClick={() => inputDocumentoRef.current?.click()}
+                >
+                  <Icono nombre="mas" size={18} />
+                </button>
+              </>
             ) : undefined
           }
         >
