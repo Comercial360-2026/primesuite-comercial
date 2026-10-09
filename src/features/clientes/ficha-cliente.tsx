@@ -4,6 +4,7 @@ import { desde, useVolverA } from '@/lib/volver-a';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { conReintentoDeSesion } from '@/lib/con-reintento-de-sesion';
+import { useOnline } from '@/hooks/use-online';
 import { esSinRed } from '@/lib/red';
 import { haceRelativo, fechaCorta } from '@/lib/fechas';
 import { uuid } from '@/lib/uuid';
@@ -12,7 +13,7 @@ import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useAccionAsync } from '@/hooks/use-accion-async';
 import { reasignarCliente } from '@/lib/gestionar-comercial';
-import { useBorrarSolicitado, useSwipeBorrar, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { useBorrarSolicitado, useSwipeBorrar, useSwipeTerminar, useVerAlAbrir } from '@/lib/borrar-solicitado';
 import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { CabeceraDetalle } from '@/components/ui/cabecera-detalle';
 import { EstadoLista } from '@/components/ui/estado-lista';
@@ -566,6 +567,22 @@ export function FichaCliente() {
   // Briefing: vive por visita; el hook elige a cuál colgarlo.
   const visitaIdBriefing = useVisitaBriefing(clienteId);
   const swipeBorrar = useSwipeBorrar();
+  const swipeTerminar = useSwipeTerminar();
+  const online = useOnline();
+
+  // Reabrir un proyecto terminado desde la lista: reversible, sin confirmación (como «Inactivo»).
+  async function reabrirProyecto(proyectoId: string) {
+    if (!navigator.onLine) return;
+    try {
+      await conReintentoDeSesion(
+        () => supabase.from('proyecto').update({ estado: 'activo' }, { count: 'exact' }).eq('id', proyectoId),
+        'No se ha podido reabrir (0 filas afectadas). Puede que no tengas permiso.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['proyectos-cliente', clienteId] });
+    } catch {
+      /* sin permiso o sin red: la fila sigue como estaba; en la ficha del proyecto sale el motivo */
+    }
+  }
   const confirmacionBorradoRef = useVerAlAbrir(confirmandoBorrarCliente);
   useBorrarSolicitado(() => void pedirBorradoCliente(), esDireccionComercial && !!cliente);
   const [briefingAbierto, setBriefingAbierto] = useState(false);
@@ -1031,7 +1048,10 @@ export function FichaCliente() {
                   tono={p.visitaEnCurso ? 'aviso' : 'neutral'}
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
-                  swipe={proyectosVigentes.length > 1 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
+                  swipe={[
+                    swipeTerminar(`/clientes/${clienteId}/proyectos/${p.id}`),
+                    ...(proyectosVigentes.length > 1 ? [swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`)] : []),
+                  ]}
                 />
               );
             })}
@@ -1058,7 +1078,16 @@ export function FichaCliente() {
                   densidad="compacta"
                   to={`/clientes/${clienteId}/proyectos/${p.id}`}
                   state={desde(location)}
-                  swipe={proyectosVigentes.length > 0 ? swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`) : undefined}
+                  swipe={[
+                    {
+                      etiqueta: 'Reabrir',
+                      icono: 'restaurar',
+                      desactivada: !online,
+                      motivo: 'Necesitas conexión para reabrir el proyecto',
+                      onAccion: () => void reabrirProyecto(p.id),
+                    },
+                    ...(proyectosVigentes.length > 0 ? [swipeBorrar(`/clientes/${clienteId}/proyectos/${p.id}`)] : []),
+                  ]}
                 />
               ))}
           </SeccionLista>

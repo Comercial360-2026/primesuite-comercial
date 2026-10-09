@@ -239,13 +239,17 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   La fila lleva `swipe={swipeBorrar(ruta)}` (`useSwipeBorrar`, `lib/borrar-solicitado.ts`): la papelera revelada navega a la ficha con
   `state.borrar` y la ficha abre SU confirmación de siempre (`useBorrarSolicitado` + `useVerAlAbrir`, `BotonPapelera` en la cabecera).
   Sin permiso (cliente: Dirección; visita: Dirección/responsable; captura: autor/Dirección; proyecto: otro vigente) ni fila deslizable ni papelera.
-  La confirmación va JUSTO BAJO LA CABECERA (no al final: con contenido cargando abajo quedaba fuera de pantalla en iPhone) y todo borrado desde una ficha refresca todas las listas (`queryClient.invalidateQueries()`, si no queda fila fantasma). Una sola fila abierta a la vez. `swipe` admite varias acciones (`AccionSwipe[]`, p. ej. Clientes: «Inactivo» + «Borrar») y `desactivada`+`motivo` (sin conexión). Aviso de una sola vez: `PistaDeslizar`. Pantalla nueva con borrado = papelera + estos hooks. Las capturas de `visita-activa` (`.va-item`) y las
+  La confirmación va JUSTO BAJO LA CABECERA (no al final: con contenido cargando abajo quedaba fuera de pantalla en iPhone) y todo borrado desde una ficha refresca todas las listas (`queryClient.invalidateQueries()`, si no queda fila fantasma). También la visita planificada («Anular»: papelera en su cabecera, deslizando en la agenda y en el historial). Una sola fila abierta a la vez. `swipe` admite varias acciones (`AccionSwipe[]`, p. ej. Clientes: «Inactivo» + «Borrar») y `desactivada`+`motivo` (sin conexión). Aviso de una sola vez: `PistaDeslizar`. Pantalla nueva con borrado = papelera + estos hooks. Las capturas de `visita-activa` (`.va-item`) y las
   notas/fotos de la visita cerrada no son `FilaNavegable`: solo tienen la papelera de su ficha.
 - **Dar de baja a un comercial (4 oct, migración 152, función `gestionar-comercial`).** Sin NINGÚN historial
   (`fn_comercial_tiene_historial` recorre las claves foráneas en vivo) se borra del todo, cuenta de Auth incluida; con historial se
   conserva y su correo pasa a `baja-<id>@baja.invalid` (original en `comercial.email_anterior`, que Reactivar devuelve si sigue libre,
   y que Equipo sigue mostrando). Idempotente. Probado con comerciales de prueba (borrado, archivado, correo reutilizado, reactivar con
   correo ocupado = 409, reactivar normal). La baja con historial también cierra sus sesiones abiertas (`fn_cerrar_sesiones`, migración 153) y la app lo saca al login si lo detecta de baja. No se puede quitar el rol Dirección Comercial al último activo (`_shared/direccion.ts`).
+- **Estado del proyecto: solo activo / terminado (4 oct).** Se quitó «Pausar» (no bloqueaba nada, solo ponía una etiqueta). «Terminar
+  proyecto» es una fila al final de la ficha y deslizando el proyecto en la lista del cliente («Terminar» + «Borrar»; en un terminado,
+  «Reabrir» + «Borrar»); deslizar «Terminar» lleva a la ficha con `state.terminar` y allí corre la comprobación de siempre (puerta de
+  visitas vivas / oportunidades). «Reabrir» va ARRIBA, en la fila «Proyecto terminado» (estado y acción juntos).
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

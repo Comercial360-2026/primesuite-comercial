@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useSwipeBorrar } from '@/lib/borrar-solicitado';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
@@ -70,6 +71,7 @@ function cuandoTexto(v: VisitaAgenda, conDia: boolean): string {
 export function AgendaDelDia() {
   const navigate = useNavigate();
   const location = useLocation();
+  const swipeBorrar = useSwipeBorrar();
   const { comercial } = useSesionActual();
   const { visitaEnCurso, cerrarVisita } = useVisitaActivaContext();
   // Antes se calculaba una sola vez al montar (useMemo con deps []) y
@@ -549,6 +551,7 @@ export function AgendaDelDia() {
                   valorTenue
                   to={`/visita/${v.id}/planificada`}
                   state={desde(location)}
+                  swipe={swipeBorrar(`/visita/${v.id}/planificada`, 'Anular')}
                 />
               )}
             />

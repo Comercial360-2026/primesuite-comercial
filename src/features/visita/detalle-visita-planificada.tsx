@@ -17,6 +17,8 @@ import { FilaDato } from '@/components/ui/fila-dato';
 import { franjaDe, etiquetaFranja } from '@/lib/franja-visita';
 import { useVolverA, desde } from '@/lib/volver-a';
 import { BriefingHoja } from './briefing-hoja';
+import { useBorrarSolicitado, useVerAlAbrir } from '@/lib/borrar-solicitado';
+import { BotonPapelera } from '@/components/ui/boton-papelera';
 import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunta-ia-hoja';
 
 // Gestión de una visita planificada (estado 'agendada') para otro día:
@@ -109,6 +111,12 @@ export function DetalleVisitaPlanificada() {
     },
   });
   const puedePreguntarIA = usePuedePreguntarIA(data?.cliente_id);
+  const confirmacionRef = useVerAlAbrir(confirmando === 'cancelar');
+  function pedirAnular() {
+    setReprogramando(false);
+    setConfirmando('cancelar');
+  }
+  useBorrarSolicitado(pedirAnular, !!data);
 
   function invalidarListas() {
     queryClient.invalidateQueries({ queryKey });
@@ -163,6 +171,8 @@ export function DetalleVisitaPlanificada() {
       {
         onExito: () => {
           invalidarListas();
+          // La visita desaparece también del historial del proyecto, de la ficha y de la agenda (claves distintas).
+          queryClient.invalidateQueries();
           navigate(volver);
         },
         mensajeError: 'No se pudo anular la visita. Inténtalo de nuevo.',
@@ -223,6 +233,7 @@ export function DetalleVisitaPlanificada() {
                   <Icono nombre="ia" size={18} />
                 </button>
               )}
+              <BotonPapelera etiqueta="Anular visita planificada" onClick={pedirAnular} />
             </>
           )
         }
@@ -239,6 +250,20 @@ export function DetalleVisitaPlanificada() {
 
       {data && (
         <>
+          {confirmando === 'cancelar' && (
+            <div ref={confirmacionRef}>
+            <ConfirmacionBorrado
+              onCancelar={() => setConfirmando(null)}
+              onConfirmar={confirmarCancelar}
+              cargando={cancelar.cargando}
+              error={cancelar.error}
+              confirmar="Sí, anular la visita"
+              cargandoTexto="Anulando…"
+            >
+              Se eliminará la visita planificada a {data.cliente_nombre} del {fechaCorta(fechaVisita!)}.
+            </ConfirmacionBorrado>
+            </div>
+          )}
           <div className="lista-agrupada">
             <SeccionLista>
               <FilaNavegable
@@ -398,30 +423,6 @@ export function DetalleVisitaPlanificada() {
             </button>
           )}
 
-          {/* Anular la visita planificada */}
-          {confirmando === 'cancelar' ? (
-            <ConfirmacionBorrado
-              onCancelar={() => setConfirmando(null)}
-              onConfirmar={confirmarCancelar}
-              cargando={cancelar.cargando}
-              error={cancelar.error}
-              confirmar="Sí, anular la visita"
-              cargandoTexto="Anulando…"
-            >
-              Se eliminará la visita planificada a {data.cliente_nombre} del {fechaCorta(fechaVisita!)}.
-            </ConfirmacionBorrado>
-          ) : (
-            <FilaNavegable
-              icono="borrar"
-              titulo="Anular visita planificada"
-              tono="riesgo"
-              chevron={false}
-              onClick={() => {
-                setReprogramando(false);
-                setConfirmando('cancelar');
-              }}
-            />
-          )}
         </>
       )}
 
