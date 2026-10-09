@@ -18,6 +18,9 @@ const MAX_BRIEFINGS_EN_MARCHA = 2;
 const MAX_CARACTERES_FUENTE = 12_000;
 const MIN_CARACTERES_PARTE = 800;
 const PLAZO_REDACCION_S = 240;
+// Lecturas que casi no cambian: se reutilizan por cuenta durante este tiempo (migración 156).
+const CACHEABLES = ['licitaciones'];
+const CACHE_HORAS = 24;
 const FIN_REDACCION = 'FIN-REDACCION';
 
 // La redacción se trocea en partes que escriben a la vez (cada una ve TODOS los datos).
@@ -67,7 +70,7 @@ const LECTURAS: { fuente: string; plazo: number; pregunta: (id: string) => strin
     fuente: 'crm_ofertas',
     plazo: 150,
     pregunta: (id) =>
-      `Consulta SOLO la tabla Ofertas del CRM (filtro customerid_value eq '${id}', más recientes primero). Devuelve como máximo las 25 más recientes. Campos por fila: pri_reference | opportunityid_value | tipo_oferta | pri_quotedate | effectiveto | totalamount | estado | name. ${FORMATO}`,
+      `Consulta SOLO la tabla Ofertas del CRM (filtro customerid_value eq '${id}', más recientes primero). Devuelve como máximo las 25 más recientes. Campos por fila: quotenumber | pri_reference | opportunityid_value | tipo_oferta | pri_quotedate | effectiveto | totalamount | estado | name. ${FORMATO}`,
   },
   {
     fuente: 'licitaciones',
@@ -304,6 +307,15 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
 
   if (!lecturas.length || lecturas.some((t) => t.estado === 'pendiente' || t.estado === 'generando')) return;
 
+  // Guarda en caché las lecturas cacheables recién hechas (las servidas desde caché tienen mensaje null).
+  for (const t of lecturas) {
+    if (CACHEABLES.includes(t.fuente) && t.estado === 'listo' && t.mensaje && t.resultado) {
+      await admin
+        .from('briefing_cache_fuente')
+        .upsert({ cuenta_id: cliente.crm_accountid, fuente: t.fuente, resultado: t.resultado, actualizado_en: new Date().toISOString() });
+    }
+  }
+
   const crmOk = ['crm_oportunidades', 'crm_ofertas'].some((f) => lecturas.find((t) => t.fuente === f)?.estado === 'listo');
   if (!crmOk) {
     await fallo('El agente no ha podido leer los datos del CRM. Vuelve a intentarlo más tarde.');
@@ -317,16 +329,18 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
     ...LECTURAS.map((l) => bloque(por(l.fuente), TITULO[l.fuente])),
   ].join('\n');
   const base = `${PROMPT_REDACTOR}`;
+  // Si otra pasada del worker ya las creó (índice único visita+fuente), no inserta nada y no relanza.
   const { data: nuevas } = await admin
     .from('briefing_tarea')
-    .insert(
+    .upsert(
       PARTES.map((p) => ({
         visita_id: visitaId,
         fase: 'redaccion',
         fuente: p.fuente,
         mensaje: `${base}${instruccionParte(p)}\n\n=== DATOS ===\n${datos}`,
         plazo_segundos: PLAZO_REDACCION_S,
-      }))
+      })),
+      { onConflict: 'visita_id,fuente', ignoreDuplicates: true }
     )
     .select('*');
   await Promise.all(((nuevas ?? []) as Tarea[]).map((t) => iniciarTarea(admin, cab, t)));
@@ -372,14 +386,32 @@ export async function pasoRapido(admin: SupabaseClient, secreto: string, secreto
       if (!tomada?.length) continue;
       await admin.from('briefing_tarea').delete().eq('visita_id', p.visita_id);
       await admin.from('briefing_uso').insert({ visita_id: p.visita_id, motivo: p.motivo });
+      const { data: enCache } = await admin
+        .from('briefing_cache_fuente')
+        .select('fuente, resultado')
+        .eq('cuenta_id', cliente.crm_accountid)
+        .in('fuente', CACHEABLES)
+        .gte('actualizado_en', new Date(Date.now() - CACHE_HORAS * 3_600_000).toISOString());
+      const cacheada = new Map((enCache ?? []).map((c) => [c.fuente as string, c.resultado as string]));
+      const ahora = new Date().toISOString();
       const { error: eIns } = await admin.from('briefing_tarea').insert(
-        LECTURAS.map((l) => ({
-          visita_id: p.visita_id,
-          fase: 'lectura',
-          fuente: l.fuente,
-          mensaje: `Cliente: ${cliente.nombre} (id de cuenta ${cliente.crm_accountid}). Pregunta: ${l.pregunta(cliente.crm_accountid)}`,
-          plazo_segundos: l.plazo,
-        }))
+        LECTURAS.map((l) =>
+          cacheada.has(l.fuente)
+            ? // Servida desde caché: ya terminada, sin mensaje (no se vuelve a guardar).
+              { visita_id: p.visita_id, fase: 'lectura', fuente: l.fuente, estado: 'listo', mensaje: null, resultado: cacheada.get(l.fuente) as string, plazo_segundos: l.plazo, iniciado_en: ahora, terminado_en: ahora }
+            : {
+                // Todas las filas del insert llevan las mismas columnas (si no, PostgREST rellena con null).
+                visita_id: p.visita_id,
+                fase: 'lectura',
+                fuente: l.fuente,
+                estado: 'pendiente',
+                mensaje: `Cliente: ${cliente.nombre} (id de cuenta ${cliente.crm_accountid}). Pregunta: ${l.pregunta(cliente.crm_accountid)}`,
+                resultado: null,
+                plazo_segundos: l.plazo,
+                iniciado_en: null,
+                terminado_en: null,
+              }
+        )
       );
       if (eIns) throw new Error(`crear tareas: ${eIns.message}`);
     }

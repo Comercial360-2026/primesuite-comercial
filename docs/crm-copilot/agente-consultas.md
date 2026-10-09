@@ -20,7 +20,7 @@ briefing.
 | Modelo | Claude Sonnet 4.6 (Sonnet 5 solo aparece en el editor nuevo) |
 | Búsqueda web | desactivada |
 | Credenciales de TODAS las herramientas | «Credenciales proporcionadas por el fabricante» (cuenta de Cesar). Sin esto, cada llamada pide consentimiento al usuario y por Direct Line se bloquea |
-| Instrucciones | `docs/crm-copilot/instrucciones-agente-consultas-2026-09-27.txt` |
+| Instrucciones | `docs/crm-copilot/instrucciones-agente-consultas-2026-10-09.txt` (vigentes desde el 9 oct; las anteriores: `…-2026-09-27.txt`) |
 
 ## 2. Herramientas (todas de solo lectura sobre los datos de origen)
 
