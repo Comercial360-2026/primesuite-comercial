@@ -44,3 +44,6 @@ Sugerido por Cesar para evitar consultas paralelas lentas. Razones (documentadas
 ## Medición con el sondeo desplegado (9 oct, SAPA, cola real)
 - Consulta (agente estándar): agente 17 s, total 30 s (13 s de espera de cron por insertarla con SQL; la app lanza el worker al momento). Antes: 65 s de media.
 - Briefing (agente GitHub Copilot): agente 304 s, total 361 s, 11.017 caracteres (57 s de espera de cron por SQL). Conclusión medida: el sondeo quita ≤60 s; los ~300 s son del agente. Siguiente: probar el mismo trabajo en motor estándar.
+
+## Agente «Redactor Briefing CB» (creado 9 oct, SIN publicar)
+Copilot Studio, entorno Default-9680142b-e519-4506-8d12-c0704c2fafb4, editor clásico/motor ESTÁNDAR (Inicio › Otras formas de crear › Agente Estándar). Id `d184e3c0-8ec3-f111-a05c-7ced8d963860`. Objetivo: redactar el briefing a partir de hechos que recibe en el mensaje, SIN herramientas. Estado de configuración: (se completa abajo según se haga).
