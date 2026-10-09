@@ -16,8 +16,26 @@ const DIRECT_LINE = 'https://europe.directline.botframework.com/v3/directline';
 const USUARIO = 'primesuite';
 const MAX_BRIEFINGS_EN_MARCHA = 2;
 const MAX_CARACTERES_FUENTE = 12_000;
-const MIN_CARACTERES_BRIEFING = 1500;
+const MIN_CARACTERES_PARTE = 800;
 const PLAZO_REDACCION_S = 240;
+const FIN_REDACCION = 'FIN-REDACCION';
+
+// La redacción se trocea en partes que escriben a la vez (cada una ve TODOS los datos).
+const PARTES: { fuente: string; secciones: string; fecha: boolean }[] = [
+  { fuente: 'redaccion_a', fecha: true, secciones: '1. RESUMEN EJECUTIVO, 2. PREPARACIÓN DE LA VISITA, 3. PUNTOS DE ATENCIÓN' },
+  { fuente: 'redaccion_b', fecha: false, secciones: '4. SITUACIÓN COMERCIAL, 5. OPORTUNIDADES Y OFERTAS RELEVANTES' },
+  {
+    fuente: 'redaccion_c',
+    fecha: false,
+    secciones: '6. ACTIVIDAD, PROYECTOS E INCIDENCIAS, 7. CAMBIOS RECIENTES, 8. SEÑALES Y ÁREAS A EXPLORAR, 9. INTERLOCUTORES',
+  },
+];
+
+function instruccionParte(p: { secciones: string; fecha: boolean }): string {
+  return `\n\nPARTE DEL BRIEFING (prioridad máxima sobre lo anterior): redacta ÚNICAMENTE estas secciones, con su numeración y títulos exactos: ${p.secciones}. No escribas ninguna otra sección ni introducción ni despedida. ${
+    p.fecha ? 'Empieza con la línea «Datos del CRM al <fecha>».' : 'NO pongas la línea «Datos del CRM al …».'
+  } Termina con una última línea que diga exactamente: ${FIN_REDACCION}`;
+}
 
 type Cliente = { nombre: string; crm_accountid: string };
 type Tarea = {
@@ -181,14 +199,18 @@ async function recogerTarea(admin: SupabaseClient, cab: Record<string, string>, 
       return;
     }
   } else {
-    const final = textos.find((x) => x.startsWith('{') || x.length >= MIN_CARACTERES_BRIEFING);
+    const final = textos.find((x) => x.startsWith('{') || x.includes(FIN_REDACCION) || x.length >= MIN_CARACTERES_PARTE);
     if (final) {
       await cerrar(final.startsWith('{') ? { estado: 'error', error: 'Respuesta inesperada del agente.' } : { estado: 'listo', resultado: final });
       return;
     }
     if (turnoCerrado) {
-      const dicho = textos.at(-1);
-      await cerrar({ estado: 'error', error: dicho ? `El agente respondió: «${dicho.slice(0, 300)}»` : 'El agente terminó sin devolver el briefing.' });
+      const dicho = masLargo();
+      await cerrar(
+        dicho.length >= 300
+          ? { estado: 'listo', resultado: dicho }
+          : { estado: 'error', error: dicho ? `El agente respondió: «${dicho.slice(0, 300)}»` : 'El agente terminó sin devolver el briefing.' }
+      );
       return;
     }
   }
@@ -243,7 +265,7 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
   const { data: tareas } = await admin.from('briefing_tarea').select('*').eq('visita_id', visitaId);
   const todas = (tareas ?? []) as Tarea[];
   const lecturas = todas.filter((t) => t.fase === 'lectura');
-  const redaccion = todas.find((t) => t.fase === 'redaccion');
+  const redacciones = todas.filter((t) => t.fase === 'redaccion');
   const fallo = (error: string) =>
     admin
       .from('briefing_visita')
@@ -251,16 +273,25 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
       .eq('visita_id', visitaId)
       .eq('estado', 'generando');
 
-  if (redaccion) {
-    if (redaccion.estado === 'listo' && redaccion.resultado) {
-      await admin
-        .from('briefing_visita')
-        .update({ estado: 'listo', contenido: redaccion.resultado, error: null, terminado_en: new Date().toISOString(), conversacion_id: null, watermark: null })
-        .eq('visita_id', visitaId)
-        .eq('estado', 'generando');
-    } else if (redaccion.estado === 'error') {
-      await fallo(redaccion.error ? `Redacción: ${redaccion.error}` : 'No se pudo redactar el briefing.');
+  if (redacciones.length) {
+    if (redacciones.some((t) => t.estado === 'pendiente' || t.estado === 'generando')) return;
+    const parte = (f: string) => redacciones.find((t) => t.fuente === f);
+    const a = parte('redaccion_a');
+    if (a?.estado !== 'listo' || !a.resultado) {
+      await fallo(a?.error ? `Redacción: ${a.error}` : 'No se pudo redactar el briefing.');
+      return;
     }
+    const limpio = (t?: Tarea) => (t?.estado === 'listo' && t.resultado ? t.resultado.replaceAll(FIN_REDACCION, '').trim() : null);
+    const partes = PARTES.map((p) => limpio(parte(p.fuente)));
+    const contenido = [
+      ...partes.filter((x): x is string => !!x),
+      ...(partes.some((x) => !x) ? ['_Una parte del briefing no se pudo redactar a tiempo. Vuelve a generarlo para completarla._'] : []),
+    ].join('\n\n');
+    await admin
+      .from('briefing_visita')
+      .update({ estado: 'listo', contenido, error: null, terminado_en: new Date().toISOString(), conversacion_id: null, watermark: null })
+      .eq('visita_id', visitaId)
+      .eq('estado', 'generando');
     return;
   }
 
@@ -278,13 +309,20 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
     await datosCuenta(admin, cliente.crm_accountid),
     ...LECTURAS.map((l) => bloque(por(l.fuente), TITULO[l.fuente])),
   ].join('\n');
-  const mensaje = `${PROMPT_REDACTOR}\n\n=== DATOS ===\n${datos}`;
-  const { data: nueva } = await admin
+  const base = `${PROMPT_REDACTOR}`;
+  const { data: nuevas } = await admin
     .from('briefing_tarea')
-    .insert({ visita_id: visitaId, fase: 'redaccion', fuente: 'redaccion', mensaje, plazo_segundos: PLAZO_REDACCION_S })
-    .select('*')
-    .single();
-  if (nueva) await iniciarTarea(admin, cab, nueva as Tarea);
+    .insert(
+      PARTES.map((p) => ({
+        visita_id: visitaId,
+        fase: 'redaccion',
+        fuente: p.fuente,
+        mensaje: `${base}${instruccionParte(p)}\n\n=== DATOS ===\n${datos}`,
+        plazo_segundos: PLAZO_REDACCION_S,
+      }))
+    )
+    .select('*');
+  await Promise.all(((nuevas ?? []) as Tarea[]).map((t) => iniciarTarea(admin, cab, t)));
 }
 
 export async function pasoRapido(admin: SupabaseClient, secreto: string) {
