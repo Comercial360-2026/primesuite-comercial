@@ -40,3 +40,7 @@ Documentado: Direct Line 3.0 (Get Activities con watermark; actividad ≤256K ca
 
 ## Un agente por comercial — DESCARTADO (9 oct)
 Sugerido por Cesar para evitar consultas paralelas lentas. Razones (documentadas, learn.microsoft.com/…/requirements-quotas): las cuotas se aplican POR ENTORNO de Dataverse, no por agente (mensajes generativos: 50-100 RPM / 1.000-2.000 RPH según plan), así que N agentes comparten la misma cuota y no ganan capacidad; cada conversación de Direct Line ya es independiente (no hay contención entre comerciales dentro de un agente); y cada copia exigiría repetir a mano instrucciones, herramientas, conexiones y publicación. La única serialización real es NUESTRA cola: `MAX_EN_MARCHA` (2 en briefings, 3 en consultas) y la pasada de 1 min. Pendiente de medir: cuántos «mensajes generativos» cuenta una conversación (afecta al diseño en paralelo: 5 conversaciones por briefing).
+
+## Medición con el sondeo desplegado (9 oct, SAPA, cola real)
+- Consulta (agente estándar): agente 17 s, total 30 s (13 s de espera de cron por insertarla con SQL; la app lanza el worker al momento). Antes: 65 s de media.
+- Briefing (agente GitHub Copilot): agente 304 s, total 361 s, 11.017 caracteres (57 s de espera de cron por SQL). Conclusión medida: el sondeo quita ≤60 s; los ~300 s son del agente. Siguiente: probar el mismo trabajo en motor estándar.
