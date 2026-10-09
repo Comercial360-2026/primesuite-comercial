@@ -494,6 +494,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           objetivo={visitaEnCurso.objetivo}
           proyectoNombre={visitaEnCurso.proyectoNombre}
           enCursoDesde={visitaEnCurso.enCursoDesde}
+          esMia={visitaEnCurso.esMia}
+          responsableNombre={visitaEnCurso.responsableNombre}
           onContinuar={() => {
             onCerrar();
             navigate(`/visita/${visitaEnCurso.id}`);

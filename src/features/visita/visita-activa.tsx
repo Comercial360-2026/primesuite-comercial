@@ -873,7 +873,7 @@ export function VisitaActiva() {
           'visita_id, visita:visita_id!inner(id, estado_captura, fecha, en_curso_desde, proyecto:proyecto_id(nombre), cliente:cliente_id(nombre))'
         )
         .eq('comercial_id', comercial!.id)
-        .in('estado', ['pendiente', 'aceptado'])
+        .eq('estado', 'aceptado')
         .eq('visita.estado_captura', 'en_curso')
         .neq('visita_id', visitaId!);
       if (error) throw error;

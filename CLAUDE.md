@@ -250,6 +250,11 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   proyecto» es una fila al final de la ficha y deslizando el proyecto en la lista del cliente («Terminar» + «Borrar»; en un terminado,
   «Reabrir» + «Borrar»); deslizar «Terminar» lleva a la ficha con `state.terminar` y allí corre la comprobación de siempre (puerta de
   visitas vivas / oportunidades). «Reabrir» va ARRIBA, en la fila «Proyecto terminado» (estado y acción juntos).
+- **«Visita en curso» suya = la que lleva (responsable) o en la que ya ACEPTÓ (8 oct).** Una invitación sin aceptar NO cuenta como visita en
+  curso (ni en el aviso «Ya tienes una visita en curso», `buscarVisitaEnCurso`, ni en «También en curso» de Hoy, ni en la visita activa): sale arriba
+  en Hoy como aviso con Aceptar / Rechazar (`InvitacionesHoy`; «Aceptar y abrir» si la visita ya está en curso). Si la visita en curso es de otra
+  persona (la acepté), el aviso dice «Participas en una visita en curso… La lleva X» y el botón principal es «Empezar la mía». Caso real: Borja,
+  invitado a una visita de Huelva, no abría la suya porque la invitación sin aceptar contaba y el aviso le sonaba a bloqueo.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

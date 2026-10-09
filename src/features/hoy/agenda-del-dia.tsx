@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useSwipeBorrar } from '@/lib/borrar-solicitado';
+import { InvitacionesHoy } from '@/features/hoy/invitaciones-hoy';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase-client';
 import { fechaDiaMes, fechaLarga, hora } from '@/lib/fechas';
@@ -217,7 +218,7 @@ export function AgendaDelDia() {
           'visita:visita_id!inner(id, fecha, hora_definida, franja, objetivo, tipo_visita, medio, estado_captura, en_curso_desde, cliente:cliente_id(id, nombre), proyecto:proyecto_id(nombre))'
         )
         .eq('comercial_id', comercial!.id)
-        .in('estado', ['pendiente', 'aceptado'])
+        .eq('estado', 'aceptado') // la invitación sin aceptar sale arriba (InvitacionesHoy), no como visita mía en curso
         .eq('visita.estado_captura', 'en_curso')
         .order('visita(fecha)', { ascending: false });
       if (error) throw error;
@@ -533,6 +534,7 @@ export function AgendaDelDia() {
       </div>
 
       <div className="screen__scroll">
+        <InvitacionesHoy />
         {modoAgenda ? (
           cargandoAgenda ? (
             <EstadoLista estado="cargando" mensaje="Cargando agenda…" />

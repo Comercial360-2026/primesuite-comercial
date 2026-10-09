@@ -30,6 +30,8 @@ interface InvitacionPendiente {
   clienteNombre: string;
   fechaVisita: string;
   anadidoPorNombre: string;
+  /** La visita ya está en curso (aceptar lleva a ella). */
+  enCurso: boolean;
 }
 
 interface RechazoSinVer {
@@ -48,6 +50,7 @@ interface AvisoVisita {
 }
 
 interface VisitaEmbebida {
+  estado_captura?: string | null;
   fecha: string | null;
   cliente: { nombre: string } | null;
 }
@@ -58,6 +61,7 @@ interface InvitacionCruda {
   clienteNombre: string;
   fechaVisita: string;
   anadidoPorId: string | null;
+  enCurso: boolean;
 }
 
 interface RechazoCrudo {
@@ -154,7 +158,7 @@ export function useAvisosParticipacion(): {
     queryFn: async (): Promise<InvitacionCruda[]> => {
       const { data, error } = await supabase
         .from('visita_participante')
-        .select('id, visita_id, creado_en, anadido_por, visita:visita_id(fecha, cliente:cliente_id(nombre))')
+        .select('id, visita_id, creado_en, anadido_por, visita:visita_id(fecha, estado_captura, cliente:cliente_id(nombre))')
         .eq('comercial_id', comercial!.id)
         .eq('estado', 'pendiente')
         .order('creado_en', { ascending: true });
@@ -167,6 +171,7 @@ export function useAvisosParticipacion(): {
           clienteNombre: visita?.cliente?.nombre ?? 'Cliente',
           fechaVisita: visita?.fecha ?? f.creado_en,
           anadidoPorId: f.anadido_por,
+          enCurso: visita?.estado_captura === 'en_curso',
         };
       });
     },
@@ -231,6 +236,7 @@ export function useAvisosParticipacion(): {
         clienteNombre: f.clienteNombre,
         fechaVisita: f.fechaVisita,
         anadidoPorNombre: (f.anadidoPorId && nombresPorId?.get(f.anadidoPorId)) || 'Dirección Comercial',
+        enCurso: f.enCurso,
       })),
     [invitaciones, nombresPorId]
   );

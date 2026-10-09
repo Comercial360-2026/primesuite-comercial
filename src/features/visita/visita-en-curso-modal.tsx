@@ -11,6 +11,9 @@ interface VisitaEnCursoModalProps {
   proyectoNombre?: string | null;
   /** `visita.en_curso_desde` — para "abierta hace…". */
   enCursoDesde?: string | null;
+  /** True (por defecto) si la visita la llevo yo. False = participo en la de otra persona. */
+  esMia?: boolean;
+  responsableNombre?: string | null;
   onContinuar: () => void; // ir a la visita en curso que ya existe
   onEmpezarOtra: () => void; // seguir adelante y abrir una visita nueva
   onCerrar: () => void;
@@ -24,6 +27,8 @@ export function VisitaEnCursoModal({
   objetivo,
   proyectoNombre,
   enCursoDesde,
+  esMia = true,
+  responsableNombre,
   onContinuar,
   onEmpezarOtra,
   onCerrar,
@@ -36,9 +41,18 @@ export function VisitaEnCursoModal({
     .join(' · ');
   return (
     <Modal
-      titulo={`Ya tienes una visita en curso${clienteNombre ? ` con ${clienteNombre}` : ''}`}
+      titulo={
+        esMia
+          ? `Ya tienes una visita en curso${clienteNombre ? ` con ${clienteNombre}` : ''}`
+          : `Participas en una visita en curso${clienteNombre ? ` con ${clienteNombre}` : ''}`
+      }
       onCerrar={onCerrar}
     >
+      {!esMia && (
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-700)', margin: '8px 0 2px' }}>
+          {responsableNombre ? `La lleva ${responsableNombre}. ` : ''}Puedes empezar la tuya cuando quieras.
+        </div>
+      )}
       {contexto && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-400)', margin: '8px 0 2px' }}>
           {contexto}
@@ -50,13 +64,27 @@ export function VisitaEnCursoModal({
         </div>
       )}
 
-      <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onContinuar}>
-        Continuar esa visita
-        <Icono nombre="chevron" size={18} />
-      </button>
-      <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onEmpezarOtra}>
-        Empezar otra
-      </button>
+      {esMia ? (
+        <>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onContinuar}>
+            Continuar esa visita
+            <Icono nombre="chevron" size={18} />
+          </button>
+          <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onEmpezarOtra}>
+            Empezar otra
+          </button>
+        </>
+      ) : (
+        <>
+          <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onEmpezarOtra}>
+            Empezar la mía
+            <Icono nombre="chevron" size={18} />
+          </button>
+          <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onContinuar}>
+            Ver esa visita
+          </button>
+        </>
+      )}
     </Modal>
   );
 }
