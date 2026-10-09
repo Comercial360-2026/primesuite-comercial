@@ -40,3 +40,10 @@ Léela ANTES de crear o tocar un agente (regla de CLAUDE.md: documentación → 
 - Publicar solo con la configuración probada; anotar fecha y qué cambió.
 - Instrucciones: ≤ 8.000 caracteres; sin reglas heredadas que bloqueen lo que ahora sí funciona (pasó con «no leas documentos», §5k); incluir «nunca dejes el turno sin cerrar» y un tope de llamadas por pregunta.
 - Un flujo roto como herramienta contamina el turno entero (§5l): desactivar lo que no funcione.
+
+## 7. Workers de Direct Line (lecciones del 9 oct)
+- La llamada del cron (pg_net) NO debe durar: un sondeo de 110 s dentro de la petición dejó las siguientes llamadas esperando (`DNS time 60000 ms`). El worker responde ya y sigue con `EdgeRuntime.waitUntil` (docs de Supabase: background tasks).
+- Con `?watermark=` Direct Line devuelve solo actividades NUEVAS: acumular el texto entre sondeos. `turn.complete` no siempre llega: pedir una marca final explícita al agente (`FIN-LECTURA`) y/o aceptar «Fuente:».
+- Al añadir una clave foránea hacia una tabla que otras consultas embeben (`tabla:columna(...)`), PostgREST puede volverse ambiguo («more than one relationship»): usar la FK explícita (`visita!briefing_visita_visita_id_fkey`). Probar el worker en cuanto se aplique la migración.
+- Instrucciones largas (> 8.000 car.) o específicas de una tarea: mandarlas DENTRO del mensaje (Direct Line admite 256K) y versionarlas en el repo.
+- Medir por la cola real: `briefing_tarea` guarda iniciado/terminado de cada fuente.
