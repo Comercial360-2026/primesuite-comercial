@@ -23,24 +23,15 @@ const CACHEABLES = ['licitaciones'];
 const CACHE_HORAS = 24;
 const FIN_REDACCION = 'FIN-REDACCION';
 
-// La redacción se trocea en partes que escriben a la vez (cada una ve TODOS los datos).
-const PARTES: { fuente: string; secciones: string; fecha: boolean }[] = [
-  { fuente: 'redaccion_a', fecha: true, secciones: '1. RESUMEN EJECUTIVO, 2. PREPARACIÓN DE LA VISITA, 3. PUNTOS DE ATENCIÓN' },
-  { fuente: 'redaccion_b', fecha: false, secciones: '4. SITUACIÓN COMERCIAL, 5. OPORTUNIDADES Y OFERTAS RELEVANTES' },
-  {
-    fuente: 'redaccion_c',
-    fecha: false,
-    secciones: '6. ACTIVIDAD, PROYECTOS E INCIDENCIAS, 7. CAMBIOS RECIENTES, 8. SEÑALES Y ÁREAS A EXPLORAR, 9. INTERLOCUTORES',
-  },
-];
+// Una sola redacción: con el Redactor (modelo rápido) tarda ~10-20 s y así ningún dato se repite
+// entre secciones (con 3 redactores en paralelo cada uno contaba lo mismo).
+const PARTES: { fuente: string; secciones: string; fecha: boolean }[] = [{ fuente: 'redaccion_a', fecha: true, secciones: '' }];
 
-function instruccionParte(p: { secciones: string; fecha: boolean }): string {
-  return `\n\nPARTE DEL BRIEFING (prioridad máxima sobre lo anterior): redacta ÚNICAMENTE estas secciones, con su numeración y títulos exactos: ${p.secciones}. No escribas ninguna otra sección ni introducción ni despedida. ${
-    p.fecha ? 'Empieza con la línea «Datos del CRM al <fecha>».' : 'NO pongas la línea «Datos del CRM al …».'
-  } Termina con una última línea que diga exactamente: ${FIN_REDACCION}`;
+function instruccionParte(_p: { secciones: string; fecha: boolean }): string {
+  return `\n\nTermina con una última línea que diga exactamente: ${FIN_REDACCION}`;
 }
 
-type Cliente = { nombre: string; crm_accountid: string };
+type Cliente = { id: string; nombre: string; crm_accountid: string };
 type Tarea = {
   id: string;
   visita_id: string;
@@ -270,6 +261,45 @@ function bloque(t: Tarea | undefined, titulo: string): string {
   return `== ${titulo} ==\n${t.resultado}`;
 }
 
+
+const recorta = (t: string | null | undefined, n: number) => (t ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+
+/** Lo que ya consta en PrimeSuite del cliente (visitas, pendientes, interlocutores): SQL, 0 s. */
+async function datosPrimeSuite(admin: SupabaseClient, clienteId: string): Promise<string> {
+  const [visitas, pasos, opps, inter] = await Promise.all([
+    admin
+      .from('visita')
+      .select('fecha, tipo_visita, objetivo, resumen_texto, resumen')
+      .eq('cliente_id', clienteId)
+      .in('estado_captura', ['consolidada', 'cerrada'])
+      .order('fecha', { ascending: false })
+      .limit(3),
+    admin
+      .from('proximo_paso')
+      .select('descripcion, fecha_objetivo, visita:visita_id!inner(cliente_id)')
+      .eq('estado', 'pendiente')
+      .eq('visita.cliente_id', clienteId)
+      .order('fecha_objetivo', { ascending: true, nullsFirst: false })
+      .limit(8),
+    admin
+      .from('oportunidad')
+      .select('titulo, etapa, valor_estimado, horizonte_decision')
+      .eq('cliente_id', clienteId)
+      .is('motivo_cierre', null)
+      .order('actualizado_en', { ascending: false })
+      .limit(6),
+    admin.from('interlocutor').select('nombre, cargo, tipo_influencia, relevancia, email, telefono').eq('cliente_id', clienteId).eq('activo', true).limit(10),
+  ]);
+  const lin = (xs: (string | null | undefined)[]) => xs.map((x) => (x && String(x).trim() ? String(x).trim() : 'sin dato')).join(' | ');
+  const bloques = [
+    ['ÚLTIMAS VISITAS (PrimeSuite)', (visitas.data ?? []).map((v) => lin([fechaCorta(v.fecha), v.tipo_visita, recorta(v.objetivo, 120), recorta(v.resumen_texto || v.resumen, 500)]))],
+    ['PRÓXIMOS PASOS PENDIENTES (PrimeSuite)', (pasos.data ?? []).map((p) => lin([recorta(p.descripcion, 160), p.fecha_objetivo ? fechaCorta(p.fecha_objetivo) : 'sin fecha']))],
+    ['OPORTUNIDADES EN SEGUIMIENTO (PrimeSuite)', (opps.data ?? []).map((o) => lin([recorta(o.titulo, 100), o.etapa, o.valor_estimado != null ? `${o.valor_estimado}` : null, o.horizonte_decision]))],
+    ['INTERLOCUTORES CONOCIDOS (PrimeSuite)', (inter.data ?? []).map((x) => lin([x.nombre, x.cargo, x.tipo_influencia, recorta(x.relevancia, 80), x.email, x.telefono]))],
+  ] as [string, string[]][];
+  return bloques.map(([t, filas]) => `== ${t} ==\n${filas.length ? filas.join('\n') : 'SIN REGISTROS'}`).join('\n');
+}
+
 async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string>, visitaId: string, cliente: Cliente) {
   // cab = cabeceras del agente que REDACTA (Redactor; si no hay secreto, el de Consultas)
   const { data: tareas } = await admin.from('briefing_tarea').select('*').eq('visita_id', visitaId);
@@ -293,10 +323,15 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
     }
     const limpio = (t?: Tarea) => (t?.estado === 'listo' && t.resultado ? t.resultado.replaceAll(FIN_REDACCION, '').trim() : null);
     const partes = PARTES.map((p) => limpio(parte(p.fuente)));
-    const contenido = [
+    const limpiarMarcas = (x: string) =>
+      x
+        .replaceAll(/SIN REGISTROS\.?/g, 'ninguno')
+        .replaceAll(/NO DISPONIBLE/g, 'no disponible')
+        .replaceAll(/(,\d{2})\d+(?= ?€)/g, '$1'); // importes con más de 2 decimales (1.837,9900 €)
+    const contenido = limpiarMarcas([
       ...partes.filter((x): x is string => !!x),
       ...(partes.some((x) => !x) ? ['_Una parte del briefing no se pudo redactar a tiempo. Vuelve a generarlo para completarla._'] : []),
-    ].join('\n\n');
+    ].join('\n\n'));
     await admin
       .from('briefing_visita')
       .update({ estado: 'listo', contenido, error: null, terminado_en: new Date().toISOString(), conversacion_id: null, watermark: null })
@@ -326,6 +361,7 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
   const datos = [
     `Cliente: ${cliente.nombre}`,
     await datosCuenta(admin, cliente.crm_accountid),
+    await datosPrimeSuite(admin, cliente.id),
     ...LECTURAS.map((l) => bloque(por(l.fuente), TITULO[l.fuente])),
   ].join('\n');
   const base = `${PROMPT_REDACTOR}`;
@@ -365,7 +401,7 @@ export async function pasoRapido(admin: SupabaseClient, secreto: string, secreto
   if (hueco > 0) {
     const { data: pendientes, error: ePend } = await admin
       .from('briefing_visita')
-      .select('visita_id, motivo, visita:visita!briefing_visita_visita_id_fkey(cliente:cliente_id(nombre, crm_accountid))')
+      .select('visita_id, motivo, visita:visita!briefing_visita_visita_id_fkey(cliente:cliente_id(id, nombre, crm_accountid))')
       .eq('estado', 'pendiente')
       .order('pedido_en')
       .limit(hueco);
@@ -430,7 +466,7 @@ export async function pasoRapido(admin: SupabaseClient, secreto: string, secreto
   // 3. Avanzar cada briefing en marcha (lecturas terminadas -> redacción; redacción terminada -> listo).
   const { data: generando } = await admin
     .from('briefing_visita')
-    .select('visita_id, visita:visita!briefing_visita_visita_id_fkey(cliente:cliente_id(nombre, crm_accountid))')
+    .select('visita_id, visita:visita!briefing_visita_visita_id_fkey(cliente:cliente_id(id, nombre, crm_accountid))')
     .eq('estado', 'generando');
   for (const b of generando ?? []) {
     const cliente = (b as unknown as { visita: { cliente: Cliente | null } }).visita?.cliente;

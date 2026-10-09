@@ -22,7 +22,7 @@ const MAX_INTENTOS = 3;
 // una vez por minuto (cron) y sumaba hasta 60 s a cada consulta. Edge Functions:
 // 150 s de reloj en el plan gratuito (docs de Supabase), de ahí el presupuesto.
 const SONDEO_MS = 4_000;
-const PRESUPUESTO_MS = 110_000;
+const PRESUPUESTO_MS = 135_000;
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 

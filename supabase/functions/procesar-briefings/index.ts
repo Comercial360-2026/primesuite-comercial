@@ -34,7 +34,7 @@ const MAX_INTENTOS = 3;
 // Sondeo dentro de la propia ejecución (antes: una pasada por minuto, hasta 60 s de retraso
 // al recoger). Edge Functions: 150 s de reloj en el plan gratuito.
 const SONDEO_MS = 4_000;
-const PRESUPUESTO_MS = 110_000;
+const PRESUPUESTO_MS = 135_000;
 
 const MENSAJE_JSON: Record<string, string> = {
   no_encontrado: 'El CRM no tiene datos de esta cuenta.',
