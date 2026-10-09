@@ -23,6 +23,7 @@ Alternativas: `find`, `read_page`, `get_page_text`, `javascript_tool` (coordenad
 6. **Antes de ejecutar: leer también los problemas conocidos** (incidencias de la comunidad, issues, límites del diseñador) de cada pieza, no solo el manual. Decir qué he leído y qué NO está documentado.
 7. **Todo lo que se crea en un sistema externo (flujos, funciones, carpetas, cron, permisos) se anota en el repo en el mismo momento**, con ids, rutas y estructura exacta (ver `docs/archivado-sharepoint/copia-seguridad.md`). Si no está en el repo, no existe.
 8. **Orden de Cesar = escrito en CLAUDE.md al instante, y comprobado con grep.** Incumplir una regla ya escrita es el error más grave.
+9. **Antes de crear o tocar un agente de Copilot Studio: leer `docs/crm-copilot/guia-crear-agentes.md`** (motor estándar vs GitHub Copilot, herramientas, velocidad, cuotas, cómo probar sin ver datos). Cualquier lección nueva se añade ahí en el mismo momento.
 5. **Si me pillo construyendo sin haber hecho 1-3: PARAR, decirlo y documentarme.** (Registro: 3 oct, empecé a crear un flujo de borrado de SharePoint de memoria; Cesar me paró.)
 
 # 🔴 REGLAS GENERALES (también en ~/CLAUDE.md) — LEER AL ABRIR CADA SESIÓN
