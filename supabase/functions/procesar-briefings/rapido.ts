@@ -61,13 +61,13 @@ const LECTURAS: { fuente: string; plazo: number; pregunta: (id: string) => strin
     fuente: 'crm_oportunidades',
     plazo: 150,
     pregunta: (id) =>
-      `Consulta SOLO la tabla Oportunidades del CRM (filtro customerid_value eq '${id}', más recientes primero). Campos por fila: opportunityid | name | modifiedon | estado | razon_estado | tipo | fase | probabilidad_texto | estimatedclosedate | actualclosedate | estimatedvalue | contacto | propietario. ${FORMATO}`,
+      `Consulta SOLO la tabla Oportunidades del CRM (filtro customerid_value eq '${id}', más recientes primero). Devuelve como máximo las 30 más recientes. Campos por fila: opportunityid | name | modifiedon | estado | tipo | fase | probabilidad_texto | estimatedclosedate | actualclosedate | estimatedvalue | propietario. ${FORMATO}`,
   },
   {
     fuente: 'crm_ofertas',
     plazo: 150,
     pregunta: (id) =>
-      `Consulta SOLO la tabla Ofertas del CRM (filtro customerid_value eq '${id}', más recientes primero). Campos por fila: quoteid | name | quotenumber | opportunityid_value | oportunidad | contacto | proyecto | tipo_oferta | pri_reference | pri_quotedate | effectivefrom | effectiveto | totalamount | estado | modifiedon. ${FORMATO}`,
+      `Consulta SOLO la tabla Ofertas del CRM (filtro customerid_value eq '${id}', más recientes primero). Devuelve como máximo las 25 más recientes. Campos por fila: pri_reference | opportunityid_value | tipo_oferta | pri_quotedate | effectiveto | totalamount | estado | name. ${FORMATO}`,
   },
   {
     fuente: 'licitaciones',
