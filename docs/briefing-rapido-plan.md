@@ -47,3 +47,8 @@ Sugerido por Cesar para evitar consultas paralelas lentas. Razones (documentadas
 
 ## Agente «Redactor Briefing CB» (creado 9 oct, SIN publicar)
 Copilot Studio, entorno Default-9680142b-e519-4506-8d12-c0704c2fafb4, editor clásico/motor ESTÁNDAR (Inicio › Otras formas de crear › Agente Estándar). Id `d184e3c0-8ec3-f111-a05c-7ced8d963860`. Objetivo: redactar el briefing a partir de hechos que recibe en el mensaje, SIN herramientas. Estado de configuración: (se completa abajo según se haga).
+
+### Estado del «Redactor Briefing CB» y control de velocidad de redacción (9 oct)
+- Configurado: modelo Claude Sonnet 4.6, orquestación generativa = Sí (guardada), instrucciones de `docs/crm-copilot/instrucciones-redactor-briefing-2026-10-09.txt` (5.427 de 8.000 car.). La pantalla «Probar» limita el mensaje a 2.000 caracteres (Direct Line: 256K).
+- PROBLEMA SIN RESOLVER: sin herramientas ni conocimiento NO responde (cae en «No se encontró información…» / «no sé muy bien cómo ayudarle»), aunque la orquestación sea generativa. La documentación (advanced-generative-actions) no explica cómo contestar solo con instrucciones. No usarlo hasta resolverlo; opciones: darle un tema/herramienta mínima o usar el agente de Consultas como redactor. Agente creado y no publicado: borrar si se descarta.
+- CONTROL decisivo (agente estándar de Consultas, sin herramientas, hechos ZZ, panel): primera respuesta a los 12 s y briefing largo (~9-13.000 car.) completo a los ~91 s. El agente de briefing (motor GitHub Copilot) tardó 304 s en hacer lectura + redacción. Confirma que el motor es el factor principal; redactar en estándar ≈ 90 s en un solo redactor, ~30-45 s con 2-3 redactores en paralelo.
