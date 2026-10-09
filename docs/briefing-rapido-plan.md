@@ -99,3 +99,8 @@ Motivo (revisión de Cesar del briefing de SAPA): las mismas 4-5 ideas se repet�
 - Salvaguardas en código: marcas internas («SIN REGISTROS», «NO DISPONIBLE») y importes con más de 2 decimales se limpian al cerrar; prompt: prohibido sumar o calcular totales (el modelo escribió un total distinto en cada ejecución y erróneo).
 - Resultado SAPA: 66-98 s, 2.800-3.000 car. (antes 6.600), sin totales calculados, objetivo concreto (renovar/cerrar la oportunidad con oferta vencida y su REF), sin marcas internas. Pendiente: «OF SISTEMA CLOUD…» aún sale en 5 secciones (es el protagonista, pero Avisos lo repite); «interlocutora conocida» es relleno. Workers: presupuesto de sondeo 135 s.
 - Pendiente de Cesar: leer el briefing de SAPA en la app y aprobar para encender `briefing_rapido_activo`.
+
+### Afinado final del formato (9 oct, tarde-noche) — comprobado por SQL sobre SAPA
+Cambios de prompt: Avisos solo con avisos NUEVOS (sin repetir lo de Dinero abierto/Objetivo); Preguntas sin repetir el objetivo ni los avisos; Personas sin relleno y «sin cargos» una sola vez (fuera de Avisos); Dinero abierto incluye SIEMPRE la oportunidad del Objetivo (la primera) y da «cierre estimado DD/MM/AAAA» con «superado» solo si ya pasó; importes con 2 decimales, sin totales.
+Resultado: 96-101 s, ~2.800 car.; la REF del objetivo (REF-34143-F8D4) está en Dinero abierto; «cargo» aparece 1 vez; 7 importes, 0 marcas internas; 9 REF (7 distintas: las repetidas son objetivo/oferta más reciente + su bloque). Texto aún sin revisar por Cesar. Interruptor APAGADO.
+Repetir tras cada cambio de prompt o de columnas: SQL de fidelidad (REF e importes del briefing ∈ datos de entrada), marcas internas, REF del objetivo ∈ Dinero abierto, nº de veces de cada dato.
