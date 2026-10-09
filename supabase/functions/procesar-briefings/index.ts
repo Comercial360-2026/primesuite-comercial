@@ -228,7 +228,11 @@ Deno.serve(async (req) => {
         .from('briefing_visita')
         .select('visita_id', { count: 'exact', head: true })
         .in('estado', ['generando', 'pendiente']);
-      if (!vivas || Date.now() - t0 + SONDEO_MS > PRESUPUESTO_MS) break;
+      const { count: tareasVivas } = await admin
+        .from('briefing_tarea')
+        .select('id', { count: 'exact', head: true })
+        .in('estado', ['generando', 'pendiente']);
+      if ((!vivas && !tareasVivas) || Date.now() - t0 + SONDEO_MS > PRESUPUESTO_MS) break;
       await new Promise((r) => setTimeout(r, SONDEO_MS));
     }
 

@@ -47,3 +47,10 @@ Léela ANTES de crear o tocar un agente (regla de CLAUDE.md: documentación → 
 - Al añadir una clave foránea hacia una tabla que otras consultas embeben (`tabla:columna(...)`), PostgREST puede volverse ambiguo («more than one relationship»): usar la FK explícita (`visita!briefing_visita_visita_id_fkey`). Probar el worker en cuanto se aplique la migración.
 - Instrucciones largas (> 8.000 car.) o específicas de una tarea: mandarlas DENTRO del mensaje (Direct Line admite 256K) y versionarlas en el repo.
 - Medir por la cola real: `briefing_tarea` guarda iniciado/terminado de cada fuente.
+
+## 8. Modelo y latencia (investigado el 9 oct)
+- Tiempo de generación ∝ tokens de SALIDA (la entrada solo retrasa el primer token): medido ≈54 car./s con Sonnet 4.6 y entradas de 6K a 17K.
+- Categorías de Microsoft (`authoring-select-agent-model`): General = latencia mínima; Deep = máxima. Para redactar/resumir, modelo General. En una prueba de panel con los mismos hechos, GPT-5.5 Chat tardó ≈15 s y Sonnet 4.6 ≈76 s (calidad sin comparar).
+- Para que un agente SIN herramientas ni conocimiento conteste: Configuración › IA generativa › **Permitir respuestas sin fundamentación = Activado** (si no, cae en «No se encontró información…»).
+- Acortar la salida: límites de párrafos/frases por sección (no de palabras); trocear en partes que se escriben en paralelo.
+- Un agente usable desde el worker necesita publicarse y tener un canal Direct Line: su secreto lo guarda Cesar en Supabase (nosotros no manejamos secretos).
