@@ -45,4 +45,6 @@ Cierre estimado: **31/08/2026 — superado**
 8. SEÑALES Y ÁREAS A EXPLORAR — separando hechos de señales.
 9. INTERLOCUTORES — solo los relevantes.
 
+LONGITUD (obligatoria, se mide en viñetas y frases, no en palabras): RESUMEN EJECUTIVO máx. 4 viñetas; cada otra sección máx. 5 viñetas de UNA frase; OPORTUNIDADES Y OFERTAS máx. 6 bloques (los más relevantes; di cuántas más hay en una línea); PREPARACIÓN DE LA VISITA según el límite indicado; ningún párrafo de más de 2 frases; no repitas en una sección lo ya dicho en otra: remite con una frase corta. El briefing completo debe leerse en 2 minutos.
+
 Importes en formato europeo (3.249,76 €). No muestres GUID, códigos técnicos, campos vacíos ni importes cero sin relevancia. No expliques cómo has buscado. Antes de responder, revisa que cumples estas reglas y corrige lo que no.

@@ -185,6 +185,12 @@ async function recogerTarea(admin: SupabaseClient, cab: Record<string, string>, 
   const textos = [...(t.resultado ? t.resultado.split(SEP) : []), ...nuevos];
   const turnoCerrado = delBot.some((a: { type: string; name?: string }) => a.type === 'event' && a.name === 'turn.complete');
   const masLargo = () => textos.reduce((m, x) => (x.length > m.length ? x : m), '');
+  // Error del propio agente (p. ej. IntegratedAuthenticationNotSupportedInChannel): fallar YA, sin esperar al plazo.
+  const errorAgente = textos.find((x) => /Código de error:|Lo sentimos, se ha producido un error/i.test(x));
+  if (errorAgente) {
+    await cerrar({ estado: 'error', error: errorAgente.slice(0, 300) });
+    return;
+  }
 
   if (t.fase === 'lectura') {
     const marcado = textos.some((x) => x.includes(FIN)) || textos.some((x) => /(^|\n)\s*\**Fuente/i.test(x));
@@ -262,6 +268,7 @@ function bloque(t: Tarea | undefined, titulo: string): string {
 }
 
 async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string>, visitaId: string, cliente: Cliente) {
+  // cab = cabeceras del agente que REDACTA (Redactor; si no hay secreto, el de Consultas)
   const { data: tareas } = await admin.from('briefing_tarea').select('*').eq('visita_id', visitaId);
   const todas = (tareas ?? []) as Tarea[];
   const lecturas = todas.filter((t) => t.fase === 'lectura');
@@ -325,8 +332,10 @@ async function avanzarBriefing(admin: SupabaseClient, cab: Record<string, string
   await Promise.all(((nuevas ?? []) as Tarea[]).map((t) => iniciarTarea(admin, cab, t)));
 }
 
-export async function pasoRapido(admin: SupabaseClient, secreto: string) {
-  const cab = cabecerasDL(secreto);
+export async function pasoRapido(admin: SupabaseClient, secreto: string, secretoRedactor?: string | null) {
+  const cab = cabecerasDL(secreto); // lecturas: agente de Consultas
+  const cabRedaccion = secretoRedactor ? cabecerasDL(secretoRedactor) : cab; // redacción: Redactor Briefing CB (modelo General rápido)
+  const cabDe = (t: Tarea) => (t.fase === 'redaccion' ? cabRedaccion : cab);
 
   // 1. Arrancar briefings pendientes (respetando huecos y tope diario).
   const { count: enMarcha } = await admin
@@ -383,7 +392,7 @@ export async function pasoRapido(admin: SupabaseClient, secreto: string) {
     .in('estado', ['pendiente', 'generando']);
   const lista = (vivas ?? []) as Tarea[];
   await Promise.all(
-    lista.map((t) => (t.estado === 'pendiente' ? iniciarTarea(admin, cab, t) : t.conversacion_id ? recogerTarea(admin, cab, t) : Promise.resolve()))
+    lista.map((t) => (t.estado === 'pendiente' ? iniciarTarea(admin, cabDe(t), t) : t.conversacion_id ? recogerTarea(admin, cabDe(t), t) : Promise.resolve()))
   );
 
   // 3. Avanzar cada briefing en marcha (lecturas terminadas -> redacción; redacción terminada -> listo).
@@ -396,6 +405,6 @@ export async function pasoRapido(admin: SupabaseClient, secreto: string) {
     if (!cliente?.crm_accountid) continue;
     // Solo los que van por el camino rápido (tienen tareas).
     const { count } = await admin.from('briefing_tarea').select('id', { count: 'exact', head: true }).eq('visita_id', b.visita_id);
-    if (count) await avanzarBriefing(admin, cab, b.visita_id, cliente);
+    if (count) await avanzarBriefing(admin, cabRedaccion, b.visita_id, cliente);
   }
 }

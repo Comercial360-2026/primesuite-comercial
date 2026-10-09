@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     const t0 = Date.now();
     while (true) {
       await recoger();
-      if (rapido) await pasoRapido(admin, secretoRapido!);
+      if (rapido) await pasoRapido(admin, secretoRapido!, Deno.env.get('DIRECT_LINE_SECRET_REDACTOR'));
       else await arrancar();
       const { count: vivas } = await admin
         .from('briefing_visita')

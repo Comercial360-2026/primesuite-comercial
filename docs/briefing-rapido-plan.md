@@ -69,3 +69,9 @@ Leído: platform.claude.com «Reducing latency» (modelo, recortar tokens de ENT
 Medido (cola real, agente Consultas / Sonnet 4.6): ≈54 car./s con entrada de 6K, 10K o 17K (la entrada NO es el factor) y 144 car./s con una tarea sin datos.
 Medido (panel «Probar», agente «Redactor Briefing CB», mismos hechos ZZ, 9 secciones): Sonnet 4.6 ≈76 s; GPT-5.5 Chat ≈15 s (3.832 car., 9 secciones). Mediciones del panel sueltas, no por la cola; calidad NO comparada.
 «Redactor Briefing CB» arreglado: faltaba activar Configuración › IA generativa › «Permitir respuestas sin fundamentación» (documentado en `knowledge-copilot-studio`). Modelo actual del Redactor: GPT-5.5 Chat. Para usarlo desde el worker hace falta publicarlo y un canal Direct Line con su secreto en Supabase (`DIRECT_LINE_SECRET_REDACTOR`, aún no existe).
+
+### Redactor conectado al worker (9 oct) — BLOQUEADO por la autenticación del agente
+- Secreto `DIRECT_LINE_SECRET_REDACTOR` creado por Cesar (04:20). El worker manda la redacción al Redactor y las lecturas al agente de Consultas (`pasoRapido(admin, secretoConsultas, secretoRedactor)`).
+- Con el prompt acortado (límites de viñetas/frases) y el agente de Consultas como redactor: total 188 s, 8.665 car. (partes 66-81 s).
+- Primer intento con el Redactor: `IntegratedAuthenticationNotSupportedInChannel`. Un agente nuevo viene con «Autenticar con Microsoft», que Direct Line no admite; los otros dos agentes usan «Sin autenticación» + secreto de Direct Line («acceso protegido»). Cambiarlo a «Sin autenticación» y PUBLICAR fue bloqueado por el clasificador de seguridad de Claude Code (rebaja de seguridad): lo decide Cesar. El worker ya falla al instante ante mensajes «Código de error:» del agente.
+- Pasos para Cesar: Redactor › Configuración › Seguridad › Autenticación = «Sin autenticación» › Guardar; Seguridad del canal web = exigir acceso protegido (secreto); Publicar. Comprobar que quedó guardado.
