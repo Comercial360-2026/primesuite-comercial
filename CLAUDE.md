@@ -255,6 +255,16 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   en Hoy como aviso con Aceptar / Rechazar (`InvitacionesHoy`; «Aceptar y abrir» si la visita ya está en curso). Si la visita en curso es de otra
   persona (la acepté), el aviso dice «Participas en una visita en curso… La lleva X» y el botón principal es «Empezar la mía». Caso real: Borja,
   invitado a una visita de Huelva, no abría la suya porque la invitación sin aceptar contaba y el aviso le sonaba a bloqueo.
+- **Subir fotos/audios de la galería (8 oct, migración 154 `captura_libre.desde_galeria`).** Icono galería junto al de documento en visita en curso
+  y cerrada (`subir-galeria.tsx`, `SubirGaleria`). Medido con el simulador: iOS entrega la HEIC ya como JPEG (`.jpeg`) con su EXIF
+  (fecha y GPS) y `File.lastModified` = fecha de la foto (sin EXIF = fecha de importación). Se lee el EXIF (`lib/exif.ts`) ANTES de
+  comprimir (el canvas lo borra); fecha y GPS son los de la foto, NUNCA la posición actual; sin GPS = sin coordenadas. `creado_en` =
+  fecha de la foto. Una a una, tope 30, zona del lote + por foto, avisos (repetida por nombre+tamaño, >2 km de lo ya hecho, >2 días de
+  la visita), resumen de fallos parciales. Offline en visita en curso = cola; en cerrada, directo (exige red). Clientes no tienen
+  coordenadas: «lejos» se compara con las fotos con GPS de la visita (o la mediana del lote). Vídeo/ZIP no se admiten.
+  SharePoint: el cron copia lo subido a una visita cerrada igual que lo demás; el nombre lleva la fecha («Foto 2026-10-07 10-15-30.jpg»,
+  `procesar-archivado-sharepoint`) porque la misma hora de otro día colisionaría. Probado de punta a punta (8 oct). Funciones desplegadas.
+  OJO pruebas: subir a una visita CERRADA hace que el cron (*/10) copie lo subido a SharePoint: borrar lo de prueba por la app antes.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que

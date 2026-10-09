@@ -129,6 +129,9 @@ export interface CapturaLibrePayload {
   bytes?: number;
   latitud?: number;
   longitud?: number;
+  // Subidas desde la galería: fecha de la propia foto (ISO) y marca de origen.
+  creadoEn?: string;
+  desdeGaleria?: boolean;
   // storagePath se rellena SOLO tras subida exitosa del binario, nunca antes
   // (ver 09_arquitectura_tecnica.md §5) — no forma parte del payload inicial.
 }

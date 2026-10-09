@@ -41,7 +41,10 @@ import { PreguntaIAHoja, usePuedePreguntarIA } from '@/features/clientes/pregunt
 import { BriefingHoja } from '@/features/visita/briefing-hoja';
 import { plural } from '@/lib/texto';
 import { uuid } from '@/lib/uuid';
-import { ACCEPT_DOCUMENTO, LIMITE_DOCUMENTO_BYTES, formatearBytes as formatearTamano, mimeDeDocumento, motivoRechazoSubida } from '@/lib/documentos-visita';
+import { SubirGaleria, type SubidaGaleria } from '@/features/visita/subir-galeria';
+import { bucketDeTipo } from '@/lib/buckets-visita';
+import { formatearBytes as formatearTamano, motivoRechazoSubida } from '@/lib/documentos-visita';
+import { useEspacioEquipo } from '@/hooks/use-espacio-equipo';
 import { regenerarResumenSiAuto } from '@/lib/regenerar-resumen';
 import { MEDIO_VISITA, medioDe, esNoPresencial } from '@/lib/medio-visita';
 import { VisorFotos } from './visor-fotos';
@@ -746,62 +749,45 @@ export function DetalleVisitaCerrada() {
   // pantalla ya exige conexión, igual que "Editar resumen"). Pueden Dirección
   // y los participantes aceptados; el servidor solo exige ser el autor.
   const puedeAdjuntar = visitaCerrada && (esDireccionComercial || miParticipacion?.estado === 'aceptado');
-  const adjuntandoDocumento = useAccionAsync();
-  const inputDocumentoRef = useRef<HTMLInputElement>(null);
-  // Devuelve false si no se pudo (aviso ya puesto): con varios archivos, se para ahí.
-  async function adjuntarDocumento(archivo: File): Promise<boolean> {
-    if (!visitaId || !comercial || !data?.cliente_id) return false;
-    const mime = mimeDeDocumento(archivo);
-    if (!mime) {
-      adjuntandoDocumento.establecerError(`«${archivo.name}»: ese tipo de archivo no se puede adjuntar. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`);
-      return false;
+  // Foto, audio o documento en una visita ya cerrada: directo a Supabase (esta pantalla exige conexión). Foto y audio
+  // llevan la fecha y el GPS de la propia foto; el documento, como siempre, sin fecha ni zona. Lanza Error si no se
+  // pudo (la hoja lo cuenta como fallo de ese archivo).
+  const { estado: espacioEquipo } = useEspacioEquipo();
+  async function subirDeGaleria(s: SubidaGaleria) {
+    if (!visitaId || !comercial || !data?.cliente_id) throw new Error('La visita no está lista. Inténtalo de nuevo.');
+    if (espacioEquipo?.nivel === 'bloqueo') throw new Error('Espacio del equipo lleno: no se pueden añadir archivos por ahora. Avisa a Dirección.');
+    const id = uuid();
+    const bucket = bucketDeTipo(s.tipo);
+    const extension =
+      s.tipo === 'foto' ? 'jpg'
+      : s.tipo === 'documento' ? ((s.nombre.split('.').pop() ?? '').toLowerCase().match(/^[a-z0-9]{1,5}$/)?.[0] ?? 'bin')
+      : /mp4/.test(s.mime) ? 'm4a' : s.mime === 'audio/mpeg' ? 'mp3' : s.mime === 'audio/webm' ? 'webm' : 'aac';
+    const ruta = `${visitaId}/${id}.${extension}`;
+    const { error: errSubida } = await supabase.storage.from(bucket).upload(ruta, s.archivo, { contentType: s.mime });
+    if (errSubida) {
+      const motivo = motivoRechazoSubida(errSubida.message);
+      throw new Error(motivo === 'tamano' ? 'Pesa más de lo que admite el servidor.' : motivo === 'formato' ? 'Formato que el servidor no admite.' : errSubida.message);
     }
-    if (archivo.size > LIMITE_DOCUMENTO_BYTES) {
-      adjuntandoDocumento.establecerError(`«${archivo.name}» pesa más de 25 MB. Prueba con una versión más ligera.`);
-      return false;
+    const { error: errFila } = await supabase.from('captura_libre').insert({
+      id,
+      visita_id: visitaId,
+      cliente_id: data.cliente_id,
+      comercial_autor_id: comercial.id,
+      tipo: s.tipo,
+      storage_path: ruta,
+      estado_subida: 'completado',
+      nombre_original: s.nombre,
+      mime: s.mime,
+      bytes: s.bytes,
+      ...(s.tipo === 'documento'
+        ? {}
+        : { zona_texto: s.zona ?? null, latitud: s.lat ?? null, longitud: s.lng ?? null, creado_en: s.fecha.toISOString(), desde_galeria: true }),
+    });
+    if (errFila) {
+      // Sin fila no hay quien lo borre luego: no dejar el archivo huérfano.
+      await supabase.storage.from(bucket).remove([ruta]);
+      throw new Error(errFila.message);
     }
-    let ok = false;
-    await adjuntandoDocumento.ejecutar(
-      async () => {
-        const id = uuid();
-        const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
-        const ruta = `${visitaId}/${id}.${/^[a-z0-9]{1,5}$/.test(extension) ? extension : 'bin'}`;
-        const { error: errSubida } = await supabase.storage
-          .from('documentos-visita')
-          .upload(ruta, archivo.type === mime ? archivo : new Blob([archivo], { type: mime }), { contentType: mime });
-        if (errSubida) throw new Error(errSubida.message);
-        const { error: errFila } = await supabase.from('captura_libre').insert({
-          id,
-          visita_id: visitaId,
-          cliente_id: data.cliente_id!,
-          comercial_autor_id: comercial.id,
-          tipo: 'documento',
-          storage_path: ruta,
-          estado_subida: 'completado',
-          nombre_original: archivo.name,
-          mime,
-          bytes: archivo.size,
-        });
-        if (errFila) {
-          // Sin fila no hay quien lo borre luego: no dejar el archivo huérfano.
-          await supabase.storage.from('documentos-visita').remove([ruta]);
-          throw new Error(errFila.message);
-        }
-      },
-      {
-        onExito: () => {
-          ok = true;
-          queryClient.invalidateQueries({ queryKey });
-        },
-        mensajeError: (err) => {
-          const motivo = motivoRechazoSubida(err instanceof Error ? err.message : '');
-          if (motivo === 'tamano') return `«${archivo.name}» pesa más de lo que admite el servidor (máx. 25 MB). Prueba con una versión más ligera.`;
-          if (motivo === 'formato') return `«${archivo.name}» tiene un formato que el servidor no admite. Vale PDF, Word, Excel, PowerPoint, TXT y CSV.`;
-          return `No se pudo adjuntar «${archivo.name}». Inténtalo de nuevo.`;
-        },
-      }
-    );
-    return ok;
   }
   const oportunidadesAbiertas = data ? data.oportunidades.filter((o) => o.etapa !== 'cerrada') : [];
   const haySinSubirLocal = colaLocalVisita.some((op) => op.estado !== 'completado');
@@ -1111,16 +1097,27 @@ export function DetalleVisitaCerrada() {
           titulo={`Documentos (${data.documentos.length})`}
           accion={
             puedeAdjuntar ? (
-              <button
-                type="button"
-                className="boton-icono"
-                aria-label="Adjuntar un documento"
-                title="Adjuntar un documento (PDF, Word, Excel, PowerPoint, TXT o CSV)"
-                disabled={adjuntandoDocumento.cargando}
-                onClick={() => inputDocumentoRef.current?.click()}
-              >
-                <Icono nombre="mas" size={18} />
-              </button>
+              <>
+                <SubirGaleria
+                  visitaId={visitaId}
+                  referencias={data.fotos.flatMap((f) => (f.latitud != null && f.longitud != null ? [{ lat: Number(f.latitud), lng: Number(f.longitud) }] : []))}
+                  fechaVisita={data.fecha}
+                  onSubir={subirDeGaleria}
+                  onTerminado={(n) => n > 0 && queryClient.invalidateQueries({ queryKey })}
+                >
+                  {(abrir) => (
+                    <button
+                      type="button"
+                      className="boton-icono"
+                      aria-label="Subir fotos, audios o documentos"
+                      title="Subir fotos, audios o documentos (PDF, Word, Excel…)"
+                      onClick={abrir}
+                    >
+                      <Icono nombre="galeria" size={18} />
+                    </button>
+                  )}
+                </SubirGaleria>
+              </>
             ) : undefined
           }
         >
@@ -1135,23 +1132,6 @@ export function DetalleVisitaCerrada() {
               swipe={esDireccionComercial || d.autor_id === comercial?.id ? swipeBorrar(`/capturas/${d.id}`) : undefined}
             />
           ))}
-          {puedeAdjuntar && (
-            <input
-              ref={inputDocumentoRef}
-              type="file"
-              accept={ACCEPT_DOCUMENTO}
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const archivos = Array.from(e.target.files ?? []);
-                e.target.value = '';
-                void (async () => {
-                  for (const archivo of archivos) if (!(await adjuntarDocumento(archivo))) break;
-                })();
-              }}
-            />
-          )}
-          {adjuntandoDocumento.error && <Aviso tipo="error">{adjuntandoDocumento.error}</Aviso>}
         </SeccionLista>
       )}
 

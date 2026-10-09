@@ -34,6 +34,7 @@ import {
   Play,
   Tray,
   Camera,
+  Images,
   Microphone,
   Note,
   FileText,
@@ -108,6 +109,7 @@ const registro = {
 
   // Captura durante la visita.
   foto: Camera,
+  galeria: Images, // subir fotos y audios de la galería del móvil
   audio: Microphone,
   nota: Note,
   documento: FileText, // documento adjunto a la visita (PDF, Office…)

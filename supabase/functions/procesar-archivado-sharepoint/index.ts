@@ -47,7 +47,8 @@ function nombreArchivo(
   creadoEn: string,
   reintento: boolean,
   usados: Set<string>,
-  nombreOriginal?: string | null
+  nombreOriginal?: string | null,
+  deGaleria = false
 ) {
   const sello = reintento ? ` (reintento ${new Date().toISOString().replace(/\D/g, '').slice(8, 14)})` : '';
   let base: string;
@@ -61,7 +62,10 @@ function nombreArchivo(
     const hora = new Date(creadoEn).toLocaleTimeString('es-ES', {
       timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
     }).replace(/:/g, '-');
-    base = `${tipo === 'audio' ? 'Audio' : tipo === 'documento' ? 'Documento' : 'Foto'} ${hora}${sello}`;
+    // Lo subido de la galería puede ser de otro día: sin la fecha, la misma hora de dos días daría el mismo nombre
+    // (y una subida posterior a una visita ya copiada machacaría el archivo anterior).
+    const dia = deGaleria ? `${new Date(creadoEn).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' })} ` : '';
+    base = `${tipo === 'audio' ? 'Audio' : tipo === 'documento' ? 'Documento' : 'Foto'} ${dia}${hora}${sello}`;
     ext = storagePath.includes('.') ? storagePath.slice(storagePath.lastIndexOf('.')) : '';
   }
   let nombre = `${base}${ext}`;
@@ -108,10 +112,18 @@ Deno.serve(async (req) => {
     // creado_en e intento previo, leídos ANTES de marcar el intento nuevo.
     const { data: meta } = await admin
       .from('captura_libre')
-      .select('id, creado_en, intento_archivado_en, nombre_original')
+      .select('id, creado_en, intento_archivado_en, nombre_original, desde_galeria')
       .in('id', capturas.map((c: { captura_id: string }) => c.captura_id));
     const metaPorId = new Map((meta ?? []).map((m) => [m.id, m]));
     const usados = new Set<string>();
+    // Lo ya copiado de esta visita en pasadas anteriores: un archivo subido después (a una visita cerrada) con el mismo
+    // nombre no debe pisarlo («Presupuesto.pdf», o la misma hora de otro día).
+    const { data: yaCopiadas } = await admin
+      .from('captura_libre')
+      .select('ruta_sharepoint')
+      .eq('visita_id', v.visita_id)
+      .not('ruta_sharepoint', 'is', null);
+    for (const r of yaCopiadas ?? []) if (r.ruta_sharepoint) usados.add(String(r.ruta_sharepoint).split('/').pop()!);
 
     const archivos = [];
     for (const c of capturas) {
@@ -127,7 +139,8 @@ Deno.serve(async (req) => {
           metaPorId.get(c.captura_id)?.creado_en ?? new Date().toISOString(),
           !!metaPorId.get(c.captura_id)?.intento_archivado_en,
           usados,
-          metaPorId.get(c.captura_id)?.nombre_original
+          metaPorId.get(c.captura_id)?.nombre_original,
+          !!metaPorId.get(c.captura_id)?.desde_galeria
         ),
         url_origen: firmada.signedUrl,
       });

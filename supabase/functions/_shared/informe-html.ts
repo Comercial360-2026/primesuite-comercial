@@ -39,6 +39,7 @@ export interface FotoHtml {
   urlOriginal: string | null; // enlace al original (SharePoint, o fotos/… dentro del zip)
   latitud: number | null;
   longitud: number | null;
+  deGaleria?: boolean; // subida de la galería del móvil: la hora es la de la propia foto
 }
 
 export interface ArchivoHtml {
@@ -129,7 +130,7 @@ function fichaFoto(f: FotoHtml) {
     : `<div class="sin-imagen">Formato no embebible${f.urlOriginal ? ': usa «Original»' : ''}.</div>`;
   return `<figure id="foto-${f.n}" data-n="${f.n}" ${attrs('foto', f.zona, busca(f.titulo, f.zona, `foto ${f.n}`), 'foto')} tabindex="0" role="button" aria-label="Ampliar foto ${f.n}">
     ${img}
-    <figcaption><span class="num">${f.n}</span><span class="foto__titulo">${esc(f.titulo || 'Foto')}</span><span class="hora">${esc(horaDe(f.creadoEn))}</span></figcaption>
+    <figcaption><span class="num">${f.n}</span><span class="foto__titulo">${esc(f.titulo || 'Foto')}</span><span class="hora">${esc(horaDe(f.creadoEn))}${f.deGaleria ? ' · galería' : ''}</span></figcaption>
   </figure>`;
 }
 
