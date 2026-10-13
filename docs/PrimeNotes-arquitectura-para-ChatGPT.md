@@ -7,7 +7,7 @@ No contiene claves, contraseñas, URLs con firma, correos, identificadores de en
 
 ## 1. Qué es
 
-**PrimeNotes** es una app web instalable (PWA) para los **comerciales de una empresa de tecnología industrial** (control de accesos, control horario, mantenimiento, proyectos). Sirve para:
+**PrimeNotes** es una app web instalable (PWA) para los **comerciales de una empresa de servicios y tecnología**. Sirve para:
 
 - **Preparar** la visita a un cliente (briefing automático con IA, ficha del cliente, repaso).
 - **Capturar** durante la visita, también **sin cobertura**: notas, fotos, audios, documentos, hallazgos (lo que el cliente tiene/necesita), oportunidades y próximos pasos.
