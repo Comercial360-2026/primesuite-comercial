@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { CLIENTE_ARCHIVADO, filtroNombreOAlias, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { desde } from '@/lib/volver-a';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -151,6 +152,31 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     setCreandoProyecto(false);
     setNombreProyectoNuevo('');
   }, [clienteId]);
+
+  // Última visita CERRADA del proyecto elegido y reciente (7 días): se ofrece reabrirla desde aquí (caso real, 15 oct: se
+  // cerró la visita y se quería seguir en ella). Solo la ve quien puede reabrirla directo (responsable de esa visita o
+  // Dirección); la reapertura en sí (confirmación, aviso de informe nuevo) vive en la pantalla de la visita cerrada.
+  const { data: ultimaCerrada } = useQuery({
+    queryKey: ['empezar-visita-ultima-cerrada', proyectoId],
+    enabled: !!proyectoId && !!comercial,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha, cerrada_en, objetivo, visita_participante(comercial_id, rol)')
+        .eq('proyecto_id', proyectoId)
+        .eq('estado_captura', 'consolidada')
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const reabribleUltima =
+    !!ultimaCerrada &&
+    Date.now() - new Date(ultimaCerrada.cerrada_en ?? ultimaCerrada.fecha).getTime() < 7 * 24 * 3_600_000 &&
+    (comercial?.rol === 'direccion_comercial' ||
+      (ultimaCerrada.visita_participante ?? []).some((p) => p.comercial_id === comercial?.id && p.rol === 'responsable'));
 
   const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId || undefined, comercial?.id);
 
@@ -423,6 +449,17 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
                 subtitulo={`${cliente?.nombre ?? ''} · toca para elegir otro proyecto o crear uno nuevo`}
                 onClick={() => setProyectoId('')}
               />
+              {reabribleUltima && ultimaCerrada && (
+                <FilaNavegable
+                  titulo="Reabrir la última visita"
+                  subtitulo={`Cerrada el ${fechaCorta(ultimaCerrada.cerrada_en ?? ultimaCerrada.fecha)} · para seguir en ella en vez de empezar otra`}
+                  chevron
+                  onClick={() => {
+                    onCerrar();
+                    navigate(`/visita/${ultimaCerrada.id}/detalle`, { state: desde(location) });
+                  }}
+                />
+              )}
             </SeccionLista>
 
             {clienteDeOtro && (
