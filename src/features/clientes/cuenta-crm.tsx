@@ -100,7 +100,9 @@ export function ResultadosCuentaCrm({
   excluirClienteId?: string;
   disabled?: boolean;
   titulo?: string;
-  /** Oculta las cuentas que ya tienen cliente (o una hermana): para los buscadores donde el cliente ya sale arriba. */
+  /** Para los buscadores donde el cliente ya sale arriba: oculta las cuentas que YA son cliente. Las cuentas hermanas
+   *  (la misma empresa duplicada en el CRM, p. ej. «…, S.l» y «…, S.L.») SÍ se ofrecen, marcadas, para dar de alta otra
+   *  sede o empresa con otro nombre: antes se ocultaban y no había forma de elegirlas. */
   soloSinCliente?: boolean;
 }) {
   const q = normalizarNombre(texto);
@@ -131,9 +133,7 @@ export function ResultadosCuentaCrm({
   }
   if (isLoading) return null;
 
-  const visibles = soloSinCliente
-    ? resultados.filter((c) => !vinculadas?.[c.accountid] && !porClave.has(claveDuplicado(c.nombre)))
-    : resultados;
+  const visibles = soloSinCliente ? resultados.filter((c) => !vinculadas?.[c.accountid]) : resultados;
   if (soloSinCliente && visibles.length === 0) return null;
 
   if (resultados.length === 0) {
@@ -158,13 +158,21 @@ export function ResultadosCuentaCrm({
               titulo={c.nombre}
               subtitulo={[
                 c.ciudad,
-                yaVinculada ? `ya es el cliente «${cliente.nombre}»` : delOtro ? `parece la misma empresa que «${delOtro.nombre}»` : null,
+                yaVinculada
+                  ? `ya es el cliente «${cliente.nombre}»`
+                  : delOtro
+                    ? soloSinCliente
+                      ? `otra cuenta de «${delOtro.nombre}» · si es otra sede, dala de alta con otro nombre`
+                      : `parece la misma empresa que «${delOtro.nombre}»`
+                    : null,
               ]
                 .filter(Boolean)
                 .join(' · ')}
               tono={delOtro ? 'aviso' : 'neutral'}
               disabled={disabled}
-              onClick={() => onElegir(c, delOtro)}
+              // En los buscadores de elegir cliente (soloSinCliente) una hermana abre el alta con esa cuenta, no el
+              // cliente existente: el cliente existente ya sale arriba en la misma búsqueda.
+              onClick={() => onElegir(c, soloSinCliente ? undefined : delOtro)}
             />
           );
         })}
