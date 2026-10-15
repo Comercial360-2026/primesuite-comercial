@@ -233,7 +233,7 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   cierra a sí mismo al navegar (si no, al volver aparece cerrado).
 - **Todo buscador para elegir cliente ofrece también las cuentas del CRM (4 oct).** Con ≥3 letras, bloque «En el CRM (aún
   no es cliente)» (`ResultadosCuentaCrm`): una cuenta sin cliente abre el alta con `?nombre=…&cuenta=<accountid>` (y
-  `&medio=` / `&enlace=`); una que ya tiene cliente (o una hermana) sigue con ese. Aplicado: Empezar visita, Planificar,
+  `&medio=` / `&enlace=`); una que YA es cliente no se repite (sale arriba como cliente); las cuentas HERMANAS (la misma empresa duplicada en el CRM) sí salen, marcadas «otra cuenta de «X»», y abren el alta con esa cuenta: si es otra sede, se da de alta con otro nombre (15 oct, caso Verescence: antes se ocultaban y no había forma de elegirlas). En «Empezar visita» el proyecto se pregunta SIEMPRE (también con uno solo; sin autoselección) y «Nuevo proyecto» va a la vista. Con el proyecto elegido, si su última visita está cerrada hace < 7 días y puedes reabrirla (responsable o Dirección), sale «Reabrir la última visita»: lleva a la visita cerrada, donde está la reapertura de siempre (confirmación y aviso del informe nuevo). Aplicado: Empezar visita, Planificar,
   lista de Clientes (el alta ya lo tenía). Y «¿Cómo es la visita?» (Presencial/Teams/Llamada) va ARRIBA, en todos los
   pasos, no al final.
 - **Borrar = deslizar la fila a la izquierda o papelera en la cabecera de la ficha (4 oct).** NO hay botón «Borrar» al final de pantalla.

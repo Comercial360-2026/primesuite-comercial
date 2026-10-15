@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase-client';
 import { CLIENTE_ARCHIVADO, filtroNombreOAlias, hayNombreDuplicado } from '@/lib/nombres-cliente';
 import { useConfirmacionDuplicado } from '@/hooks/use-confirmacion-duplicado';
 import { desde } from '@/lib/volver-a';
+import { fechaCorta } from '@/lib/fechas';
 import { useSesionActual } from '@/hooks/use-sesion-actual';
 import { useSyncQueue } from '@/hooks/use-sync-queue';
 import { useVisitaActivaContext } from '@/hooks/use-visita-activa-context';
@@ -142,16 +143,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     [proyectosTodos]
   );
 
-  // Un solo proyecto vivo → se elige solo, no se muestra el paso. Solo una
-  // vez por cliente: si el comercial retrocede a propósito (para crear uno
-  // nuevo, ver `puedeVolverAProyecto`), no se re-autoselecciona de golpe.
-  const autoSeleccionadoPara = useRef<string | null>(null);
-  useEffect(() => {
-    if (!proyectoId && proyectos?.length === 1 && autoSeleccionadoPara.current !== clienteId) {
-      autoSeleccionadoPara.current = clienteId;
-      setProyectoId(proyectos[0].id);
-    }
-  }, [proyectos, proyectoId, clienteId]);
+  // El proyecto se pregunta SIEMPRE (también con uno solo), con «Nuevo proyecto» a la vista: antes, con un solo proyecto
+  // vivo se elegía solo y no había forma evidente de crear otro (caso real, 15 oct: la visita quedó en el proyecto de ejemplo).
 
   useEffect(() => {
     setConfirmadoDeOtro(false);
@@ -159,6 +152,31 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     setCreandoProyecto(false);
     setNombreProyectoNuevo('');
   }, [clienteId]);
+
+  // Última visita CERRADA del proyecto elegido y reciente (7 días): se ofrece reabrirla desde aquí (caso real, 15 oct: se
+  // cerró la visita y se quería seguir en ella). Solo la ve quien puede reabrirla directo (responsable de esa visita o
+  // Dirección); la reapertura en sí (confirmación, aviso de informe nuevo) vive en la pantalla de la visita cerrada.
+  const { data: ultimaCerrada } = useQuery({
+    queryKey: ['empezar-visita-ultima-cerrada', proyectoId],
+    enabled: !!proyectoId && !!comercial,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('visita')
+        .select('id, fecha, cerrada_en, objetivo, visita_participante(comercial_id, rol)')
+        .eq('proyecto_id', proyectoId)
+        .eq('estado_captura', 'consolidada')
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const reabribleUltima =
+    !!ultimaCerrada &&
+    Date.now() - new Date(ultimaCerrada.cerrada_en ?? ultimaCerrada.fecha).getTime() < 7 * 24 * 3_600_000 &&
+    (comercial?.rol === 'direccion_comercial' ||
+      (ultimaCerrada.visita_participante ?? []).some((p) => p.comercial_id === comercial?.id && p.rol === 'responsable'));
 
   const { data: visitaEnCurso } = useAvisoVisitaEnCurso(clienteId || undefined, comercial?.id);
 
@@ -245,9 +263,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   }
 
   // La × / Esc / tocar fuera RETROCEDE de paso, no sale de golpe (misma regla
-  // que el ← de /planificar): objetivo → proyecto → cliente → cerrar. El paso
-  // de proyecto siempre se puede rehacer aunque haya uno solo — es la única
-  // forma de llegar a "Nuevo proyecto" cuando se autoseleccionó de golpe.
+  // que el ← de /planificar): objetivo → proyecto → cliente → cerrar.
   const puedeVolverAProyecto = !!proyectoId;
   function cerrarORetroceder() {
     if (puedeVolverAProyecto) {
@@ -348,8 +364,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           </div>
         )}
 
-        {/* Paso 2 — proyecto (se salta con autoselección si hay uno solo,
-            pero sigue accesible retrocediendo para poder crear uno nuevo) */}
+        {/* Paso 2 — proyecto: siempre se pregunta, con «Nuevo proyecto» visible */}
         {!!clienteId && !proyectoId && (
           <div>
             <div className="label" style={{ marginTop: 0 }}>
@@ -427,12 +442,24 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           <div>
             {/* El proyecto al que irá la visita, a la vista y tocable: antes era un texto gris y,
                 con un solo proyecto, se elegía solo sin que se notara. */}
+            <div className="label" style={{ marginTop: 0 }}>Proyecto de la visita</div>
             <SeccionLista>
               <FilaNavegable
                 titulo={proyectoElegido?.nombre ?? '…'}
-                subtitulo={`${cliente?.nombre ?? ''} · la visita irá a este proyecto — toca para cambiar`}
+                subtitulo={`${cliente?.nombre ?? ''} · toca para elegir otro proyecto o crear uno nuevo`}
                 onClick={() => setProyectoId('')}
               />
+              {reabribleUltima && ultimaCerrada && (
+                <FilaNavegable
+                  titulo="Reabrir la última visita"
+                  subtitulo={`Cerrada el ${fechaCorta(ultimaCerrada.cerrada_en ?? ultimaCerrada.fecha)} · para seguir en ella en vez de empezar otra`}
+                  chevron
+                  onClick={() => {
+                    onCerrar();
+                    navigate(`/visita/${ultimaCerrada.id}/detalle`, { state: desde(location) });
+                  }}
+                />
+              )}
             </SeccionLista>
 
             {clienteDeOtro && (
