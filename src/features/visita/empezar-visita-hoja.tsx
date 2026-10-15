@@ -142,16 +142,8 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
     [proyectosTodos]
   );
 
-  // Un solo proyecto vivo → se elige solo, no se muestra el paso. Solo una
-  // vez por cliente: si el comercial retrocede a propósito (para crear uno
-  // nuevo, ver `puedeVolverAProyecto`), no se re-autoselecciona de golpe.
-  const autoSeleccionadoPara = useRef<string | null>(null);
-  useEffect(() => {
-    if (!proyectoId && proyectos?.length === 1 && autoSeleccionadoPara.current !== clienteId) {
-      autoSeleccionadoPara.current = clienteId;
-      setProyectoId(proyectos[0].id);
-    }
-  }, [proyectos, proyectoId, clienteId]);
+  // El proyecto se pregunta SIEMPRE (también con uno solo), con «Nuevo proyecto» a la vista: antes, con un solo proyecto
+  // vivo se elegía solo y no había forma evidente de crear otro (caso real, 15 oct: la visita quedó en el proyecto de ejemplo).
 
   useEffect(() => {
     setConfirmadoDeOtro(false);
@@ -245,9 +237,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
   }
 
   // La × / Esc / tocar fuera RETROCEDE de paso, no sale de golpe (misma regla
-  // que el ← de /planificar): objetivo → proyecto → cliente → cerrar. El paso
-  // de proyecto siempre se puede rehacer aunque haya uno solo — es la única
-  // forma de llegar a "Nuevo proyecto" cuando se autoseleccionó de golpe.
+  // que el ← de /planificar): objetivo → proyecto → cliente → cerrar.
   const puedeVolverAProyecto = !!proyectoId;
   function cerrarORetroceder() {
     if (puedeVolverAProyecto) {
@@ -348,8 +338,7 @@ export function EmpezarVisitaHoja({ onCerrar }: { onCerrar: () => void }) {
           </div>
         )}
 
-        {/* Paso 2 — proyecto (se salta con autoselección si hay uno solo,
-            pero sigue accesible retrocediendo para poder crear uno nuevo) */}
+        {/* Paso 2 — proyecto: siempre se pregunta, con «Nuevo proyecto» visible */}
         {!!clienteId && !proyectoId && (
           <div>
             <div className="label" style={{ marginTop: 0 }}>
