@@ -268,6 +268,14 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   OJO pruebas: subir a una visita CERRADA hace que el cron (*/10) copie lo subido a SharePoint: borrar lo de prueba por la app antes.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
+- **Seguridad de datos: nada para `anon` (16 oct, migraciones 159-166).** La clave pública de la web es el rol `anon`: sin sesión se leían,
+  por vistas `SECURITY DEFINER` y políticas `TO public`, clientes, calendario, oportunidades y comerciales (y `anon` tenía INSERT/DELETE/TRUNCATE
+  en ~37 tablas por defecto). Regla para TODO objeto nuevo de `public`: nada para `anon` (ahora ya es el valor por defecto), tablas con RLS y
+  políticas `TO authenticated`, vistas con `security_invoker = true`, vistas materializadas sin RLS = no se dan a nadie salvo necesidad,
+  funciones `SECURITY DEFINER` con `set search_path` y solo `authenticated`/`service_role`, buckets de Storage privados.
+  **Tras CADA migración y antes de producción: ejecutar `docs/seguridad-barrido.sql` (debe devolver 0 filas) y probar con un usuario
+  `comercial` (que lee lo suyo) y como `anon` (que no lee nada).** Hecho: search_path fijo (165) y triggers no llamables como RPC (166). Pendiente: «leaked password
+  protection» (probable plan Pro; el Chrome no ve este proyecto) y la vista materializada `vw_ecosistema_actual_cliente` (la leen todos los autenticados).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
   pueda pulsarse varias veces (reabrir/cerrar visita, «Hacer copia ahora», reintentar archivado, adjuntar
   documento) no debe duplicar archivos en SharePoint si nada cambió, y lo que sí cambie lo dice antes de
