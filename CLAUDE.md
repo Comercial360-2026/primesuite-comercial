@@ -268,12 +268,14 @@ Cuando el usuario reporta un fallo, **no se arregla solo ese caso**:
   OJO pruebas: subir a una visita CERRADA hace que el cron (*/10) copie lo subido a SharePoint: borrar lo de prueba por la app antes.
 - **Muchas imágenes/firmas: en lote y diferidas (4 oct).** Firmar con `createSignedUrls` (una petición), nunca una por foto
   (34 fotos = 6-14 s en blanco); miniaturas con `loading="lazy" decoding="async"` (son originales de varios MB).
-- **Seguridad de datos: nada para `anon` (16 oct, migraciones 159-161).** La clave pública de la web es el rol `anon`: sin sesión se leían, por
-  vistas `SECURITY DEFINER` y una política `TO public`, clientes, calendario, oportunidades y comerciales. Toda vista/tabla/vista
-  materializada nueva: `revoke all … from anon` (y escrituras de `authenticated`), vistas con `security_invoker = true` (las
-  materializadas no tienen RLS: no se dan a anon), y políticas `TO authenticated`. Tras cualquier migración de BD, repetir el barrido
-  como anon (`set local role anon` + `select count(*)` de cada relación de `public`): debe dar 0 fugas. PENDIENTE: `security_invoker` en
-  las 8 vistas `vw_*` (con prueba por rol) y revisar las 43 funciones `SECURITY DEFINER` ejecutables por anon.
+- **Seguridad de datos: nada para `anon` (16 oct, migraciones 159-164).** La clave pública de la web es el rol `anon`: sin sesión se leían,
+  por vistas `SECURITY DEFINER` y políticas `TO public`, clientes, calendario, oportunidades y comerciales (y `anon` tenía INSERT/DELETE/TRUNCATE
+  en ~37 tablas por defecto). Regla para TODO objeto nuevo de `public`: nada para `anon` (ahora ya es el valor por defecto), tablas con RLS y
+  políticas `TO authenticated`, vistas con `security_invoker = true`, vistas materializadas sin RLS = no se dan a nadie salvo necesidad,
+  funciones `SECURITY DEFINER` con `set search_path` y solo `authenticated`/`service_role`, buckets de Storage privados.
+  **Tras CADA migración y antes de producción: ejecutar `docs/seguridad-barrido.sql` (debe devolver 0 filas) y probar con un usuario
+  `comercial` (que lee lo suyo) y como `anon` (que no lee nada).** Pendiente: `function_search_path_mutable` (29 funciones) y «leaked password
+  protection» (Auth → ajustes, lo activa Cesar).
 - **Acciones repetibles con efecto fuera de la app (SharePoint): idempotentes o con aviso.** Todo botón que
   pueda pulsarse varias veces (reabrir/cerrar visita, «Hacer copia ahora», reintentar archivado, adjuntar
   documento) no debe duplicar archivos en SharePoint si nada cambió, y lo que sí cambie lo dice antes de
