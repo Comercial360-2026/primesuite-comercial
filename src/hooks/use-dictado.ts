@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { repartirResultados, type ResultadoVoz } from '@/lib/dictado-resultados';
 
 // Dictado voz -> texto con la Web Speech API. En una visita, escribir en el
 // móvil delante del cliente queda mal; dictar es lo natural.
@@ -21,10 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // `soportado` es false en navegadores sin la API (Firefox, algunos
 // WebView) — ahí no se enseña el botón.
 
-type ResultadoVoz = {
-  resultIndex: number;
-  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
-};
+type EventoVoz = { resultIndex: number; results: ResultadoVoz };
 type ErrorVoz = { error?: string };
 type Reconocedor = {
   lang: string;
@@ -33,7 +31,7 @@ type Reconocedor = {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: ((e: ResultadoVoz) => void) | null;
+  onresult: ((e: EventoVoz) => void) | null;
   onend: (() => void) | null;
   onerror: ((e: ErrorVoz) => void) | null;
 };
@@ -72,24 +70,37 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
   const arrancar = useCallback(() => {
     const Ctor = obtenerCtor();
     if (!Ctor) return;
+    // Si quedara una escucha anterior viva, se descarta antes de crear la nueva.
+    const vieja = refReconocedor.current;
+    if (vieja) {
+      vieja.onresult = null;
+      vieja.onend = null;
+      vieja.onerror = null;
+      try {
+        vieja.abort();
+      } catch {
+        /* ya estaba parada */
+      }
+    }
     const r = new Ctor();
     r.lang = 'es-ES';
     r.continuous = true;
     r.interimResults = true;
+    // Resultados cerrados ya entregados por ESTA instancia (no se fía de `resultIndex`).
+    let cerradas = 0;
     r.onresult = (e) => {
-      let final = '';
-      let provisional = '';
-      for (let i = e.resultIndex; i < e.results.length; i += 1) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += t;
-        else provisional += t;
-      }
-      if (final.trim()) refOnTexto.current(final.trim(), { final: true });
+      // Una instancia vieja que aún emite no debe escribir: dos escuchas a la vez duplican el texto.
+      if (refReconocedor.current !== r) return;
+      const rep = repartirResultados(e.results, cerradas);
+      cerradas = rep.cerradas;
+      const { final, provisional } = rep;
+      if (final) refOnTexto.current(final, { final: true });
       // Se manda SIEMPRE (aun vacío) para que el consumidor pinte lo que
       // se está diciendo ahora y lo borre en cuanto se consolida.
       refOnTexto.current(provisional.trim(), { final: false });
     };
     r.onend = () => {
+      if (refReconocedor.current !== r) return;
       refOnTexto.current('', { final: false });
       if (quiereDictar.current) {
         // Pausa / corte del motor: reanuda con una instancia nueva, sin
