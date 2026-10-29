@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { repartirResultados, type ResultadoVoz } from '@/lib/dictado-resultados';
+import { amplia, repartirResultados, type ResultadoVoz } from '@/lib/dictado-resultados';
 
 // Dictado voz -> texto con la Web Speech API. En una visita, escribir en el
 // móvil delante del cliente queda mal; dictar es lo natural.
@@ -46,7 +46,9 @@ function obtenerCtor(): CtorReconocedor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }) => void) {
+// `reemplaza`: el fragmento cerrado anterior que esta frase AMPLÍA (motores que acumulan hipótesis): el consumidor
+// debe cambiarlo por `fragmento` en vez de añadir.
+export function useDictado(onTexto: (fragmento: string, opts: { final: boolean; reemplaza?: string }) => void) {
   const [dictando, setDictando] = useState(false);
   // Antes este error se tragaba en silencio: el usuario hablaba, el motor
   // paraba por permiso denegado y no pasaba nada en pantalla, sin ninguna
@@ -88,13 +90,17 @@ export function useDictado(onTexto: (fragmento: string, opts: { final: boolean }
     r.interimResults = true;
     // Resultados cerrados ya entregados por ESTA instancia (no se fía de `resultIndex`).
     let cerradas = 0;
+    let ultimoFinal = '';
     r.onresult = (e) => {
       // Una instancia vieja que aún emite no debe escribir: dos escuchas a la vez duplican el texto.
       if (refReconocedor.current !== r) return;
       const rep = repartirResultados(e.results, cerradas);
       cerradas = rep.cerradas;
-      const { final, provisional } = rep;
-      if (final) refOnTexto.current(final, { final: true });
+      const { provisional } = rep;
+      for (const f of rep.finales) {
+        refOnTexto.current(f, { final: true, reemplaza: amplia(ultimoFinal, f) ? ultimoFinal : undefined });
+        ultimoFinal = f;
+      }
       // Se manda SIEMPRE (aun vacío) para que el consumidor pinte lo que
       // se está diciendo ahora y lo borre en cuanto se consolida.
       refOnTexto.current(provisional.trim(), { final: false });
