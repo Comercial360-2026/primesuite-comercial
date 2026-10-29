@@ -9,9 +9,13 @@ import { useDictado } from './use-dictado';
 export function useCampoDictado(valor: string, setValor: Dispatch<SetStateAction<string>>) {
   const [provisional, setProvisional] = useState('');
 
-  const dictado = useDictado((frag, { final }) => {
+  const dictado = useDictado((frag, { final, reemplaza }) => {
     if (final) {
-      setValor((v) => (v.trim() ? `${v.trimEnd()} ${frag}` : frag));
+      setValor((v) => {
+        // Hipótesis acumulada («esto» → «esto es»): sustituye la frase anterior en vez de añadirla.
+        if (reemplaza && v.trimEnd().endsWith(reemplaza)) return `${v.trimEnd().slice(0, -reemplaza.length)}${frag}`;
+        return v.trim() ? `${v.trimEnd()} ${frag}` : frag;
+      });
       setProvisional('');
     } else {
       setProvisional(frag);
